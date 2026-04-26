@@ -1226,6 +1226,42 @@ function pickByName(nameContains) {
   });
 }
 
+// =============================================================
+// АТОМАРНЫЙ ПОДБОР ИЗ БИБЛИОТЕКИ
+// Все поля slot (template, teacher, direction, room, format) ВСЕГДА
+// берутся одним пакетом из листа «Активности». Claude может только
+// выбрать имя шаблона из переданного списка, сочинять — нельзя.
+// =============================================================
+function slotFromLibByTemplate(templateName) {
+  if (!templateName) return null;
+  const target = String(templateName).trim().toLowerCase();
+  // 1) точное совпадение
+  let a = LIBRARY.find(x => String(x.template || '').trim().toLowerCase() === target);
+  // 2) частичное (Claude мог чуть переформулировать)
+  if (!a) a = LIBRARY.find(x => String(x.template || '').trim().toLowerCase().includes(target) || target.includes(String(x.template || '').trim().toLowerCase()));
+  if (!a) return null;
+  return defaultSlot(a.n, a.t, a.c, a.d, {
+    template: a.template,
+    format: a.format,
+    duration: a.duration
+  });
+}
+
+// Список кандидатов для промпта Claude — только то, что реально есть в библиотеке.
+// formatFilter: 'МК' | 'уличная' | 'выезд 3' | 'выезд 6' | null
+function libraryCandidates(formatFilter, excludeTemplates = []) {
+  const exclude = new Set(excludeTemplates.filter(Boolean).map(s => String(s).trim().toLowerCase()));
+  return LIBRARY
+    .filter(a => !formatFilter || a.format === formatFilter)
+    .filter(a => !exclude.has(String(a.template || '').trim().toLowerCase()))
+    .map(a => ({
+      template: a.template,
+      direction: a.d,
+      teacher: a.t,
+      examples: a.examples || ''
+    }));
+}
+
 function defaultDay(idx) {
   const used = [];
   const rememberAdd = s => { used.push(s.name); return s; };
@@ -2069,9 +2105,10 @@ async function openTripVariants(day, slotKey, contextType=null) {
 
 function applyTripVariant(day, slotKey, vIdx) {
   const v = window._lastVariants[vIdx];
-  Object.assign(state.schedule[day][slotKey], {
-    name: v.name, teacher: v.teacher, room: v.room, direction: v.direction
-  });
+  if (!v || !v.template) { toast('Вариант пуст'); return; }
+  const fresh = slotFromLibByTemplate(v.template);
+  if (!fresh) { toast('Шаблон не найден в библиотеке: ' + v.template); return; }
+  Object.assign(state.schedule[day][slotKey], fresh);
   closeModal();
   render();
   toast('Применено');
@@ -2082,25 +2119,41 @@ async function genTripVariants(day, slotKey, n=3, contextType=null) {
   const used = getUsedNames();
   const date = dateForDay(day);
 
-  // Определяем контекст по slotKey + явному параметру
-  let tripCtx, examples, troopsScope;
+  // Определяем контекст по slotKey + явному параметру и нужный формат для фильтрации библиотеки
+  let tripCtx, troopsScope, formatFilter;
   if (contextType === 'single3' || slotKey.includes('outside_single')) {
     tripCtx = 'выезд 3 отрядов вместе на одном объекте (картинг, нонодрифт, бассейн); пока 3 других отряда на МК в кластере';
-    examples = 'картинг, нонодрифт, тренировка по плаванию (бассейн), батутный центр, скалодром, верёвочный парк';
     troopsScope = '3 отряда (одна группа из двух)';
+    formatFilter = 'выезд 3';
   } else if (contextType === 'trip3' || slotKey === 'trip_full_am' || slotKey === 'trip_full_pm') {
-    tripCtx = 'полу-выезд для 3 отрядов на половину дня (картинг, нонодрифт, бассейн, батутный центр)';
-    examples = 'картинг, нонодрифт, бассейн, батутный центр, скалодром, верёвочный парк, кинотеатр';
+    tripCtx = 'полу-выезд для 3 отрядов на половину дня';
     troopsScope = '3 отряда (одна группа из двух) — на одном объекте без ротации, ~3 часа';
+    formatFilter = 'выезд 3';
   } else if (contextType === 'trip6' || slotKey === 'trip6_am' || slotKey === 'trip6_pm') {
-    tripCtx = 'полный выезд всех 6 отрядов на полдня (лес, сапы, дальняя экскурсия)';
-    examples = 'выезд в лес "Лес.Lab", сплав на сапах по Днепру, поездка в Дудутки, выезд в зоопарк, аквапарк, дальний поход';
+    tripCtx = 'полный выезд всех 6 отрядов на полдня';
     troopsScope = 'все 6 отрядов вместе, ~3-3.5 часа';
+    formatFilter = 'выезд 6';
   } else {
     tripCtx = 'выезд / общее событие';
-    examples = 'картинг, лес, сапы';
     troopsScope = 'отряды вместе';
+    formatFilter = null; // если не определили — берём всё, что помечено как выезд
   }
+
+  // Кандидаты — только из библиотеки
+  let candidates = libraryCandidates(formatFilter);
+  // Если конкретный фильтр пустой, попробуем оба формата выездов
+  if (candidates.length === 0 && formatFilter) {
+    const c3 = libraryCandidates('выезд 3');
+    const c6 = libraryCandidates('выезд 6');
+    candidates = c3.concat(c6);
+  }
+  if (candidates.length === 0) {
+    throw new Error('В библиотеке нет активностей формата "' + (formatFilter || 'выезд') + '". Добавь их в лист «Активности».');
+  }
+
+  const candidatesList = candidates
+    .map(c => `• "${c.template}" — направление: ${c.direction}; педагог/ответственные: ${c.teacher}${c.examples ? '; примеры тем: ' + c.examples : ''}`)
+    .join('\n');
 
   const prompt = `Тема смены: «${state.theme}». Возраст: ${state.ages}. Якоря: ${state.anchors}.
 
@@ -2109,24 +2162,41 @@ async function genTripVariants(day, slotKey, n=3, contextType=null) {
 — Контекст дня: ${dayContext(day)}
 — Тип слота: ${tripCtx}
 — Состав: ${troopsScope}
-— Текущая активность: «${slot.name}» (${slot.direction})
+— Текущая активность: «${slot.template || slot.name}» (${slot.direction}) — нужна замена
+— Уже использовано в смене: ${used.slice(0, 20).join('; ')}${used.length>20?'...':''}
 
-ВАЖНО:
-- Это активность для нескольких отрядов одновременно на одном объекте — без ротации, без разделения на МК.
-- НЕ предлагать обычные МК в кабинетах.
-- Не предлагать вечеринку в Деталях или ярмарку — они идут в обычной сетке.
-- Не повторять уже использованное в смене: ${used.slice(0, 20).join('; ')}${used.length>20?'...':''}.
-- Подходящее направление: «Активность / спорт» или «Событие».
-- Связь с темой «${state.theme}» приветствуется.
+ВАЖНО: выбирать МОЖНО ТОЛЬКО из списка ниже. Возвращать "template" строго в той формулировке, как в списке. Ничего не придумывать.
 
-Примеры подходящих форматов: ${examples}.
+Доступные шаблоны выездов (${candidates.length}):
+${candidatesList}
 
-Формат — JSON-массив:
-[{"name":"...", "teacher":"...", "room":"...", "direction":"...", "rationale":"одно предложение почему подходит"}]`;
+Ответ — JSON-массив РОВНО из ${n} объектов:
+[{"template":"<точное имя из списка>","rationale":"одно предложение, почему подходит"}]`;
 
   const text = await callClaude(prompt);
   const cleaned = text.replace(/```json|```/g,'').trim();
-  return JSON.parse(cleaned);
+  const raw = JSON.parse(cleaned);
+
+  const variants = [];
+  for (const r of raw) {
+    if (!r || !r.template) continue;
+    const fresh = slotFromLibByTemplate(r.template);
+    if (!fresh) {
+      console.warn('Claude вернул шаблон выезда, которого нет в библиотеке:', r.template);
+      continue;
+    }
+    variants.push({
+      template: fresh.template,
+      name: fresh.name,
+      teacher: fresh.teacher,
+      room: fresh.room,
+      direction: fresh.direction,
+      format: fresh.format,
+      duration: fresh.duration,
+      rationale: r.rationale || ''
+    });
+  }
+  return variants;
 }
 
 // ============================================================
@@ -2236,44 +2306,42 @@ async function genVariantsForStation(day, group, idx, n=3) {
   const slot = getSlot(day, group, idx);
   const isCluster = group.includes('cluster');
   const isAM = group.startsWith('am');
+  const formatFilter = isCluster ? 'МК' : 'уличная';
   const used = getUsedNames(day, group, idx);
   const date = dateForDay(day);
 
-  const sameBlock = state.schedule[day][group].filter((_, i) => i !== idx).map(s => s.name);
+  const sameBlockTemplates = state.schedule[day][group]
+    .filter((_, i) => i !== idx)
+    .map(s => s.template || s.name)
+    .filter(Boolean);
 
-  // Кто из педагогов уже занят в этом блоке (до обеда / после обеда этого дня)?
+  // Кто из педагогов уже занят в этом блоке
   const all = _allSlots();
   const blockedTeachersThisBlock = new Set();
   all.forEach(s => {
     if (s.day !== day || s.half !== (isAM ? 'am' : 'pm')) return;
-    if (s.day === day && s.group === group && s.idx === idx) return; // не считаем редактируемую ячейку
+    if (s.day === day && s.group === group && s.idx === idx) return;
     const t = (s.slot.teacher || '').trim();
     if (t && !t.includes(',') && t !== 'кураторы' && t !== 'куратор' && t !== '—') {
       blockedTeachersThisBlock.add(t);
     }
   });
 
-  // Что педагоги ведут в этот день (утро/после обеда) — чтобы не повторять активность одного педагога дважды
-  const teacherActivitiesToday = new Map();
-  all.forEach(s => {
-    if (s.day !== day) return;
-    if (s.day === day && s.group === group && s.idx === idx) return;
-    const t = (s.slot.teacher || '').trim();
-    if (t && !t.includes(',') && t !== 'кураторы' && t !== 'куратор' && t !== '—') {
-      if (!teacherActivitiesToday.has(t)) teacherActivitiesToday.set(t, []);
-      teacherActivitiesToday.get(t).push(s.slot.name);
-    }
+  // Кандидаты из библиотеки, исключая то, что параллельно идёт в блоке и педагогов из блока
+  const allCandidates = libraryCandidates(formatFilter, sameBlockTemplates);
+  const candidates = allCandidates.filter(c => {
+    const t = String(c.teacher || '').trim();
+    if (!t || t.includes(',') || t === 'кураторы' || t === 'куратор') return true;
+    return !blockedTeachersThisBlock.has(t);
   });
 
-  const teacherConstraints = [];
-  if (blockedTeachersThisBlock.size > 0) {
-    teacherConstraints.push(`В этот же блок (${isAM ? 'до обеда' : 'после обеда'}) уже заняты педагоги: ${Array.from(blockedTeachersThisBlock).join(', ')}. НЕ предлагай никого из них.`);
+  if (candidates.length === 0) {
+    throw new Error('В библиотеке не нашлось подходящих активностей формата ' + formatFilter + ' (с учётом занятых педагогов).');
   }
-  teacherActivitiesToday.forEach((activities, t) => {
-    if (!blockedTeachersThisBlock.has(t)) {
-      teacherConstraints.push(`«${t}» сегодня уже ведёт: ${activities.join(', ')}. Если предлагаешь его — придумай ДРУГУЮ активность.`);
-    }
-  });
+
+  const candidatesList = candidates
+    .map(c => `• "${c.template}" — направление: ${c.direction}; педагог: ${c.teacher}${c.examples ? '; примеры тем: ' + c.examples : ''}`)
+    .join('\n');
 
   const prompt = `Тема смены: «${state.theme}». Возраст: ${state.ages}. Якоря: ${state.anchors}.
 
@@ -2281,28 +2349,46 @@ async function genVariantsForStation(day, group, idx, n=3) {
 — День ${day+1} из 10 (${WEEKDAYS[date.getDay()]}, ${date.getDate()} ${MONTHS[date.getMonth()]})
 — Контекст дня: ${dayContext(day)}
 — Слот: ${isAM ? 'до обеда (9:30–12:30)' : 'после обеда (14:00–17:00)'}
-— Тип: ${isCluster ? 'параллельный МК в кластере (один из трёх)' : 'уличная/спортивная активность (одна из трёх коротких С РОТАЦИЕЙ ОТРЯДОВ — например парк, спортландия, дворовые игры; НЕ бассейн/картинг/нонодрифт)'}
-— Текущая активность: «${slot.name}» (${slot.direction})
+— Тип: ${isCluster ? 'параллельный МК в кластере (один из трёх)' : 'уличная/спортивная активность с ротацией'}
+— Текущая активность: «${slot.template || slot.name}» (${slot.direction}) — нужно ЗАМЕНИТЬ её на что-то другое
+— Параллельно в этом же блоке уже идут: ${sameBlockTemplates.join('; ') || '(пусто)'}
+— Уже использовано в смене: ${used.slice(0, 20).join('; ')}${used.length>20?'...':''}
 
-ВАЖНО — что НЕ дублировать:
-- На этом же блоке параллельно идут: ${sameBlock.join('; ') || '(пусто)'}
-- Уже использовано в смене: ${used.slice(0, 20).join('; ')}${used.length>20?'...':''}
-${teacherConstraints.length ? '\nОГРАНИЧЕНИЯ ПО ПЕДАГОГАМ:\n' + teacherConstraints.map(c => '- ' + c).join('\n') : ''}
+ВАЖНО: выбирать МОЖНО ТОЛЬКО из списка ниже. Возвращать "template" строго в той формулировке, как в списке. Ничего не придумывать.
 
-Требования к вариантам:
-${isCluster ?
-  '- Это МК в кабинете. Должно быть творчество / IT / Soft skills.\n- Тематически связать с «'+state.theme+'» если уместно.' :
-  '- Это короткая уличная/спортивная активность 40 мин (одна из трёх с ротацией).\n- Подходящие: дворовые игры, спортландия, эстафеты, фотоохота, лазалки, командные игры, прогулка.\n- ЗАПРЕЩЕНО: бассейн, картинг, нонодрифт, плавание (это форматы «выезд 3 отряды», не для ротации).'
-}
-- Дай ${n} разных вариантов (разные направления или подтемы).
-- Имена педагогов и кабинеты — только из системного списка.
+Доступные шаблоны (${candidates.length}):
+${candidatesList}
 
-Формат ответа — JSON-массив:
-[{"name":"...", "teacher":"...", "room":"...", "direction":"...", "rationale":"одно предложение, почему подходит"}]`;
+Дай ${n} разных вариантов (по возможности — разные направления и разные педагоги).
+
+Ответ — JSON-массив РОВНО из ${n} объектов:
+[{"template":"<точное имя из списка>","rationale":"одно предложение, почему подходит"}]`;
 
   const text = await callClaude(prompt);
   const cleaned = text.replace(/```json|```/g,'').trim();
-  return JSON.parse(cleaned);
+  const raw = JSON.parse(cleaned);
+
+  // Превращаем в полные slot'ы из библиотеки. Сочинённое отбрасываем.
+  const variants = [];
+  for (const r of raw) {
+    if (!r || !r.template) continue;
+    const fresh = slotFromLibByTemplate(r.template);
+    if (!fresh) {
+      console.warn('Claude вернул шаблон, которого нет в библиотеке:', r.template);
+      continue;
+    }
+    variants.push({
+      template: fresh.template,
+      name: fresh.name,
+      teacher: fresh.teacher,
+      room: fresh.room,
+      direction: fresh.direction,
+      format: fresh.format,
+      duration: fresh.duration,
+      rationale: r.rationale || ''
+    });
+  }
+  return variants;
 }
 
 async function openVariants(day, group, idx) {
@@ -2342,60 +2428,43 @@ async function openVariants(day, group, idx) {
 
 async function applyVariant(day, group, idx, vIdx) {
   const v = window._lastVariants[vIdx];
+  if (!v || !v.template) { toast('Вариант пуст'); return; }
   // Определяем kind текущего слота
   const slotInfo = _allSlots().find(s => s.day === day && s.group === group && s.idx === idx);
   const kind = slotInfo ? slotInfo.kind : null;
 
   const pid = newPairId();
+  // Атомарно подтягиваем шаблон из библиотеки — все поля целиком, не из сочинённого ответа Claude
+  const fresh = slotFromLibByTemplate(v.template);
+  if (!fresh) { toast('Шаблон не найден в библиотеке: ' + v.template); return; }
   setSlot(day, group, idx, {
-    name: v.name,
-    teacher: v.teacher,
-    room: v.room,
-    direction: v.direction,
+    ...fresh,
     pairId: pid,
     groupKind: kind,
-    ageVariant: kind === 'young' ? 'упрощённый вариант для младших (6-9 лет)' : 'усложнённый вариант для старших (10-13 лет)'
+    ageVariant: kind === 'young' ? 'упрощённый вариант для младших (6-9 лет)' : (kind === 'senior' ? 'усложнённый вариант для старших (10-13 лет)' : '')
   });
 
   closeModal();
   render();
 
-  // Сразу генерируем зеркальную версию и кладём в буфер
+  // Зеркалирование: для пары используем ТОТ ЖЕ шаблон из библиотеки, без сочинения нового педагога/направления
   if (kind === 'young' || kind === 'senior') {
     const targetKind = kind === 'young' ? 'senior' : 'young';
-    toast('Подбираю пару для второй возрастной группы…');
-    try {
-      const otherAge = targetKind === 'young' ? '6-9 лет (упрощённый)' : '10-13 лет (усложнённый)';
-      const prompt = `Активность смены «${state.theme}»:
-Название: ${v.name}
-Педагог: ${v.teacher}
-Кабинет: ${v.room}
-Направление: ${v.direction}
-Поставлена для: ${kind === 'young' ? 'отряды 1-2-3 (младшая, 6-9 лет)' : 'отряды 4-5-6 (старшая, 10-13 лет)'}
-
-Нужна ${targetKind === 'young' ? 'УПРОЩЁННАЯ версия для младших (6-9 лет)' : 'УСЛОЖНЁННАЯ версия для старших (10-13 лет)'}. Та же активность, тот же педагог, тот же кабинет, то же направление, но методически адаптирована.
-
-Формат — JSON-объект:
-{"name":"...", "teacher":"${v.teacher}", "room":"${v.room}", "direction":"${v.direction}", "ageVariant":"одно предложение чем адаптация отличается"}`;
-
-      const text = await callClaude(prompt);
-      const cleaned = text.replace(/```json|```/g,'').trim();
-      const pair = JSON.parse(cleaned);
-      state.pendingPairs.push({
-        pairId: pid,
-        name: pair.name,
-        teacher: pair.teacher || v.teacher,
-        room: pair.room || v.room,
-        direction: pair.direction || v.direction,
-        ageVariant: pair.ageVariant || '',
-        targetKind
-      });
-      renderProgramPanel();
-      updateProgramBadge();
-      toast('Пара в буфере · открой панель «Программа»');
-    } catch(err) {
-      toast('Применено. Пара не сгенерирована: ' + err.message);
-    }
+    state.pendingPairs.push({
+      pairId: pid,
+      template: fresh.template,
+      name: fresh.name,
+      teacher: fresh.teacher,
+      room: fresh.room,
+      direction: fresh.direction,
+      format: fresh.format,
+      duration: fresh.duration,
+      ageVariant: targetKind === 'young' ? 'упрощённый вариант для младших (6-9 лет)' : 'усложнённый вариант для старших (10-13 лет)',
+      targetKind
+    });
+    if (typeof renderProgramPanel === 'function') renderProgramPanel();
+    if (typeof updateProgramBadge === 'function') updateProgramBadge();
+    toast('Применено · пара в буфере «Программа»');
   } else {
     toast('Применено');
   }
@@ -2409,33 +2478,68 @@ async function regenGroup(day, group) {
     document.querySelector(`[data-day="${day}"][data-group="${group}"][data-station="${i}"]`)?.classList.add('generating');
   }
   try {
-    // Один запрос на 3 разных активности — экономнее
     const isCluster = group.includes('cluster');
     const isAM = group.startsWith('am');
+    const formatFilter = isCluster ? 'МК' : 'уличная';
     const used = getUsedNames();
     const date = dateForDay(day);
-    const lockedNames = state.schedule[day][group].filter(s => s.locked).map(s => s.name);
+    const lockedTemplates = state.schedule[day][group].filter(s => s.locked).map(s => s.template || s.name).filter(Boolean);
 
-    const prompt = `Тема: «${state.theme}». Возраст: ${state.ages}. Якоря: ${state.anchors}.
+    // Кандидаты — ТОЛЬКО из библиотеки. Claude выбирает из этого списка, ничего не сочиняя.
+    const candidates = libraryCandidates(formatFilter, lockedTemplates);
+    if (candidates.length === 0) {
+      toast('В библиотеке нет подходящих активностей формата ' + formatFilter);
+      render();
+      return;
+    }
 
-Нужно подобрать ${targets.length} ${isCluster?'параллельных МК':'уличных активностей'} для:
+    const candidatesList = candidates
+      .map(c => `• "${c.template}" — направление: ${c.direction}; педагог: ${c.teacher}${c.examples ? '; примеры тем: ' + c.examples : ''}`)
+      .join('\n');
+
+    const prompt = `Тема смены: «${state.theme}». Возраст: ${state.ages}. Якоря: ${state.anchors}.
+
+Нужно выбрать ${targets.length} ${isCluster?'параллельных МК':'уличных активностей'} для:
 — День ${day+1} из 10 (${WEEKDAYS[date.getDay()]}, ${date.getDate()} ${MONTHS[date.getMonth()]}). Контекст: ${dayContext(day)}
 — ${isAM ? 'До обеда (9:30–12:30)' : 'После обеда (14:00–17:00)'}
-— ${isCluster ? 'Все три должны быть РАЗНЫЕ направления и педагоги (например: IT + творчество + творчество, либо творчество + творчество + Soft skills).' : 'Три коротких уличных/спортивных активности (бассейн, спортплощадка, парк, игры).'}
+${isCluster ? '— Желательно разные направления и разные педагоги между этими ' + targets.length + ' позициями.' : '— Уличные/спортивные форматы (бассейн, спортплощадка, парк, игры).'}
 
-Уже закреплено в этой же группе (НЕ повторять и не конфликтовать с ними): ${lockedNames.join('; ') || '(нет)'}
-Уже использовано в смене (избегать): ${used.slice(0, 20).join('; ')}${used.length>20?'...':''}
+ВАЖНО: выбирать МОЖНО ТОЛЬКО из списка ниже. Возвращать поле "template" строго в той формулировке, как в списке. Ничего не придумывать, не комбинировать, не переименовывать.
 
-Формат — JSON-массив РОВНО из ${targets.length} объектов:
-[{"name":"...", "teacher":"...", "room":"...", "direction":"...", "rationale":"..."}]`;
+Доступные шаблоны (${candidates.length}):
+${candidatesList}
+
+Уже закреплено в этой же группе (не выбирать снова): ${lockedTemplates.join('; ') || '(нет)'}
+Уже использовано в смене (по возможности избегать): ${used.slice(0, 20).join('; ')}${used.length>20?'...':''}
+
+Ответь JSON-массивом РОВНО из ${targets.length} объектов, по одному на каждую позицию:
+[{"template":"<точное имя из списка>","rationale":"<почему именно эта>"}]`;
 
     const text = await callClaude(prompt);
     const cleaned = text.replace(/```json|```/g,'').trim();
     const variants = JSON.parse(cleaned);
 
+    const usedNow = new Set();
     targets.forEach(({i}, k) => {
       const v = variants[k];
-      if (v) setSlot(day, group, i, { name: v.name, teacher: v.teacher, room: v.room, direction: v.direction });
+      if (!v || !v.template) return;
+      const fresh = slotFromLibByTemplate(v.template);
+      if (!fresh) {
+        console.warn('Не нашли в библиотеке шаблон, который вернул Claude:', v.template);
+        return;
+      }
+      // защита от дубля внутри одного запроса
+      const key = String(fresh.template).toLowerCase();
+      if (usedNow.has(key)) {
+        // попробуем взять любой другой подходящий из кандидатов
+        const fallback = candidates.find(c => !usedNow.has(c.template.toLowerCase()) && !lockedTemplates.includes(c.template));
+        if (fallback) {
+          const fb = slotFromLibByTemplate(fallback.template);
+          if (fb) { setSlot(day, group, i, fb); usedNow.add(fallback.template.toLowerCase()); return; }
+        }
+      }
+      setSlot(day, group, i, fresh);
+      usedNow.add(key);
     });
     render();
     toast('Группа обновлена');
@@ -2454,14 +2558,14 @@ async function regenDay(day) {
     if (d.type === 'trip6_am') {
       if (!d.trip6_am.locked) {
         const vs = await genTripVariants(day, 'trip6_am', 1, 'trip6');
-        if (vs[0]) Object.assign(d.trip6_am, {name:vs[0].name, teacher:vs[0].teacher, room:vs[0].room, direction:vs[0].direction});
+        if (vs[0] && vs[0].template) { const _fr = slotFromLibByTemplate(vs[0].template); if (_fr) Object.assign(d.trip6_am, _fr); }
         render();
       }
     } else if (d.type === 'trip3_am') {
       await regenGroup(day, 'am_cluster');
       if (!d.trip_full_am.locked) {
         const vs = await genTripVariants(day, 'trip_full_am', 1, 'trip3');
-        if (vs[0]) Object.assign(d.trip_full_am, {name:vs[0].name, teacher:vs[0].teacher, room:vs[0].room, direction:vs[0].direction});
+        if (vs[0] && vs[0].template) { const _fr = slotFromLibByTemplate(vs[0].template); if (_fr) Object.assign(d.trip_full_am, _fr); }
         render();
       }
     } else {
@@ -2472,14 +2576,14 @@ async function regenDay(day) {
     if (d.type === 'trip6_pm') {
       if (!d.trip6_pm.locked) {
         const vs = await genTripVariants(day, 'trip6_pm', 1, 'trip6');
-        if (vs[0]) Object.assign(d.trip6_pm, {name:vs[0].name, teacher:vs[0].teacher, room:vs[0].room, direction:vs[0].direction});
+        if (vs[0] && vs[0].template) { const _fr = slotFromLibByTemplate(vs[0].template); if (_fr) Object.assign(d.trip6_pm, _fr); }
         render();
       }
     } else if (d.type === 'trip3_pm') {
       await regenGroup(day, 'pm_cluster');
       if (!d.trip_full_pm.locked) {
         const vs = await genTripVariants(day, 'trip_full_pm', 1, 'trip3');
-        if (vs[0]) Object.assign(d.trip_full_pm, {name:vs[0].name, teacher:vs[0].teacher, room:vs[0].room, direction:vs[0].direction});
+        if (vs[0] && vs[0].template) { const _fr = slotFromLibByTemplate(vs[0].template); if (_fr) Object.assign(d.trip_full_pm, _fr); }
         render();
       }
     } else {
@@ -2505,7 +2609,10 @@ async function regenAllByDirection(direction) {
   try {
     for (const t of targets) {
       const vs = await genVariantsForStation(t.day, t.group, t.idx, 1);
-      if (vs[0]) setSlot(t.day, t.group, t.idx, { name: vs[0].name, teacher: vs[0].teacher, room: vs[0].room, direction: vs[0].direction });
+      if (vs[0] && vs[0].template) {
+        const fresh = slotFromLibByTemplate(vs[0].template);
+        if (fresh) setSlot(t.day, t.group, t.idx, fresh);
+      }
       render();
     }
     toast('Готово');
@@ -2523,14 +2630,14 @@ async function generateAll() {
       if (day.type === 'trip6_am') {
         if (!day.trip6_am.locked) {
           const vs = await genTripVariants(d, 'trip6_am', 1, 'trip6');
-          if (vs[0]) Object.assign(day.trip6_am, {name:vs[0].name, teacher:vs[0].teacher, room:vs[0].room, direction:vs[0].direction});
+          if (vs[0] && vs[0].template) { const _fr = slotFromLibByTemplate(vs[0].template); if (_fr) Object.assign(day.trip6_am, _fr); }
           render();
         }
       } else if (day.type === 'trip3_am') {
         await regenGroup(d, 'am_cluster');
         if (!day.trip_full_am.locked) {
           const vs = await genTripVariants(d, 'trip_full_am', 1, 'trip3');
-          if (vs[0]) Object.assign(day.trip_full_am, {name:vs[0].name, teacher:vs[0].teacher, room:vs[0].room, direction:vs[0].direction});
+          if (vs[0] && vs[0].template) { const _fr = slotFromLibByTemplate(vs[0].template); if (_fr) Object.assign(day.trip_full_am, _fr); }
           render();
         }
       } else {
@@ -2541,14 +2648,14 @@ async function generateAll() {
       if (day.type === 'trip6_pm') {
         if (!day.trip6_pm.locked) {
           const vs = await genTripVariants(d, 'trip6_pm', 1, 'trip6');
-          if (vs[0]) Object.assign(day.trip6_pm, {name:vs[0].name, teacher:vs[0].teacher, room:vs[0].room, direction:vs[0].direction});
+          if (vs[0] && vs[0].template) { const _fr = slotFromLibByTemplate(vs[0].template); if (_fr) Object.assign(day.trip6_pm, _fr); }
           render();
         }
       } else if (day.type === 'trip3_pm') {
         await regenGroup(d, 'pm_cluster');
         if (!day.trip_full_pm.locked) {
           const vs = await genTripVariants(d, 'trip_full_pm', 1, 'trip3');
-          if (vs[0]) Object.assign(day.trip_full_pm, {name:vs[0].name, teacher:vs[0].teacher, room:vs[0].room, direction:vs[0].direction});
+          if (vs[0] && vs[0].template) { const _fr = slotFromLibByTemplate(vs[0].template); if (_fr) Object.assign(day.trip_full_pm, _fr); }
           render();
         }
       } else {
@@ -3148,41 +3255,45 @@ function confirmPlace(pendingIdx, day, group, slotIdx) {
 }
 
 async function generateMissingPair(pairId, missingKind) {
-  // Найти существующую активность пары и сгенерировать вариант для отсутствующей возрастной группы
+  // Найти существующую активность пары; пара = тот же шаблон, но с возрастной адаптацией
   const all = _allSlots();
   const existing = all.find(s => s.slot.pairId === pairId);
   if (!existing) { toast('Пара не найдена'); return; }
   const e = existing.slot;
 
-  toast('Подбираю пару…');
+  // Атомарно — берём шаблон из библиотеки, не сочиняем педагога/направление
+  const fresh = slotFromLibByTemplate(e.template || e.name);
+  if (!fresh) {
+    toast('Шаблон «' + (e.template || e.name) + '» не найден в библиотеке');
+    return;
+  }
 
+  toast('Готовлю пару…');
   try {
-    const otherAge = missingKind === 'young' ? '6-9 лет (упрощённый вариант)' : '10-13 лет (усложнённый вариант)';
-    const prompt = `Есть активность для смены «${state.theme}»:
-Название: ${e.name}
-Педагог: ${e.teacher}
-Кабинет: ${e.room}
-Направление: ${e.direction}
-Уже стоит для группы: ${existing.kind === 'young' ? '1-2-3 (6-9 лет)' : '4-5-6 (10-13 лет)'}
+    // Просим у Claude ТОЛЬКО формулировку адаптации, остальное — из библиотеки
+    const prompt = `Активность из программы детского клуба:
+Шаблон: ${fresh.template}
+Педагог: ${fresh.teacher}
+Направление: ${fresh.direction}
+Тема смены: «${state.theme}»
 
-Нужна ${missingKind === 'young' ? 'УПРОЩЁННАЯ версия для младших (6-9 лет, отряды 1-2-3)' : 'УСЛОЖНЁННАЯ версия для старших (10-13 лет, отряды 4-5-6)'}.
+Эта активность стоит для ${existing.kind === 'young' ? 'младшей группы (6-9 лет, отряды 1-2-3)' : 'старшей группы (10-13 лет, отряды 4-5-6)'}.
+Нужна та же активность, но для ${missingKind === 'young' ? 'младших (6-9 лет): УПРОЩЁННАЯ методическая адаптация' : 'старших (10-13 лет): УСЛОЖНЁННАЯ методическая адаптация'}.
 
-Эта же активность с тем же педагогом, тот же кабинет, то же направление. Меняется только методическая адаптация: упрощено или усложнено.
+Сформулируй коротко в одном предложении, чем именно отличается адаптация (что упрощено/усложнено по содержанию или подаче). Только текст одной строкой, без JSON, без кавычек.`;
 
-Формат — JSON-объект:
-{"name":"...", "teacher":"${e.teacher}", "room":"${e.room}", "direction":"${e.direction}", "ageVariant":"коротко: чем именно адаптация отличается"}`;
-
-    const text = await callClaude(prompt);
-    const cleaned = text.replace(/```json|```/g,'').trim();
-    const v = JSON.parse(cleaned);
+    const ageVariantText = (await callClaude(prompt)).trim().replace(/^["«]|["»]$/g, '');
 
     state.pendingPairs.push({
       pairId,
-      name: v.name,
-      teacher: v.teacher || e.teacher,
-      room: v.room || e.room,
-      direction: v.direction || e.direction,
-      ageVariant: v.ageVariant || '',
+      template: fresh.template,
+      name: fresh.name,
+      teacher: fresh.teacher,
+      room: fresh.room,
+      direction: fresh.direction,
+      format: fresh.format,
+      duration: fresh.duration,
+      ageVariant: ageVariantText,
       targetKind: missingKind
     });
     renderProgramPanel();
