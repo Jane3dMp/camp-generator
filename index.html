@@ -486,6 +486,14 @@
     margin-bottom: 4px;
     font-weight: 500;
   }
+  .station-theme {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 12px;
+    color: var(--terra-deep);
+    margin-bottom: 4px;
+    line-height: 1.2;
+  }
   .station-meta {
     font-family: 'DM Sans', sans-serif;
     font-size: 9px;
@@ -1012,7 +1020,18 @@
   </div>
   <div class="field config-actions">
     <button class="btn btn-primary" onclick="generateAll()">⚡ Сгенерировать всё</button>
+    <button class="btn" onclick="reloadLibrary()" title="Перезагрузить библиотеку из Google Sheets">📚 ↻</button>
   </div>
+</div>
+
+<div style="display:flex;gap:14px;align-items:center;margin:12px 0 18px;font-family:'DM Sans',sans-serif;font-size:12px;color:rgba(26,22,18,0.7)">
+  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none">
+    <input type="checkbox" id="work-without-themes" onchange="toggleWorkWithoutThemes()" style="cursor:pointer">
+    <span>Работать без тем (только шаблоны)</span>
+  </label>
+  <span style="color:rgba(26,22,18,0.4);font-style:italic;font-family:'Cormorant Garamond',serif;font-size:13px">
+    Сначала расставь шаблоны → потом для каждой ячейки сгенерируй тему под тему смены
+  </span>
 </div>
 
 <div class="rotation-help">
@@ -1091,7 +1110,46 @@
 // ============================================================
 // БИБЛИОТЕКА (65 активностей из реальных смен 2025-2026)
 // ============================================================
-const LIBRARY = [{"n":"коммуникативный тренинг, игры на знакомство","t":"Кургузикова Маша","d":"Soft skills / нейро","c":"1.0"},{"n":"майнкрафт","t":"Козырев Влад","d":"IT","c":"4.0"},{"n":"роблокс","t":"Козырев Влад","d":"IT","c":"4.0"},{"n":"мк по лепке из глины \"Кашпо-зверята\"","t":"Афонасенко Женя","d":"Творчество","c":"3.0"},{"n":"тренажеры, дворовые игры, лазалки","t":"админ, кураторы","d":"Активность / спорт","c":"парк Подниколье"},{"n":"мк на граф планшетах по созданию стикеров","t":"Титова Злата","d":"IT","c":"5.0"},{"n":"настольный тимбилдинг","t":"куратор","d":"Soft skills / нейро","c":"2.0"},{"n":"мк с использованием природных материалов: ночник \"Воздушный шар\"","t":"Афонасенко Женя","d":"Творчество","c":"3.0"},{"n":"спортландия","t":"админ, кураторы","d":"Активность / спорт","c":"сш18 (поле)"},{"n":"мк по тинкеркаду создание пуллера \"Кактус\"","t":"Лаппо Ксения","d":"IT","c":"4.0"},{"n":"турнир по настольным играм","t":"куратор","d":"Игры / квесты","c":"1.0"},{"n":"обвесы на рюкзак в технике макраме","t":"Гайкова Тамара","d":"Творчество","c":"6.0"},{"n":"робототехника","t":"Козырев Влад","d":"IT","c":"4.0"},{"n":"мк по лепке из полимерной глины \"Любимая чайная ложка\"","t":"Афонасенко Женя","d":"Творчество","c":"3.0"},{"n":"дворовые игры","t":"админ, кураторы","d":"Активность / спорт","c":"сш18 (поле)"},{"n":"вечеринка в Деталях","t":"Зоркина Наталья, админ Детали","d":"Событие","c":"Детали"},{"n":"разрисовка глиняных кашпо","t":"Афонасенко Женя","d":"Творчество","c":"3.0"},{"n":"мк по алмазной мозаике","t":"кураторы","d":"Творчество","c":"6.0"},{"n":"мк по плетению из резиночек и термомозаике","t":"админ, кураторы","d":"Творчество","c":"2.0"},{"n":"мк из бумаги \"Котенок с клубочком\"","t":"Титова Злата","d":"Творчество","c":"3.0"},{"n":"мк по бумажной пластике \"Мобил из пчёл\"","t":"Титова Злата","d":"Творчество","c":"3.0"},{"n":"мк по пескографии","t":"Печковская Юля","d":"Творчество","c":"3 этаж"},{"n":"конкурс по джасдэнсу и подвижным играм","t":"кураторы","d":"Активность / спорт","c":"1.0"},{"n":"мк по тинкеркаду объёмная пироженка","t":"Лаппо Ксения","d":"IT","c":"4.0"},{"n":"командные игры (футбол, пионербол)","t":"админ, кураторы","d":"Активность / спорт","c":"сш18 (поле)"},{"n":"мафия","t":"кураторы","d":"Игры / квесты","c":"2.0"},{"n":"мк из воздушного пластилина","t":"Афонасенко Женя","d":"Творчество","c":"3.0"},{"n":"заезды на картах","t":"админ, кураторы","d":"Активность / спорт","c":"трасса картинга","trip3":true},{"n":"нонодрифт","t":"админ, кураторы","d":"Активность / спорт","c":"трасса нонодрифт","trip3":true},{"n":"тренировка по плаванию","t":"админ, кураторы, тренера по плаванию","d":"Активность / спорт","c":"сш18 (бассейн)","group3":true},{"n":"фотоохота","t":"админ, кураторы","d":"Игры / квесты","c":"парк Горького"},{"n":"ярмарка","t":"админ, кураторы","d":"Событие","c":"кластер"},{"n":"подготовка к ярмарке","t":"кураторы","d":"Прочее","c":"3.0"},{"n":"коммуникативные игры \"7 навыков успешных детей\"","t":"Кургузикова Мария","d":"Soft skills / нейро","c":"1.0"},{"n":"игры с вожатыми на сплочение отряда","t":"кураторы","d":"Soft skills / нейро","c":"1.0"},{"n":"мк по лепке из глины подсвечник","t":"Афонасенко Женя","d":"Творчество","c":"3.0"},{"n":"работы в технике оригами","t":"кураторы","d":"Творчество","c":"2.0"},{"n":"папье-маше","t":"Блинкова Настя","d":"Творчество","c":"5.0"},{"n":"шерстяная акварель","t":"Блинкова Настя","d":"Творчество","c":"5.0"},{"n":"акварель \"Банка со светлячками\"","t":"Блинкова Настя","d":"Творчество","c":"5.0"}];
+// URL Apps Script Web App, отдающего библиотеку из Google Sheets
+const LIBRARY_URL = 'https://script.google.com/macros/s/AKfycbxb6EEzzl-FguxjpIO5YthGLj-QXh7puCD_DO4HL4wVPziHL1pEtVeuo3uNEi2i2yXq/exec';
+
+// Загружается асинхронно при старте; пустой пока не загрузилось
+let LIBRARY = [];
+
+// Преобразование формата из Apps Script (template/teacher/direction/...) во внутренний (n/t/d/c + флаги)
+function convertLibraryItem(item) {
+  const tripout = item.format === 'выезд 3' || item.format === 'выезд 6';
+  return {
+    template: item.template,
+    examples: item.examples || '',
+    n: item.template, // для совместимости со старым кодом
+    t: item.teacher,
+    d: item.direction,
+    c: String(item.location || ''),
+    age: item.age || 'любой',
+    duration: item.duration || 60,
+    format: item.format || 'МК',
+    description: item.description || '',
+    trip3: item.format === 'выезд 3',
+    trip6: item.format === 'выезд 6',
+    tripout: tripout
+  };
+}
+
+async function loadLibrary() {
+  try {
+    const r = await fetch(LIBRARY_URL + '?action=library');
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || 'Library API error');
+    LIBRARY = data.activities.map(convertLibraryItem);
+    console.log('Library loaded: ' + LIBRARY.length + ' activities');
+    return LIBRARY;
+  } catch(e) {
+    console.error('Failed to load library:', e);
+    toast('Не удалось загрузить библиотеку: ' + e.message);
+    return [];
+  }
+}
 
 // ============================================================
 // КОНСТАНТЫ СТРУКТУРЫ
@@ -1127,78 +1185,91 @@ function rotationFor(stationIdx, troops) {
 // ============================================================
 function defaultSlot(name, teacher, room, direction, opts={}) {
   return {
-    name, teacher, room, direction, locked: false,
-    pairId: opts.pairId || null,        // общий ID для пары young/senior
-    ageVariant: opts.ageVariant || '',  // методическая адаптация (упрощено / усложнено)
-    groupKind: opts.groupKind || ''     // 'young' (1-2-3) | 'senior' (4-5-6) | 'mixed' (выезд 6)
+    name: name || '',           // Полное название (template + theme или legacy)
+    template: opts.template || name || '',  // Шаблон занятия из библиотеки
+    theme: opts.theme || '',    // Конкретная тема (генерируется отдельно)
+    teacher, room, direction,
+    locked: false,
+    pairId: opts.pairId || null,
+    ageVariant: opts.ageVariant || '',
+    groupKind: opts.groupKind || '',
+    format: opts.format || '',  // 'МК' | 'уличная' | 'выезд 3' | 'выезд 6'
+    duration: opts.duration || 60
   };
 }
 
 // Генерация уникального pairId для пары активностей
 let _pairIdCounter = 1000;
 function newPairId() { return 'p' + (++_pairIdCounter); }
-function pickFromLib(direction, exclude=[]) {
+function pickFromLib(direction, exclude=[], formatFilter=null) {
   let pool = LIBRARY.filter(a => a.d === direction && !exclude.includes(a.n));
-  if (pool.length === 0) pool = LIBRARY.filter(a => a.d === direction);
+  if (formatFilter) pool = pool.filter(a => a.format === formatFilter);
+  if (pool.length === 0) {
+    pool = LIBRARY.filter(a => a.d === direction && (formatFilter ? a.format === formatFilter : true));
+  }
+  if (pool.length === 0) pool = LIBRARY.filter(a => formatFilter ? a.format === formatFilter : true);
   if (pool.length === 0) pool = LIBRARY;
+  if (pool.length === 0) return defaultSlot('', '', '', direction);
   const a = pool[Math.floor(Math.random() * pool.length)];
-  return defaultSlot(a.n, a.t, a.c, a.d);
+  return defaultSlot(a.n, a.t, a.c, a.d, {
+    template: a.template,
+    format: a.format,
+    duration: a.duration
+  });
 }
 function pickByName(nameContains) {
-  const pool = LIBRARY.filter(a => a.n.toLowerCase().includes(nameContains.toLowerCase()));
+  const pool = LIBRARY.filter(a => a.n && a.n.toLowerCase().includes(nameContains.toLowerCase()));
   if (pool.length === 0) {
-    // Fallback: если в библиотеке нет (как для "лес") — возвращаем заготовку
-    return defaultSlot('выезд в лес "Лес.Lab"', 'админ, кураторы', 'лес', 'Событие');
+    return defaultSlot('выезд в лес "Лес.Lab"', 'админ, кураторы', 'лес', 'Событие', {format: 'выезд 6'});
   }
   const a = pool[0];
-  return defaultSlot(a.n, a.t, a.c, a.d);
+  return defaultSlot(a.n, a.t, a.c, a.d, {
+    template: a.template,
+    format: a.format,
+    duration: a.duration
+  });
 }
 
 function defaultDay(idx) {
-  // idx 0..9
-  // type: 'normal' | 'trip_am' | 'trip_pm' | 'trip_full'
-  // normal: am_cluster + am_outside + pm_cluster + pm_outside
-  // trip_am: trip_full_am (1 общий слот) + pm_cluster + pm_outside
-  // trip_pm: am_cluster + am_outside + trip_full_pm (1 общий слот)
-  // trip_full: trip_full_day (1 общий слот на весь день)
   const used = [];
   const rememberAdd = s => { used.push(s.name); return s; };
 
+  // Кластер — формат МК; улица — формат уличная
   const am_cluster = [
-    rememberAdd(idx===0 ? pickByName('коммуникатив') : pickFromLib('Творчество', used)),
-    rememberAdd(pickFromLib('IT', used)),
-    rememberAdd(pickFromLib('Творчество', used)),
+    rememberAdd(idx===0 ? pickByName('коммуникатив') : pickFromLib('Творчество', used, 'МК')),
+    rememberAdd(pickFromLib('IT', used, 'МК')),
+    rememberAdd(pickFromLib('Творчество', used, 'МК')),
   ];
   const am_outside = [
-    rememberAdd(pickFromLib('Активность / спорт', used)),
-    rememberAdd(pickFromLib('Активность / спорт', used)),
-    rememberAdd(pickFromLib('Игры / квесты', used)),
+    rememberAdd(pickFromLib('Активность / спорт', used, 'уличная')),
+    rememberAdd(pickFromLib('Активность / спорт', used, 'уличная')),
+    rememberAdd(pickFromLib('Игры / квесты', used, 'уличная')),
   ];
   const pm_cluster = [
-    rememberAdd(pickFromLib('Творчество', used)),
-    rememberAdd(pickFromLib('IT', used)),
-    rememberAdd(pickFromLib('Творчество', used)),
+    rememberAdd(pickFromLib('Творчество', used, 'МК')),
+    rememberAdd(pickFromLib('IT', used, 'МК')),
+    rememberAdd(pickFromLib('Творчество', used, 'МК')),
   ];
   const pm_outside = [
-    rememberAdd(pickFromLib('Активность / спорт', used)),
-    rememberAdd(pickFromLib('Игры / квесты', used)),
-    rememberAdd(pickFromLib('Активность / спорт', used)),
+    rememberAdd(pickFromLib('Активность / спорт', used, 'уличная')),
+    rememberAdd(pickFromLib('Игры / квесты', used, 'уличная')),
+    rememberAdd(pickFromLib('Активность / спорт', used, 'уличная')),
   ];
 
-  // Шаблонные общие слоты, на случай переключения типа дня
-  const trip_full_am = pickByName('картах');  // полу-выезд утром (3 отряда)
-  const trip_full_pm = pickByName('картах');  // полу-выезд после обеда
-  const trip6_am = defaultSlot('выезд в лес "Лес.Lab"', 'админ, кураторы', 'лес', 'Событие');
-  const trip6_pm = defaultSlot('сплав на сапах', 'админ, кураторы', 'Днепр', 'Активность / спорт');
+  // Шаблонные слоты для выездов (по умолчанию — реальные шаблоны из библиотеки)
+  const trip_full_am = pickByName('картинг');  // выезд 3 утром
+  const trip_full_pm = pickByName('бассейн');  // выезд 3 после обеда
+  const trip6_am = pickByName('лес');          // выезд 6 утром
+  const trip6_pm = pickByName('сапах');        // выезд 6 после обеда
 
-  // Режим single для уличного блока: 1 ячейка вместо 3
-  const am_outside_single = pickByName('плавани');
-  const pm_outside_single = pickFromLib('Активность / спорт', []);
+  // Режим single (legacy) — больше не используется, но оставляем для совместимости
+  const am_outside_single = pickByName('бассейн');
+  const pm_outside_single = pickByName('бассейн');
 
   return {
     type: 'normal',
     am_cluster, am_outside, pm_cluster, pm_outside,
-    am_outside_mode: 'rotation', // 'rotation' | 'single'
+    am_outside_mode: 'rotation',
     pm_outside_mode: 'rotation',
     am_outside_single, pm_outside_single,
     trip_full_am, trip_full_pm,
@@ -1211,19 +1282,10 @@ let state = {
   ages: '6–13 лет',
   startDate: '2026-06-01',
   anchors: 'картинг, вечеринка в Деталях, ярмарка',
-  schedule: Array.from({length: NUM_DAYS}, (_, i) => defaultDay(i)),
-  pendingPairs: []
+  schedule: [], // Заполняется в init() после загрузки библиотеки
+  pendingPairs: [],
+  workWithoutThemes: false // Флажок «работать без тем пока»
 };
-
-// Дефолтные типы для якорных событий: 1 полу-выезд (3 отряда) + 1 полный выезд (6 отрядов, полдня)
-state.schedule[5].type = 'trip6_am';     // день 6 — полный выезд утром (лес/сапы для всех 6)
-state.schedule[7].type = 'trip3_am';     // день 8 — полу-выезд утром (картинг для 3 отрядов)
-// Вечеринка и ярмарка теперь в обычной сетке как одна из ячеек
-// День 5 (конец 1 недели): вечеринка в Деталях встаёт как одна из активностей (например, в pm_outside)
-state.schedule[4].pm_outside[0] = pickByName('вечеринка');
-// День 10 (финал): ярмарка как одна из активностей
-state.schedule[9].pm_cluster[1] = pickByName('ярмарка');
-state.schedule[9].am_cluster[1] = pickByName('подготовка к ярмарке');
 
 // ============================================================
 // УТИЛЫ
@@ -1247,6 +1309,204 @@ function dirClass(dir) {
   if (dir.includes('Игр')) return 'dir-Игры';
   if (dir.includes('Событ')) return 'dir-Событие';
   return 'dir-Прочее';
+}
+
+// ============================================================
+// РАБОТА С ШАБЛОНАМИ И ТЕМАМИ (v7)
+// ============================================================
+function toggleWorkWithoutThemes() {
+  state.workWithoutThemes = document.getElementById('work-without-themes').checked;
+  render();
+  toast(state.workWithoutThemes ? 'Режим: только шаблоны' : 'Режим: шаблоны + темы');
+}
+
+async function reloadLibrary() {
+  toast('Перезагружаю библиотеку…');
+  await loadLibrary();
+  if (LIBRARY.length > 0) toast('Загружено: ' + LIBRARY.length + ' активностей');
+  render();
+}
+
+function getUniqueTemplates() {
+  const map = new Map();
+  LIBRARY.forEach(a => {
+    if (!a.template) return;
+    if (!map.has(a.template)) {
+      map.set(a.template, { template: a.template, format: a.format, direction: a.d, teachers: new Set(), examples: a.examples });
+    }
+    map.get(a.template).teachers.add(a.t);
+  });
+  return Array.from(map.values()).map(t => ({ ...t, teachers: Array.from(t.teachers) }));
+}
+
+function escapeJs(s) {
+  return String(s).replace(/'/g, "\\'");
+}
+
+function openTemplatePicker(day, group, idx, isTripSlot, slotKey) {
+  let allowedFormat = null;
+  if (isTripSlot) {
+    if (slotKey === 'trip6_am' || slotKey === 'trip6_pm') allowedFormat = 'выезд 6';
+    else if (slotKey === 'trip_full_am' || slotKey === 'trip_full_pm') allowedFormat = 'выезд 3';
+  } else {
+    const groupName = group || '';
+    if (groupName.includes('cluster')) allowedFormat = 'МК';
+    else if (groupName.includes('outside')) allowedFormat = 'уличная';
+  }
+
+  const templates = getUniqueTemplates().filter(t => !allowedFormat || t.format === allowedFormat);
+  const byDirection = {};
+  templates.forEach(t => {
+    if (!byDirection[t.direction]) byDirection[t.direction] = [];
+    byDirection[t.direction].push(t);
+  });
+
+  document.getElementById('modal-title').innerHTML = `Выбрать <em>шаблон занятия</em>${allowedFormat ? ' · '+allowedFormat : ''}`;
+
+  let html = `<div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:13px;margin-bottom:12px;color:rgba(26,22,18,0.7)">
+    Выбери шаблон. Педагог, кабинет и направление подтянутся автоматически.
+  </div>`;
+
+  Object.keys(byDirection).sort().forEach(dir => {
+    html += `<div style="margin-bottom:14px">
+      <div style="font-family:'DM Sans',sans-serif;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--terra-deep);margin-bottom:6px;font-weight:600">${dir}</div>`;
+    byDirection[dir].forEach(t => {
+      const teachersStr = t.teachers.length > 1 ? ` <span style="opacity:0.6;font-size:11px">(${t.teachers.join(', ')})</span>` : ` <span style="opacity:0.6;font-size:11px">(${t.teachers[0]})</span>`;
+      const examplesStr = t.examples ? `<div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:11px;color:rgba(26,22,18,0.55);margin-top:2px">${t.examples}</div>` : '';
+      const groupArg = group === null || group === undefined ? 'null' : `'${escapeJs(group)}'`;
+      const slotKeyArg = slotKey === null || slotKey === undefined ? 'null' : `'${escapeJs(slotKey)}'`;
+      html += `<div class="variant" style="margin-bottom:4px;padding:8px 12px" onclick="applyTemplate(${day},${groupArg},${idx},'${escapeJs(t.template)}',${isTripSlot},${slotKeyArg})">
+        <div style="font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:500">${t.template}${teachersStr}</div>
+        ${examplesStr}
+      </div>`;
+    });
+    html += '</div>';
+  });
+
+  if (templates.length === 0) {
+    html += `<div style="text-align:center;padding:30px;color:rgba(26,22,18,0.5);font-style:italic">Нет шаблонов для формата «${allowedFormat}»</div>`;
+  }
+
+  html += `<div class="modal-actions"><button class="btn" onclick="closeModal()">Отмена</button></div>`;
+  document.getElementById('modal-body').innerHTML = html;
+  openModal();
+}
+
+function applyTemplate(day, group, idx, templateName, isTripSlot, slotKey) {
+  const matching = LIBRARY.filter(a => a.template === templateName);
+  if (matching.length === 0) { toast('Шаблон не найден'); return; }
+
+  if (matching.length > 1) {
+    let html = `<div style="margin-bottom:12px;font-family:'Cormorant Garamond',serif;font-style:italic;color:rgba(26,22,18,0.7)">
+      Шаблон <strong>${templateName}</strong> ведут ${matching.length} педагога. Выбери:
+    </div>`;
+    matching.forEach((a, i) => {
+      const groupArg = group === null || group === undefined ? 'null' : `'${escapeJs(group)}'`;
+      const slotKeyArg = slotKey === null || slotKey === undefined ? 'null' : `'${escapeJs(slotKey)}'`;
+      html += `<div class="variant" onclick="confirmTemplate(${day},${groupArg},${idx},${i},'${escapeJs(templateName)}',${isTripSlot},${slotKeyArg})">
+        <div class="variant-name">${a.t}</div>
+        <div class="variant-meta">кабинет ${a.c} · ${a.d}</div>
+      </div>`;
+    });
+    html += `<div class="modal-actions"><button class="btn" onclick="closeModal()">Отмена</button></div>`;
+    document.getElementById('modal-body').innerHTML = html;
+    window._lastTemplateOptions = matching;
+  } else {
+    confirmTemplate(day, group, idx, 0, templateName, isTripSlot, slotKey, matching);
+  }
+}
+
+function confirmTemplate(day, group, idx, optionIdx, templateName, isTripSlot, slotKey, matchingArr) {
+  const matching = matchingArr || window._lastTemplateOptions || LIBRARY.filter(a => a.template === templateName);
+  const a = matching[optionIdx];
+  if (!a) { toast('Ошибка'); return; }
+
+  const newSlot = {
+    name: a.template,
+    template: a.template,
+    theme: '',
+    teacher: a.t,
+    room: a.c,
+    direction: a.d,
+    format: a.format,
+    duration: a.duration,
+    locked: false,
+    pairId: null,
+    ageVariant: '',
+    groupKind: ''
+  };
+
+  if (isTripSlot) {
+    Object.assign(state.schedule[day][slotKey], newSlot);
+  } else {
+    setSlot(day, group, idx, newSlot);
+  }
+  closeModal();
+  render();
+  toast('Шаблон применён');
+}
+
+async function generateThemeForSlot(day, group, idx, isTripSlot, slotKey) {
+  const slot = isTripSlot ? state.schedule[day][slotKey] : getSlot(day, group, idx);
+  if (!slot.template) { toast('Сначала выбери шаблон'); return; }
+
+  const libraryItem = LIBRARY.find(a => a.template === slot.template);
+  const examplesStr = libraryItem ? libraryItem.examples : '';
+
+  document.getElementById('modal-title').innerHTML = `Тема для <em>${slot.template}</em>`;
+  document.getElementById('modal-body').innerHTML = '<div class="modal-loading">Claude подбирает темы…</div>';
+  openModal();
+
+  try {
+    const themes = await genThemes(slot.template, examplesStr, state.theme, slot.direction, slot.duration);
+    const groupArg = group === null || group === undefined ? 'null' : `'${escapeJs(group)}'`;
+    const slotKeyArg = slotKey === null || slotKey === undefined ? 'null' : `'${escapeJs(slotKey)}'`;
+    document.getElementById('modal-body').innerHTML = `
+      <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:13px;margin-bottom:14px;color:rgba(26,22,18,0.7)">
+        Шаблон: <strong>${slot.template}</strong> · Тема смены: <strong>«${state.theme}»</strong>
+      </div>
+      ${themes.map((t, i) => `
+        <div class="variant" onclick="applyTheme(${day},${groupArg},${idx},${i},${isTripSlot},${slotKeyArg})">
+          <div class="variant-name">${t.theme}</div>
+          <div class="variant-rationale">${t.rationale || ''}</div>
+        </div>
+      `).join('')}
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal()">Отмена</button>
+        <button class="btn btn-primary" onclick="generateThemeForSlot(${day},${groupArg},${idx},${isTripSlot},${slotKeyArg})">Ещё варианты</button>
+      </div>
+    `;
+    window._lastThemes = themes;
+  } catch(e) {
+    document.getElementById('modal-body').innerHTML = `
+      <div style="padding:20px;font-family:'DM Sans',sans-serif;color:var(--terra-deep)">Ошибка: ${e.message}</div>
+      <div class="modal-actions"><button class="btn" onclick="closeModal()">Закрыть</button></div>
+    `;
+  }
+}
+
+async function genThemes(template, examples, sceneTheme, direction, duration) {
+  const prompt = `Тема смены: «${sceneTheme}». Шаблон занятия: «${template}». Направление: ${direction}. Длительность: ${duration} мин.
+${examples ? `Примеры тем для этого шаблона из прошлых смен (показывают стиль): ${examples}` : ''}
+
+Нужны 3 разных конкретных темы для этого занятия, привязанных к теме смены «${sceneTheme}».
+Стиль: короткое название работы или темы в кавычках. Например: «Кашпо-зверята», «Лесные тропинки», «Подводный город». Не описание, а название.
+
+Формат — JSON-массив:
+[{"theme":"...","rationale":"одно предложение почему подходит"}]`;
+  const text = await callClaude(prompt);
+  const cleaned = text.replace(/```json|```/g,'').trim();
+  return JSON.parse(cleaned);
+}
+
+function applyTheme(day, group, idx, themeIdx, isTripSlot, slotKey) {
+  const theme = window._lastThemes[themeIdx];
+  const slot = isTripSlot ? state.schedule[day][slotKey] : getSlot(day, group, idx);
+  slot.theme = theme.theme;
+  slot.name = slot.template + ' «' + theme.theme + '»';
+  closeModal();
+  render();
+  toast('Тема применена');
 }
 
 // ============================================================
@@ -1568,7 +1828,6 @@ function renderStation(dayIdx, groupKey, stationIdx, slot, troops, slotLabels, i
   el.dataset.group = groupKey;
   el.dataset.station = stationIdx;
 
-  // Ротация для этой станции: какой отряд приходит в каждом из 3 часовых слотов
   const rot = rotationFor(stationIdx, troops);
   const rotationHtml = rot.map((troop, i) =>
     `<span class="rot-troop">${troop}</span>${i < 2 ? '<span class="rot-arrow">→</span>' : ''}`
@@ -1581,28 +1840,34 @@ function renderStation(dayIdx, groupKey, stationIdx, slot, troops, slotLabels, i
     const pairSlots = all.filter(s => s.slot.pairId === slot.pairId);
     const hasYoung = pairSlots.some(s => s.kind === 'young');
     const hasSenior = pairSlots.some(s => s.kind === 'senior');
-    if (hasYoung && hasSenior) {
-      mirrorBadge = '<span class="mirror-badge full" title="Зеркалирована">✓</span>';
-    } else {
-      mirrorBadge = '<span class="mirror-badge partial" title="Ждёт пары">!</span>';
-    }
-  } else if (slot.name && slot.name.length > 3) {
-    mirrorBadge = '<span class="mirror-badge none" title="Без идентификатора пары">○</span>';
+    if (hasYoung && hasSenior) mirrorBadge = '<span class="mirror-badge full" title="Зеркалирована">✓</span>';
+    else mirrorBadge = '<span class="mirror-badge partial" title="Ждёт пары">!</span>';
+  }
+
+  // Двухуровневое отображение: шаблон + тема
+  const tpl = slot.template || slot.name || '';
+  const theme = slot.theme || '';
+  let displayHtml;
+  if (state.workWithoutThemes || !theme) {
+    displayHtml = `<div class="station-name">${tpl || '<em style="opacity:0.4">пусто</em>'}</div>`;
+  } else {
+    displayHtml = `<div class="station-name">${tpl}</div><div class="station-theme">«${theme}»</div>`;
   }
 
   el.innerHTML = `
     ${mirrorBadge}
     <div class="station-rotation">${rotationHtml}</div>
     <span class="direction-tag ${dirClass(slot.direction)}">${slot.direction || '—'}</span>
-    <div class="station-name">${slot.name || '<em style="opacity:0.4">пусто</em>'}</div>
+    ${displayHtml}
     <div class="station-meta">
       <span class="pill">${slot.teacher || '—'}</span>
       ${slot.room ? `<span class="pill">${slot.room}</span>` : ''}
     </div>
     <div class="station-actions">
       <button class="icon-btn ${slot.locked?'locked-btn':''}" onclick="event.stopPropagation();toggleLock(${dayIdx},'${groupKey}',${stationIdx})" title="${slot.locked?'Открепить':'Закрепить'}">${slot.locked?'✓':'○'}</button>
-      <button class="icon-btn" onclick="event.stopPropagation();openVariants(${dayIdx},'${groupKey}',${stationIdx})" title="3 варианта">🔄</button>
-      <button class="icon-btn" onclick="event.stopPropagation();editStation(${dayIdx},'${groupKey}',${stationIdx})" title="Редактировать">✏</button>
+      <button class="icon-btn" onclick="event.stopPropagation();openTemplatePicker(${dayIdx},'${groupKey}',${stationIdx},false,null)" title="Выбрать шаблон из библиотеки">🧱</button>
+      <button class="icon-btn" onclick="event.stopPropagation();generateThemeForSlot(${dayIdx},'${groupKey}',${stationIdx},false,null)" title="Сгенерировать тему">✨</button>
+      <button class="icon-btn" onclick="event.stopPropagation();editStation(${dayIdx},'${groupKey}',${stationIdx})" title="Редактировать вручную">✏</button>
     </div>
   `;
   return el;
@@ -3006,5 +3271,23 @@ try {
   // localStorage недоступен (например, в артефактах) — ничего не делаем
 }
 
-render();
+// Загружаем библиотеку, потом инициализируем расписание
+async function init() {
+  toast('Загружаю библиотеку…');
+  await loadLibrary();
+  if (LIBRARY.length === 0) {
+    document.getElementById('schedule-container').innerHTML =
+      '<div style="padding:40px;text-align:center;color:var(--terra-deep);font-family:Cormorant Garamond,serif;font-style:italic;font-size:18px">Библиотека не загрузилась. Проверь подключение к интернету или адрес Google Apps Script.</div>';
+    return;
+  }
+  toast('Библиотека: ' + LIBRARY.length + ' активностей');
+  // После загрузки библиотеки инициализируем расписание (defaultDay использует pickFromLib)
+  state.schedule = Array.from({length: NUM_DAYS}, (_, i) => defaultDay(i));
+  // Дефолтные типы для якорных событий: 1 полу-выезд (3 отряда) + 1 полный выезд (6 отрядов, полдня)
+  if (state.schedule[5]) state.schedule[5].type = 'trip6_am';
+  if (state.schedule[7]) state.schedule[7].type = 'trip3_am';
+  render();
+}
+
+init();
 </script>
