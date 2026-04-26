@@ -1022,6 +1022,7 @@
   </div>
   <div class="field config-actions">
     <button class="btn btn-primary" onclick="generateAll()">⚡ Сгенерировать всё</button>
+    <button class="btn" onclick="openDraftsPanel()" title="Черновики смен в Google Sheets">📁 Черновики</button>
     <button class="btn" onclick="reloadLibrary()" title="Перезагрузить библиотеку из Google Sheets">📚 ↻</button>
   </div>
 </div>
@@ -1414,6 +1415,275 @@ function applyAnchorsToSchedule(anchorsStr) {
   });
 }
 
+// ============================================================
+// АВТОСОХРАНЕНИЕ (localStorage)
+// Восстанавливает состояние при перезагрузке вкладки или падении браузера.
+// Полная страховка — через черновики в Google Sheets (см. ниже).
+// ============================================================
+const LS_KEY = 'camp_grid_state_v1';
+let _saveLocalTimer = null;
+
+function saveLocal() {
+  // Дебаунс — пишем не чаще раза в полсекунды
+  if (_saveLocalTimer) clearTimeout(_saveLocalTimer);
+  _saveLocalTimer = setTimeout(() => {
+    try {
+      const payload = {
+        savedAt: new Date().toISOString(),
+        state: state
+      };
+      localStorage.setItem(LS_KEY, JSON.stringify(payload));
+    } catch(e) {
+      console.warn('Не удалось сохранить в localStorage:', e);
+    }
+  }, 500);
+}
+
+function loadLocal() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return null;
+    const payload = JSON.parse(raw);
+    if (!payload || !payload.state || !Array.isArray(payload.state.schedule)) return null;
+    return payload;
+  } catch(e) {
+    console.warn('Не удалось прочитать localStorage:', e);
+    return null;
+  }
+}
+
+function clearLocal() {
+  try { localStorage.removeItem(LS_KEY); } catch(e) {}
+}
+
+function formatRelativeTime(iso) {
+  const then = new Date(iso);
+  const diffMin = Math.round((Date.now() - then.getTime()) / 60000);
+  if (diffMin < 1) return 'только что';
+  if (diffMin < 60) return diffMin + ' мин назад';
+  const h = Math.floor(diffMin / 60);
+  if (h < 24) return h + ' ч назад';
+  return then.toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
+// Полоска восстановления в шапке — показывается, если состояние подтянуто из автосохранения
+function showRestoredBanner(savedAt) {
+  let bar = document.getElementById('restored-banner');
+  if (bar) bar.remove();
+  bar = document.createElement('div');
+  bar.id = 'restored-banner';
+  bar.style.cssText = 'background:rgba(193,105,79,0.12);border-left:3px solid var(--terra);padding:8px 14px;margin:0 0 12px;font-family:DM Sans,sans-serif;font-size:12px;display:flex;align-items:center;justify-content:space-between;gap:12px';
+  bar.innerHTML = `
+    <span style="color:rgba(26,22,18,0.75)">↻ Восстановлено из автосохранения · ${formatRelativeTime(savedAt)}</span>
+    <span style="display:flex;gap:8px">
+      <button onclick="dismissRestoredBanner()" style="background:transparent;border:1px solid rgba(26,22,18,0.2);font-family:DM Sans,sans-serif;font-size:11px;padding:4px 10px;cursor:pointer;color:rgba(26,22,18,0.7)">Скрыть</button>
+      <button onclick="resetToFreshStart()" style="background:var(--terra);color:var(--paper);border:none;font-family:DM Sans,sans-serif;font-size:11px;padding:4px 10px;cursor:pointer">↩ Начать заново</button>
+    </span>
+  `;
+  // Вставляем перед config-panel
+  const cp = document.querySelector('.config-panel');
+  if (cp && cp.parentNode) cp.parentNode.insertBefore(bar, cp);
+}
+
+function dismissRestoredBanner() {
+  const bar = document.getElementById('restored-banner');
+  if (bar) bar.remove();
+}
+
+function resetToFreshStart() {
+  if (!confirm('Начать с чистой смены? Текущее автосохранение будет удалено.')) return;
+  clearLocal();
+  // Пересоздаём расписание с нуля
+  state = {
+    theme: 'Лесная лаборатория',
+    ages: '6–13 лет',
+    startDate: '2026-06-01',
+    anchors: 'картинг, вечеринка в Деталях, ярмарка',
+    schedule: Array.from({length: NUM_DAYS}, (_, i) => defaultDay(i)),
+    pendingPairs: [],
+    workWithoutThemes: false,
+    campType: null
+  };
+  if (state.schedule[5]) state.schedule[5].type = 'trip6_am';
+  if (state.schedule[7]) state.schedule[7].type = 'trip3_am';
+  // Сбрасываем поля шапки
+  document.getElementById('theme').value = state.theme;
+  document.getElementById('ages').value = state.ages;
+  document.getElementById('start-date').value = state.startDate;
+  document.getElementById('anchors').value = state.anchors;
+  const ctSel = document.getElementById('camp-type');
+  if (ctSel) ctSel.value = '';
+  dismissRestoredBanner();
+  render();
+  toast('Начато заново');
+}
+
+// ============================================================
+// ЧЕРНОВИКИ В GOOGLE SHEETS
+// Лист «Черновики смен» в той же таблице. Несколько именованных
+// версий, можно сохранять/перезаписывать/загружать/удалять.
+// ============================================================
+
+// ID последнего сохранённого/загруженного черновика — чтобы кнопка «Сохранить»
+// перезаписывала его, а не плодила копии. Хранится в state.
+async function listDrafts() {
+  const r = await fetch(LIBRARY_URL + '?action=listDrafts');
+  const data = await r.json();
+  if (!data.ok) throw new Error(data.error || 'API error');
+  return data.drafts || [];
+}
+
+async function loadDraftById(id) {
+  const r = await fetch(LIBRARY_URL + '?action=loadDraft&id=' + encodeURIComponent(id));
+  const data = await r.json();
+  if (!data.ok) throw new Error(data.error || 'API error');
+  return data.draft;
+}
+
+async function saveDraftToSheets(name, id) {
+  syncConfig();
+  const payload = {
+    action: 'saveDraft',
+    id: id || (state._draftId || null),
+    name: name || (state._draftName || 'Без названия'),
+    state: state
+  };
+  // Apps Script Web App не любит preflight — используем text/plain
+  const r = await fetch(LIBRARY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  });
+  const data = await r.json();
+  if (!data.ok) throw new Error(data.error || 'API error');
+  state._draftId = data.draft.id;
+  state._draftName = data.draft.name;
+  saveLocal();
+  return data.draft;
+}
+
+async function deleteDraftById(id) {
+  const payload = { action: 'deleteDraft', id: id };
+  const r = await fetch(LIBRARY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  });
+  const data = await r.json();
+  if (!data.ok) throw new Error(data.error || 'API error');
+  return true;
+}
+
+// Открывает модалку со списком черновиков и кнопками действий
+async function openDraftsPanel() {
+  document.getElementById('modal-title').innerHTML = `Черновики смен`;
+  document.getElementById('modal-body').innerHTML = '<div class="modal-loading">Загружаю список…</div>';
+  openModal();
+  try {
+    const drafts = await listDrafts();
+    let html = `
+      <div style="margin-bottom:14px;display:flex;gap:8px">
+        <input id="new-draft-name" type="text" placeholder="Название нового черновика" class="editor-input" style="margin:0;flex:1" value="${(state._draftName || state.theme || 'Смена').replace(/"/g,'&quot;')}">
+        <button class="btn btn-primary" onclick="saveCurrentAsNewDraft()">💾 Сохранить</button>
+      </div>
+      ${state._draftId ? `<div style="margin-bottom:14px;font-family:'Cormorant Garamond',serif;font-style:italic;font-size:13px;color:rgba(26,22,18,0.7)">
+        Сейчас открыт: <strong>${state._draftName || '?'}</strong>.
+        <button class="btn btn-sm" onclick="overwriteCurrentDraft()" style="margin-left:8px">↻ Перезаписать его</button>
+      </div>` : ''}
+      <hr style="border:none;border-top:1px solid rgba(26,22,18,0.1);margin:14px 0">
+    `;
+    if (drafts.length === 0) {
+      html += '<div style="font-family:Cormorant Garamond,serif;font-style:italic;color:rgba(26,22,18,0.5);text-align:center;padding:20px">Черновиков пока нет</div>';
+    } else {
+      html += drafts.map(d => `
+        <div class="variant" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+          <div style="flex:1;min-width:0">
+            <div class="variant-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.name || '(без названия)'}</div>
+            <div class="variant-meta">${formatRelativeTime(d.savedAt)}</div>
+          </div>
+          <div style="display:flex;gap:6px;flex-shrink:0">
+            <button class="btn btn-sm" onclick="event.stopPropagation();loadDraftAndApply('${d.id}')">📂 Открыть</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();deleteDraftAndRefresh('${d.id}','${d.name.replace(/'/g,'\\\'')}')">🗑</button>
+          </div>
+        </div>
+      `).join('');
+    }
+    html += `<div class="modal-actions"><button class="btn" onclick="closeModal()">Закрыть</button></div>`;
+    document.getElementById('modal-body').innerHTML = html;
+  } catch(e) {
+    document.getElementById('modal-body').innerHTML = `<div style="padding:20px;font-family:'DM Sans',sans-serif;color:var(--terra-deep)">Ошибка: ${e.message}</div>`;
+  }
+}
+
+async function saveCurrentAsNewDraft() {
+  const nameInput = document.getElementById('new-draft-name');
+  const name = (nameInput && nameInput.value.trim()) || 'Без названия';
+  toast('Сохраняю…');
+  try {
+    // Создаём НОВЫЙ черновик (id=null принудительно)
+    const oldId = state._draftId;
+    state._draftId = null;
+    const draft = await saveDraftToSheets(name, null);
+    toast('Сохранено: ' + draft.name);
+    openDraftsPanel(); // освежить список
+  } catch(e) {
+    toast('Ошибка: ' + e.message);
+  }
+}
+
+async function overwriteCurrentDraft() {
+  if (!state._draftId) { toast('Нет открытого черновика'); return; }
+  const name = state._draftName || 'Без названия';
+  toast('Перезаписываю…');
+  try {
+    const draft = await saveDraftToSheets(name, state._draftId);
+    toast('Перезаписано: ' + draft.name);
+    openDraftsPanel();
+  } catch(e) {
+    toast('Ошибка: ' + e.message);
+  }
+}
+
+async function loadDraftAndApply(id) {
+  if (!confirm('Загрузить этот черновик? Текущая работа будет заменена (но автосохранение в браузере останется).')) return;
+  toast('Загружаю…');
+  try {
+    const draft = await loadDraftById(id);
+    if (!draft || !draft.state) throw new Error('Пустой черновик');
+    state = draft.state;
+    state._draftId = draft.id;
+    state._draftName = draft.name;
+    // Восстанавливаем поля шапки
+    document.getElementById('theme').value = state.theme || '';
+    document.getElementById('ages').value = state.ages || '';
+    document.getElementById('start-date').value = state.startDate || '';
+    document.getElementById('anchors').value = state.anchors || '';
+    const ctSel = document.getElementById('camp-type');
+    if (ctSel) ctSel.value = (state.campType && state.campType.type) || '';
+    closeModal();
+    dismissRestoredBanner();
+    render();
+    toast('Загружено: ' + draft.name);
+  } catch(e) {
+    toast('Ошибка: ' + e.message);
+  }
+}
+
+async function deleteDraftAndRefresh(id, name) {
+  if (!confirm('Удалить черновик «' + name + '»? Это действие необратимо.')) return;
+  try {
+    await deleteDraftById(id);
+    if (state._draftId === id) {
+      state._draftId = null;
+      state._draftName = null;
+    }
+    toast('Удалено');
+    openDraftsPanel();
+  } catch(e) {
+    toast('Ошибка: ' + e.message);
+  }
+}
+
 // Форматирует контекст типа смены для промптов Claude.
 // Возвращает многострочный блок или пустую строку, если тип не выбран.
 function campTypeContext() {
@@ -1730,6 +2000,8 @@ function render() {
   // Перерисуем панель если она открыта
   const panel = document.getElementById('program-panel');
   if (panel && panel.classList.contains('open')) renderProgramPanel();
+  // Автосохранение в localStorage после любого изменения
+  saveLocal();
 }
 
 function renderDay(day, idx) {
@@ -3489,10 +3761,27 @@ async function init() {
     return;
   }
   populateCampTypeSelect();
+
+  // Пробуем восстановить из автосохранения
+  const saved = loadLocal();
+  if (saved && saved.state && Array.isArray(saved.state.schedule) && saved.state.schedule.length === NUM_DAYS) {
+    state = saved.state;
+    // Восстанавливаем поля шапки
+    document.getElementById('theme').value = state.theme || '';
+    document.getElementById('ages').value = state.ages || '';
+    document.getElementById('start-date').value = state.startDate || '';
+    document.getElementById('anchors').value = state.anchors || '';
+    const ctSel = document.getElementById('camp-type');
+    if (ctSel) ctSel.value = (state.campType && state.campType.type) || '';
+    render();
+    showRestoredBanner(saved.savedAt);
+    toast('Восстановлено · библиотека: ' + LIBRARY.length + ' активностей');
+    return;
+  }
+
+  // Чистый старт
   toast('Библиотека: ' + LIBRARY.length + ' активностей · типов смен: ' + CAMP_TYPES.length);
-  // После загрузки библиотеки инициализируем расписание (defaultDay использует pickFromLib)
   state.schedule = Array.from({length: NUM_DAYS}, (_, i) => defaultDay(i));
-  // Дефолтные типы для якорных событий: 1 полу-выезд (3 отряда) + 1 полный выезд (6 отрядов, полдня)
   if (state.schedule[5]) state.schedule[5].type = 'trip6_am';
   if (state.schedule[7]) state.schedule[7].type = 'trip3_am';
   render();
