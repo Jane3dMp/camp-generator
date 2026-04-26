@@ -1401,6 +1401,7 @@ const DAY_TYPE_MAP = {
   'normal': 'normal',
   'trip3_am': 'trip3_am',
   'trip3_pm': 'trip3_pm',
+  'trip3_full': 'trip3_full',
   'trip6_am': 'trip6_am',
   'trip6_pm': 'trip6_pm'
 };
@@ -1956,6 +1957,14 @@ function _allSlots() {
       d.pm_cluster.forEach((s, i) => result.push({slot:s, day:dIdx, group:'pm_cluster', idx:i, kind:'senior', half:'pm'}));
       result.push({slot:d.trip_full_pm, day:dIdx, group:'trip_full_pm', kind:'young', half:'pm'});
     }
+    if (d.type === 'trip3_full') {
+      // Утром: 1-2-3 в кластере (young), 4-5-6 на выезде (senior)
+      // После обеда: 4-5-6 в кластере (senior), 1-2-3 на выезде (young)
+      d.am_cluster.forEach((s, i) => result.push({slot:s, day:dIdx, group:'am_cluster', idx:i, kind:'young', half:'am'}));
+      result.push({slot:d.trip_full_am, day:dIdx, group:'trip_full_am', kind:'senior', half:'am'});
+      d.pm_cluster.forEach((s, i) => result.push({slot:s, day:dIdx, group:'pm_cluster', idx:i, kind:'senior', half:'pm'}));
+      result.push({slot:d.trip_full_pm, day:dIdx, group:'trip_full_pm', kind:'young', half:'pm'});
+    }
     if (d.type === 'trip6_am') result.push({slot:d.trip6_am, day:dIdx, group:'trip6_am', kind:'mixed', half:'am'});
     if (d.type === 'trip6_pm') result.push({slot:d.trip6_pm, day:dIdx, group:'trip6_pm', kind:'mixed', half:'pm'});
   });
@@ -2015,12 +2024,14 @@ function renderDay(day, idx) {
                          day.type === 'trip6_pm' ? 'выезд 6 отрядов после обеда (полдня)' :
                          day.type === 'trip3_am' ? 'утром 3 отряда на выезд (бассейн/картинг)' :
                          day.type === 'trip3_pm' ? 'после обеда 3 отряда на выезд' :
+                         day.type === 'trip3_full' ? 'два выезда: утром 4-5-6, после обеда 1-2-3 (1-2-3 и 4-5-6 параллельно в кластере)' :
                          (idx===0?'старт смены, знакомство':idx===4?'неделя 1, вечер — вечеринка':idx===9?'финал смены':'учебный день');
 
   const types = [
     {key:'normal', label:'Обычный'},
     {key:'trip3_am', label:'Выезд 3 утром'},
     {key:'trip3_pm', label:'Выезд 3 днём'},
+    {key:'trip3_full', label:'Выезд 3 × 2'},
     {key:'trip6_am', label:'Выезд 6 утром'},
     {key:'trip6_pm', label:'Выезд 6 днём'},
   ];
@@ -2065,6 +2076,12 @@ function renderDay(day, idx) {
   } else if (day.type === 'trip3_pm') {
     body.style.gridTemplateColumns = '1fr 1fr';
     body.appendChild(renderHalf(idx, 'am', day));
+    body.appendChild(renderTrip3Half(idx, 'pm', day));
+  } else if (day.type === 'trip3_full') {
+    // Утром: 4-5-6 на выезде, 1-2-3 в кластере. После обеда — наоборот.
+    // Уличного блока нет — обе группы заняты (кластер или выезд).
+    body.style.gridTemplateColumns = '1fr 1fr';
+    body.appendChild(renderTrip3Half(idx, 'am', day));
     body.appendChild(renderTrip3Half(idx, 'pm', day));
   } else {
     // Обычный день
@@ -2311,6 +2328,12 @@ function updateStats() {
       d.pm_cluster.forEach(s => { if (s.locked) locked++; });
       if (d.trip_full_pm.locked) locked++;
     }
+    if (d.type === 'trip3_full') {
+      d.am_cluster.forEach(s => { if (s.locked) locked++; });
+      if (d.trip_full_am.locked) locked++;
+      d.pm_cluster.forEach(s => { if (s.locked) locked++; });
+      if (d.trip_full_pm.locked) locked++;
+    }
     if (d.type === 'trip6_am' && d.trip6_am.locked) locked++;
     if (d.type === 'trip6_pm' && d.trip6_pm.locked) locked++;
   });
@@ -2367,7 +2390,7 @@ function saveEdit(day, group, idx) {
 function setDayType(day, type) {
   state.schedule[day].type = type;
   render();
-  const labels = {normal:'обычный',trip3_am:'выезд 3 отрядов утром',trip3_pm:'выезд 3 отрядов днём',trip6_am:'выезд 6 отрядов утром',trip6_pm:'выезд 6 отрядов днём'};
+  const labels = {normal:'обычный',trip3_am:'выезд 3 отрядов утром',trip3_pm:'выезд 3 отрядов днём',trip3_full:'выезд 3 × 2 (оба полудня)',trip6_am:'выезд 6 отрядов утром',trip6_pm:'выезд 6 отрядов днём'};
   toast(`День ${day+1}: ${labels[type] || type}`);
 }
 
@@ -2946,7 +2969,7 @@ async function regenDay(day) {
         if (vs[0] && vs[0].template) { const _fr = slotFromLibByTemplate(vs[0].template); if (_fr) Object.assign(d.trip6_am, _fr); }
         render();
       }
-    } else if (d.type === 'trip3_am') {
+    } else if (d.type === 'trip3_am' || d.type === 'trip3_full') {
       await regenGroup(day, 'am_cluster');
       if (!d.trip_full_am.locked) {
         const vs = await genTripVariants(day, 'trip_full_am', 1, 'trip3');
@@ -2964,7 +2987,7 @@ async function regenDay(day) {
         if (vs[0] && vs[0].template) { const _fr = slotFromLibByTemplate(vs[0].template); if (_fr) Object.assign(d.trip6_pm, _fr); }
         render();
       }
-    } else if (d.type === 'trip3_pm') {
+    } else if (d.type === 'trip3_pm' || d.type === 'trip3_full') {
       await regenGroup(day, 'pm_cluster');
       if (!d.trip_full_pm.locked) {
         const vs = await genTripVariants(day, 'trip_full_pm', 1, 'trip3');
@@ -3018,7 +3041,7 @@ async function generateAll() {
           if (vs[0] && vs[0].template) { const _fr = slotFromLibByTemplate(vs[0].template); if (_fr) Object.assign(day.trip6_am, _fr); }
           render();
         }
-      } else if (day.type === 'trip3_am') {
+      } else if (day.type === 'trip3_am' || day.type === 'trip3_full') {
         await regenGroup(d, 'am_cluster');
         if (!day.trip_full_am.locked) {
           const vs = await genTripVariants(d, 'trip_full_am', 1, 'trip3');
@@ -3036,7 +3059,7 @@ async function generateAll() {
           if (vs[0] && vs[0].template) { const _fr = slotFromLibByTemplate(vs[0].template); if (_fr) Object.assign(day.trip6_pm, _fr); }
           render();
         }
-      } else if (day.type === 'trip3_pm') {
+      } else if (day.type === 'trip3_pm' || day.type === 'trip3_full') {
         await regenGroup(d, 'pm_cluster');
         if (!day.trip_full_pm.locked) {
           const vs = await genTripVariants(d, 'trip_full_pm', 1, 'trip3');
@@ -3123,7 +3146,7 @@ function exportTSV() {
   state.schedule.forEach((d, i) => {
     const date = dateForDay(i);
     const dt = `${date.getDate()}.${String(date.getMonth()+1).padStart(2,'0')}`;
-    const typeLabels = {normal:'обычный',trip3_am:'полу-выезд утром',trip3_pm:'полу-выезд днём',trip6_am:'все 6 утром',trip6_pm:'все 6 днём'};
+    const typeLabels = {normal:'обычный',trip3_am:'полу-выезд утром',trip3_pm:'полу-выезд днём',trip3_full:'выезд 3 × 2',trip6_am:'все 6 утром',trip6_pm:'все 6 днём'};
     const typeLabel = typeLabels[d.type] || d.type;
 
     const writeNormalAM = () => {
@@ -3185,7 +3208,7 @@ function exportPrintHTML() {
   state.schedule.forEach((d, i) => {
     const date = dateForDay(i);
     const dt = `${date.getDate()}.${String(date.getMonth()+1).padStart(2,'0')} (${WEEKDAYS[date.getDay()]})`;
-    const typeLabels = {normal:'',trip3_am:' · полу-выезд утром',trip3_pm:' · полу-выезд после обеда',trip6_am:' · все 6 утром (полдня)',trip6_pm:' · все 6 после обеда (полдня)'};
+    const typeLabels = {normal:'',trip3_am:' · полу-выезд утром',trip3_pm:' · полу-выезд после обеда',trip3_full:' · выезд 3 × 2 (оба полудня)',trip6_am:' · все 6 утром (полдня)',trip6_pm:' · все 6 после обеда (полдня)'};
     const typeLabel = typeLabels[d.type] || '';
     body += `<h2>День ${i+1} — ${dt}${typeLabel}</h2><table><tr><th>Слот</th><th>Локация</th><th>Ротация</th><th>Активность</th><th>Педагог</th><th>Направление</th></tr>`;
 
