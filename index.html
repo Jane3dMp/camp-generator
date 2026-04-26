@@ -999,6 +999,12 @@
 
 <div class="config-panel">
   <div class="field">
+    <label>Тип смены</label>
+    <select id="camp-type" onchange="applyCampType()" style="width:100%;font-family:'Cormorant Garamond',serif;font-size:16px;border:1px solid var(--ink);background:var(--paper);padding:9px 12px;outline:none;cursor:pointer">
+      <option value="">— не задан —</option>
+    </select>
+  </div>
+  <div class="field">
     <label>Тема смены</label>
     <input type="text" id="theme" value="Лесная лаборатория">
   </div>
@@ -1111,6 +1117,7 @@ const LIBRARY_URL = 'https://script.google.com/macros/s/AKfycbxb6EEzzl-FguxjpIO5
 
 // Загружается асинхронно при старте; пустой пока не загрузилось
 let LIBRARY = [];
+let CAMP_TYPES = [];
 
 // Преобразование формата из Apps Script (template/teacher/direction/...) во внутренний (n/t/d/c + флаги)
 function convertLibraryItem(item) {
@@ -1134,11 +1141,13 @@ function convertLibraryItem(item) {
 
 async function loadLibrary() {
   try {
-    const r = await fetch(LIBRARY_URL + '?action=library');
+    // action=all отдаёт сразу и активности, и типы смен — одним запросом
+    const r = await fetch(LIBRARY_URL + '?action=all');
     const data = await r.json();
     if (!data.ok) throw new Error(data.error || 'Library API error');
     LIBRARY = data.activities.map(convertLibraryItem);
-    console.log('Library loaded: ' + LIBRARY.length + ' activities');
+    CAMP_TYPES = Array.isArray(data.campTypes) ? data.campTypes : [];
+    console.log('Library loaded: ' + LIBRARY.length + ' activities, ' + CAMP_TYPES.length + ' camp types');
     return LIBRARY;
   } catch(e) {
     console.error('Failed to load library:', e);
@@ -1316,8 +1325,107 @@ let state = {
   anchors: 'картинг, вечеринка в Деталях, ярмарка',
   schedule: [], // Заполняется в init() после загрузки библиотеки
   pendingPairs: [],
-  workWithoutThemes: false // Флажок «работать без тем пока»
+  workWithoutThemes: false, // Флажок «работать без тем пока»
+  campType: null // {type, description, themeStyle, anchors, emphasis} — выбранная строка с листа «Типы смен»
 };
+
+// ============================================================
+// ТИПЫ СМЕН (лист «Типы смен»)
+// ============================================================
+function populateCampTypeSelect() {
+  const sel = document.getElementById('camp-type');
+  if (!sel) return;
+  // Сохраняем текущий выбор (если есть)
+  const current = sel.value;
+  sel.innerHTML = '<option value="">— не задан —</option>' +
+    CAMP_TYPES.map(t => `<option value="${t.type.replace(/"/g,'&quot;')}">${t.type}</option>`).join('');
+  if (current && CAMP_TYPES.find(t => t.type === current)) sel.value = current;
+}
+
+function applyCampType() {
+  const sel = document.getElementById('camp-type');
+  const typeName = sel.value;
+  if (!typeName) {
+    state.campType = null;
+    toast('Тип смены сброшен');
+    return;
+  }
+  const ct = CAMP_TYPES.find(t => t.type === typeName);
+  if (!ct) { toast('Тип не найден: ' + typeName); return; }
+  state.campType = ct;
+  // Автозаполнение полей шапки. Если поле «Тема» пустое или совпадает с дефолтом — подставляем имя типа.
+  // «Якоря» подставляем всегда (берём только текст-описание, без машинных кодов вида 5:trip3_pm:вечеринка)
+  const themeInput = document.getElementById('theme');
+  const anchorsInput = document.getElementById('anchors');
+  if (themeInput) {
+    if (!themeInput.value.trim() || themeInput.value === 'Лесная лаборатория') {
+      themeInput.value = ct.type;
+    }
+  }
+  if (anchorsInput && ct.anchors) {
+    // Превращаем «5:trip3_pm:вечеринка, 8:trip6_am:лес, 10:normal:ярмарка»
+    // в человекочитаемое «вечеринка (д.5), лес (д.8), ярмарка (д.10)»
+    const human = parseAnchorsToHuman(ct.anchors);
+    if (human) anchorsInput.value = human;
+  }
+  syncConfig();
+  // Применяем якорные дни автоматически (тип дня + название из якоря)
+  applyAnchorsToSchedule(ct.anchors);
+  render();
+  toast('Тип смены: ' + ct.type);
+}
+
+// Парсит «5:trip3_pm:вечеринка, 8:trip6_am:лес» → массив объектов
+function parseAnchors(anchorsStr) {
+  if (!anchorsStr) return [];
+  return String(anchorsStr).split(/[,;\n]/).map(s => s.trim()).filter(Boolean).map(part => {
+    const [dayStr, dayType, ...rest] = part.split(':').map(s => s.trim());
+    return {
+      day: parseInt(dayStr, 10) - 1, // в коде дни 0-индексированы
+      dayType: dayType || 'normal',
+      what: rest.join(':') || ''
+    };
+  }).filter(a => !isNaN(a.day) && a.day >= 0 && a.day < NUM_DAYS);
+}
+
+function parseAnchorsToHuman(anchorsStr) {
+  const parsed = parseAnchors(anchorsStr);
+  if (parsed.length === 0) return '';
+  return parsed.map(a => `${a.what || '?'} (д.${a.day+1})`).join(', ');
+}
+
+// Применяет якоря к расписанию: ставит правильный тип дня
+// Маппинг типов дня из листа в коды state.schedule[i].type
+const DAY_TYPE_MAP = {
+  'normal': 'normal',
+  'trip3_am': 'trip3_am',
+  'trip3_pm': 'trip3_pm',
+  'trip6_am': 'trip6_am',
+  'trip6_pm': 'trip6_pm'
+};
+
+function applyAnchorsToSchedule(anchorsStr) {
+  const anchors = parseAnchors(anchorsStr);
+  anchors.forEach(a => {
+    const day = state.schedule[a.day];
+    if (!day) return;
+    const mapped = DAY_TYPE_MAP[a.dayType] || 'normal';
+    day.type = mapped;
+  });
+}
+
+// Форматирует контекст типа смены для промптов Claude.
+// Возвращает многострочный блок или пустую строку, если тип не выбран.
+function campTypeContext() {
+  const ct = state.campType;
+  if (!ct) return '';
+  const parts = [];
+  parts.push(`Тип смены: «${ct.type}».`);
+  if (ct.description) parts.push(`Описание типа: ${ct.description}`);
+  if (ct.themeStyle) parts.push(`Стиль тем: ${ct.themeStyle}`);
+  if (ct.emphasis) parts.push(`Акценты направлений: ${ct.emphasis}`);
+  return parts.join('\n') + '\n';
+}
 
 // ============================================================
 // УТИЛЫ
@@ -1355,7 +1463,8 @@ function toggleWorkWithoutThemes() {
 async function reloadLibrary() {
   toast('Перезагружаю библиотеку…');
   await loadLibrary();
-  if (LIBRARY.length > 0) toast('Загружено: ' + LIBRARY.length + ' активностей');
+  populateCampTypeSelect();
+  if (LIBRARY.length > 0) toast('Загружено: ' + LIBRARY.length + ' активностей · типов смен: ' + CAMP_TYPES.length);
   render();
 }
 
@@ -1518,8 +1627,12 @@ async function generateThemeForSlot(day, group, idx, isTripSlot, slotKey) {
 }
 
 async function genThemes(template, examples, sceneTheme, direction, duration) {
-  const prompt = `Тема смены: «${sceneTheme}». Шаблон занятия: «${template}». Направление: ${direction}. Длительность: ${duration} мин.
-${examples ? `Примеры тем для этого шаблона из прошлых смен (показывают стиль): ${examples}` : ''}
+  const ct = state.campType;
+  const styleHint = ct && ct.themeStyle ? `\nСтиль тем для этой смены: ${ct.themeStyle}` : '';
+  const typeHint = ct && ct.description ? `\nКонтекст типа смены («${ct.type}»): ${ct.description}` : '';
+
+  const prompt = `Тема смены: «${sceneTheme}». Шаблон занятия: «${template}». Направление: ${direction}. Длительность: ${duration} мин.${typeHint}${styleHint}
+${examples ? `\nПримеры тем для этого шаблона из прошлых смен (показывают стиль): ${examples}` : ''}
 
 Нужны 3 разных конкретных темы для этого занятия, привязанных к теме смены «${sceneTheme}».
 Стиль: короткое название работы или темы в кавычках. Например: «Кашпо-зверята», «Лесные тропинки», «Подводный город». Не описание, а название.
@@ -2155,7 +2268,7 @@ async function genTripVariants(day, slotKey, n=3, contextType=null) {
     .map(c => `• "${c.template}" — направление: ${c.direction}; педагог/ответственные: ${c.teacher}${c.examples ? '; примеры тем: ' + c.examples : ''}`)
     .join('\n');
 
-  const prompt = `Тема смены: «${state.theme}». Возраст: ${state.ages}. Якоря: ${state.anchors}.
+  const prompt = `${campTypeContext()}Тема смены: «${state.theme}». Возраст: ${state.ages}. Якоря: ${state.anchors}.
 
 Нужны ${n} вариантов для:
 — День ${day+1} из 10 (${WEEKDAYS[date.getDay()]}, ${date.getDate()} ${MONTHS[date.getMonth()]})
@@ -2343,7 +2456,7 @@ async function genVariantsForStation(day, group, idx, n=3) {
     .map(c => `• "${c.template}" — направление: ${c.direction}; педагог: ${c.teacher}${c.examples ? '; примеры тем: ' + c.examples : ''}`)
     .join('\n');
 
-  const prompt = `Тема смены: «${state.theme}». Возраст: ${state.ages}. Якоря: ${state.anchors}.
+  const prompt = `${campTypeContext()}Тема смены: «${state.theme}». Возраст: ${state.ages}. Якоря: ${state.anchors}.
 
 Нужны ${n} разных вариантов для:
 — День ${day+1} из 10 (${WEEKDAYS[date.getDay()]}, ${date.getDate()} ${MONTHS[date.getMonth()]})
@@ -2497,7 +2610,7 @@ async function regenGroup(day, group) {
       .map(c => `• "${c.template}" — направление: ${c.direction}; педагог: ${c.teacher}${c.examples ? '; примеры тем: ' + c.examples : ''}`)
       .join('\n');
 
-    const prompt = `Тема смены: «${state.theme}». Возраст: ${state.ages}. Якоря: ${state.anchors}.
+    const prompt = `${campTypeContext()}Тема смены: «${state.theme}». Возраст: ${state.ages}. Якоря: ${state.anchors}.
 
 Нужно выбрать ${targets.length} ${isCluster?'параллельных МК':'уличных активностей'} для:
 — День ${day+1} из 10 (${WEEKDAYS[date.getDay()]}, ${date.getDate()} ${MONTHS[date.getMonth()]}). Контекст: ${dayContext(day)}
@@ -2719,6 +2832,9 @@ function importJSON(e) {
       document.getElementById('ages').value = state.ages;
       document.getElementById('start-date').value = state.startDate;
       document.getElementById('anchors').value = state.anchors;
+      // Восстанавливаем тип смены в селекторе
+      const ctSel = document.getElementById('camp-type');
+      if (ctSel) ctSel.value = (state.campType && state.campType.type) || '';
       render();
       toast('Загружено');
     } catch(err) { toast('Ошибка чтения JSON'); }
@@ -3372,7 +3488,8 @@ async function init() {
       '<div style="padding:40px;text-align:center;color:var(--terra-deep);font-family:Cormorant Garamond,serif;font-style:italic;font-size:18px">Библиотека не загрузилась. Проверь подключение к интернету или адрес Google Apps Script.</div>';
     return;
   }
-  toast('Библиотека: ' + LIBRARY.length + ' активностей');
+  populateCampTypeSelect();
+  toast('Библиотека: ' + LIBRARY.length + ' активностей · типов смен: ' + CAMP_TYPES.length);
   // После загрузки библиотеки инициализируем расписание (defaultDay использует pickFromLib)
   state.schedule = Array.from({length: NUM_DAYS}, (_, i) => defaultDay(i));
   // Дефолтные типы для якорных событий: 1 полу-выезд (3 отряда) + 1 полный выезд (6 отрядов, полдня)
