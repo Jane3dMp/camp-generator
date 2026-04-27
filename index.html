@@ -4125,7 +4125,7 @@ async function generatePDFCopy() {
   const dirsList = Object.keys(groups).join(', ');
 
   const prompt =
-'Ты — копирайтер детского образовательного клуба «Прознание + Coddy» в Могилёве. Пишешь продающий PDF для родителей сомневающихся детей 6–12 лет.\n\n' +
+'Ты — копирайтер детского образовательного клуба «Прознание + Coddy» в Могилёве. Пишешь продающий PDF для родителей сомневающихся детей 6–11 лет.\n\n' +
 'ИСХОДНЫЕ ДАННЫЕ:\n' +
 '• Тема смены: «' + state.theme + '»\n' +
 '• Тип смены: ' + (ct ? ct.type + ' — ' + (ct.description || '') : 'не задан') + '\n' +
@@ -4155,7 +4155,7 @@ async function generatePDFCopy() {
     console.warn('AI копирайт не сработал, использую fallback:', e.message);
     return {
       headline: 'Десять дней, которые ребёнок запомнит',
-      intro: 'Городская дневная смена для детей 6–12 лет в Могилёве. Творчество, IT, спорт и события — каждый день что-то новое.',
+      intro: 'Городская дневная смена для детей 6–11 лет в Могилёве. Творчество, IT, спорт и события — каждый день что-то новое.',
       valueProposition: 'Структурированная программа на 10 дней, два горячих приёма пищи в день, выезды и финальная ярмарка с работами ребёнка.',
       eventsLead: 'В смене заложены большие события — выезды, спорт, праздники. Они задают ритм и собирают команду отрядов.',
       fairLead: 'В последний день — ярмарка. Ребёнок продаёт свои работы, родители приходят, видят результат своими глазами.'
@@ -4302,7 +4302,7 @@ function buildCoverHTML(copy) {
           <p class="pdf-cover-sub">${copy.intro || ''}</p>
           <div class="pdf-cover-meta">
             <div><small>дата смены</small><strong>${dateRange}</strong></div>
-            <div><small>возраст</small><strong>6–12 лет</strong></div>
+            <div><small>возраст</small><strong>6–11 лет</strong></div>
             <div><small>часы</small><strong>${DETAILS['Время'] || '7:30–17:30'}</strong></div>
             <div><small>город</small><strong>${DETAILS['Город'] || 'Могилёв'}</strong></div>
           </div>
@@ -4330,7 +4330,7 @@ function buildAboutHTML(copy) {
       <div class="pdf-tagline-row">
         ${ct ? `<span class="pdf-tag dark">${ct.type}</span>` : ''}
         <span class="pdf-tag yellow">10 дней</span>
-        <span class="pdf-tag yellow">6–12 лет</span>
+        <span class="pdf-tag yellow">6–11 лет</span>
         <span class="pdf-tag">2 возрастные группы</span>
       </div>
       ${ct && ct.description ? `<p class="pdf-lead" style="margin-top:8px">${ct.description}</p>` : ''}
@@ -4471,7 +4471,7 @@ function buildTeaserHTML(copy) {
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;background:#151617;color:#FFF;padding:20px 22px;border-radius:14px">
             <div style="font-family:Inter,sans-serif;font-size:13px">
               <div style="font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:#FED634;font-weight:600;margin-bottom:4px">даты</div>
-              ${dateRange}, 6–12 лет
+              ${dateRange}, 6–11 лет
             </div>
             <div style="font-family:Inter,sans-serif;font-size:13px">
               <div style="font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:#FED634;font-weight:600;margin-bottom:4px">цена</div>
