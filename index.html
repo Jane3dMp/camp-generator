@@ -925,6 +925,45 @@
     background: var(--paper-warm);
   }
   .variant:hover { border-color: var(--terra); background: var(--paper); }
+
+  /* Кнопка «сохранить тему в библиотеку» */
+  .theme-save-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    border: 1px solid rgba(21,22,23,0.2);
+    background: var(--white);
+    color: rgba(21,22,23,0.55);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 3px;
+    line-height: 1;
+    transition: all 0.15s ease;
+  }
+  .theme-save-btn:hover { background: var(--yellow); color: var(--ink); border-color: var(--ink); }
+  .theme-save-btn:disabled { cursor: default; opacity: 0.7; }
+
+  /* Ссылки-референсы под темой */
+  .theme-refs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed rgba(21,22,23,0.12);
+  }
+  .theme-refs a {
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 11px;
+    padding: 3px 8px;
+    color: rgba(21,22,23,0.7);
+    text-decoration: none;
+    background: rgba(21,22,23,0.04);
+    border-radius: 3px;
+    border: 1px solid transparent;
+  }
+  .theme-refs a:hover { background: var(--yellow); color: var(--ink); border-color: var(--ink); }
   .variant-name {
     font-family: Geologica, system-ui, sans-serif;
     font-size: 17px;
@@ -2342,16 +2381,43 @@ async function generateThemeForSlot(day, group, idx, isTripSlot, slotKey) {
     const themes = await genThemes(slot.template, examplesStr, state.theme, slot.direction, slot.duration);
     const groupArg = group === null || group === undefined ? 'null' : `'${escapeJs(group)}'`;
     const slotKeyArg = slotKey === null || slotKey === undefined ? 'null' : `'${escapeJs(slotKey)}'`;
+    // Контекстное слово для поискового запроса по направлению
+    const dir = slot.direction || '';
+    const dirHint =
+      dir === 'IT' ? 'дети' :
+      dir === 'Творчество' ? 'детский мастер-класс' :
+      dir.includes('Soft') ? 'дети' :
+      dir.includes('спорт') || dir.includes('Активность') ? 'детский лагерь' :
+      'дети';
+    const tplEsc = escapeJs(slot.template);
     document.getElementById('modal-body').innerHTML = `
       <div style="font-family:Geologica, serif;font-style:italic;font-size:13px;margin-bottom:14px;color:rgba(21,22,23,0.7)">
         Шаблон: <strong>${slot.template}</strong> · Тема смены: <strong>«${state.theme}»</strong>
       </div>
-      ${themes.map((t, i) => `
-        <div class="variant" onclick="applyTheme(${day},${groupArg},${idx},${i},${isTripSlot},${slotKeyArg})">
-          <div class="variant-name">${t.theme}</div>
-          <div class="variant-rationale">${t.rationale || ''}</div>
+      <div style="font-family:Geologica, serif;font-style:italic;font-size:11px;color:rgba(21,22,23,0.5);margin-bottom:14px;line-height:1.4">
+        Клик по карточке — применить тему в ячейку. <strong>💾</strong> рядом — сохранить тему в библиотеку (в графу «Примеры тем» этого шаблона). Под темой — ссылки на референсы.
+      </div>
+      ${themes.map((t, i) => {
+        const themeEsc = escapeJs(t.theme);
+        const q = encodeURIComponent(slot.template + ' ' + t.theme + ' ' + dirHint);
+        const pinUrl  = 'https://www.pinterest.com/search/pins/?q=' + q;
+        const gimgUrl = 'https://www.google.com/search?tbm=isch&q=' + q;
+        const ytUrl   = 'https://www.youtube.com/results?search_query=' + q;
+        return `
+        <div class="variant" style="position:relative">
+          <div onclick="applyTheme(${day},${groupArg},${idx},${i},${isTripSlot},${slotKeyArg})" style="cursor:pointer;padding-right:36px">
+            <div class="variant-name">${t.theme}</div>
+            <div class="variant-rationale">${t.rationale || ''}</div>
+          </div>
+          <button class="theme-save-btn" title="Сохранить тему в библиотеку (в Примеры тем)"
+                  onclick="event.stopPropagation();saveThemeAsIdea('${tplEsc}','${themeEsc}',this)">💾</button>
+          <div class="theme-refs">
+            <a href="${pinUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">📌 Pinterest</a>
+            <a href="${gimgUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🖼 Google</a>
+            <a href="${ytUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🎬 YouTube</a>
+          </div>
         </div>
-      `).join('')}
+      `;}).join('')}
       <div class="modal-actions">
         <button class="btn" onclick="closeModal()">Отмена</button>
         <button class="btn btn-primary" onclick="generateThemeForSlot(${day},${groupArg},${idx},${isTripSlot},${slotKeyArg})">Ещё варианты</button>
@@ -2382,6 +2448,45 @@ ${examples ? `\nПримеры тем для этого шаблона из пр
   const text = await callClaude(prompt);
   const cleaned = text.replace(/```json|```/g,'').trim();
   return JSON.parse(cleaned);
+}
+
+// Сохраняет тему в графу «Примеры тем» шаблона (в листе «Активности» Google-таблицы).
+// Через Apps Script ручку appendThemeExample. После успеха — кнопка превращается в галочку.
+async function saveThemeAsIdea(templateName, themeText, btnEl) {
+  if (!templateName || !themeText) return;
+  if (btnEl) {
+    btnEl.disabled = true;
+    btnEl.textContent = '…';
+  }
+  try {
+    const r = await fetch(LIBRARY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'appendThemeExample', templateName: templateName, theme: themeText })
+    });
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || 'API error');
+    if (btnEl) {
+      btnEl.textContent = '✓';
+      btnEl.style.color = 'var(--moss)';
+      btnEl.title = data.result && data.result.alreadyPresent
+        ? 'Эта тема уже была в примерах' : 'Тема добавлена в Примеры тем';
+    }
+    toast(data.result && data.result.alreadyPresent
+      ? `Тема «${themeText}» уже была в библиотеке`
+      : `Тема «${themeText}» сохранена в библиотеку`);
+    // Локально тоже обновим LIBRARY, чтобы Claude в этой сессии уже видел тему как пример
+    const lib = LIBRARY.find(a => a.template === templateName);
+    if (lib) {
+      const ex = String(lib.examples || '').trim();
+      if (!ex.toLowerCase().includes(themeText.trim().toLowerCase())) {
+        lib.examples = ex ? ex + ', ' + themeText : themeText;
+      }
+    }
+  } catch(e) {
+    if (btnEl) { btnEl.disabled = false; btnEl.textContent = '💾'; }
+    toast('Ошибка: ' + e.message);
+  }
 }
 
 function applyTheme(day, group, idx, themeIdx, isTripSlot, slotKey) {
