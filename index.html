@@ -150,6 +150,210 @@
     border-top: none;
   }
 
+  /* === Переключатель видов: Сетка / Педагоги === */
+  .view-switcher {
+    display: flex;
+    gap: 4px;
+    margin: 0 0 18px;
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 0;
+  }
+  .view-btn {
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 10px 18px;
+    background: transparent;
+    color: rgba(21,22,23,0.55);
+    border: 1px solid transparent;
+    border-bottom: none;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.15s ease;
+    margin-bottom: -2px;
+  }
+  .view-btn:hover { color: var(--ink); background: var(--paper-warm); }
+  .view-btn.active {
+    background: var(--paper-warm);
+    color: var(--ink);
+    border-color: var(--ink);
+    border-bottom: 2px solid var(--paper-warm);
+    font-weight: 600;
+  }
+
+  /* === Расписания педагогов === */
+  .teachers-controls {
+    background: var(--paper-warm);
+    border: 1px solid var(--ink);
+    padding: 14px 18px;
+    margin-bottom: 18px;
+  }
+  .teachers-control-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .teachers-label {
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(21,22,23,0.6);
+    font-weight: 600;
+  }
+  #teacher-select {
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 14px;
+    border: 1px solid var(--ink);
+    background: var(--white);
+    padding: 6px 10px;
+    color: var(--ink);
+    outline: none;
+    min-width: 240px;
+    cursor: pointer;
+  }
+  .teachers-hint {
+    font-family: Geologica, serif;
+    font-style: italic;
+    font-size: 12px;
+    color: rgba(21,22,23,0.55);
+    margin-top: 8px;
+    line-height: 1.4;
+  }
+  .teacher-block {
+    background: var(--white);
+    border: 1px solid var(--ink);
+    margin-bottom: 24px;
+    page-break-after: always;
+    break-after: page;
+  }
+  .teacher-block:last-child { page-break-after: auto; break-after: auto; }
+  .teacher-head {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 14px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .teacher-head h2 {
+    font-family: Geologica, system-ui, sans-serif;
+    font-weight: 600;
+    font-size: 22px;
+    margin: 0;
+    color: var(--yellow);
+  }
+  .teacher-head .teacher-meta {
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: rgba(245,245,240,0.7);
+  }
+  .teacher-day {
+    border-bottom: 1px solid rgba(21,22,23,0.12);
+    padding: 12px 20px;
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+  .teacher-day:last-child { border-bottom: none; }
+  .teacher-day-empty { background: rgba(21,22,23,0.02); }
+  .teacher-day-num {
+    font-family: Geologica, system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1.2;
+  }
+  .teacher-day-num small {
+    display: block;
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(21,22,23,0.55);
+    font-weight: 500;
+    margin-top: 2px;
+  }
+  .teacher-slot {
+    display: grid;
+    grid-template-columns: 110px 1fr 90px 90px;
+    gap: 14px;
+    padding: 6px 0;
+    align-items: baseline;
+    border-bottom: 1px dotted rgba(21,22,23,0.1);
+  }
+  .teacher-slot:last-child { border-bottom: none; }
+  .teacher-slot-time {
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .teacher-slot-name {
+    font-family: Geologica, system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .teacher-slot-theme {
+    display: block;
+    font-family: Geologica, serif;
+    font-style: italic;
+    font-size: 12px;
+    color: rgba(21,22,23,0.6);
+    margin-top: 2px;
+    line-height: 1.3;
+  }
+  .teacher-slot-room, .teacher-slot-troops {
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 12px;
+    color: rgba(21,22,23,0.7);
+  }
+  .teacher-slot-troops { color: var(--yellow-deep); font-weight: 600; }
+  .teacher-day-rest {
+    font-family: Geologica, serif;
+    font-style: italic;
+    color: rgba(21,22,23,0.4);
+    font-size: 13px;
+  }
+  .teacher-day-trip {
+    background: var(--yellow);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 13px;
+    color: var(--ink);
+    font-weight: 500;
+    display: inline-block;
+  }
+  .teachers-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: rgba(21,22,23,0.5);
+    font-family: Geologica, serif;
+    font-style: italic;
+    font-size: 14px;
+  }
+
+  /* === ПЕЧАТЬ === */
+  @media print {
+    body { background: white; padding: 0; margin: 0; }
+    .no-print, .header, .config-panel, .config-actions-row, #schedule-container, .actions-bar, .toolbar, .rotation-help, #zoom-panel, .program-side { display: none !important; }
+    #teachers-view { display: block !important; }
+    .teacher-block {
+      page-break-after: always;
+      break-after: page;
+      box-shadow: none;
+      border: 1px solid #000;
+      margin: 0 0 8mm;
+    }
+    .teacher-block:last-child { page-break-after: auto; break-after: auto; }
+    .teacher-head { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .teacher-day-trip { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+
   /* Кнопки */
   .btn {
     font-family: Inter, system-ui, sans-serif;
@@ -1041,6 +1245,11 @@
   </div>
 </div>
 
+<div class="view-switcher no-print">
+  <button class="view-btn active" id="view-btn-grid" onclick="switchView('grid')">📅 Сетка смены</button>
+  <button class="view-btn" id="view-btn-teachers" onclick="switchView('teachers')">👨‍🏫 Расписания педагогов</button>
+</div>
+
 <div class="config-panel">
   <div class="field">
     <label>Тип смены</label>
@@ -1107,6 +1316,21 @@
 </div>
 
 <div id="schedule-container"></div>
+
+<div id="teachers-view" style="display:none">
+  <div class="teachers-controls no-print">
+    <div class="teachers-control-row">
+      <label class="teachers-label">Педагог:</label>
+      <select id="teacher-select" onchange="renderTeacherSchedule()">
+        <option value="__all__">— выбери педагога —</option>
+      </select>
+      <button class="btn" onclick="document.getElementById('teacher-select').value='__all__';renderTeacherSchedule()">Все сразу</button>
+      <button class="btn btn-primary" onclick="window.print()">🖨 Распечатать</button>
+    </div>
+    <div class="teachers-hint">Выбери педагога — увидишь его расписание на 10 дней. «Все сразу» покажет всех именованных педагогов один за другим — удобно для печати единым документом.</div>
+  </div>
+  <div id="teachers-content"></div>
+</div>
 
 <div class="actions-bar">
   <div class="actions-info" id="api-hint">Перегенерация и темы идут через твой Apps Script (ключ Anthropic в Script Properties — никому не виден).</div>
@@ -4648,6 +4872,258 @@ function generatePreviewHTML(mode) {
 
 async function generateTeaserPDF() { return generatePDFCommon('teaser'); }
 async function generateFullPDF()   { return generatePDFCommon('full'); }
+
+// ============================================================
+// РАСПИСАНИЕ ПЕДАГОГОВ
+// Собирает по state.schedule, для каждого именованного педагога — его слоты
+// по дням. Выезды — пометкой «Едет со всеми». Кураторы и admin'ы пропускаются.
+// ============================================================
+
+// Считаем «именованным» педагога с пробелом в имени (Фамилия Имя), без слов «куратор», «админ», «вожат».
+function isNamedTeacher(name) {
+  if (!name) return false;
+  const n = String(name).trim().toLowerCase();
+  if (!n) return false;
+  if (n.includes('куратор')) return false;
+  if (n.includes('админ')) return false;
+  if (n.includes('вожат')) return false;
+  if (n.includes('тренер')) return false;
+  // Если значение разделено запятыми — это списки кураторов/админов, не именованные
+  if (n.includes(',')) return false;
+  // Допустимо: «Кургузикова Маша», «Афонасенко Женя» (минимум два слова)
+  return /\s/.test(n.trim());
+}
+
+// Извлекает уникальных именованных педагогов из LIBRARY.
+function getNamedTeachersFromLibrary() {
+  const set = new Set();
+  LIBRARY.forEach(a => {
+    const t = (a.t || '').trim();
+    if (isNamedTeacher(t)) set.add(t);
+  });
+  return Array.from(set).sort((a, b) => a.localeCompare(b, 'ru'));
+}
+
+// Собирает расписание ОДНОГО педагога: массив дней.
+// Каждый элемент: { dayIdx, dateStr, weekday, dayType, slots: [...], tripNote: string|null }
+// slot: { time, template, theme, room, troops, half }
+function buildTeacherSchedule(teacherName) {
+  const target = String(teacherName || '').trim().toLowerCase();
+  const result = [];
+  state.schedule.forEach((d, idx) => {
+    const date = dateForDay(idx);
+    const dateStr = date.getDate() + ' ' + MONTHS[date.getMonth()];
+    const weekday = WEEKDAYS[date.getDay()];
+    const slots = [];
+    let tripNote = null;
+
+    // Если день — полный выезд 6 отрядов: показываем как «Едет со всеми»
+    if (d.type === 'trip6_am' || d.type === 'trip6_pm') {
+      const slot = d.type === 'trip6_am' ? d.trip6_am : d.trip6_pm;
+      const half = d.type === 'trip6_am' ? 'утром' : 'после обеда';
+      tripNote = `Полный выезд ${half}: ${slot && slot.template ? slot.template : 'все 6 отрядов'}. Все педагоги едут со сменой.`;
+    }
+
+    // Обычные слоты в кластерах + улицах
+    const groups = ['am_cluster', 'am_outside', 'pm_cluster', 'pm_outside'];
+    groups.forEach(g => {
+      const arr = d[g];
+      if (!Array.isArray(arr)) return;
+      arr.forEach((s, i) => {
+        if (!s || !s.template) return;
+        const tch = String(s.teacher || '').trim().toLowerCase();
+        if (tch !== target) return;
+        const isAM = g.startsWith('am_');
+        const time = isAM ? '9:30–12:30' : '14:00–17:00';
+        const half = isAM ? 'утро' : 'после обеда';
+        const isOutside = g.includes('outside');
+        // Группа отрядов: до обеда обычно «1-2-3 в кластере, 4-5-6 на улице», после обеда меняются
+        let troops;
+        if (isAM) troops = isOutside ? '4-5-6' : '1-2-3';
+        else      troops = isOutside ? '1-2-3' : '4-5-6';
+        slots.push({
+          time, half,
+          template: s.template,
+          theme: s.theme || s.ageVariant || '',
+          room: s.room || '—',
+          troops,
+          isOutside
+        });
+      });
+    });
+
+    // Полу-выезд 3 отрядов: trip_full_am / trip_full_pm
+    ['trip_full_am', 'trip_full_pm'].forEach(g => {
+      const s = d[g];
+      if (!s || !s.template) return;
+      const tch = String(s.teacher || '').trim().toLowerCase();
+      if (tch !== target) return;
+      const isAM = g === 'trip_full_am';
+      const half = isAM ? 'утро' : 'после обеда';
+      const time = isAM ? '9:30–12:30' : '14:00–17:00';
+      // На trip3_pm уезжают 1-2-3, на trip3_am — 4-5-6 (см. логику в _allSlots)
+      let troops;
+      if (d.type === 'trip3_am') troops = '4-5-6 (выезд)';
+      else if (d.type === 'trip3_pm') troops = '1-2-3 (выезд)';
+      else if (d.type === 'trip3_full') troops = isAM ? '4-5-6 (выезд)' : '1-2-3 (выезд)';
+      else troops = '3 отряда (выезд)';
+      slots.push({
+        time, half,
+        template: s.template,
+        theme: s.theme || s.ageVariant || '',
+        room: s.room || '—',
+        troops,
+        isOutside: true,
+        isTrip: true
+      });
+    });
+
+    result.push({
+      dayIdx: idx,
+      dateStr,
+      weekday,
+      dayType: d.type,
+      slots,
+      tripNote
+    });
+  });
+  return result;
+}
+
+// Заполняет выпадашку списком педагогов
+function populateTeacherSelect() {
+  const sel = document.getElementById('teacher-select');
+  if (!sel) return;
+  const teachers = getNamedTeachersFromLibrary();
+  // Сохраняем текущее значение если оно есть и валидно
+  const current = sel.value;
+  sel.innerHTML = '<option value="__none__">— выбери педагога —</option>'
+    + '<option value="__all__">Все педагоги (для печати)</option>'
+    + teachers.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+  if (current && Array.from(sel.options).some(o => o.value === current)) {
+    sel.value = current;
+  } else {
+    sel.value = '__none__';
+  }
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderTeacherBlock(teacherName) {
+  const days = buildTeacherSchedule(teacherName);
+  const totalSlots = days.reduce((s, d) => s + d.slots.length, 0);
+  const tripDays = days.filter(d => d.tripNote).length;
+
+  let html = `
+    <div class="teacher-block">
+      <div class="teacher-head">
+        <h2>${escapeHtml(teacherName)}</h2>
+        <div class="teacher-meta">
+          ${totalSlots} занятий · ${tripDays > 0 ? tripDays + ' выездных дн.' : 'без полных выездов'} · смена «${escapeHtml(state.theme || '')}»
+        </div>
+      </div>
+  `;
+
+  days.forEach(d => {
+    const isEmpty = d.slots.length === 0 && !d.tripNote;
+    html += `
+      <div class="teacher-day ${isEmpty ? 'teacher-day-empty' : ''}">
+        <div class="teacher-day-num">
+          День ${d.dayIdx + 1}
+          <small>${d.dateStr} · ${d.weekday}</small>
+        </div>
+        <div class="teacher-day-content">
+    `;
+    if (d.tripNote) {
+      html += `<div class="teacher-day-trip">🚌 ${escapeHtml(d.tripNote)}</div>`;
+      if (d.slots.length > 0) {
+        html += '<div style="margin-top:8px"></div>';
+      }
+    }
+    if (d.slots.length === 0 && !d.tripNote) {
+      html += `<div class="teacher-day-rest">— занятий нет —</div>`;
+    } else if (d.slots.length > 0) {
+      d.slots.forEach(s => {
+        html += `
+          <div class="teacher-slot">
+            <div class="teacher-slot-time">${s.time}</div>
+            <div>
+              <div class="teacher-slot-name">${escapeHtml(s.template)}${s.theme ? '' : ''}</div>
+              ${s.theme ? `<span class="teacher-slot-theme">«${escapeHtml(s.theme)}»</span>` : ''}
+            </div>
+            <div class="teacher-slot-room">${escapeHtml(s.room)}</div>
+            <div class="teacher-slot-troops">${escapeHtml(s.troops)}</div>
+          </div>
+        `;
+      });
+    }
+    html += `</div></div>`;
+  });
+
+  html += `</div>`;
+  return html;
+}
+
+function renderTeacherSchedule() {
+  const sel = document.getElementById('teacher-select');
+  const content = document.getElementById('teachers-content');
+  if (!sel || !content) return;
+  const value = sel.value;
+
+  if (value === '__none__' || !value) {
+    content.innerHTML = '<div class="teachers-empty">Выбери педагога в списке выше — увидишь его расписание на 10 дней.</div>';
+    return;
+  }
+
+  if (value === '__all__') {
+    const teachers = getNamedTeachersFromLibrary();
+    if (teachers.length === 0) {
+      content.innerHTML = '<div class="teachers-empty">В библиотеке нет именованных педагогов.</div>';
+      return;
+    }
+    content.innerHTML = teachers.map(t => renderTeacherBlock(t)).join('');
+    return;
+  }
+
+  content.innerHTML = renderTeacherBlock(value);
+}
+
+function switchView(view) {
+  const grid = document.getElementById('schedule-container');
+  const teachers = document.getElementById('teachers-view');
+  const btnGrid = document.getElementById('view-btn-grid');
+  const btnTeachers = document.getElementById('view-btn-teachers');
+  const toolbar = document.querySelector('.toolbar');
+  const actionsBar = document.querySelector('.actions-bar');
+  const rotHelp = document.querySelector('.rotation-help');
+
+  if (view === 'teachers') {
+    if (grid) grid.style.display = 'none';
+    if (toolbar) toolbar.style.display = 'none';
+    if (actionsBar) actionsBar.style.display = 'none';
+    if (rotHelp) rotHelp.style.display = 'none';
+    if (teachers) teachers.style.display = 'block';
+    btnGrid.classList.remove('active');
+    btnTeachers.classList.add('active');
+    populateTeacherSelect();
+    renderTeacherSchedule();
+  } else {
+    if (grid) grid.style.display = '';
+    if (toolbar) toolbar.style.display = '';
+    if (actionsBar) actionsBar.style.display = '';
+    if (rotHelp) rotHelp.style.display = '';
+    if (teachers) teachers.style.display = 'none';
+    btnGrid.classList.add('active');
+    btnTeachers.classList.remove('active');
+  }
+}
 
 init();
 </script>
