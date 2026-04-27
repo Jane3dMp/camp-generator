@@ -1056,8 +1056,9 @@
     <button class="btn btn-primary" onclick="generateAll()">⚡ Сгенерировать всё</button>
     <button class="btn" onclick="openDraftsPanel()" title="Черновики смен в Google Sheets">📁 Черновики</button>
     <button class="btn" onclick="openExpandLibraryPanel()" title="Расширить библиотеку — ИИ предложит похожие шаблоны">➕ Расширить библиотеку</button>
-    <button class="btn" onclick="generateTeaserPDF()" title="Короткий PDF для рассылки в мессенджер (1-2 страницы)">📄 Тизер</button>
+    <button class="btn" onclick="generateTeaserPDF()" title="Короткий PDF для рассылки в мессенджер (1 страница)">📄 Тизер</button>
     <button class="btn" onclick="generateFullPDF()" title="Полная программа смены для родителей (6 страниц)">📄 Полная программа</button>
+    <button class="btn btn-ghost" onclick="generatePreviewHTML('full')" title="Превью полной программы в новой вкладке (без скачивания PDF)">👁 Превью</button>
     <button class="btn" onclick="reloadLibrary()" title="Перезагрузить библиотеку из Google Sheets">📚 ↻</button>
   </div>
 </div>
@@ -4168,26 +4169,28 @@ const PDF_STYLES = `
 <style>
   .pdf-doc { font-family: Inter, system-ui, sans-serif; color: #151617; background: #FFFFFF; line-height: 1.45; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .pdf-doc * { box-sizing: border-box; }
-  .pdf-page { width: 210mm; height: 297mm; padding: 18mm 16mm; position: relative; background: #FFFFFF; overflow: hidden; }
-  .pdf-page + .pdf-page { page-break-before: always; break-before: page; }
+  .pdf-page { width: 794px; height: 1123px; padding: 68px 60px; position: relative; background: #FFFFFF; overflow: hidden; box-sizing: border-box; }
   .pdf-cover { background: #FED634; padding: 0; }
-  .pdf-cover-inner { padding: 18mm 16mm; height: 100%; display: flex; flex-direction: column; justify-content: space-between; }
+  .pdf-cover-inner { padding: 60px 56px; width: 100%; height: 100%; display: flex; flex-direction: column; gap: 28px; box-sizing: border-box; }
+  .pdf-cover-top { flex: 0 0 auto; }
+  .pdf-cover-image-block { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; }
+  .pdf-cover-image-block img { width: 280px; height: 280px; object-fit: cover; border-radius: 20px; box-shadow: 0 12px 32px rgba(0,0,0,0.12); display: block; }
+  .pdf-cover-bottom { flex: 0 0 auto; }
   .pdf-cover-eyebrow { font-family: Inter, sans-serif; font-size: 11px; letter-spacing: 0.3em; text-transform: uppercase; color: #151617; font-weight: 600; }
   .pdf-cover-title { font-family: Geologica, sans-serif; font-size: 56px; font-weight: 800; line-height: 1; margin: 24px 0 18px; color: #151617; letter-spacing: -0.02em; }
   .pdf-cover-accent { font-family: Caveat, cursive; font-size: 64px; font-weight: 700; color: #151617; line-height: 0.95; display: inline-block; transform: rotate(-2deg); }
-  .pdf-cover-sub { font-family: Inter, sans-serif; font-size: 18px; max-width: 130mm; color: #151617; line-height: 1.4; }
+  .pdf-cover-sub { font-family: Inter, sans-serif; font-size: 18px; max-width: 490px; color: #151617; line-height: 1.4; }
   .pdf-cover-meta { display: flex; gap: 24px; flex-wrap: wrap; font-family: Inter, sans-serif; font-size: 12px; color: #151617; border-top: 2px solid #151617; padding-top: 14px; margin-top: 18px; }
   .pdf-cover-meta > div { line-height: 1.3; }
   .pdf-cover-meta small { display: block; font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: rgba(21,22,23,0.55); font-weight: 600; margin-bottom: 3px; }
   .pdf-cover-meta strong { display: block; font-size: 17px; font-weight: 700; }
-  .pdf-cover-image { position: absolute; right: 16mm; top: 100mm; width: 70mm; height: 70mm; border-radius: 6mm; overflow: hidden; box-shadow: 0 4mm 12mm rgba(0,0,0,0.12); }
-  .pdf-cover-image img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  /* Картинку обложки рендерим через .pdf-cover-image-block (см. выше) */
 
   .pdf-section-eyebrow { font-family: Inter, sans-serif; font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; color: rgba(21,22,23,0.55); font-weight: 600; margin-bottom: 8px; }
   .pdf-h1 { font-family: Geologica, sans-serif; font-size: 32px; font-weight: 700; color: #151617; margin: 0 0 16px; line-height: 1.05; letter-spacing: -0.01em; }
   .pdf-h1 em { font-family: Caveat, cursive; font-style: normal; font-weight: 600; background: #FED634; padding: 0 8px; border-radius: 4px; }
   .pdf-h2 { font-family: Geologica, sans-serif; font-size: 22px; font-weight: 600; color: #151617; margin: 0 0 10px; }
-  .pdf-lead { font-family: Inter, sans-serif; font-size: 14px; line-height: 1.55; color: rgba(21,22,23,0.85); max-width: 160mm; }
+  .pdf-lead { font-family: Inter, sans-serif; font-size: 14px; line-height: 1.55; color: rgba(21,22,23,0.85); max-width: 600px; }
   .pdf-strong-quote { font-family: Caveat, cursive; font-size: 28px; line-height: 1.2; color: #151617; padding: 16px 0; }
 
   .pdf-tagline-row { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0 20px; }
@@ -4196,14 +4199,14 @@ const PDF_STYLES = `
   .pdf-tag.sky { background: #41BEEA; color: #FFFFFF; }
   .pdf-tag.dark { background: #151617; color: #FFFFFF; }
 
-  .pdf-day-timeline { border: 2px solid #151617; border-radius: 4mm; padding: 14px 18px; margin-top: 14px; background: #FFFFFF; }
+  .pdf-day-timeline { border: 2px solid #151617; border-radius: 14px; padding: 14px 18px; margin-top: 14px; background: #FFFFFF; }
   .pdf-day-timeline-row { display: grid; grid-template-columns: 90px 1fr; gap: 14px; padding: 8px 0; border-bottom: 1px solid rgba(21,22,23,0.1); }
   .pdf-day-timeline-row:last-child { border-bottom: none; }
   .pdf-day-timeline-time { font-family: Geologica, sans-serif; font-size: 13px; font-weight: 600; color: #151617; }
   .pdf-day-timeline-what { font-family: Inter, sans-serif; font-size: 13px; color: rgba(21,22,23,0.85); line-height: 1.4; }
 
   .pdf-direction-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
-  .pdf-direction-card { padding: 14px 16px; border-radius: 4mm; border: 1px solid rgba(21,22,23,0.12); background: #FFFFFF; }
+  .pdf-direction-card { padding: 14px 16px; border-radius: 14px; border: 1px solid rgba(21,22,23,0.12); background: #FFFFFF; }
   .pdf-direction-card.it { background: #EBF4FE; border-color: rgba(65,190,234,0.4); border-left: 4px solid #41BEEA; }
   .pdf-direction-card.creative { background: #FFFBEC; border-color: rgba(254,214,52,0.5); border-left: 4px solid #FED634; }
   .pdf-direction-card.soft { border-left: 4px solid #8FA370; }
@@ -4214,17 +4217,17 @@ const PDF_STYLES = `
   .pdf-direction-card li { margin-bottom: 3px; }
 
   .pdf-events-list { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
-  .pdf-event-row { display: grid; grid-template-columns: 70px 110px 1fr; gap: 12px; padding: 10px 14px; background: #F5F5F0; border-radius: 3mm; align-items: center; }
+  .pdf-event-row { display: grid; grid-template-columns: 70px 110px 1fr; gap: 12px; padding: 10px 14px; background: #F5F5F0; border-radius: 10px; align-items: center; }
   .pdf-event-day { font-family: Geologica, sans-serif; font-size: 22px; font-weight: 800; color: #151617; }
   .pdf-event-day small { display: block; font-family: Inter, sans-serif; font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: rgba(21,22,23,0.55); font-weight: 500; margin-top: 2px; }
   .pdf-event-label { font-family: Inter, sans-serif; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; padding: 4px 8px; background: #FED634; color: #151617; font-weight: 600; border-radius: 2px; text-align: center; }
   .pdf-event-name { font-family: Geologica, sans-serif; font-size: 16px; font-weight: 600; color: #151617; }
 
-  .pdf-fair-block { background: #FED634; padding: 24px 24px; border-radius: 5mm; margin-top: 18px; }
+  .pdf-fair-block { background: #FED634; padding: 24px 24px; border-radius: 18px; margin-top: 18px; }
   .pdf-fair-block .pdf-h2 { margin-bottom: 8px; }
   .pdf-fair-block p { font-family: Inter, sans-serif; font-size: 13px; line-height: 1.5; margin: 0; color: #151617; }
 
-  .pdf-cta-block { margin-top: 24px; padding: 20px 24px; background: #151617; color: #FFFFFF; border-radius: 5mm; }
+  .pdf-cta-block { margin-top: 24px; padding: 20px 24px; background: #151617; color: #FFFFFF; border-radius: 18px; }
   .pdf-cta-block h2 { font-family: Geologica, sans-serif; font-size: 22px; margin: 0 0 8px; color: #FFFFFF; }
   .pdf-cta-block p { font-family: Inter, sans-serif; font-size: 13px; line-height: 1.5; color: rgba(255,255,255,0.85); margin: 0 0 14px; }
   .pdf-cta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -4232,17 +4235,17 @@ const PDF_STYLES = `
   .pdf-cta-cell strong { display: block; font-family: Inter, sans-serif; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: #FED634; margin-bottom: 4px; font-weight: 600; }
 
   .pdf-price-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 12px; }
-  .pdf-price-cell { padding: 14px 12px; background: #FFFFFF; border: 2px solid #151617; border-radius: 3mm; text-align: center; }
+  .pdf-price-cell { padding: 14px 12px; background: #FFFFFF; border: 2px solid #151617; border-radius: 10px; text-align: center; }
   .pdf-price-cell.now { background: #FED634; }
   .pdf-price-cell strong { display: block; font-family: Geologica, sans-serif; font-size: 22px; font-weight: 800; color: #151617; }
   .pdf-price-cell small { display: block; font-family: Inter, sans-serif; font-size: 10px; color: rgba(21,22,23,0.7); margin-top: 4px; }
 
-  .pdf-image-band { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin: 16px 0 10px; }
-  .pdf-image-band img { width: 100%; height: 50mm; object-fit: cover; border-radius: 2mm; display: block; }
+  .pdf-image-band { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin: 14px 0 10px; }
+  .pdf-image-band img { width: 100%; height: 158px; object-fit: cover; border-radius: 8px; display: block; }
 
-  .pdf-image-hero { width: 100%; height: 80mm; object-fit: cover; border-radius: 4mm; display: block; margin: 14px 0; }
+  .pdf-image-hero { width: 100%; height: 300px; object-fit: cover; border-radius: 14px; display: block; margin: 14px 0; }
 
-  .pdf-foot { position: absolute; bottom: 10mm; left: 16mm; right: 16mm; display: flex; justify-content: space-between; font-family: Inter, sans-serif; font-size: 9px; color: rgba(21,22,23,0.4); letter-spacing: 0.1em; text-transform: uppercase; }
+  .pdf-foot { position: absolute; bottom: 38px; left: 60px; right: 60px; display: flex; justify-content: space-between; font-family: Inter, sans-serif; font-size: 9px; color: rgba(21,22,23,0.4); letter-spacing: 0.1em; text-transform: uppercase; }
 </style>
 `;
 
@@ -4287,15 +4290,15 @@ function buildCoverHTML(copy) {
   return `
     <div class="pdf-page pdf-cover">
       <div class="pdf-cover-inner">
-        <div>
+        <div class="pdf-cover-top">
           <div class="pdf-cover-eyebrow">Прознание · Coddy · летняя смена</div>
           <h1 class="pdf-cover-title">${state.theme || 'Летняя смена'}</h1>
           <div class="pdf-cover-accent">${copy.headline || 'десять дней, которые запомнятся'}</div>
         </div>
-        <div class="pdf-cover-image">
+        <div class="pdf-cover-image-block">
           <img src="${pickStock('cover', 0)}" alt="">
         </div>
-        <div>
+        <div class="pdf-cover-bottom">
           <p class="pdf-cover-sub">${copy.intro || ''}</p>
           <div class="pdf-cover-meta">
             <div><small>дата смены</small><strong>${dateRange}</strong></div>
@@ -4387,13 +4390,12 @@ function buildDirectionsHTML() {
 }
 
 function buildEventsHTML(copy) {
-  const events = extractEvents();
+  const events = extractEvents().slice(0, 6); // максимум 6, чтобы не вылезли
   return `
     <div class="pdf-page">
       <div class="pdf-section-eyebrow">События смены</div>
       <h1 class="pdf-h1">Дни, которые <em>запомнятся</em></h1>
       <p class="pdf-lead">${copy.eventsLead || ''}</p>
-      <img class="pdf-image-hero" src="${pickStock('outdoor', 1)}" alt="">
       <div class="pdf-events-list">
         ${events.length > 0 ? events.map(e => `
           <div class="pdf-event-row">
@@ -4417,10 +4419,8 @@ function buildFairAndContactHTML(copy) {
         <h2 class="pdf-h2">10 день — ярмарка</h2>
         <p>${copy.fairLead || ''}</p>
       </div>
-      <img class="pdf-image-hero" src="${pickStock('fair', 0)}" alt="">
 
-      <div class="pdf-section-eyebrow" style="margin-top:24px">Стоимость и запись</div>
-      <h2 class="pdf-h2">Стоимость смены</h2>
+      <div class="pdf-section-eyebrow" style="margin-top:20px">Стоимость</div>
       <div class="pdf-price-row">
         <div class="pdf-price-cell now">
           <strong>${(DETAILS['Цена_ранняя'] || '850 BYN').split(' —')[0]}</strong>
@@ -4435,7 +4435,7 @@ function buildFairAndContactHTML(copy) {
           <small>${(DETAILS['Цена_поздняя'] || 'со 2 июня').split('— ')[1] || 'со 2 июня'}</small>
         </div>
       </div>
-      <p class="pdf-lead" style="font-size:12px;color:rgba(21,22,23,0.6);margin-top:6px">${DETAILS['Цена_подпись'] || 'Цена за всю смену (10 дней)'}.</p>
+      <p class="pdf-lead" style="font-size:11px;color:rgba(21,22,23,0.6);margin-top:6px">${DETAILS['Цена_подпись'] || 'Цена за всю смену (10 дней)'}.</p>
 
       <div class="pdf-cta-block">
         <h2>Записать ребёнка</h2>
@@ -4458,14 +4458,17 @@ function buildTeaserHTML(copy) {
   return `
     <div class="pdf-page pdf-cover">
       <div class="pdf-cover-inner">
-        <div>
+        <div class="pdf-cover-top">
           <div class="pdf-cover-eyebrow">Прознание · Coddy · летняя смена</div>
           <h1 class="pdf-cover-title">${state.theme || 'Летняя смена'}</h1>
-          <div class="pdf-cover-accent" style="font-size:48px">${copy.headline || ''}</div>
+          <div class="pdf-cover-accent" style="font-size:48px;line-height:1">${copy.headline || ''}</div>
         </div>
-        <div style="margin-top:auto">
-          <p class="pdf-cover-sub" style="margin-bottom:18px">${copy.intro || ''}</p>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;background:#151617;color:#FFF;padding:18px 20px;border-radius:4mm">
+        <div class="pdf-cover-image-block" style="flex:0 1 auto;padding:8px 0">
+          <img src="${pickStock('cover', 0)}" alt="" style="width:220px;height:220px">
+        </div>
+        <div class="pdf-cover-bottom">
+          <p class="pdf-cover-sub" style="margin-bottom:20px">${copy.intro || ''}</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;background:#151617;color:#FFF;padding:20px 22px;border-radius:14px">
             <div style="font-family:Inter,sans-serif;font-size:13px">
               <div style="font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:#FED634;font-weight:600;margin-bottom:4px">даты</div>
               ${dateRange}, 6–12 лет
@@ -4490,9 +4493,52 @@ function buildTeaserHTML(copy) {
   `;
 }
 
+// Возвращает массив HTML-фрагментов — по одному на страницу.
+// Каждая страница изолирована: свой контейнер, свои стили, фиксированные размеры.
+function buildPagesArray(mode, copy) {
+  if (mode === 'teaser') {
+    return [buildTeaserHTML(copy)];
+  }
+  return [
+    buildCoverHTML(copy),
+    buildAboutHTML(copy),
+    buildSampleDayHTML(),
+    buildDirectionsHTML(),
+    buildEventsHTML(copy),
+    buildFairAndContactHTML(copy)
+  ];
+}
+
+// Создаёт DOM-контейнер с одной страницей PDF, готовый к снимку через html2canvas.
+// Контейнер видимый (для корректного расчёта высоты), но прозрачный и поверх ничего не закрывает.
+// Размер строго A4 в пикселях при 96dpi: 794×1123 px (210×297 мм).
+function makeOffscreenPage(pageHtml) {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = [
+    'position: fixed',
+    'top: 0',
+    'left: 0',
+    'width: 794px',
+    'height: 1123px',
+    'opacity: 0',
+    'pointer-events: none',
+    'z-index: -1',
+    'background: #FFFFFF',
+    'overflow: hidden'
+  ].join(';');
+  wrap.innerHTML = '<div class="pdf-doc" style="width:794px;height:1123px">' + PDF_STYLES + pageHtml + '</div>';
+  document.body.appendChild(wrap);
+  return wrap;
+}
+
+// Главная функция генерации PDF — пострайничная сборка через html2canvas + jsPDF.
+// Каждая страница рендерится отдельно, потом склеиваются в один PDF.
 async function generatePDFCommon(mode) {
-  if (typeof html2pdf === 'undefined') {
-    toast('html2pdf не загружен. Проверь интернет.');
+  // html2pdf bundle тянет html2canvas и jsPDF в глобальную область.
+  const html2canvas = window.html2canvas;
+  const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+  if (!html2canvas || !jsPDFCtor) {
+    toast('PDF-библиотеки не загрузились. Проверь интернет.');
     return;
   }
   if (!state.schedule || state.schedule.length === 0) {
@@ -4500,50 +4546,87 @@ async function generatePDFCommon(mode) {
     return;
   }
   syncConfig();
+
   toast('AI пишет тексты для PDF…');
   const copy = await generatePDFCopy();
+  const pages = buildPagesArray(mode, copy);
 
-  let html;
-  if (mode === 'teaser') {
-    html = `<div class="pdf-doc">${PDF_STYLES}${buildTeaserHTML(copy)}</div>`;
-  } else {
-    html = `<div class="pdf-doc">${PDF_STYLES}
-      ${buildCoverHTML(copy)}
-      ${buildAboutHTML(copy)}
-      ${buildSampleDayHTML()}
-      ${buildDirectionsHTML()}
-      ${buildEventsHTML(copy)}
-      ${buildFairAndContactHTML(copy)}
-    </div>`;
-  }
+  toast('Готовлю ' + pages.length + ' страниц…');
+  // A4: 210 × 297 мм
+  const pdf = new jsPDFCtor({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+  const pageW = 210, pageH = 297;
 
-  // Создаём временный контейнер вне видимой области
-  const container = document.createElement('div');
-  container.style.position = 'fixed';
-  container.style.left = '-10000px';
-  container.style.top = '0';
-  container.innerHTML = html;
-  document.body.appendChild(container);
-
-  const fileName = (mode === 'teaser' ? 'Тизер_' : 'Программа_') + (state.theme || 'смена').replace(/[^а-яА-Яa-zA-Z0-9_-]+/g, '_') + '.pdf';
-
-  toast('Готовлю PDF…');
   try {
-    await html2pdf().from(container.querySelector('.pdf-doc')).set({
-      margin: 0,
-      filename: fileName,
-      image: { type: 'jpeg', quality: 0.95 },
-      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#FFFFFF', logging: false },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak: { mode: ['css', 'legacy'], avoid: '.pdf-event-row, .pdf-direction-card, .pdf-day-timeline-row' }
-    }).save();
+    // Перед стартом — ждём, пока загрузятся шрифты Google Fonts
+    if (document.fonts && document.fonts.ready) {
+      await document.fonts.ready;
+    }
+    for (let i = 0; i < pages.length; i++) {
+      toast('Рендер страницы ' + (i+1) + ' / ' + pages.length + '…');
+      const wrap = makeOffscreenPage(pages[i]);
+      // Дадим браузеру время отрисовать (шрифты, SVG, картинки)
+      await new Promise(r => setTimeout(r, 400));
+      const target = wrap.querySelector('.pdf-page');
+      if (!target) {
+        document.body.removeChild(wrap);
+        continue;
+      }
+      const canvas = await html2canvas(target, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#FFFFFF',
+        logging: false,
+        // Фиксированный A4 в пикселях — без догадок по offsetHeight
+        width: 794,
+        height: 1123,
+        windowWidth: 794,
+        windowHeight: 1123
+      });
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
+      if (i > 0) pdf.addPage();
+      pdf.addImage(imgData, 'JPEG', 0, 0, pageW, pageH, undefined, 'FAST');
+      document.body.removeChild(wrap);
+    }
+    const fileName = (mode === 'teaser' ? 'Тизер_' : 'Программа_') + (state.theme || 'смена').replace(/[^а-яА-Яa-zA-Z0-9_-]+/g, '_') + '.pdf';
+    pdf.save(fileName);
     toast('PDF готов: ' + fileName);
   } catch(e) {
-    console.error('html2pdf error:', e);
+    console.error('PDF error:', e);
     toast('Ошибка PDF: ' + e.message);
-  } finally {
-    document.body.removeChild(container);
   }
+}
+
+// Превью — открывает HTML страниц PDF в новой вкладке без конвертации.
+// Полезно для отладки вёрстки: всё что выглядит правильно тут — будет правильно в PDF.
+function generatePreviewHTML(mode) {
+  if (!state.schedule || state.schedule.length === 0) {
+    toast('Сначала собери программу смены');
+    return;
+  }
+  syncConfig();
+  toast('AI пишет тексты для превью…');
+  generatePDFCopy().then(copy => {
+    const pages = buildPagesArray(mode, copy);
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+      <title>Превью PDF — ${state.theme || 'смена'}</title>
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+      <link href="https://fonts.googleapis.com/css2?family=Geologica:wght@400;500;600;700;800&family=Caveat:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+      ${PDF_STYLES}
+      <style>
+        body { margin: 0; background: #2a2a2a; padding: 24px; font-family: Inter, sans-serif; }
+        .pdf-page { box-shadow: 0 14px 60px rgba(0,0,0,0.4); margin: 0 auto 24px; }
+        .preview-info { color: #FED634; text-align: center; font-size: 13px; padding: 10px; }
+      </style>
+      </head><body>
+      <div class="preview-info">Превью PDF · ${pages.length} страниц(а) · ${mode === 'teaser' ? 'Тизер' : 'Полная программа'}</div>
+      <div class="pdf-doc">${pages.join('')}</div>
+      </body></html>`;
+    const blob = new Blob([html], {type: 'text/html;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    toast('Превью открыто в новой вкладке');
+  }).catch(e => toast('Ошибка превью: ' + e.message));
 }
 
 async function generateTeaserPDF() { return generatePDFCommon('teaser'); }
