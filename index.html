@@ -138,6 +138,17 @@
   }
   .field input:focus, .field select:focus { border-bottom-color: var(--terra); }
   .config-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .config-actions-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin: -8px 0 20px;
+    padding: 12px 24px;
+    background: var(--paper-warm);
+    border: 1px solid var(--ink);
+    border-top: none;
+  }
 
   /* Кнопки */
   .btn {
@@ -1053,15 +1064,16 @@
     <label>Якорные события</label>
     <input type="text" id="anchors" value="картинг, вечеринка в Чилле, ярмарка">
   </div>
-  <div class="field config-actions">
-    <button class="btn btn-primary" onclick="generateAll()">⚡ Сгенерировать всё</button>
-    <button class="btn" onclick="openDraftsPanel()" title="Черновики смен в Google Sheets">📁 Черновики</button>
-    <button class="btn" onclick="openExpandLibraryPanel()" title="Расширить библиотеку — ИИ предложит похожие шаблоны">➕ Расширить библиотеку</button>
-    <button class="btn" onclick="generateTeaserPDF()" title="Короткий PDF для рассылки в мессенджер (1 страница)">📄 Тизер</button>
-    <button class="btn" onclick="generateFullPDF()" title="Полная программа смены для родителей (6 страниц)">📄 Полная программа</button>
-    <button class="btn btn-ghost" onclick="generatePreviewHTML('full')" title="Превью полной программы в новой вкладке (без скачивания PDF)">👁 Превью</button>
-    <button class="btn" onclick="reloadLibrary()" title="Перезагрузить библиотеку из Google Sheets">📚 ↻</button>
-  </div>
+</div>
+
+<div class="config-actions-row">
+  <button class="btn btn-primary" onclick="generateAll()">⚡ Сгенерировать всё</button>
+  <button class="btn" onclick="openDraftsPanel()" title="Черновики смен в Google Sheets">📁 Черновики</button>
+  <button class="btn" onclick="openExpandLibraryPanel()" title="Расширить библиотеку — ИИ предложит похожие шаблоны">➕ Расширить библиотеку</button>
+  <button class="btn" onclick="generateTeaserPDF()" title="Короткий PDF для рассылки в мессенджер (1 страница)">📄 Тизер</button>
+  <button class="btn" onclick="generateFullPDF()" title="Полная программа смены для родителей (6 страниц)">📄 Полная программа</button>
+  <button class="btn btn-ghost" onclick="generatePreviewHTML('full')" title="Превью полной программы в новой вкладке (без скачивания PDF)">👁 Превью</button>
+  <button class="btn" onclick="reloadLibrary()" title="Перезагрузить библиотеку из Google Sheets">📚 ↻</button>
 </div>
 
 <div style="display:flex;gap:14px;align-items:center;margin:12px 0 18px;font-family:Inter,sans-serif;font-size:12px;color:rgba(21,22,23,0.7)">
