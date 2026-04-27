@@ -1023,6 +1023,7 @@
   <div class="field config-actions">
     <button class="btn btn-primary" onclick="generateAll()">⚡ Сгенерировать всё</button>
     <button class="btn" onclick="openDraftsPanel()" title="Черновики смен в Google Sheets">📁 Черновики</button>
+    <button class="btn" onclick="openExpandLibraryPanel()" title="Расширить библиотеку — ИИ предложит похожие шаблоны">➕ Расширить библиотеку</button>
     <button class="btn" onclick="reloadLibrary()" title="Перезагрузить библиотеку из Google Sheets">📚 ↻</button>
   </div>
 </div>
@@ -1576,6 +1577,110 @@ async function deleteDraftById(id) {
 }
 
 // Открывает модалку со списком черновиков и кнопками действий
+// ============================================================
+// РАСШИРЕНИЕ БИБЛИОТЕКИ ЧЕРЕЗ ИИ
+// Открывает модалку с выбором шаблона из библиотеки + количеством.
+// Просит Apps Script сгенерировать N черновиков на основе выбранного.
+// Черновики добавляются в лист «Активности» со статусом «черновик» —
+// в HTML-генератор они НЕ подтягиваются, пока ты их не утвердишь в таблице.
+// ============================================================
+function openExpandLibraryPanel() {
+  document.getElementById('modal-title').innerHTML = `Расширить библиотеку <em>через ИИ</em>`;
+
+  // Группируем шаблоны по направлению для удобства
+  const byDir = {};
+  LIBRARY.forEach(a => {
+    if (!a.template) return;
+    const dir = a.d || '—';
+    if (!byDir[dir]) byDir[dir] = [];
+    byDir[dir].push(a);
+  });
+
+  let optionsHtml = '<option value="">— выбери шаблон-образец —</option>';
+  Object.keys(byDir).sort().forEach(dir => {
+    optionsHtml += `<optgroup label="${dir}">`;
+    byDir[dir].forEach(a => {
+      const safeName = String(a.template).replace(/"/g, '&quot;');
+      optionsHtml += `<option value="${safeName}">${a.template} · ${a.t || ''}</option>`;
+    });
+    optionsHtml += '</optgroup>';
+  });
+
+  document.getElementById('modal-body').innerHTML = `
+    <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:14px;color:rgba(26,22,18,0.7);margin-bottom:14px;line-height:1.5">
+      Выбери шаблон-образец. ИИ предложит <strong>N похожих по структуре</strong> шаблонов
+      (то же направление, тот же формат, длительность и педагог; другие материалы/техники).
+      Они появятся в листе «Активности» со статусом «черновик» — выделены бежевым.
+      Чтобы они начали попадать в генератор сетки — открой таблицу и утверди их через меню «Прознание».
+    </div>
+    <label style="display:block;font-family:'DM Sans',sans-serif;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px;color:rgba(26,22,18,0.6)">Шаблон-образец</label>
+    <select id="expand-template-select" class="editor-input" style="margin-bottom:14px">${optionsHtml}</select>
+    <label style="display:block;font-family:'DM Sans',sans-serif;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px;color:rgba(26,22,18,0.6)">Сколько черновиков сгенерировать</label>
+    <select id="expand-count-select" class="editor-input" style="margin-bottom:14px">
+      <option value="3">3 (быстро, 5–10 сек)</option>
+      <option value="4" selected>4</option>
+      <option value="5">5</option>
+      <option value="6">6</option>
+      <option value="8">8 (дольше)</option>
+    </select>
+    <div id="expand-result" style="margin-top:12px"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Отмена</button>
+      <button class="btn btn-primary" id="expand-go-btn" onclick="runExpandLibrary()">🪄 Сгенерировать</button>
+    </div>
+  `;
+  openModal();
+}
+
+async function runExpandLibrary() {
+  const sel = document.getElementById('expand-template-select');
+  const cntSel = document.getElementById('expand-count-select');
+  const resultEl = document.getElementById('expand-result');
+  const goBtn = document.getElementById('expand-go-btn');
+  const templateName = sel.value;
+  const count = parseInt(cntSel.value, 10) || 4;
+  if (!templateName) { resultEl.innerHTML = '<div style="color:var(--terra-deep);font-family:DM Sans,sans-serif;font-size:12px">Выбери шаблон-образец</div>'; return; }
+  goBtn.disabled = true;
+  resultEl.innerHTML = '<div class="modal-loading">ИИ генерирует ' + count + ' черновиков… (5–20 сек)</div>';
+  try {
+    const r = await fetch(LIBRARY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'expandTemplate', templateName, count })
+    });
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || 'API error');
+    const added = (data.result && data.result.added) || [];
+    if (added.length === 0) {
+      resultEl.innerHTML = '<div style="color:var(--terra-deep);font-family:DM Sans,sans-serif;font-size:12px">ИИ не вернул ни одного валидного черновика. Попробуй ещё раз.</div>';
+      goBtn.disabled = false;
+      return;
+    }
+    resultEl.innerHTML = `
+      <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:13px;color:var(--moss);margin-bottom:10px">
+        ✓ Добавлено ${added.length} черновиков на основе «${data.result.baseTemplate}». Вот они:
+      </div>
+      ${added.map(a => `
+        <div class="variant" style="cursor:default">
+          <div class="variant-name">${a.template}</div>
+          <div class="variant-meta">${a.direction} · ${a.teacher || '—'} · ${a.duration || ''} мин · ${a.format || ''}</div>
+          <div class="variant-rationale">${a.description || ''}</div>
+          <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:rgba(26,22,18,0.55);margin-top:4px">примеры: ${a.examples || '—'}</div>
+        </div>
+      `).join('')}
+      <div style="margin-top:14px;padding:10px 12px;background:rgba(193,105,79,0.08);border-left:3px solid var(--terra);font-family:DM Sans,sans-serif;font-size:11px;color:rgba(26,22,18,0.75);line-height:1.5">
+        Черновики добавлены в Google-таблицу, лист «Активности», в самом низу — выделены бежевым.
+        Чтобы они начали подтягиваться сюда — открой таблицу, поставь курсор на нужную строку и
+        выбери в меню «Прознание» → «✓ Утвердить выделенный черновик». После этого нажми сюда «📚 ↻».
+      </div>
+    `;
+    goBtn.disabled = false;
+  } catch(e) {
+    resultEl.innerHTML = '<div style="color:var(--terra-deep);font-family:DM Sans,sans-serif;font-size:12px;white-space:pre-wrap">Ошибка: ' + e.message + '</div>';
+    goBtn.disabled = false;
+  }
+}
+
 async function openDraftsPanel() {
   document.getElementById('modal-title').innerHTML = `Черновики смен`;
   document.getElementById('modal-body').innerHTML = '<div class="modal-loading">Загружаю список…</div>';
