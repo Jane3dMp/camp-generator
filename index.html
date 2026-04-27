@@ -1662,6 +1662,18 @@ async function runExpandLibrary() {
       </div>
       ${added.map(a => {
         const lvlColor = a.level === 'базовый' ? '#7E8F6E' : a.level === 'расширенный' ? '#B89968' : a.level === 'сюжетный' ? '#A66B3A' : a.level === 'прикладной' ? '#8E5B3E' : '#888';
+        // Строим поисковый запрос: имя шаблона + первый пример темы (если есть)
+        // + контекстное слово в зависимости от направления
+        const firstExample = (a.examples || '').split(',')[0].trim();
+        const dirHint = a.direction === 'IT' ? 'дети' :
+                        a.direction === 'Творчество' ? 'детский мастер-класс' :
+                        a.direction === 'Soft skills / нейро' ? 'дети' :
+                        a.direction === 'Активность / спорт' ? 'детский лагерь' :
+                        'дети';
+        const q = encodeURIComponent([a.template, firstExample, dirHint].filter(Boolean).join(' '));
+        const pinUrl = 'https://www.pinterest.com/search/pins/?q=' + q;
+        const gimgUrl = 'https://www.google.com/search?tbm=isch&q=' + q;
+        const ytUrl = 'https://www.youtube.com/results?search_query=' + q;
         return `
         <div class="variant" style="cursor:default">
           <div class="variant-name">
@@ -1672,6 +1684,11 @@ async function runExpandLibrary() {
           <div class="variant-rationale">${a.description || ''}</div>
           <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:rgba(26,22,18,0.55);margin-top:4px"><strong>примеры:</strong> ${a.examples || '—'}</div>
           ${a.materials ? `<div style="font-family:'DM Sans',sans-serif;font-size:11px;color:rgba(26,22,18,0.55);margin-top:2px"><strong>материалы:</strong> ${a.materials}</div>` : ''}
+          <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+            <a href="${pinUrl}" target="_blank" rel="noopener" style="font-family:'DM Sans',sans-serif;font-size:11px;padding:4px 10px;border:1px solid rgba(193,105,79,0.4);color:var(--terra-deep);text-decoration:none;background:rgba(193,105,79,0.06);border-radius:2px">📌 Pinterest</a>
+            <a href="${gimgUrl}" target="_blank" rel="noopener" style="font-family:'DM Sans',sans-serif;font-size:11px;padding:4px 10px;border:1px solid rgba(26,22,18,0.2);color:rgba(26,22,18,0.7);text-decoration:none;background:rgba(26,22,18,0.03);border-radius:2px">🖼 Google Картинки</a>
+            <a href="${ytUrl}" target="_blank" rel="noopener" style="font-family:'DM Sans',sans-serif;font-size:11px;padding:4px 10px;border:1px solid rgba(26,22,18,0.2);color:rgba(26,22,18,0.7);text-decoration:none;background:rgba(26,22,18,0.03);border-radius:2px">🎬 YouTube</a>
+          </div>
         </div>
       `;}).join('')}
       <div style="margin-top:14px;padding:10px 12px;background:rgba(193,105,79,0.08);border-left:3px solid var(--terra);font-family:DM Sans,sans-serif;font-size:11px;color:rgba(26,22,18,0.75);line-height:1.5">
