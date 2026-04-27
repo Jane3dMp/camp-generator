@@ -2,7 +2,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geologica:wght@400;500;600;700;800&family=Caveat:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   :root {
     /* === Прознание (главный бренд лагеря) === */
@@ -4534,11 +4535,14 @@ function makeOffscreenPage(pageHtml) {
 // Главная функция генерации PDF — пострайничная сборка через html2canvas + jsPDF.
 // Каждая страница рендерится отдельно, потом склеиваются в один PDF.
 async function generatePDFCommon(mode) {
-  // html2pdf bundle тянет html2canvas и jsPDF в глобальную область.
   const html2canvas = window.html2canvas;
   const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
-  if (!html2canvas || !jsPDFCtor) {
-    toast('PDF-библиотеки не загрузились. Проверь интернет.');
+  if (!html2canvas) {
+    toast('html2canvas не загрузился. Открой DevTools и проверь Network/Console.');
+    return;
+  }
+  if (!jsPDFCtor) {
+    toast('jsPDF не загрузился. Открой DevTools и проверь Network/Console.');
     return;
   }
   if (!state.schedule || state.schedule.length === 0) {
