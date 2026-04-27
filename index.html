@@ -3985,39 +3985,52 @@ async function init() {
 
 // Стоковые картинки. Подбор: руки, материалы, природа, ноутбуки — ничего лица.
 // Все ссылки прямые на Unsplash/Pexels с настройкой crop'а.
+// Безопасные SVG-плейсхолдеры в палитре Прознание + Coddy. Без людей, без сюрпризов.
+// Когда появятся свои фото — заменить значения на URL картинок (фото без лиц).
+function svgPlaceholder(theme, w, h) {
+  // theme: цвета и иконографика для каждой категории
+  const themes = {
+    cover:    { bg: '#FED634', fg: '#151617', icon: 'sun' },
+    creative: { bg: '#FFFBEC', fg: '#151617', accent: '#FED634', icon: 'palette' },
+    it:       { bg: '#EBF4FE', fg: '#151617', accent: '#41BEEA', icon: 'code' },
+    outdoor:  { bg: '#F5F5F0', fg: '#151617', accent: '#8FA370', icon: 'tree' },
+    sport:    { bg: '#FFF1E5', fg: '#151617', accent: '#FF8A3D', icon: 'wave' },
+    fair:     { bg: '#FED634', fg: '#151617', accent: '#151617', icon: 'flag' },
+    party:    { bg: '#FED634', fg: '#151617', accent: '#41BEEA', icon: 'star' }
+  };
+  const t = themes[theme] || themes.cover;
+  const W = w || 800, H = h || 600;
+  const cx = W/2, cy = H/2;
+  const accent = t.accent || t.fg;
+  let icon = '';
+  if (t.icon === 'sun') {
+    icon = `<circle cx="${cx}" cy="${cy}" r="${Math.min(W,H)/4}" fill="${t.fg}"/>`;
+  } else if (t.icon === 'palette') {
+    icon = `<circle cx="${cx-60}" cy="${cy-30}" r="40" fill="${accent}"/><circle cx="${cx+60}" cy="${cy-30}" r="40" fill="${t.fg}"/><circle cx="${cx}" cy="${cy+50}" r="40" fill="#FF8A3D"/>`;
+  } else if (t.icon === 'code') {
+    icon = `<text x="${cx}" y="${cy+15}" font-family="monospace" font-size="80" font-weight="700" text-anchor="middle" fill="${accent}">&lt;/&gt;</text>`;
+  } else if (t.icon === 'tree') {
+    icon = `<polygon points="${cx},${cy-100} ${cx-80},${cy+30} ${cx+80},${cy+30}" fill="${accent}"/><rect x="${cx-12}" y="${cy+30}" width="24" height="50" fill="${t.fg}"/>`;
+  } else if (t.icon === 'wave') {
+    icon = `<path d="M 50 ${cy} Q ${cx/2} ${cy-60} ${cx} ${cy} T ${W-50} ${cy}" stroke="${accent}" stroke-width="14" fill="none" stroke-linecap="round"/><path d="M 50 ${cy+50} Q ${cx/2} ${cy-10} ${cx} ${cy+50} T ${W-50} ${cy+50}" stroke="${t.fg}" stroke-width="14" fill="none" stroke-linecap="round" opacity="0.4"/>`;
+  } else if (t.icon === 'flag') {
+    icon = `<rect x="${cx-100}" y="${cy-80}" width="200" height="160" fill="${t.fg}"/><text x="${cx}" y="${cy+15}" font-family="Geologica,sans-serif" font-size="60" font-weight="800" text-anchor="middle" fill="${t.bg}">★</text>`;
+  } else if (t.icon === 'star') {
+    icon = `<text x="${cx}" y="${cy+40}" font-family="Geologica,sans-serif" font-size="180" font-weight="800" text-anchor="middle" fill="${accent}">★</text>`;
+  }
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"><rect width="${W}" height="${H}" fill="${t.bg}"/>${icon}</svg>`;
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+}
+
+// Каждая категория возвращает один из вариантов плейсхолдера (для кажущегося разнообразия).
 const PDF_STOCK_IMAGES = {
-  cover: [
-    'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=1600&h=1000&q=80', // дети рисуют (без лиц, руки)
-    'https://images.unsplash.com/photo-1511949860663-92c5c57d48a7?auto=format&fit=crop&w=1600&h=1000&q=80', // стол с красками сверху
-    'https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=1600&h=1000&q=80'  // ноутбук и блокнот
-  ],
-  creative: [
-    'https://images.unsplash.com/photo-1513364776144-60967b0f800f?auto=format&fit=crop&w=800&h=600&q=80', // глина, руки лепят
-    'https://images.unsplash.com/photo-1452860606245-08befc0ff44b?auto=format&fit=crop&w=800&h=600&q=80', // краски и кисти
-    'https://images.unsplash.com/photo-1499781350541-7783f6c6a0c8?auto=format&fit=crop&w=800&h=600&q=80'  // макраме, верёвочки
-  ],
-  it: [
-    'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=800&h=600&q=80', // ноутбук с кодом
-    'https://images.unsplash.com/photo-1564865878688-9a244444042a?auto=format&fit=crop&w=800&h=600&q=80', // конструктор/робот
-    'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=800&h=600&q=80'  // дети за компьютерами (без лиц)
-  ],
-  outdoor: [
-    'https://images.unsplash.com/photo-1502086223501-7ea6ecd79368?auto=format&fit=crop&w=800&h=600&q=80', // лес, тропинка
-    'https://images.unsplash.com/photo-1530549387789-4c1017266635?auto=format&fit=crop&w=800&h=600&q=80', // костёр в лесу
-    'https://images.unsplash.com/photo-1530541930197-ff16ac917b0e?auto=format&fit=crop&w=800&h=600&q=80'  // вода / сапы
-  ],
-  sport: [
-    'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?auto=format&fit=crop&w=800&h=600&q=80', // картинг
-    'https://images.unsplash.com/photo-1530549387789-4c1017266635?auto=format&fit=crop&w=800&h=600&q=80', // парк
-    'https://images.unsplash.com/photo-1576678927484-cc907957088c?auto=format&fit=crop&w=800&h=600&q=80'  // бассейн
-  ],
-  fair: [
-    'https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=1200&h=600&q=80', // ярмарка/палатки/декор
-    'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&h=600&q=80'  // праздник, гирлянды
-  ],
-  party: [
-    'https://images.unsplash.com/photo-1530103862676-de8c9debad1d?auto=format&fit=crop&w=1200&h=600&q=80'  // вечеринка / гирлянды
-  ]
+  cover:    [svgPlaceholder('cover', 1200, 1200)],
+  creative: [svgPlaceholder('creative', 800, 600)],
+  it:       [svgPlaceholder('it', 800, 600)],
+  outdoor:  [svgPlaceholder('outdoor', 1200, 600)],
+  sport:    [svgPlaceholder('sport', 1200, 600)],
+  fair:     [svgPlaceholder('fair', 1200, 600)],
+  party:    [svgPlaceholder('party', 1200, 600)]
 };
 
 function pickStock(category, idx) {
@@ -4155,17 +4168,19 @@ const PDF_STYLES = `
 <style>
   .pdf-doc { font-family: Inter, system-ui, sans-serif; color: #151617; background: #FFFFFF; line-height: 1.45; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .pdf-doc * { box-sizing: border-box; }
-  .pdf-page { width: 210mm; min-height: 297mm; padding: 18mm 16mm; page-break-after: always; position: relative; background: #FFFFFF; }
-  .pdf-page:last-child { page-break-after: auto; }
+  .pdf-page { width: 210mm; height: 297mm; padding: 18mm 16mm; position: relative; background: #FFFFFF; overflow: hidden; }
+  .pdf-page + .pdf-page { page-break-before: always; break-before: page; }
   .pdf-cover { background: #FED634; padding: 0; }
-  .pdf-cover-inner { padding: 18mm 16mm; min-height: 297mm; display: flex; flex-direction: column; justify-content: space-between; }
+  .pdf-cover-inner { padding: 18mm 16mm; height: 100%; display: flex; flex-direction: column; justify-content: space-between; }
   .pdf-cover-eyebrow { font-family: Inter, sans-serif; font-size: 11px; letter-spacing: 0.3em; text-transform: uppercase; color: #151617; font-weight: 600; }
   .pdf-cover-title { font-family: Geologica, sans-serif; font-size: 56px; font-weight: 800; line-height: 1; margin: 24px 0 18px; color: #151617; letter-spacing: -0.02em; }
   .pdf-cover-accent { font-family: Caveat, cursive; font-size: 64px; font-weight: 700; color: #151617; line-height: 0.95; display: inline-block; transform: rotate(-2deg); }
   .pdf-cover-sub { font-family: Inter, sans-serif; font-size: 18px; max-width: 130mm; color: #151617; line-height: 1.4; }
-  .pdf-cover-meta { display: flex; gap: 28px; flex-wrap: wrap; font-family: Inter, sans-serif; font-size: 13px; color: #151617; border-top: 2px solid #151617; padding-top: 16px; margin-top: auto; }
-  .pdf-cover-meta strong { display: block; font-size: 18px; font-weight: 700; margin-bottom: 2px; }
-  .pdf-cover-image { position: absolute; right: 16mm; top: 90mm; width: 80mm; height: 80mm; border-radius: 6mm; overflow: hidden; box-shadow: 0 6mm 16mm rgba(0,0,0,0.15); }
+  .pdf-cover-meta { display: flex; gap: 24px; flex-wrap: wrap; font-family: Inter, sans-serif; font-size: 12px; color: #151617; border-top: 2px solid #151617; padding-top: 14px; margin-top: 18px; }
+  .pdf-cover-meta > div { line-height: 1.3; }
+  .pdf-cover-meta small { display: block; font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: rgba(21,22,23,0.55); font-weight: 600; margin-bottom: 3px; }
+  .pdf-cover-meta strong { display: block; font-size: 17px; font-weight: 700; }
+  .pdf-cover-image { position: absolute; right: 16mm; top: 100mm; width: 70mm; height: 70mm; border-radius: 6mm; overflow: hidden; box-shadow: 0 4mm 12mm rgba(0,0,0,0.12); }
   .pdf-cover-image img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
   .pdf-section-eyebrow { font-family: Inter, sans-serif; font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; color: rgba(21,22,23,0.55); font-weight: 600; margin-bottom: 8px; }
@@ -4283,10 +4298,10 @@ function buildCoverHTML(copy) {
         <div>
           <p class="pdf-cover-sub">${copy.intro || ''}</p>
           <div class="pdf-cover-meta">
-            <div><strong>${dateRange}</strong>дата смены</div>
-            <div><strong>6–12 лет</strong>возраст</div>
-            <div><strong>${DETAILS['Время'] || '7:30–17:30'}</strong>часы</div>
-            <div><strong>${DETAILS['Город'] || 'Могилёв'}</strong>город</div>
+            <div><small>дата смены</small><strong>${dateRange}</strong></div>
+            <div><small>возраст</small><strong>6–12 лет</strong></div>
+            <div><small>часы</small><strong>${DETAILS['Время'] || '7:30–17:30'}</strong></div>
+            <div><small>город</small><strong>${DETAILS['Город'] || 'Могилёв'}</strong></div>
           </div>
         </div>
       </div>
@@ -4520,7 +4535,7 @@ async function generatePDFCommon(mode) {
       image: { type: 'jpeg', quality: 0.95 },
       html2canvas: { scale: 2, useCORS: true, backgroundColor: '#FFFFFF', logging: false },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak: { mode: ['css', 'legacy'] }
+      pagebreak: { mode: ['css', 'legacy'], avoid: '.pdf-event-row, .pdf-direction-card, .pdf-day-timeline-row' }
     }).save();
     toast('PDF готов: ' + fileName);
   } catch(e) {
