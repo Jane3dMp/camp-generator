@@ -2321,6 +2321,7 @@ function renderTrip3Half(dayIdx, half, day) {
     <div class="all-troops-actions">
       <button class="icon-btn ${slot.locked?'locked-btn':''}" onclick="event.stopPropagation();toggleLockTrip(${dayIdx},'${slotKey}')" title="${slot.locked?'Открепить':'Закрепить'}">${slot.locked?'✓':'○'}</button>
       <button class="icon-btn" onclick="event.stopPropagation();openTripVariants(${dayIdx},'${slotKey}','trip3')" title="3 варианта">🔄</button>
+      <button class="icon-btn" onclick="event.stopPropagation();openTemplatePicker(${dayIdx},null,0,true,'${slotKey}')" title="Выбрать шаблон из библиотеки">🧱</button>
       <button class="icon-btn" onclick="event.stopPropagation();editTrip(${dayIdx},'${slotKey}')" title="Редактировать">✏</button>
     </div>
   `;
@@ -2359,6 +2360,7 @@ function renderTrip6Half(dayIdx, half, day) {
     <div class="all-troops-actions">
       <button class="icon-btn ${slot.locked?'locked-btn':''}" onclick="event.stopPropagation();toggleLockTrip(${dayIdx},'${slotKey}')" title="${slot.locked?'Открепить':'Закрепить'}">${slot.locked?'✓':'○'}</button>
       <button class="icon-btn" onclick="event.stopPropagation();openTripVariants(${dayIdx},'${slotKey}','trip6')" title="3 варианта">🔄</button>
+      <button class="icon-btn" onclick="event.stopPropagation();openTemplatePicker(${dayIdx},null,0,true,'${slotKey}')" title="Выбрать шаблон из библиотеки">🧱</button>
       <button class="icon-btn" onclick="event.stopPropagation();editTrip(${dayIdx},'${slotKey}')" title="Редактировать">✏</button>
     </div>
   `;
