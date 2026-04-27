@@ -278,13 +278,78 @@
   }
   .teacher-slot {
     display: grid;
-    grid-template-columns: 110px 1fr 90px 90px;
+    grid-template-columns: 110px 1fr 90px 90px 28px;
     gap: 14px;
     padding: 6px 0;
     align-items: baseline;
     border-bottom: 1px dotted rgba(21,22,23,0.1);
   }
   .teacher-slot:last-child { border-bottom: none; }
+  .teacher-slot-remove {
+    border: none;
+    background: transparent;
+    color: rgba(21,22,23,0.35);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 3px;
+    line-height: 1;
+    transition: all 0.12s ease;
+    align-self: center;
+  }
+  .teacher-slot-remove:hover { color: #c0392b; background: rgba(192,57,43,0.1); }
+
+  .teacher-trips-extra {
+    background: var(--paper-warm);
+    border-top: 1px dashed rgba(21,22,23,0.25);
+    padding: 14px 20px 18px;
+  }
+  .teacher-trips-extra-title {
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink);
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .teacher-trips-extra-hint {
+    font-family: Geologica, serif;
+    font-style: italic;
+    font-size: 11px;
+    color: rgba(21,22,23,0.6);
+    margin-bottom: 10px;
+    line-height: 1.4;
+  }
+  .teacher-trips-row {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 12px;
+    align-items: center;
+    padding: 4px 0;
+  }
+  .teacher-trips-day {
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 12px;
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .teacher-trips-day em {
+    font-family: Geologica, serif;
+    font-style: italic;
+    font-weight: 400;
+    color: rgba(21,22,23,0.55);
+  }
+  .teacher-trips-input {
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 13px;
+    border: 1px solid rgba(21,22,23,0.3);
+    background: var(--white);
+    padding: 5px 8px;
+    color: var(--ink);
+    outline: none;
+  }
+  .teacher-trips-input:focus { border-color: var(--ink); }
   .teacher-slot-time {
     font-family: Inter, system-ui, sans-serif;
     font-size: 13px;
@@ -342,6 +407,7 @@
     body { background: white; padding: 0; margin: 0; }
     .no-print, .header, .config-panel, .config-actions-row, #schedule-container, .actions-bar, .toolbar, .rotation-help, #zoom-panel, .program-side { display: none !important; }
     #teachers-view { display: block !important; }
+    .teacher-slot { grid-template-columns: 110px 1fr 90px 90px; }
     .teacher-block {
       page-break-after: always;
       break-after: page;
@@ -1590,7 +1656,8 @@ function defaultDay(idx) {
     pm_outside_mode: 'rotation',
     am_outside_single, pm_outside_single,
     trip_full_am, trip_full_pm,
-    trip6_am, trip6_pm
+    trip6_am, trip6_pm,
+    extraTripTeachers: '' // именованные педагоги, которых вручную дописали на выезд (через запятую)
   };
 }
 
@@ -4907,6 +4974,24 @@ function getNamedTeachersFromLibrary() {
 // Собирает расписание ОДНОГО педагога: массив дней.
 // Каждый элемент: { dayIdx, dateStr, weekday, dayType, slots: [...], tripNote: string|null }
 // slot: { time, template, theme, room, troops, half }
+// Возвращает true если педагог едет на выезд этого дня:
+// либо он стоит teacher'ом в trip-слоте, либо вписан вручную в extraTripTeachers.
+function isTeacherOnTrip_(day, teacherTargetLc) {
+  // 1) Поставлен teacher'ом в trip-слоте?
+  const tripSlots = ['trip6_am','trip6_pm','trip_full_am','trip_full_pm'];
+  for (const k of tripSlots) {
+    const s = day[k];
+    if (!s) continue;
+    const t = String(s.teacher || '').trim().toLowerCase();
+    if (t && t === teacherTargetLc) return true;
+  }
+  // 2) Вручную дописан в extraTripTeachers?
+  const extra = String(day.extraTripTeachers || '').trim();
+  if (!extra) return false;
+  const list = extra.split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
+  return list.includes(teacherTargetLc);
+}
+
 function buildTeacherSchedule(teacherName) {
   const target = String(teacherName || '').trim().toLowerCase();
   const result = [];
@@ -4917,11 +5002,14 @@ function buildTeacherSchedule(teacherName) {
     const slots = [];
     let tripNote = null;
 
-    // Если день — полный выезд 6 отрядов: показываем как «Едет со всеми»
+    // Полный выезд 6 отрядов: плашку показываем ТОЛЬКО если этот педагог
+    // фактически едет (по teacher или extraTripTeachers).
     if (d.type === 'trip6_am' || d.type === 'trip6_pm') {
-      const slot = d.type === 'trip6_am' ? d.trip6_am : d.trip6_pm;
-      const half = d.type === 'trip6_am' ? 'утром' : 'после обеда';
-      tripNote = `Полный выезд ${half}: ${slot && slot.template ? slot.template : 'все 6 отрядов'}. Все педагоги едут со сменой.`;
+      if (isTeacherOnTrip_(d, target)) {
+        const slot = d.type === 'trip6_am' ? d.trip6_am : d.trip6_pm;
+        const half = d.type === 'trip6_am' ? 'утром' : 'после обеда';
+        tripNote = `Полный выезд ${half}: ${slot && slot.template ? slot.template : 'все 6 отрядов'}.`;
+      }
     }
 
     // Обычные слоты в кластерах + улицах
@@ -4937,7 +5025,6 @@ function buildTeacherSchedule(teacherName) {
         const time = isAM ? '9:30–12:30' : '14:00–17:00';
         const half = isAM ? 'утро' : 'после обеда';
         const isOutside = g.includes('outside');
-        // Группа отрядов: до обеда обычно «1-2-3 в кластере, 4-5-6 на улице», после обеда меняются
         let troops;
         if (isAM) troops = isOutside ? '4-5-6' : '1-2-3';
         else      troops = isOutside ? '1-2-3' : '4-5-6';
@@ -4947,12 +5034,15 @@ function buildTeacherSchedule(teacherName) {
           theme: s.theme || s.ageVariant || '',
           room: s.room || '—',
           troops,
-          isOutside
+          isOutside,
+          slotPath: { dayIdx: idx, group: g, idx: i }
         });
       });
     });
 
-    // Полу-выезд 3 отрядов: trip_full_am / trip_full_pm
+    // Полу-выезд 3 отрядов: trip_full_am / trip_full_pm.
+    // Если педагог фактически в этом trip-слоте — добавляем как отдельный слот.
+    // (Если педагог не teacher слота, но вписан в extraTripTeachers — плашка tripNote выше уже отработала.)
     ['trip_full_am', 'trip_full_pm'].forEach(g => {
       const s = d[g];
       if (!s || !s.template) return;
@@ -4961,7 +5051,6 @@ function buildTeacherSchedule(teacherName) {
       const isAM = g === 'trip_full_am';
       const half = isAM ? 'утро' : 'после обеда';
       const time = isAM ? '9:30–12:30' : '14:00–17:00';
-      // На trip3_pm уезжают 1-2-3, на trip3_am — 4-5-6 (см. логику в _allSlots)
       let troops;
       if (d.type === 'trip3_am') troops = '4-5-6 (выезд)';
       else if (d.type === 'trip3_pm') troops = '1-2-3 (выезд)';
@@ -4974,7 +5063,8 @@ function buildTeacherSchedule(teacherName) {
         room: s.room || '—',
         troops,
         isOutside: true,
-        isTrip: true
+        isTrip: true,
+        slotPath: { dayIdx: idx, group: g, idx: 0, isTripSlot: true }
       });
     });
 
@@ -5021,12 +5111,20 @@ function renderTeacherBlock(teacherName) {
   const totalSlots = days.reduce((s, d) => s + d.slots.length, 0);
   const tripDays = days.filter(d => d.tripNote).length;
 
+  // Дни-выезды (для секции «Кто едет дополнительно»)
+  const tripDayIdxs = [];
+  state.schedule.forEach((d, i) => {
+    if (d.type === 'trip6_am' || d.type === 'trip6_pm' || d.type === 'trip3_am' || d.type === 'trip3_pm' || d.type === 'trip3_full') {
+      tripDayIdxs.push(i);
+    }
+  });
+
   let html = `
     <div class="teacher-block">
       <div class="teacher-head">
         <h2>${escapeHtml(teacherName)}</h2>
         <div class="teacher-meta">
-          ${totalSlots} занятий · ${tripDays > 0 ? tripDays + ' выездных дн.' : 'без полных выездов'} · смена «${escapeHtml(state.theme || '')}»
+          ${totalSlots} занятий · ${tripDays > 0 ? tripDays + ' выездн. дн.' : 'без выездов'} · смена «${escapeHtml(state.theme || '')}»
         </div>
       </div>
   `;
@@ -5043,23 +5141,27 @@ function renderTeacherBlock(teacherName) {
     `;
     if (d.tripNote) {
       html += `<div class="teacher-day-trip">🚌 ${escapeHtml(d.tripNote)}</div>`;
-      if (d.slots.length > 0) {
-        html += '<div style="margin-top:8px"></div>';
-      }
+      if (d.slots.length > 0) html += '<div style="margin-top:8px"></div>';
     }
-    if (d.slots.length === 0 && !d.tripNote) {
-      html += `<div class="teacher-day-rest">— занятий нет —</div>`;
+    if (isEmpty) {
+      html += `<div class="teacher-day-rest">— свободный день —</div>`;
     } else if (d.slots.length > 0) {
       d.slots.forEach(s => {
+        const sp = s.slotPath;
+        // Кнопка убрать слот: для trip-слотов помечена как trip
+        const removeAttr = sp.isTripSlot
+          ? `onclick="removeTeacherFromSlot(${sp.dayIdx},'${sp.group}',0,true,event)"`
+          : `onclick="removeTeacherFromSlot(${sp.dayIdx},'${sp.group}',${sp.idx},false,event)"`;
         html += `
           <div class="teacher-slot">
             <div class="teacher-slot-time">${s.time}</div>
             <div>
-              <div class="teacher-slot-name">${escapeHtml(s.template)}${s.theme ? '' : ''}</div>
+              <div class="teacher-slot-name">${escapeHtml(s.template)}</div>
               ${s.theme ? `<span class="teacher-slot-theme">«${escapeHtml(s.theme)}»</span>` : ''}
             </div>
             <div class="teacher-slot-room">${escapeHtml(s.room)}</div>
             <div class="teacher-slot-troops">${escapeHtml(s.troops)}</div>
+            <button class="teacher-slot-remove no-print" title="Убрать педагога с этого слота (МК останется в сетке без педагога)" ${removeAttr}>✕</button>
           </div>
         `;
       });
@@ -5067,8 +5169,64 @@ function renderTeacherBlock(teacherName) {
     html += `</div></div>`;
   });
 
+  // Секция «Кто едет на выезды» — поле для каждого выездного дня
+  if (tripDayIdxs.length > 0) {
+    html += `
+      <div class="teacher-trips-extra no-print">
+        <div class="teacher-trips-extra-title">Кто едет на выезды</div>
+        <div class="teacher-trips-extra-hint">
+          Впиши именованных педагогов, которые едут на выезд (через запятую). Точно так же, как в библиотеке: «Афонасенко Женя, Гайкова Тамара». Если педагог здесь вписан — у него в расписании появится плашка «🚌 Выезд». Применяется ко всем педагогам, не только к открытому сейчас.
+        </div>
+    `;
+    tripDayIdxs.forEach(i => {
+      const d = state.schedule[i];
+      const date = dateForDay(i);
+      const dStr = date.getDate() + ' ' + MONTHS[date.getMonth()] + ' · ' + WEEKDAYS[date.getDay()];
+      let typeLabel = '';
+      if (d.type === 'trip6_am' || d.type === 'trip6_pm') typeLabel = 'выезд 6 (' + (d.type === 'trip6_am' ? 'утром' : 'после обеда') + ')';
+      else if (d.type === 'trip3_am') typeLabel = 'выезд 3 утром';
+      else if (d.type === 'trip3_pm') typeLabel = 'выезд 3 после обеда';
+      else if (d.type === 'trip3_full') typeLabel = 'выезд 3 × 2';
+      const cur = String(d.extraTripTeachers || '').replace(/"/g, '&quot;');
+      html += `
+        <div class="teacher-trips-row">
+          <label class="teacher-trips-day">День ${i+1} · ${dStr} · <em>${typeLabel}</em></label>
+          <input type="text" class="teacher-trips-input" placeholder="Афонасенко Женя, Гайкова Тамара…"
+                 value="${cur}" data-day="${i}"
+                 oninput="onExtraTripTeachersChange(this)">
+        </div>
+      `;
+    });
+    html += `</div>`;
+  }
+
   html += `</div>`;
   return html;
+}
+
+// Убирает педагога с конкретного слота — пишет '—' в slot.teacher и перерисовывает.
+function removeTeacherFromSlot(dayIdx, group, slotIdx, isTrip, event) {
+  if (event) event.stopPropagation();
+  const day = state.schedule[dayIdx];
+  if (!day) return;
+  const slot = isTrip ? day[group] : (day[group] && day[group][slotIdx]);
+  if (!slot || !slot.template) return;
+  if (!confirm(`Убрать «${slot.teacher}» с этого слота? В сетке останется «${slot.template}» в кабинете «${slot.room}» — но без педагога. Назначишь нового вручную в сетке.`)) return;
+  slot.teacher = '—';
+  saveLocal();
+  renderTeacherSchedule();
+}
+
+// Сохранение поля «Кто едет дополнительно»
+function onExtraTripTeachersChange(inputEl) {
+  const dayIdx = parseInt(inputEl.dataset.day, 10);
+  if (isNaN(dayIdx)) return;
+  if (!state.schedule[dayIdx]) return;
+  state.schedule[dayIdx].extraTripTeachers = inputEl.value;
+  saveLocal();
+  // Перерисуем шапку (счётчик «выездов») с задержкой, чтобы не дёргать поле во время ввода
+  clearTimeout(window._extraTripDebounce);
+  window._extraTripDebounce = setTimeout(() => renderTeacherSchedule(), 800);
 }
 
 function renderTeacherSchedule() {
