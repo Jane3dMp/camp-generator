@@ -1660,14 +1660,20 @@ async function runExpandLibrary() {
       <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:13px;color:var(--moss);margin-bottom:10px">
         ✓ Добавлено ${added.length} черновиков на основе «${data.result.baseTemplate}». Вот они:
       </div>
-      ${added.map(a => `
+      ${added.map(a => {
+        const lvlColor = a.level === 'базовый' ? '#7E8F6E' : a.level === 'расширенный' ? '#B89968' : a.level === 'сюжетный' ? '#A66B3A' : a.level === 'прикладной' ? '#8E5B3E' : '#888';
+        return `
         <div class="variant" style="cursor:default">
-          <div class="variant-name">${a.template}</div>
+          <div class="variant-name">
+            ${a.template}
+            ${a.level ? `<span style="display:inline-block;margin-left:8px;padding:2px 8px;background:${lvlColor};color:#F5F1E8;font-family:'DM Sans',sans-serif;font-size:10px;letter-spacing:0.05em;text-transform:uppercase;border-radius:2px;vertical-align:middle">${a.level}</span>` : ''}
+          </div>
           <div class="variant-meta">${a.direction} · ${a.teacher || '—'} · ${a.duration || ''} мин · ${a.format || ''}</div>
           <div class="variant-rationale">${a.description || ''}</div>
-          <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:rgba(26,22,18,0.55);margin-top:4px">примеры: ${a.examples || '—'}</div>
+          <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:rgba(26,22,18,0.55);margin-top:4px"><strong>примеры:</strong> ${a.examples || '—'}</div>
+          ${a.materials ? `<div style="font-family:'DM Sans',sans-serif;font-size:11px;color:rgba(26,22,18,0.55);margin-top:2px"><strong>материалы:</strong> ${a.materials}</div>` : ''}
         </div>
-      `).join('')}
+      `;}).join('')}
       <div style="margin-top:14px;padding:10px 12px;background:rgba(193,105,79,0.08);border-left:3px solid var(--terra);font-family:DM Sans,sans-serif;font-size:11px;color:rgba(26,22,18,0.75);line-height:1.5">
         Черновики добавлены в Google-таблицу, лист «Активности», в самом низу — выделены бежевым.
         Чтобы они начали подтягиваться сюда — открой таблицу, поставь курсор на нужную строку и
