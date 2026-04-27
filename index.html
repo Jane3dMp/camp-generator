@@ -1,30 +1,51 @@
-<!-- Генератор сетки летнего лагеря v2 — с ротацией 3×3 -->
+<!-- Генератор сетки летнего лагеря v3 — стиль Прознание + Coddy -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@400;500;600;700;800&family=Caveat:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --ink: #1a1612;
-    --paper: #f5f1e8;
-    --paper-warm: #ede4d0;
-    --paper-deep: #e3d6bc;
-    --terra: #c1694f;
-    --terra-deep: #9d5240;
-    --moss: #5a6b3e;
-    --sky: #4a6b8a;
-    --gold: #c9a961;
-    --rose: #d9a89a;
-    --shadow: rgba(26,22,18,0.12);
+    /* === Прознание (главный бренд лагеря) === */
+    --ink: #151617;            /* основной чёрный, для текста и границ */
+    --paper: #F5F5F0;          /* фоновый бежево-светлый */
+    --paper-warm: #FFFDF5;     /* светлее фона — для карточек */
+    --paper-deep: #ECECE5;     /* темнее фона — для второстепенных блоков */
+    --yellow: #FED634;         /* акцентный жёлтый Прознание */
+    --yellow-deep: #E8C200;    /* глубокий жёлтый для hover */
+    --white: #FFFFFF;
+
+    /* === Coddy (акцент для IT-блоков) === */
+    --sky: #41BEEA;            /* голубой Coddy */
+    --sky-deep: #3495B8;       /* hover */
+    --navy: #0A2540;           /* тёмно-синий */
+    --sky-soft: #EBF4FE;       /* фон IT-карточек */
+
+    /* === Семантические цвета направлений (для тегов в карточках) === */
+    --dir-it:        #41BEEA;  /* IT — голубой Coddy */
+    --dir-creative:  #FED634;  /* Творчество — жёлтый Прознание */
+    --dir-soft:      #8FA370;  /* Soft skills — светлый оливковый, спокойный */
+    --dir-active:    #FF8A3D;  /* Активность/спорт — оранжевый, энергия */
+    --dir-event:     #FF5C1D;  /* Событие — оранжевый, заметнее */
+
+    /* Совместимость со старыми переменными (используются местами в коде) */
+    --terra: var(--yellow);
+    --terra-deep: var(--yellow-deep);
+    --moss: var(--dir-soft);
+    --gold: var(--yellow);
+    --rose: #FFE89A;
+    --shadow: rgba(21,22,23,0.08);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
-    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-family: Geologica, system-ui, sans-serif;
     background: var(--paper);
     color: var(--ink);
     padding: 24px;
     min-height: 100vh;
     background-image:
-      radial-gradient(circle at 10% 5%, rgba(193,105,79,0.04) 0%, transparent 40%),
-      radial-gradient(circle at 90% 95%, rgba(90,107,62,0.04) 0%, transparent 40%);
+      radial-gradient(circle at 10% 5%, rgba(254,214,52,0.06) 0%, transparent 40%),
+      radial-gradient(circle at 90% 95%, rgba(65,190,234,0.05) 0%, transparent 40%);
   }
 
   .header {
@@ -39,40 +60,40 @@
   }
   .title-block { flex: 1; min-width: 280px; }
   .eyebrow {
-    font-family: 'DM Sans', sans-serif;
+    font-family: Inter, system-ui, sans-serif;
     font-size: 11px;
     letter-spacing: 0.25em;
     text-transform: uppercase;
-    color: var(--terra-deep);
+    color: rgba(21,22,23,0.55);
     margin-bottom: 6px;
     font-weight: 500;
   }
   h1 {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: Geologica, system-ui, sans-serif;
     font-weight: 600;
     font-size: 38px;
     line-height: 1;
     letter-spacing: -0.01em;
   }
-  h1 em { font-style: italic; color: var(--terra); }
+  h1 em { font-family: Caveat, cursive; font-style: normal; font-weight: 600; color: var(--ink); background: var(--yellow); padding: 0 8px; border-radius: 4px; }
   .subtitle {
-    font-family: 'DM Sans', sans-serif;
+    font-family: Inter, system-ui, sans-serif;
     font-size: 13px;
-    color: rgba(26,22,18,0.6);
+    color: rgba(21,22,23,0.6);
     margin-top: 8px;
     max-width: 540px;
     line-height: 1.4;
   }
   .meta-block {
-    font-family: 'DM Sans', sans-serif;
+    font-family: Inter, system-ui, sans-serif;
     font-size: 10px;
     letter-spacing: 0.15em;
     text-transform: uppercase;
-    color: rgba(26,22,18,0.5);
+    color: rgba(21,22,23,0.5);
     text-align: right;
   }
   .meta-block .num {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: Geologica, system-ui, sans-serif;
     font-size: 28px;
     font-style: italic;
     color: var(--ink);
@@ -96,15 +117,15 @@
   }
   .field { display: flex; flex-direction: column; gap: 4px; }
   .field label {
-    font-family: 'DM Sans', sans-serif;
+    font-family: Inter, system-ui, sans-serif;
     font-size: 10px;
     letter-spacing: 0.15em;
     text-transform: uppercase;
-    color: rgba(26,22,18,0.6);
+    color: rgba(21,22,23,0.6);
     font-weight: 500;
   }
   .field input, .field select {
-    font-family: 'DM Sans', sans-serif;
+    font-family: Inter, system-ui, sans-serif;
     font-size: 14px;
     border: none;
     border-bottom: 1px solid var(--ink);
@@ -118,7 +139,7 @@
 
   /* Кнопки */
   .btn {
-    font-family: 'DM Sans', sans-serif;
+    font-family: Inter, system-ui, sans-serif;
     font-size: 11px;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -132,9 +153,9 @@
     white-space: nowrap;
   }
   .btn:hover { background: var(--ink); color: var(--paper); }
-  .btn-primary { background: var(--terra); color: var(--paper); border-color: var(--terra); }
-  .btn-primary:hover { background: var(--terra-deep); border-color: var(--terra-deep); }
-  .btn-ghost { border: 1px dashed rgba(26,22,18,0.4); }
+  .btn-primary { background: var(--yellow); color: var(--ink); border-color: var(--ink); font-weight: 600; }
+  .btn-primary:hover { background: var(--yellow-deep); border-color: var(--ink); color: var(--ink); }
+  .btn-ghost { border: 1px dashed rgba(21,22,23,0.4); }
   .btn-sm { padding: 4px 8px; font-size: 10px; letter-spacing: 0.08em; }
 
   .toolbar {
@@ -150,9 +171,9 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    font-family: 'DM Sans', sans-serif;
+    font-family: Inter, system-ui, sans-serif;
     font-size: 11px;
-    color: rgba(26,22,18,0.7);
+    color: rgba(21,22,23,0.7);
   }
   .legend-dot {
     width: 10px;
@@ -179,14 +200,15 @@
     gap: 16px;
   }
   .day-head .day-num-big {
-    font-family: 'Cormorant Garamond', serif;
-    font-style: italic;
+    font-family: Geologica, system-ui, sans-serif;
+    font-style: normal;
+    font-weight: 700;
     font-size: 36px;
     line-height: 1;
-    color: var(--rose);
+    color: var(--yellow);
   }
   .day-head .day-num-big strong {
-    font-family: 'DM Sans', sans-serif;
+    font-family: Inter, system-ui, sans-serif;
     font-style: normal;
     font-size: 11px;
     letter-spacing: 0.2em;
@@ -196,21 +218,21 @@
     font-weight: 500;
   }
   .day-head .day-meta {
-    font-family: 'DM Sans', sans-serif;
+    font-family: Inter, system-ui, sans-serif;
     font-size: 11px;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: rgba(245,241,232,0.7);
+    color: rgba(245,245,240,0.65);
   }
   .day-head .day-meta strong {
-    font-family: 'Cormorant Garamond', serif;
-    font-style: italic;
-    font-size: 18px;
-    color: var(--paper);
+    font-family: Caveat, cursive;
+    font-style: normal;
+    font-size: 22px;
+    color: var(--white);
     display: block;
     text-transform: none;
     letter-spacing: 0;
-    font-weight: 500;
+    font-weight: 600;
   }
   .day-actions { display: flex; gap: 6px; align-items: center; }
 
@@ -222,37 +244,37 @@
   .day-type-btn {
     background: transparent;
     border: none;
-    color: rgba(245,241,232,0.6);
+    color: rgba(245,245,240,0.6);
     padding: 4px 8px;
-    font-family: 'DM Sans', sans-serif;
+    font-family: Inter, system-ui, sans-serif;
     font-size: 9px;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     cursor: pointer;
-    border-right: 1px solid rgba(245,241,232,0.3);
+    border-right: 1px solid rgba(245,245,240,0.3);
   }
   .day-type-btn:last-child { border-right: none; }
-  .day-type-btn:hover { color: var(--paper); background: rgba(245,241,232,0.1); }
-  .day-type-btn.active { background: var(--terra); color: var(--paper); }
+  .day-type-btn:hover { color: var(--ink); background: var(--yellow); }
+  .day-type-btn.active { background: var(--yellow); color: var(--ink); font-weight: 600; }
 
   /* Полноширинный слот общего выезда */
   .all-troops-slot {
-    background: linear-gradient(135deg, rgba(193,105,79,0.1), rgba(201,169,97,0.08));
-    border: 1px dashed var(--terra);
+    background: linear-gradient(135deg, rgba(254,214,52,0.12), rgba(254,214,52,0.05));
+    border: 1px dashed var(--yellow-deep);
     margin: 8px 14px 14px;
     padding: 16px 18px;
     position: relative;
     transition: all 0.15s ease;
   }
-  .all-troops-slot:hover { background: linear-gradient(135deg, rgba(193,105,79,0.15), rgba(201,169,97,0.12)); }
-  .all-troops-slot.locked { background: rgba(201,169,97,0.18); border-style: solid; border-color: var(--gold); }
+  .all-troops-slot:hover { background: linear-gradient(135deg, rgba(254,214,52,0.2), rgba(254,214,52,0.08)); }
+  .all-troops-slot.locked { background: rgba(254,214,52,0.22); border-style: solid; border-color: var(--yellow-deep); }
   .all-troops-slot.locked::before {
     content: '✓';
     position: absolute;
     top: 6px;
     right: 10px;
-    color: var(--gold);
-    font-family: 'DM Sans', sans-serif;
+    color: var(--yellow-deep);
+    font-family: Inter, system-ui, sans-serif;
     font-size: 14px;
     font-weight: 700;
   }
@@ -262,23 +284,23 @@
     position: absolute;
     top: 50%; left: 50%;
     width: 16px; height: 16px;
-    border: 2px solid var(--terra);
+    border: 2px solid var(--ink);
     border-top-color: transparent;
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
     transform: translate(-50%, -50%);
   }
   .all-troops-label {
-    font-family: 'DM Sans', sans-serif;
+    font-family: Inter, system-ui, sans-serif;
     font-size: 10px;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: var(--terra-deep);
+    color: var(--ink);
     font-weight: 700;
     margin-bottom: 6px;
   }
   .all-troops-name {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: Geologica, system-ui, sans-serif;
     font-size: 22px;
     font-weight: 500;
     line-height: 1.2;
@@ -286,33 +308,34 @@
     color: var(--ink);
   }
   .all-troops-meta {
-    font-family: 'DM Sans', sans-serif;
+    font-family: Inter, system-ui, sans-serif;
     font-size: 11px;
-    color: rgba(26,22,18,0.6);
+    color: rgba(21,22,23,0.6);
   }
   .all-troops-meta .pill {
-    border: 1px solid rgba(26,22,18,0.2);
+    border: 1px solid rgba(21,22,23,0.2);
     padding: 1px 6px;
     margin-right: 4px;
   }
   .all-troops-slot.trip3-style {
-    background: linear-gradient(135deg, rgba(74,107,138,0.12), rgba(74,107,138,0.04));
-    border-color: var(--sky);
+    background: linear-gradient(135deg, rgba(254,214,52,0.14), rgba(254,214,52,0.05));
+    border-color: var(--yellow-deep);
   }
   .all-troops-slot.trip3-style:hover {
-    background: linear-gradient(135deg, rgba(74,107,138,0.18), rgba(74,107,138,0.08));
+    background: linear-gradient(135deg, rgba(254,214,52,0.22), rgba(254,214,52,0.08));
   }
-  .trip3-label { color: var(--sky) !important; }
+  .trip3-label { color: var(--ink) !important; }
 
   .all-troops-slot.trip6-style {
-    background: linear-gradient(135deg, rgba(90,107,62,0.14), rgba(90,107,62,0.06));
-    border-color: var(--moss);
+    background: linear-gradient(135deg, var(--yellow), rgba(254,214,52,0.6));
+    border-color: var(--ink);
     border-width: 2px;
+    border-style: solid;
   }
   .all-troops-slot.trip6-style:hover {
-    background: linear-gradient(135deg, rgba(90,107,62,0.2), rgba(90,107,62,0.1));
+    background: linear-gradient(135deg, var(--yellow-deep), var(--yellow));
   }
-  .trip6-label { color: var(--moss) !important; }
+  .trip6-label { color: var(--ink) !important; }
 
   .all-troops-actions {
     margin-top: 8px;
@@ -336,7 +359,7 @@
   .half-day-title {
     background: var(--paper-deep);
     padding: 8px 14px;
-    font-family: 'DM Sans', sans-serif;
+    font-family: Inter, system-ui, sans-serif;
     font-size: 10px;
     letter-spacing: 0.18em;
     text-transform: uppercase;
@@ -348,7 +371,7 @@
     align-items: center;
   }
   .half-day-title .time-pill {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: Geologica, system-ui, sans-serif;
     font-style: italic;
     font-size: 13px;
     text-transform: none;
@@ -359,15 +382,15 @@
 
   .group-block {
     padding: 10px 14px 14px;
-    border-bottom: 1px dashed rgba(26,22,18,0.2);
+    border-bottom: 1px dashed rgba(21,22,23,0.2);
   }
   .group-block:last-child { border-bottom: none; }
   .group-label {
-    font-family: 'DM Sans', sans-serif;
+    font-family: Inter, system-ui, sans-serif;
     font-size: 9px;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: rgba(26,22,18,0.55);
+    color: rgba(21,22,23,0.55);
     margin-bottom: 8px;
     font-weight: 600;
     display: flex;
@@ -382,12 +405,12 @@
   .group-label.outside strong { color: var(--moss); }
   .regen-group-btn {
     background: transparent;
-    border: 1px dashed rgba(26,22,18,0.3);
+    border: 1px dashed rgba(21,22,23,0.3);
     padding: 2px 6px;
     cursor: pointer;
     font-size: 10px;
-    color: rgba(26,22,18,0.6);
-    font-family: 'DM Sans', sans-serif;
+    color: rgba(21,22,23,0.6);
+    font-family: Inter, system-ui, sans-serif;
     letter-spacing: 0.05em;
   }
   .regen-group-btn:hover { background: var(--ink); color: var(--paper); border-style: solid; }
@@ -400,22 +423,30 @@
   }
   .station {
     background: var(--paper-warm);
-    border: 1px solid rgba(26,22,18,0.25);
+    border: 1px solid rgba(21,22,23,0.2);
     padding: 8px 10px 10px;
     position: relative;
     transition: all 0.15s ease;
     min-height: 110px;
   }
-  .station:hover { background: var(--paper); border-color: var(--ink); }
-  .station.locked { background: rgba(201,169,97,0.12); border-color: var(--gold); }
+  .station:hover { background: var(--white); border-color: var(--ink); }
+  /* IT-карточки в стиле Coddy: бледно-голубой фон + голубая левая полоска */
+  .station:has(.dir-IT) {
+    background: var(--sky-soft);
+    border-color: rgba(65,190,234,0.45);
+    border-left: 3px solid var(--sky);
+    padding-left: 8px;
+  }
+  .station:has(.dir-IT):hover { background: #DCEEFB; border-color: var(--sky); }
+  .station.locked { background: rgba(254,214,52,0.18); border-color: var(--yellow-deep); border-left-color: var(--yellow-deep); }
   .station.locked::before {
     content: '✓';
     position: absolute;
     top: 4px;
     right: 6px;
-    color: var(--gold);
-    font-family: 'DM Sans', sans-serif;
-    font-size: 12px;
+    color: var(--yellow-deep);
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 13px;
     font-weight: 700;
   }
   .station.generating { opacity: 0.5; pointer-events: none; }
@@ -424,7 +455,7 @@
     position: absolute;
     top: 50%; left: 50%;
     width: 14px; height: 14px;
-    border: 2px solid var(--terra);
+    border: 2px solid var(--ink);
     border-top-color: transparent;
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
@@ -433,10 +464,10 @@
   @keyframes spin { to { transform: translate(-50%,-50%) rotate(360deg); } }
 
   .station-rotation {
-    font-family: 'DM Sans', sans-serif;
+    font-family: Inter, system-ui, sans-serif;
     font-size: 9px;
     letter-spacing: 0.08em;
-    color: rgba(26,22,18,0.55);
+    color: rgba(21,22,23,0.55);
     margin-bottom: 4px;
     display: flex;
     align-items: center;
@@ -461,25 +492,26 @@
 
   .direction-tag {
     display: inline-block;
-    font-family: 'DM Sans', sans-serif;
+    font-family: Inter, system-ui, sans-serif;
     font-size: 8px;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    padding: 1px 4px;
-    border: 1px solid currentColor;
+    padding: 2px 6px;
+    border-radius: 3px;
     margin-bottom: 4px;
-    font-weight: 500;
+    font-weight: 600;
+    color: var(--ink);
   }
-  .dir-IT { color: var(--sky); }
-  .dir-Творчество { color: var(--terra-deep); }
-  .dir-Soft { color: var(--moss); }
-  .dir-Активность { color: var(--moss); }
-  .dir-Игры { color: var(--gold); }
-  .dir-Событие { color: var(--terra); }
-  .dir-Прочее { color: rgba(26,22,18,0.5); }
+  .dir-IT { background: var(--dir-it); color: var(--ink); }
+  .dir-Творчество { background: var(--dir-creative); color: var(--ink); }
+  .dir-Soft { background: var(--dir-soft); color: var(--white); }
+  .dir-Активность { background: var(--dir-active); color: var(--white); }
+  .dir-Игры { background: var(--yellow); color: var(--ink); }
+  .dir-Событие { background: var(--dir-event); color: var(--white); }
+  .dir-Прочее { background: var(--paper-deep); color: rgba(21,22,23,0.6); }
 
   .station-name {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: Geologica, system-ui, sans-serif;
     font-size: 13px;
     line-height: 1.2;
     color: var(--ink);
@@ -487,22 +519,22 @@
     font-weight: 500;
   }
   .station-theme {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: Geologica, system-ui, sans-serif;
     font-style: italic;
     font-size: 12px;
-    color: var(--terra-deep);
+    color: rgba(21,22,23,0.7);
     margin-bottom: 4px;
     line-height: 1.2;
   }
   .station-meta {
-    font-family: 'DM Sans', sans-serif;
+    font-family: Inter, system-ui, sans-serif;
     font-size: 9px;
-    color: rgba(26,22,18,0.55);
+    color: rgba(21,22,23,0.55);
     line-height: 1.3;
     margin-bottom: 4px;
   }
   .station-meta .pill {
-    border: 1px solid rgba(26,22,18,0.18);
+    border: 1px solid rgba(21,22,23,0.18);
     padding: 0 4px;
     margin-right: 3px;
     display: inline-block;
@@ -517,7 +549,7 @@
   .station:hover .station-actions, .station.locked .station-actions { opacity: 1; }
   .icon-btn {
     background: transparent;
-    border: 1px solid rgba(26,22,18,0.25);
+    border: 1px solid rgba(21,22,23,0.25);
     width: 20px;
     height: 20px;
     cursor: pointer;
@@ -525,7 +557,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: rgba(26,22,18,0.7);
+    color: rgba(21,22,23,0.7);
     padding: 0;
     line-height: 1;
   }
@@ -534,8 +566,8 @@
 
   /* Уличный блок: тоже 3 ротационные активности, но проще */
   .outside .stations { grid-template-columns: repeat(3, 1fr); }
-  .outside .station { background: rgba(90,107,62,0.06); border-color: rgba(90,107,62,0.3); }
-  .outside .station:hover { background: rgba(90,107,62,0.1); }
+  .outside .station { background: var(--paper-deep); border-color: rgba(21,22,23,0.15); }
+  .outside .station:hover { background: rgba(245,245,240,0.5); }
   .outside .station.locked { background: rgba(201,169,97,0.12); border-color: var(--gold); }
 
   /* Footer */
@@ -551,17 +583,17 @@
     gap: 12px;
   }
   .actions-info {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: Geologica, system-ui, sans-serif;
     font-style: italic;
     font-size: 14px;
-    color: rgba(26,22,18,0.7);
+    color: rgba(21,22,23,0.7);
   }
 
   /* Модалка */
   .modal-bg {
     position: fixed;
     inset: 0;
-    background: rgba(26,22,18,0.6);
+    background: rgba(21,22,23,0.6);
     display: none;
     align-items: center;
     justify-content: center;
@@ -588,11 +620,11 @@
     align-items: flex-start;
   }
   .modal-header h2 {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: Geologica, system-ui, sans-serif;
     font-weight: 500;
     font-size: 22px;
   }
-  .modal-header h2 em { font-style: italic; color: var(--terra); }
+  .modal-header h2 em { font-family: Caveat, cursive; font-style: normal; font-weight: 600; color: var(--ink); }
   .modal-close {
     background: transparent;
     border: none;
@@ -602,7 +634,7 @@
     line-height: 1;
   }
   .variant {
-    border: 1px solid rgba(26,22,18,0.2);
+    border: 1px solid rgba(21,22,23,0.2);
     padding: 14px 16px;
     margin-bottom: 10px;
     cursor: pointer;
@@ -611,31 +643,31 @@
   }
   .variant:hover { border-color: var(--terra); background: var(--paper); }
   .variant-name {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: Geologica, system-ui, sans-serif;
     font-size: 17px;
     line-height: 1.3;
     margin-bottom: 4px;
     font-weight: 500;
   }
   .variant-meta {
-    font-family: 'DM Sans', sans-serif;
+    font-family: Inter, system-ui, sans-serif;
     font-size: 11px;
-    color: rgba(26,22,18,0.6);
+    color: rgba(21,22,23,0.6);
     margin-bottom: 6px;
   }
   .variant-rationale {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: Geologica, system-ui, sans-serif;
     font-style: italic;
     font-size: 13px;
-    color: rgba(26,22,18,0.65);
+    color: rgba(21,22,23,0.65);
     line-height: 1.4;
   }
   .modal-loading {
     text-align: center;
     padding: 40px 20px;
-    font-family: 'Cormorant Garamond', serif;
+    font-family: Geologica, system-ui, sans-serif;
     font-style: italic;
-    color: rgba(26,22,18,0.6);
+    color: rgba(21,22,23,0.6);
   }
   .modal-loading::before {
     content: '';
@@ -652,7 +684,7 @@
 
   .editor-input {
     width: 100%;
-    font-family: 'Cormorant Garamond', serif;
+    font-family: Geologica, system-ui, sans-serif;
     font-size: 16px;
     border: 1px solid var(--ink);
     background: var(--paper);
@@ -670,7 +702,7 @@
     background: var(--ink);
     color: var(--paper);
     padding: 12px 18px;
-    font-family: 'DM Sans', sans-serif;
+    font-family: Inter, system-ui, sans-serif;
     font-size: 12px;
     letter-spacing: 0.05em;
     z-index: 200;
@@ -711,7 +743,7 @@
     cursor: pointer;
     z-index: 145;
     writing-mode: vertical-rl;
-    font-family: 'DM Sans', sans-serif;
+    font-family: Inter, system-ui, sans-serif;
     font-size: 11px;
     letter-spacing: 0.18em;
     text-transform: uppercase;
@@ -735,15 +767,15 @@
     background: var(--paper-warm);
   }
   .program-side .program-head h2 {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: Geologica, system-ui, sans-serif;
     font-weight: 600;
     font-size: 22px;
   }
-  .program-side .program-head h2 em { font-style: italic; color: var(--terra); }
+  .program-side .program-head h2 em { font-family: Caveat, cursive; font-style: normal; font-weight: 600; color: var(--ink); }
   .program-side .program-head .stats {
-    font-family: 'DM Sans', sans-serif;
+    font-family: Inter, system-ui, sans-serif;
     font-size: 11px;
-    color: rgba(26,22,18,0.6);
+    color: rgba(21,22,23,0.6);
     margin-top: 4px;
     letter-spacing: 0.05em;
   }
@@ -766,7 +798,7 @@
     margin-bottom: 18px;
   }
   .program-section h3 {
-    font-family: 'DM Sans', sans-serif;
+    font-family: Inter, system-ui, sans-serif;
     font-size: 10px;
     letter-spacing: 0.18em;
     text-transform: uppercase;
@@ -780,7 +812,7 @@
   .program-section.pending h3 { color: var(--terra); }
 
   .program-item {
-    border: 1px solid rgba(26,22,18,0.2);
+    border: 1px solid rgba(21,22,23,0.2);
     padding: 8px 10px;
     margin-bottom: 6px;
     background: var(--paper-warm);
@@ -789,28 +821,28 @@
   }
   .program-item:hover { background: var(--paper); border-color: var(--ink); }
   .program-item-name {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: Geologica, system-ui, sans-serif;
     font-size: 14px;
     font-weight: 500;
     line-height: 1.2;
     margin-bottom: 4px;
   }
   .program-item-locations {
-    font-family: 'DM Sans', sans-serif;
+    font-family: Inter, system-ui, sans-serif;
     font-size: 10px;
-    color: rgba(26,22,18,0.6);
+    color: rgba(21,22,23,0.6);
     margin-bottom: 4px;
     line-height: 1.4;
   }
   .program-item-locations .ploc {
     display: inline-block;
-    border: 1px solid rgba(26,22,18,0.2);
+    border: 1px solid rgba(21,22,23,0.2);
     padding: 1px 5px;
     margin: 1px 2px 1px 0;
   }
   .program-item-locations .ploc.young { border-color: var(--terra-deep); color: var(--terra-deep); }
   .program-item-locations .ploc.senior { border-color: var(--sky); color: var(--sky); }
-  .program-item-locations .ploc.missing { border: 1px dashed var(--terra); color: var(--terra); background: rgba(193,105,79,0.08); }
+  .program-item-locations .ploc.missing { border: 1px dashed var(--terra); color: var(--terra); background: rgba(254,214,52,0.08); }
 
   .program-item-actions {
     display: flex;
@@ -819,23 +851,23 @@
   }
   .program-item-actions button {
     background: transparent;
-    border: 1px solid rgba(26,22,18,0.3);
+    border: 1px solid rgba(21,22,23,0.3);
     padding: 2px 7px;
-    font-family: 'DM Sans', sans-serif;
+    font-family: Inter, system-ui, sans-serif;
     font-size: 9px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     cursor: pointer;
-    color: rgba(26,22,18,0.7);
+    color: rgba(21,22,23,0.7);
   }
   .program-item-actions button:hover { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 
   .pending-item {
     border: 1px dashed var(--terra);
-    background: rgba(193,105,79,0.06);
+    background: rgba(254,214,52,0.06);
   }
   .pending-item .pending-target {
-    font-family: 'DM Sans', sans-serif;
+    font-family: Inter, system-ui, sans-serif;
     font-size: 9px;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -856,7 +888,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: 'DM Sans', sans-serif;
+    font-family: Inter, system-ui, sans-serif;
     font-size: 8px;
     font-weight: 700;
     background: var(--paper);
@@ -866,10 +898,10 @@
   .mirror-badge.none { color: var(--terra); }
 
   .empty-section {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: Geologica, system-ui, sans-serif;
     font-style: italic;
     font-size: 13px;
-    color: rgba(26,22,18,0.4);
+    color: rgba(21,22,23,0.4);
     padding: 8px 0;
   }
 
@@ -889,22 +921,22 @@
     border: 1px solid var(--ink);
   }
   .zoom-panel .zoom-label {
-    font-family: 'DM Sans', sans-serif;
+    font-family: Inter, system-ui, sans-serif;
     font-size: 9px;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: rgba(245,241,232,0.6);
+    color: rgba(245,245,240,0.6);
     margin-right: 4px;
     font-weight: 500;
   }
   .zoom-btn {
     background: transparent;
-    border: 1px solid rgba(245,241,232,0.4);
+    border: 1px solid rgba(245,245,240,0.4);
     color: var(--paper);
     width: 28px;
     height: 28px;
     cursor: pointer;
-    font-family: 'Cormorant Garamond', serif;
+    font-family: Geologica, system-ui, sans-serif;
     font-size: 18px;
     font-weight: 500;
     line-height: 1;
@@ -924,10 +956,10 @@
   }
   .zoom-btn:disabled:hover {
     background: transparent;
-    border-color: rgba(245,241,232,0.4);
+    border-color: rgba(245,245,240,0.4);
   }
   .zoom-value {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: Geologica, system-ui, sans-serif;
     font-style: italic;
     font-size: 16px;
     color: var(--paper);
@@ -938,8 +970,8 @@
   .zoom-reset {
     background: transparent;
     border: none;
-    color: rgba(245,241,232,0.5);
-    font-family: 'DM Sans', sans-serif;
+    color: rgba(245,245,240,0.5);
+    font-family: Inter, system-ui, sans-serif;
     font-size: 9px;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -955,15 +987,15 @@
     border-left: 3px solid var(--terra);
     padding: 12px 16px;
     margin-bottom: 18px;
-    font-family: 'Cormorant Garamond', serif;
+    font-family: Geologica, system-ui, sans-serif;
     font-style: italic;
     font-size: 13px;
-    color: rgba(26,22,18,0.75);
+    color: rgba(21,22,23,0.75);
     line-height: 1.5;
   }
   .rotation-help strong {
     font-style: normal;
-    font-family: 'DM Sans', sans-serif;
+    font-family: Inter, system-ui, sans-serif;
     font-size: 10px;
     letter-spacing: 0.15em;
     text-transform: uppercase;
@@ -982,7 +1014,6 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 <div id="zoom-content">
 <div class="header">
@@ -1000,7 +1031,7 @@
 <div class="config-panel">
   <div class="field">
     <label>Тип смены</label>
-    <select id="camp-type" onchange="applyCampType()" style="width:100%;font-family:'Cormorant Garamond',serif;font-size:16px;border:1px solid var(--ink);background:var(--paper);padding:9px 12px;outline:none;cursor:pointer">
+    <select id="camp-type" onchange="applyCampType()" style="width:100%;font-family:Geologica, serif;font-size:16px;border:1px solid var(--ink);background:var(--paper);padding:9px 12px;outline:none;cursor:pointer">
       <option value="">— не задан —</option>
     </select>
   </div>
@@ -1028,12 +1059,12 @@
   </div>
 </div>
 
-<div style="display:flex;gap:14px;align-items:center;margin:12px 0 18px;font-family:'DM Sans',sans-serif;font-size:12px;color:rgba(26,22,18,0.7)">
+<div style="display:flex;gap:14px;align-items:center;margin:12px 0 18px;font-family:Inter,sans-serif;font-size:12px;color:rgba(21,22,23,0.7)">
   <label style="display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none">
     <input type="checkbox" id="work-without-themes" onchange="toggleWorkWithoutThemes()" style="cursor:pointer">
     <span>Работать без тем (только шаблоны)</span>
   </label>
-  <span style="color:rgba(26,22,18,0.4);font-style:italic;font-family:'Cormorant Garamond',serif;font-size:13px">
+  <span style="color:rgba(21,22,23,0.4);font-style:italic;font-family:Geologica, serif;font-size:13px">
     Сначала расставь шаблоны → потом для каждой ячейки сгенерируй тему под тему смены
   </span>
 </div>
@@ -1474,12 +1505,12 @@ function showRestoredBanner(savedAt) {
   if (bar) bar.remove();
   bar = document.createElement('div');
   bar.id = 'restored-banner';
-  bar.style.cssText = 'background:rgba(193,105,79,0.12);border-left:3px solid var(--terra);padding:8px 14px;margin:0 0 12px;font-family:DM Sans,sans-serif;font-size:12px;display:flex;align-items:center;justify-content:space-between;gap:12px';
+  bar.style.cssText = 'background:rgba(254,214,52,0.12);border-left:3px solid var(--terra);padding:8px 14px;margin:0 0 12px;font-family:Inter, sans-serif;font-size:12px;display:flex;align-items:center;justify-content:space-between;gap:12px';
   bar.innerHTML = `
-    <span style="color:rgba(26,22,18,0.75)">↻ Восстановлено из автосохранения · ${formatRelativeTime(savedAt)}</span>
+    <span style="color:rgba(21,22,23,0.75)">↻ Восстановлено из автосохранения · ${formatRelativeTime(savedAt)}</span>
     <span style="display:flex;gap:8px">
-      <button onclick="dismissRestoredBanner()" style="background:transparent;border:1px solid rgba(26,22,18,0.2);font-family:DM Sans,sans-serif;font-size:11px;padding:4px 10px;cursor:pointer;color:rgba(26,22,18,0.7)">Скрыть</button>
-      <button onclick="resetToFreshStart()" style="background:var(--terra);color:var(--paper);border:none;font-family:DM Sans,sans-serif;font-size:11px;padding:4px 10px;cursor:pointer">↩ Начать заново</button>
+      <button onclick="dismissRestoredBanner()" style="background:transparent;border:1px solid rgba(21,22,23,0.2);font-family:Inter, sans-serif;font-size:11px;padding:4px 10px;cursor:pointer;color:rgba(21,22,23,0.7)">Скрыть</button>
+      <button onclick="resetToFreshStart()" style="background:var(--terra);color:var(--paper);border:none;font-family:Inter, sans-serif;font-size:11px;padding:4px 10px;cursor:pointer">↩ Начать заново</button>
     </span>
   `;
   // Вставляем перед config-panel
@@ -1607,15 +1638,15 @@ function openExpandLibraryPanel() {
   });
 
   document.getElementById('modal-body').innerHTML = `
-    <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:14px;color:rgba(26,22,18,0.7);margin-bottom:14px;line-height:1.5">
+    <div style="font-family:Geologica, serif;font-style:italic;font-size:14px;color:rgba(21,22,23,0.7);margin-bottom:14px;line-height:1.5">
       Выбери шаблон-образец. ИИ предложит <strong>N похожих по структуре</strong> шаблонов
       (то же направление, тот же формат, длительность и педагог; другие материалы/техники).
       Они появятся в листе «Активности» со статусом «черновик» — выделены бежевым.
       Чтобы они начали попадать в генератор сетки — открой таблицу и утверди их через меню «Прознание».
     </div>
-    <label style="display:block;font-family:'DM Sans',sans-serif;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px;color:rgba(26,22,18,0.6)">Шаблон-образец</label>
+    <label style="display:block;font-family:Inter,sans-serif;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px;color:rgba(21,22,23,0.6)">Шаблон-образец</label>
     <select id="expand-template-select" class="editor-input" style="margin-bottom:14px">${optionsHtml}</select>
-    <label style="display:block;font-family:'DM Sans',sans-serif;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px;color:rgba(26,22,18,0.6)">Сколько черновиков сгенерировать</label>
+    <label style="display:block;font-family:Inter,sans-serif;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px;color:rgba(21,22,23,0.6)">Сколько черновиков сгенерировать</label>
     <select id="expand-count-select" class="editor-input" style="margin-bottom:14px">
       <option value="3">3 (быстро, 5–10 сек)</option>
       <option value="4" selected>4</option>
@@ -1639,7 +1670,7 @@ async function runExpandLibrary() {
   const goBtn = document.getElementById('expand-go-btn');
   const templateName = sel.value;
   const count = parseInt(cntSel.value, 10) || 4;
-  if (!templateName) { resultEl.innerHTML = '<div style="color:var(--terra-deep);font-family:DM Sans,sans-serif;font-size:12px">Выбери шаблон-образец</div>'; return; }
+  if (!templateName) { resultEl.innerHTML = '<div style="color:var(--terra-deep);font-family:Inter, sans-serif;font-size:12px">Выбери шаблон-образец</div>'; return; }
   goBtn.disabled = true;
   resultEl.innerHTML = '<div class="modal-loading">ИИ генерирует ' + count + ' черновиков… (5–20 сек)</div>';
   try {
@@ -1652,12 +1683,12 @@ async function runExpandLibrary() {
     if (!data.ok) throw new Error(data.error || 'API error');
     const added = (data.result && data.result.added) || [];
     if (added.length === 0) {
-      resultEl.innerHTML = '<div style="color:var(--terra-deep);font-family:DM Sans,sans-serif;font-size:12px">ИИ не вернул ни одного валидного черновика. Попробуй ещё раз.</div>';
+      resultEl.innerHTML = '<div style="color:var(--terra-deep);font-family:Inter, sans-serif;font-size:12px">ИИ не вернул ни одного валидного черновика. Попробуй ещё раз.</div>';
       goBtn.disabled = false;
       return;
     }
     resultEl.innerHTML = `
-      <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:13px;color:var(--moss);margin-bottom:10px">
+      <div style="font-family:Geologica, serif;font-style:italic;font-size:13px;color:var(--moss);margin-bottom:10px">
         ✓ Добавлено ${added.length} черновиков на основе «${data.result.baseTemplate}». Вот они:
       </div>
       ${added.map(a => {
@@ -1678,20 +1709,20 @@ async function runExpandLibrary() {
         <div class="variant" style="cursor:default">
           <div class="variant-name">
             ${a.template}
-            ${a.level ? `<span style="display:inline-block;margin-left:8px;padding:2px 8px;background:${lvlColor};color:#F5F1E8;font-family:'DM Sans',sans-serif;font-size:10px;letter-spacing:0.05em;text-transform:uppercase;border-radius:2px;vertical-align:middle">${a.level}</span>` : ''}
+            ${a.level ? `<span style="display:inline-block;margin-left:8px;padding:2px 8px;background:${lvlColor};color:#F5F1E8;font-family:Inter,sans-serif;font-size:10px;letter-spacing:0.05em;text-transform:uppercase;border-radius:2px;vertical-align:middle">${a.level}</span>` : ''}
           </div>
           <div class="variant-meta">${a.direction} · ${a.teacher || '—'} · ${a.duration || ''} мин · ${a.format || ''}</div>
           <div class="variant-rationale">${a.description || ''}</div>
-          <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:rgba(26,22,18,0.55);margin-top:4px"><strong>примеры:</strong> ${a.examples || '—'}</div>
-          ${a.materials ? `<div style="font-family:'DM Sans',sans-serif;font-size:11px;color:rgba(26,22,18,0.55);margin-top:2px"><strong>материалы:</strong> ${a.materials}</div>` : ''}
+          <div style="font-family:Inter,sans-serif;font-size:11px;color:rgba(21,22,23,0.55);margin-top:4px"><strong>примеры:</strong> ${a.examples || '—'}</div>
+          ${a.materials ? `<div style="font-family:Inter,sans-serif;font-size:11px;color:rgba(21,22,23,0.55);margin-top:2px"><strong>материалы:</strong> ${a.materials}</div>` : ''}
           <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
-            <a href="${pinUrl}" target="_blank" rel="noopener" style="font-family:'DM Sans',sans-serif;font-size:11px;padding:4px 10px;border:1px solid rgba(193,105,79,0.4);color:var(--terra-deep);text-decoration:none;background:rgba(193,105,79,0.06);border-radius:2px">📌 Pinterest</a>
-            <a href="${gimgUrl}" target="_blank" rel="noopener" style="font-family:'DM Sans',sans-serif;font-size:11px;padding:4px 10px;border:1px solid rgba(26,22,18,0.2);color:rgba(26,22,18,0.7);text-decoration:none;background:rgba(26,22,18,0.03);border-radius:2px">🖼 Google Картинки</a>
-            <a href="${ytUrl}" target="_blank" rel="noopener" style="font-family:'DM Sans',sans-serif;font-size:11px;padding:4px 10px;border:1px solid rgba(26,22,18,0.2);color:rgba(26,22,18,0.7);text-decoration:none;background:rgba(26,22,18,0.03);border-radius:2px">🎬 YouTube</a>
+            <a href="${pinUrl}" target="_blank" rel="noopener" style="font-family:Inter,sans-serif;font-size:11px;padding:4px 10px;border:1px solid rgba(254,214,52,0.4);color:var(--terra-deep);text-decoration:none;background:rgba(254,214,52,0.06);border-radius:2px">📌 Pinterest</a>
+            <a href="${gimgUrl}" target="_blank" rel="noopener" style="font-family:Inter,sans-serif;font-size:11px;padding:4px 10px;border:1px solid rgba(21,22,23,0.2);color:rgba(21,22,23,0.7);text-decoration:none;background:rgba(21,22,23,0.03);border-radius:2px">🖼 Google Картинки</a>
+            <a href="${ytUrl}" target="_blank" rel="noopener" style="font-family:Inter,sans-serif;font-size:11px;padding:4px 10px;border:1px solid rgba(21,22,23,0.2);color:rgba(21,22,23,0.7);text-decoration:none;background:rgba(21,22,23,0.03);border-radius:2px">🎬 YouTube</a>
           </div>
         </div>
       `;}).join('')}
-      <div style="margin-top:14px;padding:10px 12px;background:rgba(193,105,79,0.08);border-left:3px solid var(--terra);font-family:DM Sans,sans-serif;font-size:11px;color:rgba(26,22,18,0.75);line-height:1.5">
+      <div style="margin-top:14px;padding:10px 12px;background:rgba(254,214,52,0.08);border-left:3px solid var(--terra);font-family:Inter, sans-serif;font-size:11px;color:rgba(21,22,23,0.75);line-height:1.5">
         Черновики добавлены в Google-таблицу, лист «Активности», в самом низу — выделены бежевым.
         Чтобы они начали подтягиваться сюда — открой таблицу, поставь курсор на нужную строку и
         выбери в меню «Прознание» → «✓ Утвердить выделенный черновик». После этого нажми сюда «📚 ↻».
@@ -1699,7 +1730,7 @@ async function runExpandLibrary() {
     `;
     goBtn.disabled = false;
   } catch(e) {
-    resultEl.innerHTML = '<div style="color:var(--terra-deep);font-family:DM Sans,sans-serif;font-size:12px;white-space:pre-wrap">Ошибка: ' + e.message + '</div>';
+    resultEl.innerHTML = '<div style="color:var(--terra-deep);font-family:Inter, sans-serif;font-size:12px;white-space:pre-wrap">Ошибка: ' + e.message + '</div>';
     goBtn.disabled = false;
   }
 }
@@ -1715,14 +1746,14 @@ async function openDraftsPanel() {
         <input id="new-draft-name" type="text" placeholder="Название нового черновика" class="editor-input" style="margin:0;flex:1" value="${(state._draftName || state.theme || 'Смена').replace(/"/g,'&quot;')}">
         <button class="btn btn-primary" onclick="saveCurrentAsNewDraft()">💾 Сохранить</button>
       </div>
-      ${state._draftId ? `<div style="margin-bottom:14px;font-family:'Cormorant Garamond',serif;font-style:italic;font-size:13px;color:rgba(26,22,18,0.7)">
+      ${state._draftId ? `<div style="margin-bottom:14px;font-family:Geologica, serif;font-style:italic;font-size:13px;color:rgba(21,22,23,0.7)">
         Сейчас открыт: <strong>${state._draftName || '?'}</strong>.
         <button class="btn btn-sm" onclick="overwriteCurrentDraft()" style="margin-left:8px">↻ Перезаписать его</button>
       </div>` : ''}
-      <hr style="border:none;border-top:1px solid rgba(26,22,18,0.1);margin:14px 0">
+      <hr style="border:none;border-top:1px solid rgba(21,22,23,0.1);margin:14px 0">
     `;
     if (drafts.length === 0) {
-      html += '<div style="font-family:Cormorant Garamond,serif;font-style:italic;color:rgba(26,22,18,0.5);text-align:center;padding:20px">Черновиков пока нет</div>';
+      html += '<div style="font-family:Geologica, sans-serif;font-style:italic;color:rgba(21,22,23,0.5);text-align:center;padding:20px">Черновиков пока нет</div>';
     } else {
       html += drafts.map(d => `
         <div class="variant" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
@@ -1740,7 +1771,7 @@ async function openDraftsPanel() {
     html += `<div class="modal-actions"><button class="btn" onclick="closeModal()">Закрыть</button></div>`;
     document.getElementById('modal-body').innerHTML = html;
   } catch(e) {
-    document.getElementById('modal-body').innerHTML = `<div style="padding:20px;font-family:'DM Sans',sans-serif;color:var(--terra-deep)">Ошибка: ${e.message}</div>`;
+    document.getElementById('modal-body').innerHTML = `<div style="padding:20px;font-family:Inter,sans-serif;color:var(--terra-deep)">Ошибка: ${e.message}</div>`;
   }
 }
 
@@ -1903,20 +1934,20 @@ function openTemplatePicker(day, group, idx, isTripSlot, slotKey) {
 
   document.getElementById('modal-title').innerHTML = `Выбрать <em>шаблон занятия</em>${allowedFormat ? ' · '+allowedFormat : ''}`;
 
-  let html = `<div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:13px;margin-bottom:12px;color:rgba(26,22,18,0.7)">
+  let html = `<div style="font-family:Geologica, serif;font-style:italic;font-size:13px;margin-bottom:12px;color:rgba(21,22,23,0.7)">
     Выбери шаблон. Педагог, кабинет и направление подтянутся автоматически.
   </div>`;
 
   Object.keys(byDirection).sort().forEach(dir => {
     html += `<div style="margin-bottom:14px">
-      <div style="font-family:'DM Sans',sans-serif;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--terra-deep);margin-bottom:6px;font-weight:600">${dir}</div>`;
+      <div style="font-family:Inter,sans-serif;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--terra-deep);margin-bottom:6px;font-weight:600">${dir}</div>`;
     byDirection[dir].forEach(t => {
       const teachersStr = t.teachers.length > 1 ? ` <span style="opacity:0.6;font-size:11px">(${t.teachers.join(', ')})</span>` : ` <span style="opacity:0.6;font-size:11px">(${t.teachers[0]})</span>`;
-      const examplesStr = t.examples ? `<div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:11px;color:rgba(26,22,18,0.55);margin-top:2px">${t.examples}</div>` : '';
+      const examplesStr = t.examples ? `<div style="font-family:Geologica, serif;font-style:italic;font-size:11px;color:rgba(21,22,23,0.55);margin-top:2px">${t.examples}</div>` : '';
       const groupArg = group === null || group === undefined ? 'null' : `'${escapeJs(group)}'`;
       const slotKeyArg = slotKey === null || slotKey === undefined ? 'null' : `'${escapeJs(slotKey)}'`;
       html += `<div class="variant" style="margin-bottom:4px;padding:8px 12px" onclick="applyTemplate(${day},${groupArg},${idx},'${escapeJs(t.template)}',${isTripSlot},${slotKeyArg})">
-        <div style="font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:500">${t.template}${teachersStr}</div>
+        <div style="font-family:Geologica, serif;font-size:14px;font-weight:500">${t.template}${teachersStr}</div>
         ${examplesStr}
       </div>`;
     });
@@ -1924,7 +1955,7 @@ function openTemplatePicker(day, group, idx, isTripSlot, slotKey) {
   });
 
   if (templates.length === 0) {
-    html += `<div style="text-align:center;padding:30px;color:rgba(26,22,18,0.5);font-style:italic">Нет шаблонов для формата «${allowedFormat}»</div>`;
+    html += `<div style="text-align:center;padding:30px;color:rgba(21,22,23,0.5);font-style:italic">Нет шаблонов для формата «${allowedFormat}»</div>`;
   }
 
   html += `<div class="modal-actions"><button class="btn" onclick="closeModal()">Отмена</button></div>`;
@@ -1937,7 +1968,7 @@ function applyTemplate(day, group, idx, templateName, isTripSlot, slotKey) {
   if (matching.length === 0) { toast('Шаблон не найден'); return; }
 
   if (matching.length > 1) {
-    let html = `<div style="margin-bottom:12px;font-family:'Cormorant Garamond',serif;font-style:italic;color:rgba(26,22,18,0.7)">
+    let html = `<div style="margin-bottom:12px;font-family:Geologica, serif;font-style:italic;color:rgba(21,22,23,0.7)">
       Шаблон <strong>${templateName}</strong> ведут ${matching.length} педагога. Выбери:
     </div>`;
     matching.forEach((a, i) => {
@@ -2002,7 +2033,7 @@ async function generateThemeForSlot(day, group, idx, isTripSlot, slotKey) {
     const groupArg = group === null || group === undefined ? 'null' : `'${escapeJs(group)}'`;
     const slotKeyArg = slotKey === null || slotKey === undefined ? 'null' : `'${escapeJs(slotKey)}'`;
     document.getElementById('modal-body').innerHTML = `
-      <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:13px;margin-bottom:14px;color:rgba(26,22,18,0.7)">
+      <div style="font-family:Geologica, serif;font-style:italic;font-size:13px;margin-bottom:14px;color:rgba(21,22,23,0.7)">
         Шаблон: <strong>${slot.template}</strong> · Тема смены: <strong>«${state.theme}»</strong>
       </div>
       ${themes.map((t, i) => `
@@ -2019,7 +2050,7 @@ async function generateThemeForSlot(day, group, idx, isTripSlot, slotKey) {
     window._lastThemes = themes;
   } catch(e) {
     document.getElementById('modal-body').innerHTML = `
-      <div style="padding:20px;font-family:'DM Sans',sans-serif;color:var(--terra-deep)">Ошибка: ${e.message}</div>
+      <div style="padding:20px;font-family:Inter,sans-serif;color:var(--terra-deep)">Ошибка: ${e.message}</div>
       <div class="modal-actions"><button class="btn" onclick="closeModal()">Закрыть</button></div>
     `;
   }
@@ -2554,7 +2585,7 @@ async function openSingleVariants(day, slotKey, originalKey) {
     window._lastVariants = vs;
   } catch(e) {
     document.getElementById('modal-body').innerHTML = `
-      <div style="padding:20px; font-family:'DM Sans',sans-serif; color:var(--terra-deep);">Ошибка: ${e.message}</div>
+      <div style="padding:20px; font-family:Inter,sans-serif; color:var(--terra-deep);">Ошибка: ${e.message}</div>
       <div class="modal-actions"><button class="btn" onclick="closeModal()">Закрыть</button></div>
     `;
   }
@@ -2630,7 +2661,7 @@ async function openTripVariants(day, slotKey, contextType=null) {
     window._lastVariants = vs;
   } catch(e) {
     document.getElementById('modal-body').innerHTML = `
-      <div style="padding:20px; font-family:'DM Sans',sans-serif; color:var(--terra-deep);">Ошибка: ${e.message}</div>
+      <div style="padding:20px; font-family:Inter,sans-serif; color:var(--terra-deep);">Ошибка: ${e.message}</div>
       <div class="modal-actions">
         <button class="btn" onclick="closeModal()">Закрыть</button>
         <button class="btn btn-primary" onclick="editTrip(${day},'${slotKey}')">Редактировать вручную</button>
@@ -2951,7 +2982,7 @@ async function openVariants(day, group, idx) {
     window._lastVariants = vs;
   } catch(e) {
     document.getElementById('modal-body').innerHTML = `
-      <div style="padding:20px; font-family:'DM Sans',sans-serif; color:var(--terra-deep);">
+      <div style="padding:20px; font-family:Inter,sans-serif; color:var(--terra-deep);">
         Не удалось получить варианты.<br><br><strong>Причина:</strong> ${e.message}
       </div>
       <div class="modal-actions">
@@ -3549,9 +3580,9 @@ function showCheckResults() {
 
   if (issues.length === 0) {
     document.getElementById('modal-body').innerHTML = `
-      <div style="text-align:center;padding:40px 20px;color:var(--moss);font-family:'Cormorant Garamond',serif;font-style:italic;font-size:18px">
+      <div style="text-align:center;padding:40px 20px;color:var(--moss);font-family:Geologica, serif;font-style:italic;font-size:18px">
         ✓ Конфликтов не найдено. Все правила соблюдены:<br>
-        <span style="font-size:13px;color:rgba(26,22,18,0.6)">Бассейн/картинг/нонодрифт только в выездах · Педагоги не дублируются в одном блоке · Активности не повторяются · Пары зеркалированы</span>
+        <span style="font-size:13px;color:rgba(21,22,23,0.6)">Бассейн/картинг/нонодрифт только в выездах · Педагоги не дублируются в одном блоке · Активности не повторяются · Пары зеркалированы</span>
       </div>
       <div class="modal-actions"><button class="btn btn-primary" onclick="closeModal()">Закрыть</button></div>
     `;
@@ -3561,17 +3592,17 @@ function showCheckResults() {
 
     let html = '';
     if (grouped.high.length) {
-      html += `<div style="margin-bottom:16px"><h3 style="font-family:'DM Sans',sans-serif;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:var(--terra-deep);margin-bottom:8px">🔴 Серьёзные · ${grouped.high.length}</h3>`;
+      html += `<div style="margin-bottom:16px"><h3 style="font-family:Inter,sans-serif;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:var(--terra-deep);margin-bottom:8px">🔴 Серьёзные · ${grouped.high.length}</h3>`;
       grouped.high.forEach(i => html += renderIssue(i));
       html += '</div>';
     }
     if (grouped.medium.length) {
-      html += `<div style="margin-bottom:16px"><h3 style="font-family:'DM Sans',sans-serif;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:var(--gold);margin-bottom:8px">🟡 Средние · ${grouped.medium.length}</h3>`;
+      html += `<div style="margin-bottom:16px"><h3 style="font-family:Inter,sans-serif;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:var(--gold);margin-bottom:8px">🟡 Средние · ${grouped.medium.length}</h3>`;
       grouped.medium.forEach(i => html += renderIssue(i));
       html += '</div>';
     }
     if (grouped.low.length) {
-      html += `<div><h3 style="font-family:'DM Sans',sans-serif;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:rgba(26,22,18,0.5);margin-bottom:8px">⚪ Незначительные · ${grouped.low.length}</h3>`;
+      html += `<div><h3 style="font-family:Inter,sans-serif;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:rgba(21,22,23,0.5);margin-bottom:8px">⚪ Незначительные · ${grouped.low.length}</h3>`;
       grouped.low.forEach(i => html += renderIssue(i));
       html += '</div>';
     }
@@ -3582,7 +3613,7 @@ function showCheckResults() {
 }
 
 function renderIssue(issue) {
-  return `<div style="border:1px solid rgba(26,22,18,0.2);padding:10px 12px;margin-bottom:6px;background:var(--paper-warm);font-family:'Cormorant Garamond',serif;font-size:14px;line-height:1.4">${issue.message}</div>`;
+  return `<div style="border:1px solid rgba(21,22,23,0.2);padding:10px 12px;margin-bottom:6px;background:var(--paper-warm);font-family:Geologica, serif;font-size:14px;line-height:1.4">${issue.message}</div>`;
 }
 function toggleProgramPanel() {
   const panel = document.getElementById('program-panel');
@@ -3637,7 +3668,7 @@ function renderProgramPanel() {
           <span class="ploc">${p.room || '—'}</span>
           <span class="direction-tag ${dirClass(p.direction)}" style="font-size:9px">${p.direction || '—'}</span>
         </div>
-        ${p.ageVariant ? `<div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:11px;color:rgba(26,22,18,0.65);margin-top:4px">${p.ageVariant}</div>` : ''}
+        ${p.ageVariant ? `<div style="font-family:Geologica, serif;font-style:italic;font-size:11px;color:rgba(21,22,23,0.65);margin-top:4px">${p.ageVariant}</div>` : ''}
         <div class="program-item-actions">
           <button onclick="placePending(${i})">📍 Разместить</button>
           <button onclick="removePending(${i})">🗑 Убрать</button>
@@ -3752,7 +3783,7 @@ function placePending(idx) {
 
   document.getElementById('modal-title').innerHTML = `Куда поставить <em>${pending.name}</em>?`;
   document.getElementById('modal-body').innerHTML = `
-    <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:13px;margin-bottom:12px;color:rgba(26,22,18,0.7)">
+    <div style="font-family:Geologica, serif;font-style:italic;font-size:13px;margin-bottom:12px;color:rgba(21,22,23,0.7)">
       Активность: <strong>${pending.name}</strong> · ${pending.teacher} · <em>${pending.direction}</em><br>
       Целевая группа: <strong>${pending.targetKind === 'young' ? 'отряды 1-2-3 (младшая)' : 'отряды 4-5-6 (старшая)'}</strong>
     </div>
@@ -3908,7 +3939,7 @@ async function init() {
   await loadLibrary();
   if (LIBRARY.length === 0) {
     document.getElementById('schedule-container').innerHTML =
-      '<div style="padding:40px;text-align:center;color:var(--terra-deep);font-family:Cormorant Garamond,serif;font-style:italic;font-size:18px">Библиотека не загрузилась. Проверь подключение к интернету или адрес Google Apps Script.</div>';
+      '<div style="padding:40px;text-align:center;color:var(--terra-deep);font-family:Geologica, sans-serif;font-style:italic;font-size:18px">Библиотека не загрузилась. Проверь подключение к интернету или адрес Google Apps Script.</div>';
     return;
   }
   populateCampTypeSelect();
