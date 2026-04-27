@@ -2373,12 +2373,20 @@ async function generateThemeForSlot(day, group, idx, isTripSlot, slotKey) {
   const libraryItem = LIBRARY.find(a => a.template === slot.template);
   const examplesStr = libraryItem ? libraryItem.examples : '';
 
+  // Ключ для накопления уже показанных тем — уникальный для каждой ячейки.
+  // При повторном жатии «Ещё варианты» накопление продолжается.
+  const stackKey = `${day}|${group || ''}|${idx}|${slotKey || ''}|${slot.template}|${state.theme}`;
+  if (!window._themesShownByKey) window._themesShownByKey = {};
+  const alreadyShown = window._themesShownByKey[stackKey] || [];
+
   document.getElementById('modal-title').innerHTML = `Тема для <em>${slot.template}</em>`;
   document.getElementById('modal-body').innerHTML = '<div class="modal-loading">Claude подбирает темы…</div>';
   openModal();
 
   try {
-    const themes = await genThemes(slot.template, examplesStr, state.theme, slot.direction, slot.duration);
+    const themes = await genThemes(slot.template, examplesStr, state.theme, slot.direction, slot.duration, alreadyShown);
+    // Запоминаем что предложили — в следующий раз Claude этого не повторит
+    window._themesShownByKey[stackKey] = alreadyShown.concat(themes.map(t => t.theme));
     const groupArg = group === null || group === undefined ? 'null' : `'${escapeJs(group)}'`;
     const slotKeyArg = slotKey === null || slotKey === undefined ? 'null' : `'${escapeJs(slotKey)}'`;
     // Контекстное слово для поискового запроса по направлению
@@ -2432,16 +2440,22 @@ async function generateThemeForSlot(day, group, idx, isTripSlot, slotKey) {
   }
 }
 
-async function genThemes(template, examples, sceneTheme, direction, duration) {
+async function genThemes(template, examples, sceneTheme, direction, duration, excludeThemes) {
   const ct = state.campType;
   const styleHint = ct && ct.themeStyle ? `\nСтиль тем для этой смены: ${ct.themeStyle}` : '';
   const typeHint = ct && ct.description ? `\nКонтекст типа смены («${ct.type}»): ${ct.description}` : '';
+  const excl = (excludeThemes && excludeThemes.length) ? excludeThemes : [];
+  const exclHint = excl.length
+    ? `\n\nУЖЕ ПРЕДЛОЖЕНО (НЕ повторяй, НЕ предлагай похожие — ищи другие форматы работ): ${excl.map(t => '«' + t + '»').join(', ')}`
+    : '';
 
   const prompt = `Тема смены: «${sceneTheme}». Шаблон занятия: «${template}». Направление: ${direction}. Длительность: ${duration} мин.${typeHint}${styleHint}
-${examples ? `\nПримеры тем для этого шаблона из прошлых смен (показывают стиль): ${examples}` : ''}
+${examples ? `\nПримеры тем для этого шаблона из прошлых смен (показывают стиль): ${examples}` : ''}${exclHint}
 
 Нужны 3 разных конкретных темы для этого занятия, привязанных к теме смены «${sceneTheme}».
 Стиль: короткое название работы или темы в кавычках. Например: «Кашпо-зверята», «Лесные тропинки», «Подводный город». Не описание, а название.
+
+ВАЖНО: 3 темы должны быть из РАЗНЫХ форматов/типов работ. Например для лепки: одна — фигурка-персонаж, вторая — функциональный предмет (кружка, ваза), третья — декоративный элемент (значок, медальон, подвеска). Не три значка подряд, не три кружки. Разнообразие форматов важнее, чем разнообразие сюжетов.
 
 Формат — JSON-массив:
 [{"theme":"...","rationale":"одно предложение почему подходит"}]`;
