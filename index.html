@@ -3539,16 +3539,6 @@ async function openRefsForTemplate(templateName, slotPath) {
   if (!templateName) return;
   // Сохраняем slotPath глобально, чтобы рендерящий код имел к нему доступ
   window._refsModalSlotPath = slotPath || null;
-  // Если открыто из ячейки и slot.selectedRefs ещё не задан — инициализируем
-  // пустым массивом. Дефолт по новому правилу: «ничего не выбрано».
-  // Слоты, у которых selectedRefs уже задан — оставляем как есть.
-  if (slotPath) {
-    const slot = getSlotByPath_(slotPath);
-    if (slot && !Array.isArray(slot.selectedRefs)) {
-      slot.selectedRefs = [];
-      saveLocal();
-    }
-  }
   document.getElementById('modal-title').innerHTML = `Референсы для <em>${escapeHtml(templateName)}</em>`;
   document.getElementById('modal-body').innerHTML = '<div class="modal-loading">Загружаю референсы…</div>';
   openModal();
