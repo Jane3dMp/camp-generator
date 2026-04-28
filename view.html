@@ -701,6 +701,22 @@
     return list.includes(teacherTargetLc);
   }
 
+  // Возвращает {trip:[1,2,3], cluster:[4,5,6]} с учётом инверсии trip3_outside
+  function trip3GroupsFor(day, half) {
+    const A = [1,2,3], B = [4,5,6];
+    const inv = day && day.trip3_outside === 'A';
+    let trip, cluster;
+    if (day.type === 'trip3_am') {
+      trip = inv ? A : B; cluster = inv ? B : A;
+    } else if (day.type === 'trip3_pm') {
+      trip = inv ? B : A; cluster = inv ? A : B;
+    } else if (day.type === 'trip3_full') {
+      if (half === 'am') { trip = inv ? A : B; cluster = inv ? B : A; }
+      else               { trip = inv ? B : A; cluster = inv ? A : B; }
+    } else { trip = B; cluster = A; }
+    return { trip, cluster };
+  }
+
   function getActiveRefsForSlot(slot) {
     if (!slot || !slot.template) return [];
     const lib = LIBRARY.find(a => a.template === slot.template);
@@ -750,8 +766,11 @@
           const time = isAM ? '9:30–12:30' : '14:00–17:00';
           const isOutside = g.includes('outside');
           let troops;
-          if (isAM) troops = isOutside ? '4-5-6' : '1-2-3';
-          else      troops = isOutside ? '1-2-3' : '4-5-6';
+          const isTripDay = ['trip3_am','trip3_pm','trip3_full'].includes(d.type);
+          if (isTripDay && !isOutside) {
+            troops = trip3GroupsFor(d, isAM ? 'am' : 'pm').cluster.join('-');
+          } else if (isAM) troops = isOutside ? '4-5-6' : '1-2-3';
+          else              troops = isOutside ? '1-2-3' : '4-5-6';
           slots.push({
             time,
             template: s.template,
@@ -771,10 +790,9 @@
         const isAM = g === 'trip_full_am';
         const time = isAM ? '9:30–12:30' : '14:00–17:00';
         let troops;
-        if (d.type === 'trip3_am') troops = '4-5-6 (выезд)';
-        else if (d.type === 'trip3_pm') troops = '1-2-3 (выезд)';
-        else if (d.type === 'trip3_full') troops = isAM ? '4-5-6 (выезд)' : '1-2-3 (выезд)';
-        else troops = '3 отряда (выезд)';
+        if (['trip3_am','trip3_pm','trip3_full'].includes(d.type)) {
+          troops = trip3GroupsFor(d, isAM ? 'am' : 'pm').trip.join('-') + ' (выезд)';
+        } else troops = '3 отряда (выезд)';
         slots.push({
           time,
           template: s.template,
@@ -992,7 +1010,8 @@
       if (d.type === 'trip3_am' || d.type === 'trip3_full') {
         const s = d.trip_full_am;
         if (s && s.template) {
-          html += renderTrip('9:30 · 4-5-6 на выезде · ' + s.template + (s.teacher ? ' · ' + s.teacher : '') + (s.room ? ' · ' + s.room : ''));
+          const tg = trip3GroupsFor(d, 'am').trip.join('-');
+          html += renderTrip('9:30 · ' + tg + ' на выезде · ' + s.template + (s.teacher ? ' · ' + s.teacher : '') + (s.room ? ' · ' + s.room : ''));
           hasAnyAm = true;
         }
       }
@@ -1031,7 +1050,8 @@
       if (d.type === 'trip3_pm' || d.type === 'trip3_full') {
         const s = d.trip_full_pm;
         if (s && s.template) {
-          html += renderTrip('14:00 · 1-2-3 на выезде · ' + s.template + (s.teacher ? ' · ' + s.teacher : '') + (s.room ? ' · ' + s.room : ''));
+          const tg = trip3GroupsFor(d, 'pm').trip.join('-');
+          html += renderTrip('14:00 · ' + tg + ' на выезде · ' + s.template + (s.teacher ? ' · ' + s.teacher : '') + (s.room ? ' · ' + s.room : ''));
           hasAnyPm = true;
         }
       }

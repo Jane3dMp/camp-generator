@@ -1210,6 +1210,22 @@
   }
   .mirror-group-btn:hover { background: var(--yellow); border-color: var(--ink); }
 
+  /* Кнопка инверсии групп в trip3-блоке: ↔ поменять группы */
+  .trip3-swap-btn {
+    background: var(--ink);
+    color: var(--paper);
+    border: 1px solid var(--ink);
+    padding: 2px 9px;
+    cursor: pointer;
+    font-size: 10px;
+    font-family: Inter, system-ui, sans-serif;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    border-radius: 2px;
+    transition: all 0.12s ease;
+  }
+  .trip3-swap-btn:hover { background: var(--yellow); color: var(--ink); }
+
   /* 3 параллельных МК с ротацией */
   .stations {
     display: grid;
@@ -2842,6 +2858,45 @@ async function loadLibrary() {
 const NUM_DAYS = 10;
 const TROOPS_GROUP_A = [1, 2, 3];
 const TROOPS_GROUP_B = [4, 5, 6];
+
+// Возвращает какая группа в кластере / на выезде в зависимости от типа дня и флага trip3_outside.
+// trip3_outside === 'A' → на выезде 1-2-3, в кластере 4-5-6 (инверсия)
+// trip3_outside === 'B' (default) → на выезде 4-5-6, в кластере 1-2-3 (стандарт)
+//
+// Логика по типам:
+//   trip3_am: утром одна группа на выезде, другая в кластере; после обеда обычная сетка
+//   trip3_pm: после обеда одна группа на выезде, другая в кластере; утром обычная сетка
+//   trip3_full: утром одна группа на выезде, после обеда — наоборот
+//
+// Вернёт {tripTroops: [числа], clusterTroops: [числа]} для конкретной половины.
+function trip3GroupsFor_(day, half) {
+  const inv = (day && day.trip3_outside === 'A');
+  // По умолчанию (inv=false):
+  //   trip3_am утром: на выезде 4-5-6 (B), в кластере 1-2-3 (A)
+  //   trip3_pm после обеда: на выезде 1-2-3 (A), в кластере 4-5-6 (B)
+  //   trip3_full утром: на выезде 4-5-6 (B), в кластере 1-2-3 (A); после — наоборот
+  // При inv=true все эти группы меняются местами.
+  let trip, cluster;
+  if (day.type === 'trip3_am') {
+    trip = inv ? TROOPS_GROUP_A : TROOPS_GROUP_B;
+    cluster = inv ? TROOPS_GROUP_B : TROOPS_GROUP_A;
+  } else if (day.type === 'trip3_pm') {
+    trip = inv ? TROOPS_GROUP_B : TROOPS_GROUP_A;
+    cluster = inv ? TROOPS_GROUP_A : TROOPS_GROUP_B;
+  } else if (day.type === 'trip3_full') {
+    if (half === 'am') {
+      trip = inv ? TROOPS_GROUP_A : TROOPS_GROUP_B;
+      cluster = inv ? TROOPS_GROUP_B : TROOPS_GROUP_A;
+    } else {
+      trip = inv ? TROOPS_GROUP_B : TROOPS_GROUP_A;
+      cluster = inv ? TROOPS_GROUP_A : TROOPS_GROUP_B;
+    }
+  } else {
+    trip = TROOPS_GROUP_B;
+    cluster = TROOPS_GROUP_A;
+  }
+  return { trip, cluster };
+}
 const TIME_AM = '9:30 – 12:30';
 const TIME_PM = '14:00 – 17:00';
 const SLOTS_AM = ['9:30–10:30', '10:30–11:30', '11:30–12:30'];
@@ -3004,6 +3059,7 @@ function defaultDay(idx) {
     trip_full_am, trip_full_pm,
     trip6_am, trip6_pm,
     trip6_am_a, trip6_am_b, trip6_pm_a, trip6_pm_b,
+    trip3_outside: 'B', // 'B' = на выезде 4-5-6 (по умолчанию), 'A' = на выезде 1-2-3
     extraTripTeachers: '' // именованные педагоги, которых вручную дописали на выезд (через запятую)
   };
 }
@@ -4881,22 +4937,36 @@ function _allSlots() {
       d.pm_outside.forEach((s, i) => result.push({slot:s, day:dIdx, group:'pm_outside', idx:i, kind:'young', half:'pm'}));
     }
     if (d.type === 'trip3_am') {
-      // 1-2-3 в кластере утром (young), 4-5-6 на выезде (senior)
-      d.am_cluster.forEach((s, i) => result.push({slot:s, day:dIdx, group:'am_cluster', idx:i, kind:'young', half:'am'}));
-      result.push({slot:d.trip_full_am, day:dIdx, group:'trip_full_am', kind:'senior', half:'am'});
+      // По умолчанию: 1-2-3 в кластере (young), 4-5-6 на выезде (senior)
+      // При инверсии: наоборот
+      const inv = d.trip3_outside === 'A';
+      const clusterKind = inv ? 'senior' : 'young';
+      const tripKind    = inv ? 'young'  : 'senior';
+      d.am_cluster.forEach((s, i) => result.push({slot:s, day:dIdx, group:'am_cluster', idx:i, kind:clusterKind, half:'am'}));
+      result.push({slot:d.trip_full_am, day:dIdx, group:'trip_full_am', kind:tripKind, half:'am'});
     }
     if (d.type === 'trip3_pm') {
-      // 4-5-6 в кластере после обеда (senior), 1-2-3 на выезде (young)
-      d.pm_cluster.forEach((s, i) => result.push({slot:s, day:dIdx, group:'pm_cluster', idx:i, kind:'senior', half:'pm'}));
-      result.push({slot:d.trip_full_pm, day:dIdx, group:'trip_full_pm', kind:'young', half:'pm'});
+      // По умолчанию: 4-5-6 в кластере (senior), 1-2-3 на выезде (young)
+      // При инверсии: наоборот
+      const inv = d.trip3_outside === 'A';
+      const clusterKind = inv ? 'young'  : 'senior';
+      const tripKind    = inv ? 'senior' : 'young';
+      d.pm_cluster.forEach((s, i) => result.push({slot:s, day:dIdx, group:'pm_cluster', idx:i, kind:clusterKind, half:'pm'}));
+      result.push({slot:d.trip_full_pm, day:dIdx, group:'trip_full_pm', kind:tripKind, half:'pm'});
     }
     if (d.type === 'trip3_full') {
-      // Утром: 1-2-3 в кластере (young), 4-5-6 на выезде (senior)
-      // После обеда: 4-5-6 в кластере (senior), 1-2-3 на выезде (young)
-      d.am_cluster.forEach((s, i) => result.push({slot:s, day:dIdx, group:'am_cluster', idx:i, kind:'young', half:'am'}));
-      result.push({slot:d.trip_full_am, day:dIdx, group:'trip_full_am', kind:'senior', half:'am'});
-      d.pm_cluster.forEach((s, i) => result.push({slot:s, day:dIdx, group:'pm_cluster', idx:i, kind:'senior', half:'pm'}));
-      result.push({slot:d.trip_full_pm, day:dIdx, group:'trip_full_pm', kind:'young', half:'pm'});
+      // По умолчанию утром: 1-2-3 в кластере (young), 4-5-6 на выезде (senior)
+      // По умолчанию после обеда: 4-5-6 в кластере (senior), 1-2-3 на выезде (young)
+      // При инверсии: всё наоборот
+      const inv = d.trip3_outside === 'A';
+      const amClusterKind = inv ? 'senior' : 'young';
+      const amTripKind    = inv ? 'young'  : 'senior';
+      const pmClusterKind = inv ? 'young'  : 'senior';
+      const pmTripKind    = inv ? 'senior' : 'young';
+      d.am_cluster.forEach((s, i) => result.push({slot:s, day:dIdx, group:'am_cluster', idx:i, kind:amClusterKind, half:'am'}));
+      result.push({slot:d.trip_full_am, day:dIdx, group:'trip_full_am', kind:amTripKind, half:'am'});
+      d.pm_cluster.forEach((s, i) => result.push({slot:s, day:dIdx, group:'pm_cluster', idx:i, kind:pmClusterKind, half:'pm'}));
+      result.push({slot:d.trip_full_pm, day:dIdx, group:'trip_full_pm', kind:pmTripKind, half:'pm'});
     }
     if (d.type === 'trip6_am') result.push({slot:d.trip6_am, day:dIdx, group:'trip6_am', kind:'mixed', half:'am'});
     if (d.type === 'trip6_pm') result.push({slot:d.trip6_pm, day:dIdx, group:'trip6_pm', kind:'mixed', half:'pm'});
@@ -5056,8 +5126,10 @@ function renderTrip3Half(dayIdx, half, day) {
   const slotKey = isAM ? 'trip_full_am' : 'trip_full_pm';
   const slot = day[slotKey];
   const clusterKey = isAM ? 'am_cluster' : 'pm_cluster';
-  const clusterTroops = isAM ? TROOPS_GROUP_A : TROOPS_GROUP_B;
-  const tripTroops = isAM ? TROOPS_GROUP_B : TROOPS_GROUP_A;
+  // Группы зависят от флажка trip3_outside (учитывается в trip3GroupsFor_)
+  const groups = trip3GroupsFor_(day, half);
+  const clusterTroops = groups.cluster;
+  const tripTroops = groups.trip;
   const slots = isAM ? SLOTS_AM : SLOTS_PM;
 
   const wrap = document.createElement('div');
@@ -5069,7 +5141,7 @@ function renderTrip3Half(dayIdx, half, day) {
     </div>
   `;
 
-  // Кластер для group A (или B после обеда)
+  // Кластер для соответствующей группы
   const clusterBlock = document.createElement('div');
   clusterBlock.className = 'group-block cluster';
   clusterBlock.innerHTML = `
@@ -5086,11 +5158,16 @@ function renderTrip3Half(dayIdx, half, day) {
   });
 
   // Полу-выезд: 3 отряда вместе на одном объекте
+  // Кнопка ↔ показывается только в утренней части — иначе для trip3_full будет 2 кнопки делать одно и то же
+  const swapBtn = isAM
+    ? `<button class="trip3-swap-btn" onclick="toggleTrip3Outside(${dayIdx})" title="Поменять группы местами: кто на выезде, а кто в кластере">↔ поменять группы</button>`
+    : '';
   const tripBlock = document.createElement('div');
   tripBlock.className = 'group-block outside';
   tripBlock.innerHTML = `
     <div class="group-label outside">
       <span><strong>На выезде</strong> · отряды ${tripTroops.join(', ')} · бассейн / картинг / нонодрифт / батутный центр</span>
+      ${swapBtn}
     </div>
   `;
   wrap.appendChild(tripBlock);
@@ -5479,6 +5556,28 @@ async function openSingleVariants(day, slotKey, originalKey) {
       <div class="modal-actions"><button class="btn" onclick="closeModal()">Закрыть</button></div>
     `;
   }
+}
+
+// Меняет местами какая группа на выезде, а какая в кластере (только для типов trip3_*).
+// Также свопает содержимое am_cluster/pm_cluster между утром и днём — ведь
+// кто был в кластере утром (1-2-3), теперь после обеда в кластере же (1-2-3),
+// а раньше группа A была в кластере и после обеда (4-5-6 с инверсией).
+// На самом деле проще: при swap просто меняем сам флаг — все рендеры подхватят,
+// потому что они смотрят на trip3GroupsFor_(). Сохранённые слоты в am_cluster
+// остаются на месте — они отображаются с теми отрядами, которые сейчас в кластере.
+function toggleTrip3Outside(dayIdx) {
+  const day = state.schedule[dayIdx];
+  if (!day) return;
+  // Только для типов выезд-3
+  if (!['trip3_am','trip3_pm','trip3_full'].includes(day.type)) {
+    toast('Поменять группы можно только для типов «Выезд 3»');
+    return;
+  }
+  day.trip3_outside = day.trip3_outside === 'A' ? 'B' : 'A';
+  saveLocal();
+  render();
+  const onTrip = day.trip3_outside === 'A' ? '1-2-3' : '4-5-6';
+  toast(`На выезде теперь отряды ${onTrip}`);
 }
 
 function toggleLockTrip(day, slotKey) {
@@ -6932,6 +7031,7 @@ async function init() {
       if (!d.trip6_am_b) d.trip6_am_b = pickByName('картинг');
       if (!d.trip6_pm_a) d.trip6_pm_a = pickByName('бассейн');
       if (!d.trip6_pm_b) d.trip6_pm_b = pickByName('картинг');
+      if (!d.trip3_outside) d.trip3_outside = 'B';
     });
     // Восстанавливаем поля шапки
     document.getElementById('theme').value = state.theme || '';
@@ -7840,8 +7940,15 @@ function buildTeacherSchedule(teacherName) {
         const half = isAM ? 'утро' : 'после обеда';
         const isOutside = g.includes('outside');
         let troops;
-        if (isAM) troops = isOutside ? '4-5-6' : '1-2-3';
-        else      troops = isOutside ? '1-2-3' : '4-5-6';
+        // Для trip3-дней группа кластера может быть инвертирована
+        const isTripDay = ['trip3_am','trip3_pm','trip3_full'].includes(d.type);
+        if (isTripDay && !isOutside) {
+          // Кластер в trip3: берём из helper'а
+          troops = trip3GroupsFor_(d, isAM ? 'am' : 'pm').cluster.join('-');
+        } else {
+          if (isAM) troops = isOutside ? '4-5-6' : '1-2-3';
+          else      troops = isOutside ? '1-2-3' : '4-5-6';
+        }
         slots.push({
           time, half,
           template: s.template,
@@ -7867,10 +7974,13 @@ function buildTeacherSchedule(teacherName) {
       const half = isAM ? 'утро' : 'после обеда';
       const time = isAM ? '9:30–12:30' : '14:00–17:00';
       let troops;
-      if (d.type === 'trip3_am') troops = '4-5-6 (выезд)';
-      else if (d.type === 'trip3_pm') troops = '1-2-3 (выезд)';
-      else if (d.type === 'trip3_full') troops = isAM ? '4-5-6 (выезд)' : '1-2-3 (выезд)';
-      else troops = '3 отряда (выезд)';
+      if (['trip3_am','trip3_pm','trip3_full'].includes(d.type)) {
+        // Берём группу с учётом инверсии trip3_outside
+        const t = trip3GroupsFor_(d, isAM ? 'am' : 'pm').trip;
+        troops = t.join('-') + ' (выезд)';
+      } else {
+        troops = '3 отряда (выезд)';
+      }
       slots.push({
         time, half,
         template: s.template,
@@ -8352,20 +8462,24 @@ function compactCellHTML(day, dayIdx, block) {
   }
 
   // 2. Полу-выезды 3 отрядов — на одном из блоков (вместо обычной активности)
-  // trip3_am: утром 4-5-6 уезжает (а 1-2-3 остаётся в кластере утром)
+  // trip3_am: утром по умолчанию 4-5-6 уезжает (или 1-2-3 при инверсии)
   // То есть в утренней строке для блока 'outside' — выезд, для 'cluster' — норм работа группы.
   if (day.type === 'trip3_am' && block.key === 'am' && block.kind === 'outside') {
-    return tripCellHTML(day.trip_full_am, 'выезд 3', '4-5-6');
+    const t = trip3GroupsFor_(day, 'am').trip.join('-');
+    return tripCellHTML(day.trip_full_am, 'выезд 3', t);
   }
   if (day.type === 'trip3_pm' && block.key === 'pm' && block.kind === 'outside') {
-    return tripCellHTML(day.trip_full_pm, 'выезд 3', '1-2-3');
+    const t = trip3GroupsFor_(day, 'pm').trip.join('-');
+    return tripCellHTML(day.trip_full_pm, 'выезд 3', t);
   }
-  // trip3_full: утром 4-5-6 на выезде, после обеда 1-2-3 на выезде
+  // trip3_full: утром одна группа на выезде, после обеда — другая. С инверсией — наоборот.
   if (day.type === 'trip3_full' && block.key === 'am' && block.kind === 'outside') {
-    return tripCellHTML(day.trip_full_am, 'выезд 3', '4-5-6');
+    const t = trip3GroupsFor_(day, 'am').trip.join('-');
+    return tripCellHTML(day.trip_full_am, 'выезд 3', t);
   }
   if (day.type === 'trip3_full' && block.key === 'pm' && block.kind === 'outside') {
-    return tripCellHTML(day.trip_full_pm, 'выезд 3', '1-2-3');
+    const t = trip3GroupsFor_(day, 'pm').trip.join('-');
+    return tripCellHTML(day.trip_full_pm, 'выезд 3', t);
   }
 
   // 3. Обычные слоты в кластере или на улице
@@ -8378,10 +8492,18 @@ function compactCellHTML(day, dayIdx, block) {
   if (filled.length === 0) {
     return `<td><span class="compact-cell-empty">— нет —</span></td>`;
   }
-  // Какая группа отрядов в этой ячейке. Утро: cluster=1-2-3, outside=4-5-6. После обеда — наоборот.
-  const troops = block.key === 'am'
-    ? (block.kind === 'cluster' ? '1-2-3' : '4-5-6')
-    : (block.kind === 'cluster' ? '4-5-6' : '1-2-3');
+  // Какая группа отрядов в этой ячейке. По умолчанию утро: cluster=1-2-3, outside=4-5-6.
+  // Для trip3-дней с инверсией — кластер использует группу из trip3GroupsFor_.
+  let troops;
+  const isTripDay = ['trip3_am', 'trip3_pm', 'trip3_full'].includes(day.type);
+  if (isTripDay && block.kind === 'cluster') {
+    const c = trip3GroupsFor_(day, block.key).cluster;
+    troops = c.join('-');
+  } else {
+    troops = block.key === 'am'
+      ? (block.kind === 'cluster' ? '1-2-3' : '4-5-6')
+      : (block.kind === 'cluster' ? '4-5-6' : '1-2-3');
+  }
 
   const items = filled.map(s => {
     const meta = [s.teacher || '—', s.room || '—'].filter(Boolean).join(' · ');
