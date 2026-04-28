@@ -7811,6 +7811,38 @@ function copyPublishUrl() {
   }
 }
 
+// Вычисляет короткий "отпечаток" расписания — для проверки что на сервер
+// приехали именно наши свежие данные, а не старая публикация.
+// Используем расписание + theme + startDate — все 3 поля могли поменяться.
+function computeScheduleFingerprint_(stateObj) {
+  try {
+    // Берём только то, что РЕАЛЬНО влияет на отображение у педагогов:
+    // типы дней, имена слотов, темы, педагогов и комнаты. Без libraryRefs/publishedAt etc.
+    const fp = {
+      theme: stateObj.theme || '',
+      startDate: stateObj.startDate || '',
+      schedule: (stateObj.schedule || []).map(d => ({
+        type: d.type,
+        am_cluster: (d.am_cluster||[]).map(s => s ? (s.template+'|'+(s.teacher||'')+'|'+(s.theme||'')+'|'+(s.room||'')) : ''),
+        am_outside: (d.am_outside||[]).map(s => s ? (s.template+'|'+(s.teacher||'')+'|'+(s.theme||'')+'|'+(s.room||'')) : ''),
+        pm_cluster: (d.pm_cluster||[]).map(s => s ? (s.template+'|'+(s.teacher||'')+'|'+(s.theme||'')+'|'+(s.room||'')) : ''),
+        pm_outside: (d.pm_outside||[]).map(s => s ? (s.template+'|'+(s.teacher||'')+'|'+(s.theme||'')+'|'+(s.room||'')) : ''),
+        trip6_am: d.trip6_am ? (d.trip6_am.template+'|'+(d.trip6_am.teacher||'')) : '',
+        trip6_pm: d.trip6_pm ? (d.trip6_pm.template+'|'+(d.trip6_pm.teacher||'')) : '',
+        trip_full_am: d.trip_full_am ? (d.trip_full_am.template+'|'+(d.trip_full_am.teacher||'')) : '',
+        trip_full_pm: d.trip_full_pm ? (d.trip_full_pm.template+'|'+(d.trip_full_pm.teacher||'')) : '',
+        trip6_am_a: d.trip6_am_a ? (d.trip6_am_a.template+'|'+(d.trip6_am_a.teacher||'')) : '',
+        trip6_am_b: d.trip6_am_b ? (d.trip6_am_b.template+'|'+(d.trip6_am_b.teacher||'')) : '',
+        trip6_pm_a: d.trip6_pm_a ? (d.trip6_pm_a.template+'|'+(d.trip6_pm_a.teacher||'')) : '',
+        trip6_pm_b: d.trip6_pm_b ? (d.trip6_pm_b.template+'|'+(d.trip6_pm_b.teacher||'')) : ''
+      }))
+    };
+    return JSON.stringify(fp);
+  } catch(e) {
+    return '';
+  }
+}
+
 async function publishSmena() {
   // Если ещё не публиковали — генерим новый ID. Иначе — переиспользуем.
   if (!state.publishId) {
@@ -7839,10 +7871,20 @@ async function publishSmena() {
     }, {})
   };
 
+  // Считаем отпечаток ДО отправки — это эталон, по которому потом проверим.
+  const expectedFingerprint = computeScheduleFingerprint_(stateForPublish);
+
   toast('Публикую…');
+
+  // ── ШАГ 1: отправляем POST в режиме no-cors. ──
+  // В этом режиме браузер не блокирует ответ из-за CORS, но и не даёт нам его
+  // прочитать (response.body всегда пустой, status=0). Apps Script всё равно
+  // получает запрос и пишет в Sheets. Ниже проверим результат через GET.
+  let postSent = false;
   try {
-    const r = await fetch(LIBRARY_URL, {
+    await fetch(LIBRARY_URL, {
       method: 'POST',
+      mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
         action: 'publish',
@@ -7851,57 +7893,86 @@ async function publishSmena() {
         stateJson: stateForPublish
       })
     });
-    // Сначала читаем как текст — на случай если придёт не-JSON (HTML auth-страница, редирект)
-    const text = await r.text();
-    let data;
+    postSent = true;
+  } catch(e) {
+    // В режиме no-cors сюда практически невозможно попасть, но на всякий случай
+    console.warn('POST упал (это редко в no-cors режиме):', e);
+  }
+
+  // ── ШАГ 2: ждём пока Apps Script запишет данные. ──
+  // Apps Script + Sheets обычно успевают за 1-3 сек. На больших стейтах — до 5-7 сек.
+  toast('Проверяю публикацию…');
+
+  // Делаем до 4 попыток с нарастающей паузой: 2, 3, 5, 7 сек
+  const delays = [2000, 3000, 5000, 7000];
+  let verified = false;
+  let lastError = '';
+
+  for (let attempt = 0; attempt < delays.length; attempt++) {
+    await new Promise(res => setTimeout(res, delays[attempt]));
+
     try {
-      data = JSON.parse(text);
-    } catch(parseErr) {
-      // Если не парсится — диагностика. Часто это значит что Apps Script
-      // не переразвернут или сессия истекла.
-      console.error('Apps Script вернул не-JSON. Первые 300 символов:', text.slice(0, 300));
-      throw new Error('Сервер вернул не JSON. Возможно нужно переразвернуть Apps Script.');
+      // Добавляем cachebuster, чтобы браузер не подсунул кеш предыдущего GET
+      const cacheBust = '&_t=' + Date.now();
+      const verifyR = await fetch(
+        LIBRARY_URL + '?action=getPublished&id=' + encodeURIComponent(id) + cacheBust
+      );
+      const verifyText = await verifyR.text();
+      const verifyData = JSON.parse(verifyText);
+
+      if (!verifyData.ok || !verifyData.publication) {
+        lastError = 'Сервер не вернул публикацию';
+        continue;
+      }
+      const pub = verifyData.publication;
+      if (pub.id !== id) {
+        lastError = 'ID публикации не совпал';
+        continue;
+      }
+
+      // Парсим вернувшийся stateJson и считаем его отпечаток
+      let serverState;
+      try {
+        serverState = typeof pub.stateJson === 'string'
+          ? JSON.parse(pub.stateJson)
+          : pub.stateJson;
+      } catch(parseErr) {
+        lastError = 'Не удалось распарсить stateJson с сервера';
+        continue;
+      }
+
+      const serverFingerprint = computeScheduleFingerprint_(serverState);
+
+      if (serverFingerprint === expectedFingerprint) {
+        // Совпало! Публикация прошла, наши данные на сервере.
+        verified = true;
+        break;
+      } else {
+        // Старая версия. Дадим серверу ещё подышать и попробуем снова.
+        lastError = 'На сервере пока старая версия (попытка ' + (attempt+1) + '/' + delays.length + ')';
+        console.log('publishSmena verify:', lastError);
+      }
+    } catch(verifyErr) {
+      lastError = String(verifyErr.message || verifyErr);
+      console.warn('publishSmena verify error:', verifyErr);
     }
-    if (!data.ok) throw new Error(data.error || 'API error');
+  }
+
+  if (verified) {
     saveLocal();
-    toast('Опубликовано');
-    // Перерисовываем панель — но если она упадёт (например потому что listPublished
-    // долго отвечает) — не показываем это как ошибку публикации.
+    toast('Опубликовано ✓');
     try {
       openPublishPanel();
     } catch(panelErr) {
       console.warn('Ошибка перерисовки панели публикации (не критично):', panelErr);
     }
-  } catch(e) {
-    // Failed to fetch обычно значит что fetch() не получил ответ — но
-    // публикация всё равно могла пройти (Apps Script записал в Sheets).
-    // Делаем тихую проверку через 2 секунды — есть ли публикация с этим id.
-    if (String(e.message).includes('Failed to fetch')) {
-      toast('Проверяю публикацию…');
-      setTimeout(async () => {
-        try {
-          const verifyR = await fetch(LIBRARY_URL + '?action=getPublished&id=' + encodeURIComponent(id));
-          const verifyText = await verifyR.text();
-          const verifyData = JSON.parse(verifyText);
-          if (verifyData.ok && verifyData.publication && verifyData.publication.id === id) {
-            // Сравним publishedAt — если свежее чем 30 секунд назад, значит наша публикация прошла
-            const pubAt = new Date(verifyData.publication.publishedAt).getTime();
-            const ageSec = (Date.now() - pubAt) / 1000;
-            if (ageSec < 30) {
-              saveLocal();
-              toast('Опубликовано (с задержкой ответа сервера)');
-              try { openPublishPanel(); } catch(_){}
-              return;
-            }
-          }
-          toast('Сеть капризничает. Открой view.html — возможно публикация прошла.');
-        } catch(verifyErr) {
-          toast('Сеть капризничает. Открой view.html — возможно публикация прошла.');
-        }
-      }, 2000);
-    } else {
-      toast('Ошибка: ' + e.message);
-    }
+  } else {
+    // Не смогли подтвердить публикацию за все попытки
+    const hint = postSent
+      ? 'POST ушёл, но сервер не подтвердил запись. Возможно квота Apps Script. Подожди минуту и попробуй ещё раз.'
+      : 'Запрос не отправился. Проверь интернет.';
+    toast('Не удалось опубликовать. ' + hint);
+    console.error('publishSmena failed. Last error:', lastError);
   }
 }
 
