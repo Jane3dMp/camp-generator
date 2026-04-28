@@ -1421,6 +1421,60 @@
     flex-wrap: wrap;
     gap: 4px;
   }
+
+  /* Переключатель формата */
+  .tpl-picker-formats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed rgba(21,22,23,0.12);
+  }
+  .tpl-fmt-label {
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(21,22,23,0.55);
+    font-weight: 600;
+    margin-right: 4px;
+  }
+  .tpl-fmt-tab {
+    border: 1px solid rgba(21,22,23,0.2);
+    background: var(--white);
+    color: var(--ink);
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    padding: 4px 9px;
+    cursor: pointer;
+    border-radius: 12px;
+    transition: all 0.12s ease;
+    font-weight: 500;
+  }
+  .tpl-fmt-tab:hover { background: var(--paper-warm); border-color: var(--ink); }
+  .tpl-fmt-tab.active {
+    background: var(--terra);
+    color: var(--paper);
+    border-color: var(--terra);
+    font-weight: 600;
+  }
+
+  /* Предупреждение при смене формата */
+  .tpl-fmt-warning {
+    background: rgba(254,214,52,0.18);
+    border: 1px solid rgba(254,214,52,0.6);
+    border-radius: 4px;
+    padding: 7px 10px;
+    font-family: Geologica, serif;
+    font-style: italic;
+    font-size: 11px;
+    color: var(--ink);
+    margin-top: 6px;
+    line-height: 1.4;
+  }
   .tpl-dir-tab {
     border: 1px solid rgba(21,22,23,0.2);
     background: var(--paper-warm);
@@ -3665,47 +3719,87 @@ function escapeJs(s) {
 }
 
 function openTemplatePicker(day, group, idx, isTripSlot, slotKey) {
-  let allowedFormat = null;
+  let originalFormat = null;
   if (isTripSlot) {
-    if (slotKey === 'trip6_am' || slotKey === 'trip6_pm') allowedFormat = 'выезд 6';
-    else if (slotKey === 'trip_full_am' || slotKey === 'trip_full_pm') allowedFormat = 'выезд 3';
+    if (slotKey === 'trip6_am' || slotKey === 'trip6_pm') originalFormat = 'выезд 6';
+    else if (slotKey === 'trip_full_am' || slotKey === 'trip_full_pm') originalFormat = 'выезд 3';
   } else {
     const groupName = group || '';
-    if (groupName.includes('cluster')) allowedFormat = 'МК';
-    else if (groupName.includes('outside')) allowedFormat = 'уличная';
+    if (groupName.includes('cluster')) originalFormat = 'МК';
+    else if (groupName.includes('outside')) originalFormat = 'уличная';
   }
 
-  const templates = getUniqueTemplates().filter(t => !allowedFormat || t.format === allowedFormat);
-
-  // Список доступных направлений в этом формате
-  const allDirections = Array.from(new Set(templates.map(t => t.direction).filter(Boolean))).sort();
+  // Все шаблоны загружаем сразу — фильтр по формату теперь динамический
+  const allTemplates = getUniqueTemplates();
+  // Список форматов которые реально есть в библиотеке (для переключателя)
+  const allFormats = Array.from(new Set(allTemplates.map(t => t.format).filter(Boolean))).sort();
+  // Какие шаблоны видим сейчас — по умолчанию совпадающие с типом слота
+  const initialActiveFormat = originalFormat || 'all';
 
   // Сохраняем контекст в window — нужно для onchange/onclick
   window._tplPickerState = {
     day, group, idx, isTripSlot, slotKey,
-    allowedFormat,
-    templates,           // полный отфильтрованный по формату список
-    allDirections,
+    originalFormat,           // исходный формат слота (для предупреждений)
+    allFormats,               // все возможные форматы
+    activeFormat: initialActiveFormat, // текущий выбранный формат
+    allTemplates,             // ВСЕ шаблоны (без фильтра по формату)
     activeDirection: 'all',
     searchQuery: ''
   };
 
-  document.getElementById('modal-title').innerHTML = `Выбрать <em>шаблон занятия</em>${allowedFormat ? ' · '+allowedFormat : ''}`;
+  // Заголовок окна
+  document.getElementById('modal-title').innerHTML = `Выбрать <em>шаблон занятия</em>${originalFormat ? ' · '+originalFormat : ''}`;
 
-  // Шапка с поиском + табами + счётчиком, и контейнер списка
-  const dirTabsHtml = `<button type="button" class="tpl-dir-tab active" data-dir="all" onclick="onTplPickerDirClick('all')">Все</button>` +
-    allDirections.map(d => `<button type="button" class="tpl-dir-tab" data-dir="${escapeJs(d)}" onclick="onTplPickerDirClick('${escapeJs(d)}')">${d}</button>`).join('') +
+  renderTplPickerShell_();
+}
+
+// Рендерит шапку (поиск + переключатель формата + табы направлений) + контейнер списка
+function renderTplPickerShell_() {
+  const st = window._tplPickerState;
+  if (!st) return;
+
+  // Какие шаблоны попадают в текущий формат
+  const filteredByFormat = st.activeFormat === 'all'
+    ? st.allTemplates
+    : st.allTemplates.filter(t => t.format === st.activeFormat);
+
+  // Список направлений — только тех, что есть в текущем формате
+  const allDirections = Array.from(new Set(filteredByFormat.map(t => t.direction).filter(Boolean))).sort();
+
+  // Если активное направление больше не есть в списке — сбрасываем на «all»
+  if (st.activeDirection !== 'all' && !allDirections.includes(st.activeDirection)) {
+    st.activeDirection = 'all';
+  }
+
+  // Переключатель форматов
+  const formatTabs = `<button type="button" class="tpl-fmt-tab ${st.activeFormat === 'all' ? 'active' : ''}" onclick="onTplPickerFormatClick('all')">все форматы</button>` +
+    st.allFormats.map(f => `<button type="button" class="tpl-fmt-tab ${st.activeFormat === f ? 'active' : ''}" onclick="onTplPickerFormatClick('${escapeJs(f)}')">${f}</button>`).join('');
+
+  // Табы направлений — внутри текущего формата
+  const dirTabsHtml = `<button type="button" class="tpl-dir-tab ${st.activeDirection === 'all' ? 'active' : ''}" data-dir="all" onclick="onTplPickerDirClick('all')">Все</button>` +
+    allDirections.map(d => `<button type="button" class="tpl-dir-tab ${st.activeDirection === d ? 'active' : ''}" data-dir="${escapeJs(d)}" onclick="onTplPickerDirClick('${escapeJs(d)}')">${d}</button>`).join('') +
     `<button type="button" class="tpl-dir-tab tpl-dir-tab-add" onclick="openCustomTemplateForm()" title="Создать новый шаблон в библиотеке">➕ свой шаблон</button>`;
+
+  // Подсказка о смене формата (если текущий формат отличается от исходного слота)
+  const formatHintHtml = (st.originalFormat && st.activeFormat !== 'all' && st.activeFormat !== st.originalFormat)
+    ? `<div class="tpl-fmt-warning">⚠ Слот в позиции «${st.originalFormat}». Показываются шаблоны формата «${st.activeFormat}» — при выборе появится подтверждение.</div>`
+    : '';
 
   const html = `
     <div class="tpl-picker-controls">
       <div class="tpl-picker-search-row">
         <input type="text" id="tpl-picker-search" class="tpl-picker-search"
                placeholder="🔍 поиск по названию, теме или педагогу..."
+               value="${escapeHtml(st.searchQuery || '')}"
                oninput="onTplPickerSearchInput(this.value)">
         <span class="tpl-picker-count" id="tpl-picker-count"></span>
       </div>
+      <div class="tpl-picker-formats">
+        <span class="tpl-fmt-label">формат:</span>
+        ${formatTabs}
+      </div>
       <div class="tpl-picker-tabs" id="tpl-picker-tabs">${dirTabsHtml}</div>
+      ${formatHintHtml}
     </div>
     <div id="tpl-picker-list"></div>
     <div class="modal-actions"><button class="btn" onclick="closeModal()">Отмена</button></div>
@@ -3713,7 +3807,7 @@ function openTemplatePicker(day, group, idx, isTripSlot, slotKey) {
   document.getElementById('modal-body').innerHTML = html;
   openModal();
 
-  // Первый рендер списка + автофокус в поиск
+  // Первый рендер списка + автофокус
   renderTemplatePickerList_();
   setTimeout(() => {
     const inp = document.getElementById('tpl-picker-search');
@@ -3735,19 +3829,32 @@ function onTplPickerDirClick(dir) {
   tabs.forEach(t => t.classList.toggle('active', t.dataset.dir === dir));
   renderTemplatePickerList_();
 }
+function onTplPickerFormatClick(fmt) {
+  if (!window._tplPickerState) return;
+  window._tplPickerState.activeFormat = fmt;
+  // Сбрасываем направление — потому что список доступных направлений меняется
+  window._tplPickerState.activeDirection = 'all';
+  // Перерисовываем шапку (табы направлений зависят от формата) + список
+  renderTplPickerShell_();
+}
 
 // Применяет фильтры и рендерит список карточек
 function renderTemplatePickerList_() {
   const st = window._tplPickerState;
   if (!st) return;
-  const { day, group, idx, isTripSlot, slotKey, templates, activeDirection, searchQuery } = st;
+  const { day, group, idx, isTripSlot, slotKey, allTemplates, activeFormat, activeDirection, searchQuery } = st;
 
-  // 1. По направлению
-  let filtered = templates;
+  // 1. По формату (новый шаг — раньше шаблоны были предфильтрованы)
+  let filtered = activeFormat === 'all'
+    ? allTemplates.slice()
+    : allTemplates.filter(t => t.format === activeFormat);
+  const totalAfterFormat = filtered.length;
+
+  // 2. По направлению
   if (activeDirection && activeDirection !== 'all') {
     filtered = filtered.filter(t => t.direction === activeDirection);
   }
-  // 2. По поиску — внутри названия, имён педагогов и тем-примеров
+  // 3. По поиску
   if (searchQuery) {
     const q = searchQuery;
     filtered = filtered.filter(t => {
@@ -3812,8 +3919,8 @@ function renderTemplatePickerList_() {
   });
 
   if (filtered.length === 0) {
-    if (templates.length === 0) {
-      html = `<div style="text-align:center;padding:30px;color:rgba(21,22,23,0.5);font-style:italic">Нет шаблонов для формата «${st.allowedFormat || ''}»</div>`;
+    if (totalAfterFormat === 0) {
+      html = `<div style="text-align:center;padding:30px;color:rgba(21,22,23,0.5);font-style:italic">Нет шаблонов формата «${st.activeFormat || ''}»</div>`;
     } else {
       html = `<div style="text-align:center;padding:30px;color:rgba(21,22,23,0.5);font-style:italic">Ничего не найдено по фильтрам.<br>Попробуй очистить поиск или выбрать «Все».</div>`;
     }
@@ -3833,9 +3940,9 @@ function renderTemplatePickerList_() {
   // Счётчик
   const cnt = document.getElementById('tpl-picker-count');
   if (cnt) {
-    cnt.textContent = filtered.length === templates.length
-      ? `всего: ${templates.length}`
-      : `найдено: ${filtered.length} из ${templates.length}`;
+    cnt.textContent = filtered.length === totalAfterFormat
+      ? `всего: ${totalAfterFormat}`
+      : `найдено: ${filtered.length} из ${totalAfterFormat}`;
   }
 }
 
@@ -4033,9 +4140,41 @@ async function submitCustomTemplate() {
   }
 }
 
+// Проверка совпадения формата шаблона с типом слота. Если не совпадает —
+// показывает confirm. Возвращает true если можно продолжать (совпало или пользователь подтвердил),
+// false — если пользователь отменил.
+function checkFormatMismatch_(libraryItem, actionDescription) {
+  const st = window._tplPickerState;
+  if (!st || !st.originalFormat || !libraryItem) return true; // некому сравнивать
+  const tplFormat = libraryItem.format || '';
+  const slotFormat = st.originalFormat;
+  if (tplFormat === slotFormat) return true; // всё ок
+
+  // Объясняем понятно
+  const slotPlace = slotFormat === 'МК' ? 'кабинете (кластер)'
+    : slotFormat === 'уличная' ? 'на улице'
+    : slotFormat === 'выезд 3' ? 'выезд 3 отрядов'
+    : slotFormat === 'выезд 6' ? 'выезд 6 отрядов'
+    : slotFormat;
+  const tplPlace = tplFormat === 'МК' ? 'для кабинета'
+    : tplFormat === 'уличная' ? 'для улицы'
+    : tplFormat === 'выезд 3' ? 'для выезда 3'
+    : tplFormat === 'выезд 6' ? 'для выезда 6'
+    : 'формата «' + tplFormat + '»';
+
+  const msg = `⚠ Несовпадение формата.\n\n` +
+    `Слот в позиции «${slotPlace}», а шаблон ${tplPlace}.\n\n` +
+    `Это бывает уместно — например, плохая погода и улица отменяется в пользу МК в кабинете.\n\n` +
+    `Применить ${actionDescription} в этот слот всё равно?`;
+  return confirm(msg);
+}
+
 function applyTemplate(day, group, idx, templateName, isTripSlot, slotKey) {
   const matching = LIBRARY.filter(a => a.template === templateName);
   if (matching.length === 0) { toast('Шаблон не найден'); return; }
+
+  // Проверка совпадения формата шаблона и роли слота
+  if (!checkFormatMismatch_(matching[0], 'применить шаблон «' + templateName + '» без темы')) return;
 
   if (matching.length > 1) {
     let html = `<div style="margin-bottom:12px;font-family:Geologica, serif;font-style:italic;color:rgba(21,22,23,0.7)">
@@ -4092,6 +4231,10 @@ function confirmTemplate(day, group, idx, optionIdx, templateName, isTripSlot, s
 function applyTemplateWithTheme(day, group, idx, templateName, themeText, isTripSlot, slotKey, isCustom) {
   const matching = LIBRARY.filter(a => a.template === templateName);
   if (matching.length === 0) { toast('Шаблон не найден'); return; }
+
+  // Проверка совпадения формата шаблона и роли слота
+  if (!checkFormatMismatch_(matching[0], 'применить шаблон «' + templateName + '» с темой «' + themeText + '»')) return;
+
   // Если шаблон ведут несколько педагогов — показываем выбор, как в applyTemplate.
   // Но запоминаем тему чтобы applyTemplateChoice её применил.
   if (matching.length > 1) {
