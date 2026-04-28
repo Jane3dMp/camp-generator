@@ -1,4 +1,6 @@
 <!-- Генератор сетки летнего лагеря v3 — стиль Прознание + Coddy -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geologica:wght@400;500;600;700;800&family=Caveat:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -1985,6 +1987,95 @@
     .day-body { grid-template-columns: 1fr; }
     .day-head { grid-template-columns: 1fr; gap: 8px; }
   }
+
+  /* === ЗАГЛУШКА ДЛЯ УЗКОГО ЭКРАНА === */
+  /* Конструктор сетки — рабочий инструмент для десктопа.
+     На телефоне показываем сообщение и ссылку на view.html для педагогов. */
+  #mobile-stub { display: none; }
+  @media (max-width: 520px) {
+    body.unlocked:not(.mobile-stub-bypass) #zoom-content,
+    body.unlocked:not(.mobile-stub-bypass) .program-side,
+    body.unlocked:not(.mobile-stub-bypass) #zoom-panel,
+    body.unlocked:not(.mobile-stub-bypass) #lock-logout-btn { display: none !important; }
+    body.unlocked:not(.mobile-stub-bypass) #mobile-stub { display: flex !important; }
+  }
+  #mobile-stub {
+    position: fixed;
+    inset: 0;
+    background: var(--paper);
+    z-index: 9000;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    padding: 32px 22px;
+    gap: 18px;
+    text-align: center;
+  }
+  #mobile-stub .mobile-stub-card {
+    background: var(--white);
+    border: 1px solid var(--ink);
+    padding: 28px 22px;
+    max-width: 420px;
+    width: 100%;
+  }
+  #mobile-stub .mobile-stub-eyebrow {
+    font-family: Inter, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(21,22,23,0.55);
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  #mobile-stub h1 {
+    font-family: Geologica, sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.15;
+    margin: 0 0 12px;
+  }
+  #mobile-stub h1 em {
+    font-family: Caveat, cursive;
+    font-style: normal;
+    font-weight: 600;
+    background: var(--yellow);
+    padding: 0 6px;
+    border-radius: 4px;
+  }
+  #mobile-stub p {
+    font-family: Geologica, serif;
+    font-size: 14px;
+    line-height: 1.5;
+    color: rgba(21,22,23,0.7);
+    margin: 0 0 18px;
+  }
+  #mobile-stub .mobile-stub-btn {
+    display: block;
+    text-decoration: none;
+    background: var(--yellow);
+    color: var(--ink);
+    border: 1px solid var(--ink);
+    padding: 12px 16px;
+    font-family: Inter, sans-serif;
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  #mobile-stub .mobile-stub-btn:hover { background: var(--yellow-deep); }
+  #mobile-stub .mobile-stub-btn-secondary {
+    background: var(--white);
+    color: var(--ink);
+    font-weight: 500;
+  }
+  #mobile-stub .mobile-stub-hint {
+    font-family: Geologica, serif;
+    font-style: italic;
+    font-size: 12px;
+    color: rgba(21,22,23,0.5);
+    margin-top: 14px;
+  }
 </style>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2189,6 +2280,18 @@
     } catch(e) { /* localStorage недоступен — оставляем локскрин */ }
   })();
 </script>
+
+<!-- Заглушка для узкого экрана. Скрыта на десктопе. На мобилке скрывает основной контент. -->
+<div id="mobile-stub">
+  <div class="mobile-stub-card">
+    <div class="mobile-stub-eyebrow">Прознание · Coddy</div>
+    <h1>Конструктор <em>смены</em></h1>
+    <p>Эта страница — рабочий инструмент для расстановки активностей. Удобнее всего открыть её на компьютере.</p>
+    <a class="mobile-stub-btn" href="view.html">📅 Открыть расписание для педагогов</a>
+    <a class="mobile-stub-btn mobile-stub-btn-secondary" href="javascript:void(0)" onclick="document.body.classList.add('mobile-stub-bypass');document.getElementById('mobile-stub').style.display='none';">Всё равно открыть конструктор</a>
+    <div class="mobile-stub-hint">Если хочется посмотреть конструктор на телефоне — можно. Но на узком экране сетка будет работать неудобно.</div>
+  </div>
+</div>
 
 <div id="zoom-content">
 <div class="header">

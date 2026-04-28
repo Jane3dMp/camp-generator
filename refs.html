@@ -141,6 +141,22 @@
     color: rgba(21,22,23,0.45);
     text-align: center;
   }
+
+  /* === МОБИЛЬНАЯ ВЕРСИЯ === */
+  @media (max-width: 560px) {
+    .wrap { padding: 22px 14px 36px; }
+    h1 { font-size: 22px; }
+    .theme-line { font-size: 20px; }
+    .eyebrow { font-size: 10px; letter-spacing: 0.18em; }
+    .grid {
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 8px;
+    }
+  }
+  @media (max-width: 380px) {
+    .grid { grid-template-columns: 1fr 1fr; }
+    h1 { font-size: 20px; }
+  }
 </style>
 </head>
 <body>
