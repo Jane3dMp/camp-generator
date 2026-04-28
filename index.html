@@ -1202,12 +1202,12 @@
     flex-shrink: 0;
     cursor: pointer;
     display: flex;
-    align-items: center;
-    padding: 0 4px;
+    align-items: flex-start;
+    padding-top: 6px;
   }
   .ref-item-check input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
+    width: 22px;
+    height: 22px;
     cursor: pointer;
     accent-color: var(--ink);
   }
@@ -1244,32 +1244,44 @@
   .ref-list { margin-bottom: 10px; }
   .ref-item {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 10px;
-    padding: 8px 10px;
-    margin-bottom: 4px;
+    padding: 8px;
+    margin-bottom: 6px;
     border: 1px solid rgba(21,22,23,0.12);
     border-radius: 4px;
     background: var(--paper-warm);
     transition: all 0.12s ease;
+    position: relative;
   }
   .ref-item:hover { background: var(--white); border-color: rgba(21,22,23,0.3); }
 
-  /* Превью референса (слева в строке) */
-  .ref-item-thumb {
-    width: 100px;
-    height: 70px;
-    flex-shrink: 0;
-    object-fit: cover;
-    border-radius: 4px;
-    background: rgba(21,22,23,0.06);
+  /* Превью референса — теперь крупное и кликабельное */
+  .ref-item-thumb-link {
+    flex: 1;
     display: block;
+    position: relative;
+    border-radius: 4px;
+    overflow: hidden;
+    text-decoration: none;
+    background: rgba(21,22,23,0.06);
+    cursor: pointer;
+    min-height: 130px;
   }
+  .ref-item-thumb-link img {
+    display: block;
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+  }
+  .ref-item-thumb-link:hover { box-shadow: 0 4px 16px rgba(21,22,23,0.15); }
+
   /* Loading-плейсхолдер пока превью не пришло */
   .ref-item-thumb-loading {
     display: flex;
     align-items: center;
     justify-content: center;
+    height: 180px;
     background: linear-gradient(90deg, rgba(21,22,23,0.04) 0%, rgba(21,22,23,0.08) 50%, rgba(21,22,23,0.04) 100%);
     background-size: 200% 100%;
     animation: refThumbShimmer 1.4s ease-in-out infinite;
@@ -1279,53 +1291,48 @@
     100% { background-position: -200% 0; }
   }
   .ref-item-thumb-placeholder {
-    font-size: 24px;
+    font-size: 36px;
     opacity: 0.5;
   }
   .ref-item-thumb-noimg {
     background: rgba(21,22,23,0.04);
     animation: none;
   }
-  .ref-item.thumb-failed .ref-item-thumb { display: none; }
+  .ref-item.thumb-failed .ref-item-thumb-link img { display: none; }
 
-  .ref-item-link {
-    flex: 1;
-    text-decoration: none;
-    color: var(--ink);
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    overflow: hidden;
-    min-width: 0;
+  /* Бейдж с иконкой источника поверх превью (правый верх) */
+  .ref-item-host-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(255,255,255,0.92);
+    border: 1px solid rgba(21,22,23,0.15);
+    border-radius: 4px;
+    padding: 3px 7px;
+    font-size: 14px;
+    line-height: 1;
+    box-shadow: 0 2px 6px rgba(21,22,23,0.1);
+    backdrop-filter: blur(2px);
   }
-  .ref-item-icon { font-size: 16px; }
-  .ref-item-host {
-    font-family: Inter, system-ui, sans-serif;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--ink);
-    flex-shrink: 0;
-  }
-  .ref-item-url {
-    font-family: Inter, system-ui, sans-serif;
-    font-size: 11px;
-    color: rgba(21,22,23,0.5);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+
   .ref-item-remove {
+    position: absolute;
+    top: 4px;
+    right: 4px;
     border: none;
-    background: transparent;
-    color: rgba(21,22,23,0.4);
+    background: rgba(255,255,255,0.85);
+    color: rgba(21,22,23,0.5);
     font-size: 14px;
     cursor: pointer;
-    padding: 4px 8px;
+    padding: 3px 7px;
     border-radius: 3px;
     line-height: 1;
     transition: all 0.12s ease;
+    z-index: 2;
+    backdrop-filter: blur(2px);
+    border: 1px solid rgba(21,22,23,0.1);
   }
-  .ref-item-remove:hover { color: #c0392b; background: rgba(192,57,43,0.1); }
+  .ref-item-remove:hover { color: #c0392b; background: rgba(255,255,255,0.98); border-color: rgba(192,57,43,0.4); }
 
   .ref-add-row {
     display: flex;
@@ -3187,9 +3194,14 @@ function renderRefsModalBody(templateName, refs) {
         needProxy.push({ url: url, previewId: previewId });
       }
 
-      const thumbHtml = previewSrc
-        ? `<img class="ref-item-thumb" src="${escapeHtml(previewSrc)}" alt="" onerror="this.parentElement.classList.add('thumb-failed')">`
-        : `<div class="ref-item-thumb ref-item-thumb-loading" id="${previewId}"><span class="ref-item-thumb-placeholder">${icon}</span></div>`;
+      // Превью оборачиваем в ссылку (или div для loading)
+      const titleAttr = ' title="' + escapeHtml(host || url).replace(/"/g, '&quot;') + ' — открыть в новой вкладке"';
+      const thumbInner = previewSrc
+        ? `<img src="${escapeHtml(previewSrc)}" alt="" onerror="this.parentElement.parentElement.classList.add('thumb-failed')">`
+        : `<span class="ref-item-thumb-placeholder">${icon}</span>`;
+      const thumbWrapHtml = previewSrc
+        ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="ref-item-thumb-link"${titleAttr}>${thumbInner}<span class="ref-item-host-badge">${icon}</span></a>`
+        : `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="ref-item-thumb-link ref-item-thumb-loading" id="${previewId}"${titleAttr}>${thumbInner}</a>`;
 
       // Чекбокс: только когда модалка открыта из ячейки сетки.
       const isSelected = isRefSelectedInSlot_(slot, url);
@@ -3204,11 +3216,7 @@ function renderRefsModalBody(templateName, refs) {
       return `
         <div class="ref-item ${showCheckboxes && !isSelected ? 'ref-item-unselected' : ''}">
           ${checkboxHtml}
-          ${thumbHtml}
-          <a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="ref-item-link">
-            <span class="ref-item-host">${escapeHtml(host || url)}</span>
-            <span class="ref-item-url">${escapeHtml(url)}</span>
-          </a>
+          ${thumbWrapHtml}
           <button class="ref-item-remove" title="Удалить ссылку из библиотеки (не только из этой ячейки!)"
                   onclick="removeRefFromTemplate('${tplEsc}', ${JSON.stringify(url).replace(/"/g, '&quot;')}, this)">✕</button>
         </div>
@@ -3279,9 +3287,14 @@ async function loadPreviewViaProxy(url, previewId) {
     const container = document.getElementById(previewId);
     if (!container) return; // модалка уже закрыта
     if (thumb) {
-      container.outerHTML = `<img class="ref-item-thumb" src="${thumb.replace(/"/g,'&quot;')}" alt="" onerror="this.parentElement.classList.add('thumb-failed')">`;
+      // Узнаем иконку по host, чтобы показать поверх превью
+      let host = '';
+      try { host = new URL(url).hostname.replace(/^www\./, ''); } catch(e) {}
+      const icon = host.includes('pinterest') ? '📌' : host.includes('youtube') || host.includes('youtu.be') ? '🎬' : host.includes('google') ? '🖼' : '🔗';
+      container.classList.remove('ref-item-thumb-loading');
+      container.innerHTML = `<img src="${thumb.replace(/"/g,'&quot;')}" alt="" onerror="this.parentElement.classList.add('thumb-failed')"><span class="ref-item-host-badge">${icon}</span>`;
     } else {
-      // Не удалось — оставляем placeholder, но в более «бесповоротном» виде
+      // Не удалось — placeholder остаётся, мерцание убираем
       container.classList.remove('ref-item-thumb-loading');
       container.classList.add('ref-item-thumb-noimg');
     }
