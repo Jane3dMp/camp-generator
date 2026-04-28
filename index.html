@@ -1191,6 +1191,45 @@
     text-align: center;
     vertical-align: super;
   }
+  .ref-count-badge-partial {
+    background: var(--white);
+    border: 1px solid var(--ink);
+    color: var(--ink);
+  }
+
+  /* Чекбокс «использовать в этом слоте» */
+  .ref-item-check {
+    flex-shrink: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    padding: 0 4px;
+  }
+  .ref-item-check input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--ink);
+  }
+  .ref-item-unselected {
+    opacity: 0.5;
+    background: rgba(21,22,23,0.03);
+  }
+  .ref-item-unselected:hover { opacity: 0.85; }
+
+  /* Подсказка про чекбоксы */
+  .ref-slot-hint {
+    background: rgba(254,214,52,0.18);
+    border: 1px solid var(--yellow-deep);
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--ink);
+    margin-bottom: 14px;
+  }
+  .ref-slot-hint strong { font-weight: 700; }
 
   /* Модалка референсов */
   .ref-section-title {
@@ -2845,8 +2884,12 @@ ${examples ? `\nПримеры тем для этого шаблона из пр
 
 // Открывает модалку «Референсы шаблона». Грузит ссылки с сервера, рендерит список,
 // даёт добавить новую и удалить существующую.
-async function openRefsForTemplate(templateName) {
+// slotPath (опционально): { dayIdx, group, idx, isTripSlot, slotKey } — если открыто из ячейки,
+// рядом с каждой ссылкой появится чекбокс выбора «использовать в этой ячейке».
+async function openRefsForTemplate(templateName, slotPath) {
   if (!templateName) return;
+  // Сохраняем slotPath глобально, чтобы рендерящий код имел к нему доступ
+  window._refsModalSlotPath = slotPath || null;
   document.getElementById('modal-title').innerHTML = `Референсы для <em>${escapeHtml(templateName)}</em>`;
   document.getElementById('modal-body').innerHTML = '<div class="modal-loading">Загружаю референсы…</div>';
   openModal();
@@ -2863,13 +2906,63 @@ async function openRefsForTemplate(templateName) {
   }
 }
 
+// Возвращает слот по slotPath. null если не нашёлся.
+function getSlotByPath_(slotPath) {
+  if (!slotPath) return null;
+  const day = state.schedule[slotPath.dayIdx];
+  if (!day) return null;
+  if (slotPath.isTripSlot) return day[slotPath.slotKey] || null;
+  const arr = day[slotPath.group];
+  if (!Array.isArray(arr)) return null;
+  return arr[slotPath.idx] || null;
+}
+
+// Возвращает true если URL «активен» в этом слоте.
+// Если у слота нет selectedRefs — всё активно (поведение по умолчанию).
+function isRefSelectedInSlot_(slot, url) {
+  if (!slot) return true;
+  if (!slot.selectedRefs) return true; // дефолт — все включены
+  return slot.selectedRefs.indexOf(url) >= 0;
+}
+
+// Переключает галочку URL в slot.selectedRefs. Перерисовывает модалку и сетку.
+function toggleRefInSlot(url, allRefs) {
+  const slotPath = window._refsModalSlotPath;
+  if (!slotPath) return;
+  const slot = getSlotByPath_(slotPath);
+  if (!slot) return;
+  // Инициализация selectedRefs из дефолта (все активны) при первом снятии
+  if (!slot.selectedRefs) {
+    slot.selectedRefs = allRefs.slice();
+  }
+  const i = slot.selectedRefs.indexOf(url);
+  if (i >= 0) slot.selectedRefs.splice(i, 1);
+  else slot.selectedRefs.push(url);
+  saveLocal();
+  // Перерисуем основную сетку — чтобы бейдж обновился
+  if (typeof render === 'function') render();
+  // Чекбоксы синхронизируем — простой способ: перерисовать модалку.
+  // Но чтобы не дёргать сеть, рендерим из кэша.
+  const cached = window._refsModalLastList;
+  if (cached) renderRefsModalBody(window._refsModalLastTpl, cached);
+}
+
 function renderRefsModalBody(templateName, refs) {
+  // Кеш для toggleRefInSlot, чтобы перерисовывать без сети
+  window._refsModalLastTpl = templateName;
+  window._refsModalLastList = refs;
+
   const tplEsc = escapeJs(templateName);
   const dirHint = 'детский мастер-класс';
   const q = encodeURIComponent(templateName + ' ' + dirHint);
   const pinSearch = 'https://www.pinterest.com/search/pins/?q=' + q;
   const gimgSearch = 'https://www.google.com/search?tbm=isch&q=' + q;
   const ytSearch = 'https://www.youtube.com/results?search_query=' + q;
+
+  // Если открыто из ячейки — у каждой ссылки появится чекбокс «использовать в этой ячейке».
+  const slotPath = window._refsModalSlotPath;
+  const slot = getSlotByPath_(slotPath);
+  const showCheckboxes = !!slot;
 
   // Запоминаем какие URL нужно догрузить через прокси
   const needProxy = [];
@@ -2883,20 +2976,14 @@ function renderRefsModalBody(templateName, refs) {
       const icon = host.includes('pinterest') ? '📌' : host.includes('youtube') || host.includes('youtu.be') ? '🎬' : host.includes('google') ? '🖼' : '🔗';
       const previewId = 'ref-prev-' + idx;
 
-      // Превью пытаемся определить сразу:
+      // Превью
       let previewSrc = null;
-
-      // 1. YouTube — формула без запроса
       const ytId = extractYouTubeId(url);
       if (ytId) {
         previewSrc = 'https://img.youtube.com/vi/' + ytId + '/hqdefault.jpg';
-      }
-      // 2. Прямые картинки
-      else if (/\.(jpg|jpeg|png|webp|gif|svg|avif)(\?|$)/i.test(url)) {
+      } else if (/\.(jpg|jpeg|png|webp|gif|svg|avif)(\?|$)/i.test(url)) {
         previewSrc = url;
-      }
-      // 3. Всё остальное — через прокси (асинхронно)
-      else {
+      } else {
         needProxy.push({ url: url, previewId: previewId });
       }
 
@@ -2904,26 +2991,43 @@ function renderRefsModalBody(templateName, refs) {
         ? `<img class="ref-item-thumb" src="${escapeHtml(previewSrc)}" alt="" onerror="this.parentElement.classList.add('thumb-failed')">`
         : `<div class="ref-item-thumb ref-item-thumb-loading" id="${previewId}"><span class="ref-item-thumb-placeholder">${icon}</span></div>`;
 
+      // Чекбокс: только когда модалка открыта из ячейки сетки.
+      const isSelected = isRefSelectedInSlot_(slot, url);
+      const allRefsForToggle = JSON.stringify(refs).replace(/"/g, '&quot;');
+      const checkboxHtml = showCheckboxes
+        ? `<label class="ref-item-check" title="${isSelected ? 'Используется в этом слоте · клик чтобы убрать' : 'Не используется в этом слоте · клик чтобы добавить'}">
+             <input type="checkbox" ${isSelected ? 'checked' : ''}
+                    onchange="event.stopPropagation();toggleRefInSlot(${JSON.stringify(url).replace(/"/g, '&quot;')}, ${allRefsForToggle})">
+           </label>`
+        : '';
+
       return `
-        <div class="ref-item">
+        <div class="ref-item ${showCheckboxes && !isSelected ? 'ref-item-unselected' : ''}">
+          ${checkboxHtml}
           ${thumbHtml}
           <a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="ref-item-link">
             <span class="ref-item-host">${escapeHtml(host || url)}</span>
             <span class="ref-item-url">${escapeHtml(url)}</span>
           </a>
-          <button class="ref-item-remove" title="Удалить эту ссылку"
+          <button class="ref-item-remove" title="Удалить ссылку из библиотеки (не только из этой ячейки!)"
                   onclick="removeRefFromTemplate('${tplEsc}', ${JSON.stringify(url).replace(/"/g, '&quot;')}, this)">✕</button>
         </div>
       `;
     }).join('');
   }
 
+  const slotHint = showCheckboxes
+    ? `<div class="ref-slot-hint">📍 Открыто из ячейки сетки. Галочки слева — какие референсы используются в <strong>этом конкретном слоте</strong>. Снимать галочки безопасно — ссылка остаётся в библиотеке для других смен. Крестик ✕ справа — удалить из библиотеки совсем.</div>`
+    : '';
   document.getElementById('modal-body').innerHTML = `
     <div style="font-family:Geologica, serif;font-style:italic;font-size:13px;margin-bottom:14px;color:rgba(21,22,23,0.7)">
       Эти ссылки сохраняются в библиотеку (лист «Активности», колонка «Референсы») и подтягиваются всегда, когда этот шаблон используется в любой смене.
     </div>
+    ${slotHint}
 
-    <div class="ref-section-title">Сохранённые (${refs.length})</div>
+    <div class="ref-section-title">Сохранённые (${showCheckboxes
+      ? refs.filter(u => isRefSelectedInSlot_(slot, u)).length + ' из ' + refs.length + ' активны в этом слоте'
+      : refs.length})</div>
     <div class="ref-list">${listHtml}</div>
 
     <div class="ref-section-title" style="margin-top:18px">Добавить новую ссылку</div>
@@ -3328,7 +3432,7 @@ function renderTrip3Half(dayIdx, half, day) {
       <button class="icon-btn ${slot.locked?'locked-btn':''}" onclick="event.stopPropagation();toggleLockTrip(${dayIdx},'${slotKey}')" title="${slot.locked?'Открепить':'Закрепить'}">${slot.locked?'✓':'○'}</button>
       <button class="icon-btn" onclick="event.stopPropagation();openTripVariants(${dayIdx},'${slotKey}','trip3')" title="3 варианта">🔄</button>
       <button class="icon-btn" onclick="event.stopPropagation();openTemplatePicker(${dayIdx},null,0,true,'${slotKey}')" title="Выбрать шаблон из библиотеки">🧱</button>
-      ${slot.template ? `<button class="icon-btn" onclick="event.stopPropagation();openRefsForTemplate(${JSON.stringify(slot.template).replace(/"/g, '&quot;')})" title="Референсы шаблона">🔖</button>` : ''}
+      ${slot.template ? `<button class="icon-btn" onclick="event.stopPropagation();openRefsForTemplate(${JSON.stringify(slot.template).replace(/"/g, '&quot;')}, {dayIdx:${dayIdx},isTripSlot:true,slotKey:'${slotKey}',idx:0})" title="Референсы шаблона">🔖</button>` : ''}
       <button class="icon-btn" onclick="event.stopPropagation();editTrip(${dayIdx},'${slotKey}')" title="Редактировать">✏</button>
     </div>
   `;
@@ -3368,7 +3472,7 @@ function renderTrip6Half(dayIdx, half, day) {
       <button class="icon-btn ${slot.locked?'locked-btn':''}" onclick="event.stopPropagation();toggleLockTrip(${dayIdx},'${slotKey}')" title="${slot.locked?'Открепить':'Закрепить'}">${slot.locked?'✓':'○'}</button>
       <button class="icon-btn" onclick="event.stopPropagation();openTripVariants(${dayIdx},'${slotKey}','trip6')" title="3 варианта">🔄</button>
       <button class="icon-btn" onclick="event.stopPropagation();openTemplatePicker(${dayIdx},null,0,true,'${slotKey}')" title="Выбрать шаблон из библиотеки">🧱</button>
-      ${slot.template ? `<button class="icon-btn" onclick="event.stopPropagation();openRefsForTemplate(${JSON.stringify(slot.template).replace(/"/g, '&quot;')})" title="Референсы шаблона">🔖</button>` : ''}
+      ${slot.template ? `<button class="icon-btn" onclick="event.stopPropagation();openRefsForTemplate(${JSON.stringify(slot.template).replace(/"/g, '&quot;')}, {dayIdx:${dayIdx},isTripSlot:true,slotKey:'${slotKey}',idx:0})" title="Референсы шаблона">🔖</button>` : ''}
       <button class="icon-btn" onclick="event.stopPropagation();editTrip(${dayIdx},'${slotKey}')" title="Редактировать">✏</button>
     </div>
   `;
@@ -3454,12 +3558,24 @@ function renderStation(dayIdx, groupKey, stationIdx, slot, troops, slotLabels, i
     else mirrorBadge = '<span class="mirror-badge partial" title="Ждёт пары">!</span>';
   }
 
-  // Бейдж с числом сохранённых референсов на шаблоне
+  // Бейдж с числом сохранённых референсов на шаблоне.
+  // Если у слота есть selectedRefs — показываем «выбрано/всего». Иначе — просто общее.
   let refsBadge = '';
   if (slot.template) {
     const lib = LIBRARY.find(a => a.template === slot.template);
     const cnt = (lib && lib.refsCount) || 0;
-    if (cnt > 0) refsBadge = ' <span class="ref-count-badge">' + cnt + '</span>';
+    if (cnt > 0) {
+      if (Array.isArray(slot.selectedRefs)) {
+        const selN = slot.selectedRefs.length;
+        if (selN === cnt) {
+          refsBadge = ' <span class="ref-count-badge">' + cnt + '</span>';
+        } else {
+          refsBadge = ' <span class="ref-count-badge ref-count-badge-partial">' + selN + '/' + cnt + '</span>';
+        }
+      } else {
+        refsBadge = ' <span class="ref-count-badge">' + cnt + '</span>';
+      }
+    }
   }
 
   // Двухуровневое отображение: шаблон + тема
@@ -3485,7 +3601,7 @@ function renderStation(dayIdx, groupKey, stationIdx, slot, troops, slotLabels, i
       <button class="icon-btn ${slot.locked?'locked-btn':''}" onclick="event.stopPropagation();toggleLock(${dayIdx},'${groupKey}',${stationIdx})" title="${slot.locked?'Открепить':'Закрепить'}">${slot.locked?'✓':'○'}</button>
       <button class="icon-btn" onclick="event.stopPropagation();openTemplatePicker(${dayIdx},'${groupKey}',${stationIdx},false,null)" title="Выбрать шаблон из библиотеки">🧱</button>
       <button class="icon-btn" onclick="event.stopPropagation();generateThemeForSlot(${dayIdx},'${groupKey}',${stationIdx},false,null)" title="Сгенерировать тему">✨</button>
-      <button class="icon-btn" onclick="event.stopPropagation();openRefsForTemplate(${JSON.stringify(slot.template).replace(/"/g, '&quot;')})" title="Референсы шаблона${refsBadge ? ' · сохранено: ' + (LIBRARY.find(a=>a.template===slot.template)?.refsCount || 0) : ''}">🔖${refsBadge}</button>
+      <button class="icon-btn" onclick="event.stopPropagation();openRefsForTemplate(${JSON.stringify(slot.template).replace(/"/g, '&quot;')}, {dayIdx:${dayIdx},group:'${groupKey}',idx:${stationIdx},isTripSlot:false})" title="Референсы шаблона${refsBadge ? ' · сохранено: ' + (LIBRARY.find(a=>a.template===slot.template)?.refsCount || 0) : ''}">🔖${refsBadge}</button>
       <button class="icon-btn" onclick="event.stopPropagation();editStation(${dayIdx},'${groupKey}',${stationIdx})" title="Редактировать вручную">✏</button>
     </div>
   `;
