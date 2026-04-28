@@ -1441,6 +1441,81 @@
     border-color: var(--ink);
     font-weight: 600;
   }
+  /* Кнопка «➕ свой шаблон» среди табов — выделена жёлтым */
+  .tpl-dir-tab-add {
+    background: var(--yellow) !important;
+    border-color: var(--ink) !important;
+    color: var(--ink) !important;
+    font-weight: 700;
+    margin-left: auto; /* отжимает её вправо если хватает места */
+  }
+  .tpl-dir-tab-add:hover { background: var(--yellow-deep) !important; }
+
+  /* Форма создания нового шаблона */
+  .custom-tpl-form {
+    padding: 0 0 8px;
+  }
+  .custom-tpl-back {
+    margin-bottom: 10px;
+  }
+  .custom-tpl-hint {
+    background: rgba(254,214,52,0.18);
+    border: 1px solid rgba(254,214,52,0.5);
+    border-radius: 4px;
+    padding: 10px 12px;
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--ink);
+    margin-bottom: 16px;
+  }
+  .custom-tpl-row {
+    margin-bottom: 12px;
+  }
+  .custom-tpl-row-pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .custom-tpl-row label {
+    display: block;
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(21,22,23,0.65);
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .custom-tpl-row label .req {
+    color: #c0392b;
+  }
+  .custom-tpl-row input {
+    width: 100%;
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 13px;
+    border: 1px solid var(--ink);
+    background: var(--white);
+    padding: 8px 10px;
+    color: var(--ink);
+    outline: none;
+    box-sizing: border-box;
+  }
+  .custom-tpl-row input:focus { border-color: var(--yellow-deep); }
+  .custom-tpl-row-hint {
+    font-family: Geologica, serif;
+    font-style: italic;
+    font-size: 11px;
+    color: rgba(21,22,23,0.55);
+    margin-top: 3px;
+  }
+  .custom-tpl-error {
+    color: #c0392b;
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 12px;
+    margin: 8px 0;
+    min-height: 16px;
+  }
 
   /* Карточка шаблона в окне «🧱 Выбрать шаблон» — с чипами тем и полем ручного ввода */
   .tpl-card {
@@ -3619,7 +3694,8 @@ function openTemplatePicker(day, group, idx, isTripSlot, slotKey) {
 
   // Шапка с поиском + табами + счётчиком, и контейнер списка
   const dirTabsHtml = `<button type="button" class="tpl-dir-tab active" data-dir="all" onclick="onTplPickerDirClick('all')">Все</button>` +
-    allDirections.map(d => `<button type="button" class="tpl-dir-tab" data-dir="${escapeJs(d)}" onclick="onTplPickerDirClick('${escapeJs(d)}')">${d}</button>`).join('');
+    allDirections.map(d => `<button type="button" class="tpl-dir-tab" data-dir="${escapeJs(d)}" onclick="onTplPickerDirClick('${escapeJs(d)}')">${d}</button>`).join('') +
+    `<button type="button" class="tpl-dir-tab tpl-dir-tab-add" onclick="openCustomTemplateForm()" title="Создать новый шаблон в библиотеке">➕ свой шаблон</button>`;
 
   const html = `
     <div class="tpl-picker-controls">
@@ -3741,6 +3817,17 @@ function renderTemplatePickerList_() {
     } else {
       html = `<div style="text-align:center;padding:30px;color:rgba(21,22,23,0.5);font-style:italic">Ничего не найдено по фильтрам.<br>Попробуй очистить поиск или выбрать «Все».</div>`;
     }
+    // Если пользователь вводил поиск — предложим создать шаблон с этим именем
+    if (searchQuery && searchQuery.length >= 3) {
+      const proposed = escapeHtml(searchQuery);
+      html += `<div style="text-align:center;padding:0 30px 24px">
+        <button type="button" class="btn btn-primary"
+                onclick="openCustomTemplateForm('${escapeJs(searchQuery)}')"
+                style="background:var(--yellow);border-color:var(--ink);color:var(--ink)">
+          ➕ Создать шаблон «${proposed}»
+        </button>
+      </div>`;
+    }
   }
   document.getElementById('tpl-picker-list').innerHTML = html;
   // Счётчик
@@ -3749,6 +3836,200 @@ function renderTemplatePickerList_() {
     cnt.textContent = filtered.length === templates.length
       ? `всего: ${templates.length}`
       : `найдено: ${filtered.length} из ${templates.length}`;
+  }
+}
+
+// Открывает форму создания нового шаблона прямо в окне tpl-picker.
+// Контекст ячейки берётся из window._tplPickerState — после успеха шаблон
+// сразу применяется к ячейке, окно закрывается.
+function openCustomTemplateForm(prefilledName) {
+  const st = window._tplPickerState;
+  if (!st) { toast('Окно выбора шаблона не открыто'); return; }
+
+  // Собираем существующих педагогов / направления / кабинеты из LIBRARY для datalist'ов
+  const allTeachers = Array.from(new Set(LIBRARY.map(a => String(a.t || '').trim()).filter(Boolean))).sort();
+  const allDirs = Array.from(new Set(LIBRARY.map(a => String(a.d || '').trim()).filter(Boolean))).sort();
+  const allRooms = Array.from(new Set(LIBRARY.map(a => String(a.c || '').trim()).filter(Boolean))).sort();
+
+  const fmtLabel = st.allowedFormat || 'МК';
+  const tplVal = String(prefilledName || '').trim();
+
+  document.getElementById('modal-title').innerHTML = `Создать <em>новый шаблон</em>${st.allowedFormat ? ' · ' + st.allowedFormat : ''}`;
+
+  const html = `
+    <div class="custom-tpl-form">
+      <div class="custom-tpl-back">
+        <button type="button" class="btn" onclick="backToTemplatePicker()">← назад к списку</button>
+      </div>
+      <div class="custom-tpl-hint">
+        Шаблон попадёт в библиотеку (лист «Активности») со статусом <strong>«утверждено»</strong> и сразу применится к ячейке.
+        Формат подставлен автоматически: <strong>${fmtLabel}</strong>.
+      </div>
+
+      <div class="custom-tpl-row">
+        <label>Название шаблона <span class="req">*</span></label>
+        <input type="text" id="ctpl-template" value="${escapeHtml(tplVal)}" placeholder="например: мк ночник из природных материалов" autofocus>
+      </div>
+
+      <div class="custom-tpl-row">
+        <label>Педагог <span class="req">*</span></label>
+        <input type="text" id="ctpl-teacher" list="ctpl-teachers-list" placeholder="например: Афонасенко Ж. (можно ввести нового)">
+        <datalist id="ctpl-teachers-list">
+          ${allTeachers.map(t => `<option value="${escapeHtml(t)}">`).join('')}
+        </datalist>
+      </div>
+
+      <div class="custom-tpl-row-pair">
+        <div class="custom-tpl-row">
+          <label>Направление <span class="req">*</span></label>
+          <input type="text" id="ctpl-direction" list="ctpl-dirs-list" placeholder="Творчество, IT, Спорт...">
+          <datalist id="ctpl-dirs-list">
+            ${allDirs.map(d => `<option value="${escapeHtml(d)}">`).join('')}
+          </datalist>
+        </div>
+        <div class="custom-tpl-row">
+          <label>Кабинет / локация <span class="req">*</span></label>
+          <input type="text" id="ctpl-location" list="ctpl-rooms-list" placeholder="1, 2, 3 этаж, парк Горького...">
+          <datalist id="ctpl-rooms-list">
+            ${allRooms.map(c => `<option value="${escapeHtml(c)}">`).join('')}
+          </datalist>
+        </div>
+      </div>
+
+      <div class="custom-tpl-row-pair">
+        <div class="custom-tpl-row">
+          <label>Возраст</label>
+          <input type="text" id="ctpl-age" value="6–11 лет">
+        </div>
+        <div class="custom-tpl-row">
+          <label>Длительность (мин)</label>
+          <input type="number" id="ctpl-duration" value="60" min="15" max="240" step="15">
+        </div>
+      </div>
+
+      <div class="custom-tpl-row">
+        <label>Описание (необязательно)</label>
+        <input type="text" id="ctpl-description" placeholder="как проходит занятие, что делают дети">
+      </div>
+
+      <div class="custom-tpl-row">
+        <label>Тема для этой ячейки (необязательно)</label>
+        <input type="text" id="ctpl-theme" placeholder="например: ночник «Воздушный шар»">
+        <div class="custom-tpl-row-hint">Если введёшь — она сразу станет темой ячейки и попадёт в «Примеры тем» шаблона.</div>
+      </div>
+
+      <div class="custom-tpl-error" id="ctpl-error"></div>
+
+      <div class="modal-actions">
+        <button class="btn" onclick="backToTemplatePicker()">Отмена</button>
+        <button class="btn btn-primary" id="ctpl-submit-btn" onclick="submitCustomTemplate()">➕ Создать и применить</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('modal-body').innerHTML = html;
+  setTimeout(() => {
+    const inp = document.getElementById('ctpl-template');
+    if (inp) {
+      inp.focus();
+      // Курсор в конец предзаполненного поля
+      const v = inp.value;
+      inp.setSelectionRange(v.length, v.length);
+    }
+  }, 60);
+}
+
+// Возврат в основной список шаблонов из формы создания
+function backToTemplatePicker() {
+  const st = window._tplPickerState;
+  if (!st) { closeModal(); return; }
+  // Заново рендерим список — заново вызываем openTemplatePicker с тем же контекстом
+  openTemplatePicker(st.day, st.group, st.idx, st.isTripSlot, st.slotKey);
+}
+
+// Сабмит формы — отправляет шаблон в Apps Script, потом применяет к ячейке
+async function submitCustomTemplate() {
+  const errEl = document.getElementById('ctpl-error');
+  if (errEl) errEl.textContent = '';
+  const btn = document.getElementById('ctpl-submit-btn');
+  const st = window._tplPickerState;
+  if (!st) { toast('Контекст потерян'); return; }
+
+  const tpl = (document.getElementById('ctpl-template').value || '').trim();
+  const teacher = (document.getElementById('ctpl-teacher').value || '').trim();
+  const direction = (document.getElementById('ctpl-direction').value || '').trim();
+  const location = (document.getElementById('ctpl-location').value || '').trim();
+  const age = (document.getElementById('ctpl-age').value || '6–11 лет').trim();
+  const duration = parseInt(document.getElementById('ctpl-duration').value, 10) || 60;
+  const description = (document.getElementById('ctpl-description').value || '').trim();
+  const theme = (document.getElementById('ctpl-theme').value || '').trim();
+
+  // Простая валидация
+  const errors = [];
+  if (!tpl) errors.push('название шаблона');
+  if (!teacher) errors.push('педагог');
+  if (!direction) errors.push('направление');
+  if (!location) errors.push('кабинет / локация');
+  if (errors.length > 0) {
+    if (errEl) errEl.textContent = 'Заполни обязательные поля: ' + errors.join(', ');
+    return;
+  }
+
+  // Формат — из контекста ячейки
+  const format = st.allowedFormat || 'МК';
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Сохраняю…'; }
+  try {
+    const r = await fetch(LIBRARY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'addCustomTemplate',
+        row: {
+          template: tpl,
+          teacher,
+          direction,
+          location,
+          age,
+          duration,
+          format,
+          description,
+          examples: theme || ''
+        }
+      })
+    });
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || 'API error');
+
+    // Добавляем в локальную LIBRARY чтобы не перезагружать с сервера
+    LIBRARY.push({
+      template: tpl,
+      examples: theme || '',
+      n: tpl,
+      t: teacher,
+      d: direction,
+      c: location,
+      age,
+      duration,
+      format,
+      description,
+      trip3: format === 'выезд 3',
+      trip6: format === 'выезд 6',
+      tripout: format === 'выезд 3' || format === 'выезд 6',
+      refsCount: 0,
+      refs: []
+    });
+
+    toast('Шаблон создан · ' + (theme ? 'тема: «' + theme + '»' : 'без темы'));
+
+    // Применяем к ячейке (с темой если ввела)
+    if (theme) {
+      applyTemplateWithTheme(st.day, st.group, st.idx, tpl, theme, st.isTripSlot, st.slotKey, false);
+    } else {
+      applyTemplate(st.day, st.group, st.idx, tpl, st.isTripSlot, st.slotKey);
+    }
+  } catch(e) {
+    if (errEl) errEl.textContent = 'Ошибка: ' + e.message;
+    if (btn) { btn.disabled = false; btn.textContent = '➕ Создать и применить'; }
   }
 }
 
