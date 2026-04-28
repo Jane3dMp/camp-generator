@@ -8461,12 +8461,14 @@ function buildCompactWeekHTML(weekNum) {
     ? firstDate.getDate() + ' – ' + lastDate.getDate() + ' ' + MONTHS[lastDate.getMonth()]
     : '';
 
-  // 4 строки временных блоков
+  // 4 строки: разрез по группам отрядов и времени
+  // Утром 1-2-3 в кластере, 4-5-6 на улице. После обеда наоборот.
+  // (При выезде / инверсии trip3 — compactCellHTML разруливает что показать.)
   const blocks = [
-    { key: 'am', kind: 'cluster', label: 'Утро · кластер',  time: '9:30–12:30',  troopsAM: '1-2-3', troopsPM: '4-5-6' },
-    { key: 'am', kind: 'outside', label: 'Утро · улица',    time: '9:30–12:30',  troopsAM: '4-5-6', troopsPM: '1-2-3' },
-    { key: 'pm', kind: 'cluster', label: 'После обеда · кластер', time: '14:00–17:00', troopsAM: '4-5-6', troopsPM: '1-2-3' },
-    { key: 'pm', kind: 'outside', label: 'После обеда · улица',   time: '14:00–17:00', troopsAM: '1-2-3', troopsPM: '4-5-6' }
+    { key: 'am', group: 'A', label: 'Утром · отряды 1-2-3', time: '9:30–12:30' },
+    { key: 'am', group: 'B', label: 'Утром · отряды 4-5-6', time: '9:30–12:30' },
+    { key: 'pm', group: 'A', label: 'После обеда · 1-2-3',  time: '14:00–17:00' },
+    { key: 'pm', group: 'B', label: 'После обеда · 4-5-6',  time: '14:00–17:00' }
   ];
 
   // Шапка таблицы
@@ -8481,15 +8483,38 @@ function buildCompactWeekHTML(weekNum) {
     </th>`;
   });
 
-  // Тело таблицы — 4 строки временных блоков
+  // Подготовка: для каждого дня вычисляем "rowspan-метки" для слитых ячеек trip6.
+  // Если trip6_am — утренняя ячейка в строке A показывает плашку с rowspan=2,
+  // а в строке B мы НЕ рендерим ячейку (она "проглочена"). То же для pm.
+  const dayMeta = days.map(d => {
+    return {
+      mergeAM: d.day.type === 'trip6_am',
+      mergePM: d.day.type === 'trip6_pm'
+    };
+  });
+
+  // Тело таблицы — 4 строки
   let bodyHtml = '';
-  blocks.forEach(block => {
+  blocks.forEach((block, blockIdx) => {
     bodyHtml += `<tr>
       <td class="compact-block-label">
         ${block.label}
         <small>${block.time}</small>
       </td>`;
-    days.forEach(d => {
+    days.forEach((d, dayIdx) => {
+      const meta = dayMeta[dayIdx];
+      // Если эта ячейка "проглочена" предыдущим rowspan — пропускаем
+      if (block.key === 'am' && block.group === 'B' && meta.mergeAM) return;
+      if (block.key === 'pm' && block.group === 'B' && meta.mergePM) return;
+      // Если это верхняя ячейка слитого trip6 — рендерим с rowspan=2
+      if (block.key === 'am' && block.group === 'A' && meta.mergeAM) {
+        bodyHtml += compactCellHTML(d.day, d.idx, block, { rowspan: 2 });
+        return;
+      }
+      if (block.key === 'pm' && block.group === 'A' && meta.mergePM) {
+        bodyHtml += compactCellHTML(d.day, d.idx, block, { rowspan: 2 });
+        return;
+      }
       bodyHtml += compactCellHTML(d.day, d.idx, block);
     });
     bodyHtml += '</tr>';
@@ -8507,68 +8532,79 @@ function buildCompactWeekHTML(weekNum) {
   `;
 }
 
-// Возвращает HTML одной ячейки таблицы для конкретного дня и блока (am-cluster, pm-outside и т.д.).
-function compactCellHTML(day, dayIdx, block) {
-  // 1. Полные выезды 6 отрядов — занимают всё утро или весь день
-  if (day.type === 'trip6_am' && block.key === 'am') {
-    return tripCellHTML(day.trip6_am, 'выезд 6', 'все 6 отрядов');
+// Возвращает HTML одной ячейки таблицы для конкретного дня и блока.
+// block: { key: 'am'|'pm', group: 'A'|'B' (отряды 1-2-3 или 4-5-6) }
+// opts: { rowspan: 2 } — для слитых ячеек trip6 (полный выезд утром или днём)
+function compactCellHTML(day, dayIdx, block, opts) {
+  opts = opts || {};
+  const rowspanAttr = opts.rowspan ? ` rowspan="${opts.rowspan}"` : '';
+  const isAM = block.key === 'am';
+  const isGroupA = block.group === 'A'; // отряды 1-2-3
+  const troopsLabel = isGroupA ? '1-2-3' : '4-5-6';
+
+  // === 1. Полный выезд 6 отрядов — слитая ячейка (rowspan=2) ===
+  if (day.type === 'trip6_am' && isAM) {
+    return tripCellHTML(day.trip6_am, 'выезд 6', 'все 6 отрядов', rowspanAttr);
   }
-  if (day.type === 'trip6_pm' && block.key === 'pm') {
-    return tripCellHTML(day.trip6_pm, 'выезд 6', 'все 6 отрядов');
+  if (day.type === 'trip6_pm' && !isAM) {
+    return tripCellHTML(day.trip6_pm, 'выезд 6', 'все 6 отрядов', rowspanAttr);
   }
 
-  // 1.b. Параллельные выезды (split) — две плашки рядом
-  if (day.type === 'trip6_am_split' && block.key === 'am') {
-    return splitTripCellHTML(day.trip6_am_a, day.trip6_am_b);
+  // === 2. Параллельные выезды (split) — у каждой группы свой выезд ===
+  // trip6_am_split: 1-2-3 → trip6_am_a, 4-5-6 → trip6_am_b
+  if (day.type === 'trip6_am_split' && isAM) {
+    const slot = isGroupA ? day.trip6_am_a : day.trip6_am_b;
+    return tripCellHTML(slot, 'выезд 3', troopsLabel);
   }
-  if (day.type === 'trip6_pm_split' && block.key === 'pm') {
-    return splitTripCellHTML(day.trip6_pm_a, day.trip6_pm_b);
-  }
-
-  // 2. Полу-выезды 3 отрядов — на одном из блоков (вместо обычной активности)
-  // trip3_am: утром по умолчанию 4-5-6 уезжает (или 1-2-3 при инверсии)
-  // То есть в утренней строке для блока 'outside' — выезд, для 'cluster' — норм работа группы.
-  if (day.type === 'trip3_am' && block.key === 'am' && block.kind === 'outside') {
-    const t = trip3GroupsFor_(day, 'am').trip.join('-');
-    return tripCellHTML(day.trip_full_am, 'выезд 3', t);
-  }
-  if (day.type === 'trip3_pm' && block.key === 'pm' && block.kind === 'outside') {
-    const t = trip3GroupsFor_(day, 'pm').trip.join('-');
-    return tripCellHTML(day.trip_full_pm, 'выезд 3', t);
-  }
-  // trip3_full: утром одна группа на выезде, после обеда — другая. С инверсией — наоборот.
-  if (day.type === 'trip3_full' && block.key === 'am' && block.kind === 'outside') {
-    const t = trip3GroupsFor_(day, 'am').trip.join('-');
-    return tripCellHTML(day.trip_full_am, 'выезд 3', t);
-  }
-  if (day.type === 'trip3_full' && block.key === 'pm' && block.kind === 'outside') {
-    const t = trip3GroupsFor_(day, 'pm').trip.join('-');
-    return tripCellHTML(day.trip_full_pm, 'выезд 3', t);
+  if (day.type === 'trip6_pm_split' && !isAM) {
+    const slot = isGroupA ? day.trip6_pm_a : day.trip6_pm_b;
+    return tripCellHTML(slot, 'выезд 3', troopsLabel);
   }
 
-  // 3. Обычные слоты в кластере или на улице
-  const groupKey = block.key + '_' + block.kind; // am_cluster, pm_outside и т.д.
-  const arr = day[groupKey];
+  // === 3. Полу-выезды 3 отрядов с учётом инверсии trip3_outside ===
+  // trip3_am утром: одна группа на выезде, другая в кластере
+  if ((day.type === 'trip3_am' || day.type === 'trip3_full') && isAM) {
+    const groups = trip3GroupsFor_(day, 'am');
+    const onTripGroup = groups.trip[0] === 1 ? 'A' : 'B'; // первый отряд группы — 1 или 4
+    const onTrip = (block.group === onTripGroup);
+    if (onTrip) {
+      return tripCellHTML(day.trip_full_am, 'выезд 3', troopsLabel);
+    }
+    // Эта группа в кластере — рендерим обычные МК
+    return clusterCellHTML(day.am_cluster, troopsLabel);
+  }
+  if ((day.type === 'trip3_pm' || day.type === 'trip3_full') && !isAM) {
+    const groups = trip3GroupsFor_(day, 'pm');
+    const onTripGroup = groups.trip[0] === 1 ? 'A' : 'B';
+    const onTrip = (block.group === onTripGroup);
+    if (onTrip) {
+      return tripCellHTML(day.trip_full_pm, 'выезд 3', troopsLabel);
+    }
+    return clusterCellHTML(day.pm_cluster, troopsLabel);
+  }
+
+  // === 4. Обычный день. Какая группа что делает в этот блок? ===
+  // Утром: 1-2-3 в кластере (МК), 4-5-6 на улице
+  // После обеда: 4-5-6 в кластере, 1-2-3 на улице
+  let arr;
+  if (isAM) {
+    arr = isGroupA ? day.am_cluster : day.am_outside;
+  } else {
+    arr = isGroupA ? day.pm_outside : day.pm_cluster;
+  }
+
   if (!Array.isArray(arr) || arr.length === 0) {
-    return `<td><span class="compact-cell-empty">— нет —</span></td>`;
+    return `<td${rowspanAttr}><span class="compact-cell-empty">— нет —</span></td>`;
   }
   const filled = arr.filter(s => s && s.template);
   if (filled.length === 0) {
-    return `<td><span class="compact-cell-empty">— нет —</span></td>`;
+    return `<td${rowspanAttr}><span class="compact-cell-empty">— нет —</span></td>`;
   }
-  // Какая группа отрядов в этой ячейке. По умолчанию утро: cluster=1-2-3, outside=4-5-6.
-  // Для trip3-дней с инверсией — кластер использует группу из trip3GroupsFor_.
-  let troops;
-  const isTripDay = ['trip3_am', 'trip3_pm', 'trip3_full'].includes(day.type);
-  if (isTripDay && block.kind === 'cluster') {
-    const c = trip3GroupsFor_(day, block.key).cluster;
-    troops = c.join('-');
-  } else {
-    troops = block.key === 'am'
-      ? (block.kind === 'cluster' ? '1-2-3' : '4-5-6')
-      : (block.kind === 'cluster' ? '4-5-6' : '1-2-3');
-  }
+  return activityCellHTML(filled, troopsLabel, rowspanAttr);
+}
 
+// Рендерит ячейку таблицы со списком 3 активностей (МК или уличных) для одной группы
+function activityCellHTML(filled, troopsLabel, rowspanAttr) {
   const items = filled.map(s => {
     const meta = [s.teacher || '—', s.room || '—'].filter(Boolean).join(' · ');
     const themeHtml = s.theme && !state.workWithoutThemes
@@ -8577,17 +8613,29 @@ function compactCellHTML(day, dayIdx, block) {
       <div class="compact-activity-name">${escapeHtml(s.template)}</div>
       ${themeHtml}
       <div class="compact-activity-meta">
-        <span class="pill-troops">${troops}</span>${escapeHtml(meta)}
+        <span class="pill-troops">${troopsLabel}</span>${escapeHtml(meta)}
       </div>
     </div>`;
   }).join('');
-
-  return `<td>${items}</td>`;
+  return `<td${rowspanAttr || ''}>${items}</td>`;
 }
 
-function tripCellHTML(slot, label, troops) {
+// Рендерит кластерные слоты для одной группы (для trip3-дней когда группа в кластере)
+function clusterCellHTML(arr, troopsLabel) {
+  if (!Array.isArray(arr) || arr.length === 0) {
+    return `<td><span class="compact-cell-empty">— нет —</span></td>`;
+  }
+  const filled = arr.filter(s => s && s.template);
+  if (filled.length === 0) {
+    return `<td><span class="compact-cell-empty">— нет —</span></td>`;
+  }
+  return activityCellHTML(filled, troopsLabel, '');
+}
+
+function tripCellHTML(slot, label, troops, rowspanAttr) {
+  rowspanAttr = rowspanAttr || '';
   if (!slot || !slot.template) {
-    return `<td class="compact-trip-cell">
+    return `<td class="compact-trip-cell"${rowspanAttr}>
       <div class="compact-trip-label">🚌 ${escapeHtml(label)}</div>
       <div class="compact-trip-name">— не задано —</div>
     </td>`;
@@ -8595,7 +8643,7 @@ function tripCellHTML(slot, label, troops) {
   const teacher = slot.teacher && slot.teacher !== '—' ? slot.teacher : '';
   const themeHtml = slot.theme && !state.workWithoutThemes
     ? `<div class="compact-trip-theme">«${escapeHtml(slot.theme)}»</div>` : '';
-  return `<td class="compact-trip-cell">
+  return `<td class="compact-trip-cell"${rowspanAttr}>
     <div class="compact-trip-label">🚌 ${escapeHtml(label)} · ${escapeHtml(troops)}</div>
     <div class="compact-trip-name">${escapeHtml(slot.template)}</div>
     ${themeHtml}
