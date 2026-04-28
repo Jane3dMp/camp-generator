@@ -587,14 +587,24 @@
       if (!libResp.ok) throw new Error(libResp.error || 'Не удалось загрузить библиотеку');
 
       LIBRARY = libResp.activities || [];
+      const pub = pubResp.publication;
+      // Диагностика: если pub нет — может быть рассинхрон с Apps Script.
+      if (!pub) {
+        console.error('Ответ getPublished без поля publication:', pubResp);
+        throw new Error('Публикация с этим id не найдена. Возможно, ссылка устарела или Apps Script нужно переразвернуть.');
+      }
+      if (!pub.id) {
+        console.error('Публикация без id:', pub);
+        throw new Error('Сервер вернул некорректную публикацию (нет id). Попробуй переразвернуть Apps Script.');
+      }
       publishedMeta = {
-        id: pubResp.version.id,
-        name: pubResp.version.name,
-        theme: pubResp.version.theme,
-        publishedAt: pubResp.version.publishedAt
+        id: pub.id,
+        name: pub.name || '',
+        theme: pub.theme || '',
+        publishedAt: pub.publishedAt || ''
       };
       try {
-        publishedState = JSON.parse(pubResp.version.stateJson);
+        publishedState = JSON.parse(pub.stateJson || '{}');
       } catch(e) {
         throw new Error('Не удалось распарсить расписание: ' + e.message);
       }
