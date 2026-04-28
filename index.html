@@ -964,6 +964,117 @@
     border: 1px solid transparent;
   }
   .theme-refs a:hover { background: var(--yellow); color: var(--ink); border-color: var(--ink); }
+  .theme-refs-saved { background: rgba(254,214,52,0.18) !important; border-color: rgba(254,214,52,0.5) !important; }
+
+  /* Бейдж количества референсов на иконке 🔖 в ячейке */
+  .ref-count-badge {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 700;
+    background: var(--yellow);
+    color: var(--ink);
+    padding: 0 4px;
+    border-radius: 8px;
+    margin-left: -2px;
+    min-width: 14px;
+    text-align: center;
+    vertical-align: super;
+  }
+
+  /* Модалка референсов */
+  .ref-section-title {
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(21,22,23,0.55);
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .ref-list { margin-bottom: 10px; }
+  .ref-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    margin-bottom: 4px;
+    border: 1px solid rgba(21,22,23,0.12);
+    border-radius: 4px;
+    background: var(--paper-warm);
+    transition: all 0.12s ease;
+  }
+  .ref-item:hover { background: var(--white); border-color: rgba(21,22,23,0.3); }
+  .ref-item-link {
+    flex: 1;
+    text-decoration: none;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow: hidden;
+  }
+  .ref-item-icon { font-size: 16px; }
+  .ref-item-host {
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink);
+    flex-shrink: 0;
+  }
+  .ref-item-url {
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 11px;
+    color: rgba(21,22,23,0.5);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ref-item-remove {
+    border: none;
+    background: transparent;
+    color: rgba(21,22,23,0.4);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 3px;
+    line-height: 1;
+    transition: all 0.12s ease;
+  }
+  .ref-item-remove:hover { color: #c0392b; background: rgba(192,57,43,0.1); }
+
+  .ref-add-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .ref-add-input {
+    flex: 1;
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 13px;
+    border: 1px solid var(--ink);
+    background: var(--white);
+    padding: 8px 10px;
+    color: var(--ink);
+    outline: none;
+  }
+  .ref-add-input:focus { border-color: var(--yellow-deep); }
+
+  .ref-search-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .ref-search-btn {
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 12px;
+    padding: 6px 12px;
+    color: var(--ink);
+    text-decoration: none;
+    background: var(--paper-warm);
+    border: 1px solid rgba(21,22,23,0.2);
+    border-radius: 3px;
+  }
+  .ref-search-btn:hover { background: var(--yellow); border-color: var(--ink); }
   .variant-name {
     font-family: Geologica, system-ui, sans-serif;
     font-size: 17px;
@@ -2423,6 +2534,7 @@ async function generateThemeForSlot(day, group, idx, isTripSlot, slotKey) {
             <a href="${pinUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">📌 Pinterest</a>
             <a href="${gimgUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🖼 Google</a>
             <a href="${ytUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🎬 YouTube</a>
+            <a href="javascript:void(0)" onclick="event.stopPropagation();openRefsForTemplate('${tplEsc}')" class="theme-refs-saved">🔖 Сохранённые</a>
           </div>
         </div>
       `;}).join('')}
@@ -2466,6 +2578,141 @@ ${examples ? `\nПримеры тем для этого шаблона из пр
 
 // Сохраняет тему в графу «Примеры тем» шаблона (в листе «Активности» Google-таблицы).
 // Через Apps Script ручку appendThemeExample. После успеха — кнопка превращается в галочку.
+// ============================================================
+// СОХРАНЁННЫЕ РЕФЕРЕНСЫ ШАБЛОНА
+// ============================================================
+
+// Открывает модалку «Референсы шаблона». Грузит ссылки с сервера, рендерит список,
+// даёт добавить новую и удалить существующую.
+async function openRefsForTemplate(templateName) {
+  if (!templateName) return;
+  document.getElementById('modal-title').innerHTML = `Референсы для <em>${escapeHtml(templateName)}</em>`;
+  document.getElementById('modal-body').innerHTML = '<div class="modal-loading">Загружаю референсы…</div>';
+  openModal();
+  try {
+    const r = await fetch(LIBRARY_URL + '?action=getRefs&template=' + encodeURIComponent(templateName));
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || 'API error');
+    renderRefsModalBody(templateName, data.refs || []);
+  } catch(e) {
+    document.getElementById('modal-body').innerHTML = `
+      <div style="padding:20px;font-family:Inter,sans-serif;color:var(--terra-deep)">Ошибка: ${escapeHtml(e.message)}</div>
+      <div class="modal-actions"><button class="btn" onclick="closeModal()">Закрыть</button></div>
+    `;
+  }
+}
+
+function renderRefsModalBody(templateName, refs) {
+  const tplEsc = escapeJs(templateName);
+  const dirHint = 'детский мастер-класс';
+  const q = encodeURIComponent(templateName + ' ' + dirHint);
+  const pinSearch = 'https://www.pinterest.com/search/pins/?q=' + q;
+  const gimgSearch = 'https://www.google.com/search?tbm=isch&q=' + q;
+  const ytSearch = 'https://www.youtube.com/results?search_query=' + q;
+
+  let listHtml = '';
+  if (refs.length === 0) {
+    listHtml = `<div style="padding:20px 16px;text-align:center;color:rgba(21,22,23,0.5);font-family:Geologica, serif;font-style:italic">Пока нет сохранённых референсов. Найди подходящие через поиск ниже и приложи сюда.</div>`;
+  } else {
+    listHtml = refs.map(url => {
+      const host = (() => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch(e) { return ''; }})();
+      const icon = host.includes('pinterest') ? '📌' : host.includes('youtube') || host.includes('youtu.be') ? '🎬' : host.includes('google') ? '🖼' : '🔗';
+      return `
+        <div class="ref-item">
+          <a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="ref-item-link">
+            <span class="ref-item-icon">${icon}</span>
+            <span class="ref-item-host">${escapeHtml(host || url)}</span>
+            <span class="ref-item-url">${escapeHtml(url)}</span>
+          </a>
+          <button class="ref-item-remove" title="Удалить эту ссылку"
+                  onclick="removeRefFromTemplate('${tplEsc}', ${JSON.stringify(url).replace(/"/g, '&quot;')}, this)">✕</button>
+        </div>
+      `;
+    }).join('');
+  }
+
+  document.getElementById('modal-body').innerHTML = `
+    <div style="font-family:Geologica, serif;font-style:italic;font-size:13px;margin-bottom:14px;color:rgba(21,22,23,0.7)">
+      Эти ссылки сохраняются в библиотеку (лист «Активности», колонка «Референсы») и подтягиваются всегда, когда этот шаблон используется в любой смене.
+    </div>
+
+    <div class="ref-section-title">Сохранённые (${refs.length})</div>
+    <div class="ref-list">${listHtml}</div>
+
+    <div class="ref-section-title" style="margin-top:18px">Добавить новую ссылку</div>
+    <div class="ref-add-row">
+      <input type="url" id="ref-new-url" class="ref-add-input" placeholder="https://www.pinterest.com/pin/... или другой URL"
+             onkeydown="if(event.key==='Enter') addRefForTemplate('${tplEsc}', this.parentElement.querySelector('button'))">
+      <button class="btn btn-primary" onclick="addRefForTemplate('${tplEsc}', this)">Добавить</button>
+    </div>
+
+    <div class="ref-section-title" style="margin-top:18px">Поиск референсов</div>
+    <div class="ref-search-row">
+      <a href="${pinSearch}" target="_blank" rel="noopener" class="ref-search-btn">📌 Pinterest</a>
+      <a href="${gimgSearch}" target="_blank" rel="noopener" class="ref-search-btn">🖼 Google Картинки</a>
+      <a href="${ytSearch}" target="_blank" rel="noopener" class="ref-search-btn">🎬 YouTube</a>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Закрыть</button>
+    </div>
+  `;
+}
+
+async function addRefForTemplate(templateName, btnEl) {
+  const inputEl = document.getElementById('ref-new-url');
+  if (!inputEl) return;
+  const url = inputEl.value.trim();
+  if (!url) { toast('Вставь ссылку'); return; }
+  if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'Сохраняю…'; }
+  try {
+    const r = await fetch(LIBRARY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'addRef', templateName: templateName, url: url })
+    });
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || 'API error');
+    if (data.result.alreadyPresent) {
+      toast('Эта ссылка уже была сохранена');
+    } else {
+      toast('Референс сохранён');
+      // Обновляем счётчик в LIBRARY локально
+      const lib = LIBRARY.find(a => a.template === templateName);
+      if (lib) lib.refsCount = (lib.refsCount || 0) + 1;
+    }
+    // Перерисуем список
+    openRefsForTemplate(templateName);
+    // Перерисуем основную сетку чтобы обновился бейдж
+    if (typeof render === 'function') render();
+  } catch(e) {
+    toast('Ошибка: ' + e.message);
+    if (btnEl) { btnEl.disabled = false; btnEl.textContent = 'Добавить'; }
+  }
+}
+
+async function removeRefFromTemplate(templateName, url, btnEl) {
+  if (!confirm('Удалить эту ссылку из референсов шаблона?')) return;
+  if (btnEl) btnEl.disabled = true;
+  try {
+    const r = await fetch(LIBRARY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'removeRef', templateName: templateName, url: url })
+    });
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || 'API error');
+    toast('Удалено');
+    const lib = LIBRARY.find(a => a.template === templateName);
+    if (lib && lib.refsCount > 0) lib.refsCount--;
+    openRefsForTemplate(templateName);
+    if (typeof render === 'function') render();
+  } catch(e) {
+    toast('Ошибка: ' + e.message);
+    if (btnEl) btnEl.disabled = false;
+  }
+}
+
 async function saveThemeAsIdea(templateName, themeText, btnEl) {
   if (!templateName || !themeText) return;
   if (btnEl) {
@@ -2496,6 +2743,15 @@ async function saveThemeAsIdea(templateName, themeText, btnEl) {
       if (!ex.toLowerCase().includes(themeText.trim().toLowerCase())) {
         lib.examples = ex ? ex + ', ' + themeText : themeText;
       }
+    }
+    // Только если тема была реально новой — предложим приложить референсы.
+    if (!(data.result && data.result.alreadyPresent)) {
+      // Небольшая задержка чтобы тост успел показаться
+      setTimeout(() => {
+        if (confirm(`Тема «${themeText}» сохранена.\n\nХочешь приложить ссылки на референсы (Pinterest, YouTube, статьи) для шаблона «${templateName}»?\nОни будут доступны и в этой смене, и во всех будущих.`)) {
+          openRefsForTemplate(templateName);
+        }
+      }, 400);
     }
   } catch(e) {
     if (btnEl) { btnEl.disabled = false; btnEl.textContent = '💾'; }
@@ -2744,6 +3000,7 @@ function renderTrip3Half(dayIdx, half, day) {
       <button class="icon-btn ${slot.locked?'locked-btn':''}" onclick="event.stopPropagation();toggleLockTrip(${dayIdx},'${slotKey}')" title="${slot.locked?'Открепить':'Закрепить'}">${slot.locked?'✓':'○'}</button>
       <button class="icon-btn" onclick="event.stopPropagation();openTripVariants(${dayIdx},'${slotKey}','trip3')" title="3 варианта">🔄</button>
       <button class="icon-btn" onclick="event.stopPropagation();openTemplatePicker(${dayIdx},null,0,true,'${slotKey}')" title="Выбрать шаблон из библиотеки">🧱</button>
+      ${slot.template ? `<button class="icon-btn" onclick="event.stopPropagation();openRefsForTemplate(${JSON.stringify(slot.template).replace(/"/g, '&quot;')})" title="Референсы шаблона">🔖</button>` : ''}
       <button class="icon-btn" onclick="event.stopPropagation();editTrip(${dayIdx},'${slotKey}')" title="Редактировать">✏</button>
     </div>
   `;
@@ -2783,6 +3040,7 @@ function renderTrip6Half(dayIdx, half, day) {
       <button class="icon-btn ${slot.locked?'locked-btn':''}" onclick="event.stopPropagation();toggleLockTrip(${dayIdx},'${slotKey}')" title="${slot.locked?'Открепить':'Закрепить'}">${slot.locked?'✓':'○'}</button>
       <button class="icon-btn" onclick="event.stopPropagation();openTripVariants(${dayIdx},'${slotKey}','trip6')" title="3 варианта">🔄</button>
       <button class="icon-btn" onclick="event.stopPropagation();openTemplatePicker(${dayIdx},null,0,true,'${slotKey}')" title="Выбрать шаблон из библиотеки">🧱</button>
+      ${slot.template ? `<button class="icon-btn" onclick="event.stopPropagation();openRefsForTemplate(${JSON.stringify(slot.template).replace(/"/g, '&quot;')})" title="Референсы шаблона">🔖</button>` : ''}
       <button class="icon-btn" onclick="event.stopPropagation();editTrip(${dayIdx},'${slotKey}')" title="Редактировать">✏</button>
     </div>
   `;
@@ -2868,6 +3126,14 @@ function renderStation(dayIdx, groupKey, stationIdx, slot, troops, slotLabels, i
     else mirrorBadge = '<span class="mirror-badge partial" title="Ждёт пары">!</span>';
   }
 
+  // Бейдж с числом сохранённых референсов на шаблоне
+  let refsBadge = '';
+  if (slot.template) {
+    const lib = LIBRARY.find(a => a.template === slot.template);
+    const cnt = (lib && lib.refsCount) || 0;
+    if (cnt > 0) refsBadge = ' <span class="ref-count-badge">' + cnt + '</span>';
+  }
+
   // Двухуровневое отображение: шаблон + тема
   const tpl = slot.template || slot.name || '';
   const theme = slot.theme || '';
@@ -2891,6 +3157,7 @@ function renderStation(dayIdx, groupKey, stationIdx, slot, troops, slotLabels, i
       <button class="icon-btn ${slot.locked?'locked-btn':''}" onclick="event.stopPropagation();toggleLock(${dayIdx},'${groupKey}',${stationIdx})" title="${slot.locked?'Открепить':'Закрепить'}">${slot.locked?'✓':'○'}</button>
       <button class="icon-btn" onclick="event.stopPropagation();openTemplatePicker(${dayIdx},'${groupKey}',${stationIdx},false,null)" title="Выбрать шаблон из библиотеки">🧱</button>
       <button class="icon-btn" onclick="event.stopPropagation();generateThemeForSlot(${dayIdx},'${groupKey}',${stationIdx},false,null)" title="Сгенерировать тему">✨</button>
+      <button class="icon-btn" onclick="event.stopPropagation();openRefsForTemplate(${JSON.stringify(slot.template).replace(/"/g, '&quot;')})" title="Референсы шаблона${refsBadge ? ' · сохранено: ' + (LIBRARY.find(a=>a.template===slot.template)?.refsCount || 0) : ''}">🔖${refsBadge}</button>
       <button class="icon-btn" onclick="event.stopPropagation();editStation(${dayIdx},'${groupKey}',${stationIdx})" title="Редактировать вручную">✏</button>
     </div>
   `;
