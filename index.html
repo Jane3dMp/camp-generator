@@ -676,7 +676,99 @@
     opacity: 0.75;
   }
 
-  /* === ПЕЧАТЬ === */
+  /* === Модалка публикации === */
+  .publish-section-title {
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(21,22,23,0.55);
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .publish-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .publish-input {
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 13px;
+    border: 1px solid var(--ink);
+    background: var(--white);
+    padding: 8px 10px;
+    color: var(--ink);
+    outline: none;
+  }
+  .publish-input:focus { border-color: var(--yellow-deep); }
+  .publish-hint {
+    font-family: Geologica, serif;
+    font-style: italic;
+    font-size: 11px;
+    color: rgba(21,22,23,0.55);
+    line-height: 1.4;
+    margin-top: 4px;
+  }
+  .publish-hint code {
+    font-family: ui-monospace, Menlo, monospace;
+    font-size: 11px;
+    background: rgba(21,22,23,0.06);
+    padding: 1px 5px;
+    border-radius: 2px;
+  }
+  .publish-empty {
+    padding: 18px;
+    text-align: center;
+    font-family: Geologica, serif;
+    font-style: italic;
+    color: rgba(21,22,23,0.5);
+    font-size: 13px;
+    border: 1px dashed rgba(21,22,23,0.15);
+    border-radius: 4px;
+  }
+  .publish-list { display: flex; flex-direction: column; gap: 6px; }
+  .publish-item {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 10px 12px;
+    border: 1px solid rgba(21,22,23,0.12);
+    border-radius: 4px;
+    background: var(--paper-warm);
+  }
+  .publish-item-main { flex: 1; min-width: 0; }
+  .publish-item-name {
+    font-family: Geologica, system-ui, sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--ink);
+  }
+  .publish-item-meta {
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 11px;
+    color: rgba(21,22,23,0.55);
+    margin: 2px 0 4px;
+  }
+  .publish-item-url code {
+    font-family: ui-monospace, Menlo, monospace;
+    font-size: 11px;
+    background: rgba(21,22,23,0.06);
+    padding: 2px 6px;
+    border-radius: 2px;
+    word-break: break-all;
+    display: inline-block;
+  }
+  .publish-item-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .publish-item-actions .btn {
+    padding: 6px 10px;
+    font-size: 12px;
+    min-width: 0;
+  }
   @media print {
     body { background: white; padding: 0; margin: 0; }
     .no-print, .header, .config-panel, .config-actions-row, #schedule-container, .actions-bar, .toolbar, .rotation-help, #zoom-panel, .program-side { display: none !important; }
@@ -2056,6 +2148,7 @@
 <div class="config-actions-row">
   <button class="btn btn-primary" onclick="generateAll()">⚡ Сгенерировать всё</button>
   <button class="btn" onclick="openDraftsPanel()" title="Черновики смен в Google Sheets">📁 Черновики</button>
+  <button class="btn" onclick="openPublishPanel()" title="Опубликовать смену для просмотра педагогами по ссылке">🌐 Опубликовать</button>
   <button class="btn" onclick="openExpandLibraryPanel()" title="Расширить библиотеку — ИИ предложит похожие шаблоны">➕ Расширить библиотеку</button>
   <button class="btn" onclick="generateTeaserPDF()" title="Короткий PDF для рассылки в мессенджер (1 страница)">📄 Тизер</button>
   <button class="btn" onclick="generateFullPDF()" title="Полная программа смены для родителей (6 страниц)">📄 Полная программа</button>
@@ -2771,6 +2864,219 @@ async function runExpandLibrary() {
     resultEl.innerHTML = '<div style="color:var(--terra-deep);font-family:Inter, sans-serif;font-size:12px;white-space:pre-wrap">Ошибка: ' + e.message + '</div>';
     goBtn.disabled = false;
   }
+}
+
+// =============================================================
+// ОПУБЛИКОВАННЫЕ ВЕРСИИ — для просмотра педагогами по ссылке
+// =============================================================
+
+// Базовый URL view-страницы. Один раз вычисляем при старте — относительно текущего HTML.
+function viewBaseUrl_() {
+  // Берём пут до index.html и заменяем имя файла на view.html
+  const cur = window.location.href.split('?')[0].split('#')[0];
+  const noFile = cur.replace(/[^/]+$/, ''); // убираем последний сегмент (filename)
+  return noFile + 'view.html';
+}
+
+// Slug из темы: латиница не меняется, кириллица → транслит, пробелы → дефис.
+function slugify_(text) {
+  if (!text) return '';
+  const map = {
+    а:'a',б:'b',в:'v',г:'g',д:'d',е:'e',ё:'yo',ж:'zh',з:'z',и:'i',й:'i',к:'k',л:'l',м:'m',н:'n',о:'o',
+    п:'p',р:'r',с:'s',т:'t',у:'u',ф:'f',х:'h',ц:'ts',ч:'ch',ш:'sh',щ:'sch',ъ:'',ы:'y',ь:'',э:'e',ю:'yu',я:'ya'
+  };
+  return String(text).toLowerCase()
+    .split('').map(c => map[c] !== undefined ? map[c] : c).join('')
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 40);
+}
+
+async function openPublishPanel() {
+  document.getElementById('modal-title').innerHTML = `Опубликовать <em>для педагогов</em>`;
+  document.getElementById('modal-body').innerHTML = '<div class="modal-loading">Загружаю список публикаций…</div>';
+  openModal();
+  try {
+    const r = await fetch(LIBRARY_URL + '?action=listPublished');
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || 'API error');
+    renderPublishPanelBody(data.versions || []);
+  } catch(e) {
+    document.getElementById('modal-body').innerHTML = `
+      <div style="padding:20px;font-family:Inter,sans-serif;color:var(--terra-deep)">Ошибка: ${escapeHtml(e.message)}</div>
+      <div class="modal-actions"><button class="btn" onclick="closeModal()">Закрыть</button></div>
+    `;
+  }
+}
+
+function renderPublishPanelBody(versions) {
+  const baseUrl = viewBaseUrl_();
+  const defaultName = state.theme || 'Смена';
+  const defaultId = slugify_(state.theme) || ('shift-' + Date.now().toString(36));
+
+  let listHtml = '';
+  if (versions.length === 0) {
+    listHtml = `<div class="publish-empty">Пока нет опубликованных версий. Заполни форму ниже и опубликуй текущую смену — получишь ссылку для педагогов.</div>`;
+  } else {
+    listHtml = versions.map(v => {
+      const url = baseUrl + '?id=' + encodeURIComponent(v.id);
+      const date = v.publishedAt ? new Date(v.publishedAt) : null;
+      const dateStr = date ? date.toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+      return `
+        <div class="publish-item">
+          <div class="publish-item-main">
+            <div class="publish-item-name">${escapeHtml(v.name || v.theme || v.id)}</div>
+            <div class="publish-item-meta">
+              ${v.theme ? '«' + escapeHtml(v.theme) + '» · ' : ''}
+              опубликовано ${escapeHtml(dateStr)}
+            </div>
+            <div class="publish-item-url"><code>${escapeHtml(url)}</code></div>
+          </div>
+          <div class="publish-item-actions">
+            <button class="btn" onclick="copyToClipboard('${escapeJs(url)}', this)" title="Скопировать ссылку">📋</button>
+            <a class="btn" href="${escapeHtml(url)}" target="_blank" rel="noopener" title="Открыть в новой вкладке">↗</a>
+            <button class="btn" onclick="republishVersion('${escapeJs(v.id)}', '${escapeJs(v.name || v.theme)}')" title="Перезаписать содержимое этой версии текущим состоянием смены">↻</button>
+            <button class="btn" onclick="unpublishVersion('${escapeJs(v.id)}', this)" title="Удалить публикацию (ссылка перестанет работать)">🗑</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  document.getElementById('modal-body').innerHTML = `
+    <div style="font-family:Geologica, serif;font-style:italic;font-size:13px;margin-bottom:14px;color:rgba(21,22,23,0.7)">
+      Опубликованная версия — это снимок смены, доступный по ссылке. Педагоги откроют её, выберут себя и увидят актуальное расписание. Когда меняешь смену — нажимай ↻ чтобы обновить публикацию.
+    </div>
+
+    <div class="publish-section-title">Новая публикация</div>
+    <div class="publish-form">
+      <input type="text" id="publish-name" class="publish-input" placeholder="Название (например «Зверополис, июнь 2026»)" value="${escapeHtml(defaultName)}">
+      <input type="text" id="publish-id" class="publish-input" placeholder="ID для ссылки (латиницей, без пробелов)" value="${escapeHtml(defaultId)}">
+      <button class="btn btn-primary" onclick="doPublish()">🌐 Опубликовать текущую смену</button>
+    </div>
+    <div class="publish-hint">
+      ID — это часть URL после <code>?id=</code>. Можно оставить как есть. Если уже есть публикация с таким ID — она будет перезаписана.
+    </div>
+
+    <div class="publish-section-title" style="margin-top:22px">Опубликованные версии (${versions.length})</div>
+    <div class="publish-list">${listHtml}</div>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Закрыть</button>
+    </div>
+  `;
+}
+
+async function doPublish() {
+  const nameEl = document.getElementById('publish-name');
+  const idEl = document.getElementById('publish-id');
+  const name = (nameEl.value || '').trim();
+  const id = (idEl.value || '').trim();
+  if (!id) { toast('Заполни ID'); return; }
+  if (!/^[a-zA-Z0-9_-]+$/.test(id)) { toast('ID может содержать только латиницу, цифры, дефис и подчёркивание'); return; }
+
+  const btn = document.querySelector('.publish-form .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Публикую…'; }
+
+  try {
+    // Готовим снимок: state + библиотечные референсы (для дефолта в view.html когда selectedRefs нет)
+    const publishedState = Object.assign({}, state);
+    publishedState._publishedRefs = {};
+    LIBRARY.forEach(a => {
+      if (a.template && Array.isArray(a.refs) && a.refs.length > 0) {
+        publishedState._publishedRefs[a.template] = a.refs.slice();
+      }
+    });
+    const stateJson = JSON.stringify(publishedState);
+    const r = await fetch(LIBRARY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'publish', id: id, name: name, stateJson: stateJson })
+    });
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || 'API error');
+    toast('Опубликовано · ссылка готова');
+    openPublishPanel(); // освежим список
+  } catch(e) {
+    toast('Ошибка: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = '🌐 Опубликовать текущую смену'; }
+  }
+}
+
+async function republishVersion(id, name) {
+  if (!confirm(`Перезаписать публикацию «${name || id}» текущим состоянием смены?\n\nПедагоги при следующем открытии увидят новые данные.`)) return;
+  try {
+    // Готовим снимок: state + библиотечные референсы (для дефолта в view.html когда selectedRefs нет)
+    const publishedState = Object.assign({}, state);
+    publishedState._publishedRefs = {};
+    LIBRARY.forEach(a => {
+      if (a.template && Array.isArray(a.refs) && a.refs.length > 0) {
+        publishedState._publishedRefs[a.template] = a.refs.slice();
+      }
+    });
+    const stateJson = JSON.stringify(publishedState);
+    const r = await fetch(LIBRARY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'publish', id: id, name: name, stateJson: stateJson })
+    });
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || 'API error');
+    toast('Публикация обновлена');
+    openPublishPanel();
+  } catch(e) {
+    toast('Ошибка: ' + e.message);
+  }
+}
+
+async function unpublishVersion(id, btnEl) {
+  if (!confirm('Удалить публикацию? Ссылка перестанет работать у тех, кто ей пользуется.')) return;
+  if (btnEl) btnEl.disabled = true;
+  try {
+    const r = await fetch(LIBRARY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'unpublish', id: id })
+    });
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || 'API error');
+    toast('Публикация удалена');
+    openPublishPanel();
+  } catch(e) {
+    toast('Ошибка: ' + e.message);
+    if (btnEl) btnEl.disabled = false;
+  }
+}
+
+function copyToClipboard(text, btnEl) {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => {
+      const orig = btnEl.textContent;
+      btnEl.textContent = '✓';
+      setTimeout(() => { btnEl.textContent = orig; }, 1500);
+      toast('Скопировано');
+    }).catch(() => fallbackCopy(text, btnEl));
+  } else {
+    fallbackCopy(text, btnEl);
+  }
+}
+
+function fallbackCopy(text, btnEl) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.left = '-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand('copy');
+    if (btnEl) { btnEl.textContent = '✓'; setTimeout(() => btnEl.textContent = '📋', 1500); }
+    toast('Скопировано');
+  } catch(e) {
+    toast('Не удалось скопировать');
+  }
+  document.body.removeChild(ta);
 }
 
 async function openDraftsPanel() {
