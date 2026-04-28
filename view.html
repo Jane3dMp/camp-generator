@@ -891,42 +891,38 @@
           <div class="vday-body">
       `;
 
-      if (d.type === 'trip6_am') {
-        const s = d.trip6_am;
-        html += `<div class="vday-trip">🚌 Полный выезд утром · ${escapeHtml((s && s.template) || 'все 6 отрядов')}</div>`;
-      }
-      if (d.type === 'trip6_pm') {
-        const s = d.trip6_pm;
-        html += `<div class="vday-trip">🚌 Полный выезд после обеда · ${escapeHtml((s && s.template) || 'все 6 отрядов')}</div>`;
-      }
-      // Полу-выезды 3 отрядов: одна из групп уезжает на бассейн/картинг
-      if (d.type === 'trip3_am' || d.type === 'trip3_full') {
-        const s = d.trip_full_am;
-        if (s && s.template) {
-          const grpLabel = d.type === 'trip3_am' ? '4-5-6' : '4-5-6';
-          html += `<div class="vday-trip">🚌 Утром выезд 3 отрядов (${escapeHtml(grpLabel)}) · ${escapeHtml(s.template)}${s.teacher ? ' · ' + escapeHtml(s.teacher) : ''}${s.room ? ' · ' + escapeHtml(s.room) : ''}</div>`;
-        }
-      }
-      if (d.type === 'trip3_pm' || d.type === 'trip3_full') {
-        const s = d.trip_full_pm;
-        if (s && s.template) {
-          const grpLabel = d.type === 'trip3_pm' ? '1-2-3' : '1-2-3';
-          html += `<div class="vday-trip">🚌 После обеда выезд 3 отрядов (${escapeHtml(grpLabel)}) · ${escapeHtml(s.template)}${s.teacher ? ' · ' + escapeHtml(s.teacher) : ''}${s.room ? ' · ' + escapeHtml(s.room) : ''}</div>`;
-        }
-      }
+      // Хелпер: рендерит один обычный слот
+      const renderSlot = (s, timeLabel) => {
+        return `
+          <div class="vslot">
+            <div class="vslot-row">
+              <div class="vslot-time">${timeLabel}</div>
+              <div>
+                <div class="vslot-name">${escapeHtml(s.template)}</div>
+                ${s.theme ? `<div class="vslot-theme">«${escapeHtml(s.theme)}»</div>` : ''}
+                <div class="vslot-meta">
+                  ${escapeHtml(s.teacher || '—')} · ${escapeHtml(s.room || '—')}
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      };
+      // Хелпер: плашка выезда
+      const renderTrip = (text) => `<div class="vday-trip">🚌 ${escapeHtml(text)}</div>`;
 
-      // Какие блоки обычной сетки показывать в зависимости от типа дня:
-      // - trip6_am: всё утро на выезде (am_cluster + am_outside скрыты), показываем только pm_*
-      // - trip6_pm: всё после обеда (pm_cluster + pm_outside скрыты), показываем только am_*
-      // - trip3_am: уличный блок утра скрыт (одна группа уехала, вторая в кластере) → am_cluster + pm_*
+      // Какие блоки обычной сетки активны в зависимости от типа дня:
+      // - trip6_am: всё утро на выезде → показываем только pm_*
+      // - trip6_pm: всё после обеда на выезде → только am_*
+      // - trip3_am: уличный блок утра скрыт (4-5-6 уехали) → am_cluster + pm_*
       // - trip3_pm: уличный блок дня скрыт → am_* + pm_cluster
-      // - trip3_full: уличные оба скрыты → am_cluster + pm_cluster
-      let activeBlocks = ['am_cluster', 'am_outside', 'pm_cluster', 'pm_outside'];
-      if (d.type === 'trip6_am')   activeBlocks = ['pm_cluster', 'pm_outside'];
-      else if (d.type === 'trip6_pm')   activeBlocks = ['am_cluster', 'am_outside'];
-      else if (d.type === 'trip3_am')   activeBlocks = ['am_cluster', 'pm_cluster', 'pm_outside'];
-      else if (d.type === 'trip3_pm')   activeBlocks = ['am_cluster', 'am_outside', 'pm_cluster'];
-      else if (d.type === 'trip3_full') activeBlocks = ['am_cluster', 'pm_cluster'];
+      // - trip3_full: оба уличных скрыты → am_cluster + pm_cluster
+      const activeBlocks = new Set(['am_cluster', 'am_outside', 'pm_cluster', 'pm_outside']);
+      if (d.type === 'trip6_am')        { activeBlocks.delete('am_cluster'); activeBlocks.delete('am_outside'); }
+      else if (d.type === 'trip6_pm')   { activeBlocks.delete('pm_cluster'); activeBlocks.delete('pm_outside'); }
+      else if (d.type === 'trip3_am')   { activeBlocks.delete('am_outside'); }
+      else if (d.type === 'trip3_pm')   { activeBlocks.delete('pm_outside'); }
+      else if (d.type === 'trip3_full') { activeBlocks.delete('am_outside'); activeBlocks.delete('pm_outside'); }
 
       const blockLabels = {
         am_cluster: '9:30 · 1-2-3',
@@ -934,33 +930,62 @@
         pm_cluster: '14:00 · 4-5-6',
         pm_outside: '14:00 · 1-2-3'
       };
-      let hasAny = false;
-      activeBlocks.forEach(key => {
+
+      let hasAnyAm = false, hasAnyPm = false;
+
+      // === ДО ОБЕДА (9:30) ===
+      // Плашка полного выезда утром
+      if (d.type === 'trip6_am') {
+        const s = d.trip6_am;
+        html += renderTrip('9:30 · полный выезд · ' + ((s && s.template) || 'все 6 отрядов') + (s && s.teacher ? ' · ' + s.teacher : '') + (s && s.room ? ' · ' + s.room : ''));
+        hasAnyAm = true;
+      }
+      // Плашка полу-выезда 3 отрядов утром
+      if (d.type === 'trip3_am' || d.type === 'trip3_full') {
+        const s = d.trip_full_am;
+        if (s && s.template) {
+          html += renderTrip('9:30 · 4-5-6 на выезде · ' + s.template + (s.teacher ? ' · ' + s.teacher : '') + (s.room ? ' · ' + s.room : ''));
+          hasAnyAm = true;
+        }
+      }
+      // Обычные утренние слоты
+      ['am_cluster', 'am_outside'].forEach(key => {
+        if (!activeBlocks.has(key)) return;
         const arr = d[key];
         if (!Array.isArray(arr)) return;
         const filled = arr.filter(s => s && s.template);
         if (filled.length === 0) return;
-        hasAny = true;
-        filled.forEach(s => {
-          html += `
-            <div class="vslot">
-              <div class="vslot-row">
-                <div class="vslot-time">${blockLabels[key]}</div>
-                <div>
-                  <div class="vslot-name">${escapeHtml(s.template)}</div>
-                  ${s.theme ? `<div class="vslot-theme">«${escapeHtml(s.theme)}»</div>` : ''}
-                  <div class="vslot-meta">
-                    ${escapeHtml(s.teacher || '—')} · ${escapeHtml(s.room || '—')}
-                  </div>
-                </div>
-              </div>
-            </div>
-          `;
-        });
+        hasAnyAm = true;
+        filled.forEach(s => { html += renderSlot(s, blockLabels[key]); });
       });
-      // Если день полностью выездной (trip6) и обычные блоки скрыты — не пишем «нет данных»
-      const isFullTrip = d.type === 'trip6_am' || d.type === 'trip6_pm';
-      if (!hasAny && !isFullTrip) {
+
+      // === ПОСЛЕ ОБЕДА (14:00) ===
+      // Плашка полного выезда после обеда
+      if (d.type === 'trip6_pm') {
+        const s = d.trip6_pm;
+        html += renderTrip('14:00 · полный выезд · ' + ((s && s.template) || 'все 6 отрядов') + (s && s.teacher ? ' · ' + s.teacher : '') + (s && s.room ? ' · ' + s.room : ''));
+        hasAnyPm = true;
+      }
+      // Плашка полу-выезда 3 отрядов после обеда
+      if (d.type === 'trip3_pm' || d.type === 'trip3_full') {
+        const s = d.trip_full_pm;
+        if (s && s.template) {
+          html += renderTrip('14:00 · 1-2-3 на выезде · ' + s.template + (s.teacher ? ' · ' + s.teacher : '') + (s.room ? ' · ' + s.room : ''));
+          hasAnyPm = true;
+        }
+      }
+      // Обычные дневные слоты
+      ['pm_cluster', 'pm_outside'].forEach(key => {
+        if (!activeBlocks.has(key)) return;
+        const arr = d[key];
+        if (!Array.isArray(arr)) return;
+        const filled = arr.filter(s => s && s.template);
+        if (filled.length === 0) return;
+        hasAnyPm = true;
+        filled.forEach(s => { html += renderSlot(s, blockLabels[key]); });
+      });
+
+      if (!hasAnyAm && !hasAnyPm) {
         html += `<div class="vday-rest">— расписание не задано —</div>`;
       }
 
