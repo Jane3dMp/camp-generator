@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Референсы · Прознание</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=Geologica:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F5F5F0;
+    --paper-warm: #FFFBEC;
+    --white: #FFFFFF;
+    --ink: #151617;
+    --yellow: #FED634;
+    --yellow-deep: #E5BD0E;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: Inter, system-ui, sans-serif;
+    min-height: 100vh;
+  }
+  .wrap {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 32px 20px 48px;
+  }
+  .head {
+    margin-bottom: 24px;
+  }
+  .eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: rgba(21,22,23,0.55);
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  h1 {
+    font-family: Geologica, sans-serif;
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.15;
+    margin: 0 0 4px;
+    color: var(--ink);
+  }
+  h1 em {
+    font-family: Caveat, cursive;
+    font-style: normal;
+    font-weight: 600;
+    background: var(--yellow);
+    padding: 0 8px;
+    border-radius: 4px;
+  }
+  .theme-line {
+    font-family: Caveat, cursive;
+    font-size: 22px;
+    color: var(--yellow-deep);
+    margin-top: 6px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+  }
+  .card {
+    background: var(--white);
+    border: 1px solid rgba(21,22,23,0.12);
+    border-radius: 6px;
+    overflow: hidden;
+    text-decoration: none;
+    color: var(--ink);
+    transition: all 0.12s ease;
+    position: relative;
+    display: block;
+  }
+  .card:hover { box-shadow: 0 6px 20px rgba(21,22,23,0.12); border-color: var(--ink); }
+  .card-thumb {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    background: rgba(21,22,23,0.04);
+    position: relative;
+    overflow: hidden;
+  }
+  .card-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: var(--white);
+    display: block;
+  }
+  .card-thumb-loading {
+    background: linear-gradient(90deg, rgba(21,22,23,0.04) 0%, rgba(21,22,23,0.08) 50%, rgba(21,22,23,0.04) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
+  }
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+  .card-thumb-placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    opacity: 0.4;
+  }
+  .host-badge {
+    position: absolute;
+    bottom: 6px;
+    right: 6px;
+    background: rgba(255,255,255,0.92);
+    border: 1px solid rgba(21,22,23,0.15);
+    border-radius: 3px;
+    padding: 2px 7px;
+    font-size: 12px;
+    line-height: 1;
+    box-shadow: 0 2px 6px rgba(21,22,23,0.1);
+  }
+  .empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: rgba(21,22,23,0.5);
+    font-family: Geologica, serif;
+    font-style: italic;
+  }
+  .footer {
+    margin-top: 36px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(21,22,23,0.15);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(21,22,23,0.45);
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="head">
+      <div class="eyebrow">Прознание · Coddy · референсы</div>
+      <h1 id="title">Референсы</h1>
+      <div class="theme-line" id="theme-line" style="display:none"></div>
+    </div>
+    <div id="content"></div>
+    <div class="footer">Прознание · детский клуб развития · Могилёв</div>
+  </div>
+
+<script>
+  const LIBRARY_URL = 'https://script.google.com/macros/s/AKfycbxb6EEzzl-FguxjpIO5YthGLj-QXh7puCD_DO4HL4wVPziHL1pEtVeuo3uNEi2i2yXq/exec';
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function extractYouTubeId(url) {
+    if (!url) return null;
+    const patterns = [
+      /youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
+      /youtu\.be\/([a-zA-Z0-9_-]{11})/,
+      /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
+      /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/
+    ];
+    for (const p of patterns) {
+      const m = url.match(p);
+      if (m) return m[1];
+    }
+    return null;
+  }
+
+  // base64url decode (для URL-safe payload)
+  function b64urlDecode(s) {
+    s = String(s).replace(/-/g, '+').replace(/_/g, '/');
+    while (s.length % 4) s += '=';
+    return atob(s);
+  }
+
+  function parseInput() {
+    const params = new URLSearchParams(location.search);
+    let urls = [];
+    let template = '';
+    let theme = '';
+    const d = params.get('d');
+    if (d) {
+      try {
+        const json = decodeURIComponent(escape(b64urlDecode(d))); // utf-8 safe
+        urls = JSON.parse(json);
+        if (!Array.isArray(urls)) urls = [];
+      } catch(e) {
+        console.error('Не смог распарсить d=', e);
+      }
+    }
+    template = params.get('t') || '';
+    theme = params.get('theme') || '';
+    return { urls, template, theme };
+  }
+
+  function renderTitle({ template, theme }) {
+    const titleEl = document.getElementById('title');
+    const themeEl = document.getElementById('theme-line');
+    if (template) {
+      titleEl.innerHTML = 'Референсы: <em>' + escapeHtml(template) + '</em>';
+    } else {
+      titleEl.textContent = 'Референсы';
+    }
+    if (theme) {
+      themeEl.textContent = '«' + theme + '»';
+      themeEl.style.display = 'block';
+    }
+  }
+
+  async function loadPreviewViaProxy(url, container) {
+    try {
+      const r = await fetch(LIBRARY_URL + '?action=previewUrl&url=' + encodeURIComponent(url));
+      const data = await r.json();
+      if (!data.ok || !data.preview) return;
+      const thumb = data.preview.thumbnail;
+      if (!container) return;
+      if (thumb) {
+        let host = '';
+        try { host = new URL(url).hostname.replace(/^www\./, ''); } catch(e) {}
+        const icon = host.includes('pinterest') ? '📌' : host.includes('youtube') || host.includes('youtu.be') ? '🎬' : host.includes('google') ? '🖼' : '🔗';
+        container.classList.remove('card-thumb-loading');
+        container.innerHTML = '<img src="' + thumb.replace(/"/g,'&quot;') + '" alt=""><span class="host-badge">' + icon + '</span>';
+      } else {
+        container.classList.remove('card-thumb-loading');
+      }
+    } catch(e) {
+      console.warn('Превью не загрузилось для', url, e);
+    }
+  }
+
+  function renderCards(urls) {
+    const content = document.getElementById('content');
+    if (!Array.isArray(urls) || urls.length === 0) {
+      content.innerHTML = '<div class="empty">Нет референсов для отображения. Возможно, ссылка устарела.</div>';
+      return;
+    }
+
+    const proxyTasks = [];
+
+    const html = urls.map((url, i) => {
+      let host = '';
+      try { host = new URL(url).hostname.replace(/^www\./, ''); } catch(e) {}
+      const icon = host.includes('pinterest') ? '📌' : host.includes('youtube') || host.includes('youtu.be') ? '🎬' : host.includes('google') ? '🖼' : '🔗';
+
+      let previewSrc = null;
+      const ytId = extractYouTubeId(url);
+      if (ytId) previewSrc = 'https://img.youtube.com/vi/' + ytId + '/hqdefault.jpg';
+      else if (/\.(jpg|jpeg|png|webp|gif|svg|avif)(\?|$)/i.test(url)) previewSrc = url;
+
+      const thumbInner = previewSrc
+        ? '<img src="' + escapeHtml(previewSrc) + '" alt=""><span class="host-badge">' + icon + '</span>'
+        : '<div class="card-thumb-placeholder">' + icon + '</div>';
+
+      const cls = previewSrc ? 'card-thumb' : 'card-thumb card-thumb-loading';
+      const id = 'thumb-' + i;
+      if (!previewSrc) proxyTasks.push({ url, id });
+
+      return '<a class="card" href="' + escapeHtml(url) + '" target="_blank" rel="noopener">' +
+             '<div class="' + cls + '" id="' + id + '">' + thumbInner + '</div>' +
+             '</a>';
+    }).join('');
+
+    content.innerHTML = '<div class="grid">' + html + '</div>';
+
+    // Подгружаем превью через прокси для тех, кто не определился сразу
+    proxyTasks.forEach(t => {
+      const el = document.getElementById(t.id);
+      if (el) loadPreviewViaProxy(t.url, el);
+    });
+  }
+
+  // === ENTRY ===
+  const input = parseInput();
+  renderTitle(input);
+  renderCards(input.urls);
+</script>
+</body>
+</html>

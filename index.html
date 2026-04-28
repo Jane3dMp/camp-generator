@@ -4,6 +4,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Geologica:wght@400;500;600;700;800&family=Caveat:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
   :root {
     /* === Прознание (главный бренд лагеря) === */
@@ -379,7 +380,30 @@
   .teacher-slot-troops { color: var(--yellow-deep); font-weight: 600; }
 
   /* Строка референсов в слоте педагога */
-  .teacher-slot-refs { margin-top: 4px; }
+  .teacher-slot-refs-wrap {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-top: 8px;
+  }
+  .teacher-slot-qr {
+    flex-shrink: 0;
+    width: 110px;
+    height: 110px;
+    border: 1px solid rgba(21,22,23,0.15);
+    background: var(--white);
+    padding: 4px;
+    border-radius: 4px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .teacher-slot-qr img,
+  .teacher-slot-qr canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+  }
+  .teacher-slot-refs { margin-top: 0; padding-top: 4px; }
   .teacher-slot-refs-link {
     display: inline-flex;
     align-items: center;
@@ -6803,16 +6827,34 @@ function renderTeacherBlock(teacherName) {
         // Активные референсы для слота
         const activeRefs = Array.isArray(s.selectedRefs) ? s.selectedRefs : [];
         let refsHtml = '';
-        if (activeRefs.length === 1) {
-          // Один — прямая ссылка
-          refsHtml = `<a class="teacher-slot-refs-link" href="${escapeHtml(activeRefs[0])}" target="_blank" rel="noopener">📎 референс</a>`;
-        } else if (activeRefs.length > 1) {
-          // Несколько — кнопка-попап со списком
-          const slotKey = `${sp.dayIdx}|${sp.group}|${sp.idx}|${sp.isTripSlot ? 1 : 0}`;
-          refsHtml = `<button type="button" class="teacher-slot-refs-link" onclick="showTeacherSlotRefs(this, '${escapeJs(slotKey)}')">📎 ${activeRefs.length} референсов</button>`;
-          // Сохраняем список под slotKey для попапа
+        let qrPlaceholder = '';
+        if (activeRefs.length > 0) {
+          const slotKey = `${sp.dayIdx}|${sp.group || ''}|${sp.idx}|${sp.isTripSlot ? 1 : 0}`;
+          // Кэш для попапа и для отложенной QR-генерации
           if (!window._teacherSlotRefsCache) window._teacherSlotRefsCache = {};
           window._teacherSlotRefsCache[slotKey] = activeRefs;
+
+          // Текстовая ссылка-плашка
+          if (activeRefs.length === 1) {
+            // Один — прямая ссылка на оригинал (ведёт в Pinterest/YouTube напрямую)
+            refsHtml = `<a class="teacher-slot-refs-link" href="${escapeHtml(activeRefs[0])}" target="_blank" rel="noopener">📎 референс</a>`;
+          } else {
+            refsHtml = `<button type="button" class="teacher-slot-refs-link" onclick="showTeacherSlotRefs(this, '${escapeJs(slotKey)}')">📎 ${activeRefs.length} референсов</button>`;
+          }
+
+          // QR-код. Для >=1 ссылок строим refs-страницу (даже для одной — на печати это важно).
+          // Для одной ссылки QR ведёт на refs-страницу со списком из 1 элемента — но
+          // это лишний прыжок. Делаем по-простому: одна ссылка → QR на саму ссылку,
+          // несколько → QR на refs.html.
+          let qrUrl;
+          if (activeRefs.length === 1) {
+            qrUrl = activeRefs[0];
+          } else {
+            qrUrl = buildRefsPageUrl_(activeRefs, s.template, s.theme || '');
+          }
+          // Контейнер пустой — QR будет нарисован после вставки HTML в DOM
+          const qrId = 'qr-' + slotKey.replace(/[^a-zA-Z0-9]/g, '_');
+          qrPlaceholder = `<div class="teacher-slot-qr" id="${qrId}" data-qr-url="${escapeHtml(qrUrl)}"></div>`;
         }
         html += `
           <div class="teacher-slot">
@@ -6820,7 +6862,7 @@ function renderTeacherBlock(teacherName) {
             <div>
               <div class="teacher-slot-name">${escapeHtml(s.template)}</div>
               ${s.theme ? `<span class="teacher-slot-theme">«${escapeHtml(s.theme)}»</span>` : ''}
-              ${refsHtml ? `<div class="teacher-slot-refs">${refsHtml}</div>` : ''}
+              ${refsHtml || qrPlaceholder ? `<div class="teacher-slot-refs-wrap">${qrPlaceholder}${refsHtml ? `<div class="teacher-slot-refs">${refsHtml}</div>` : ''}</div>` : ''}
             </div>
             <div class="teacher-slot-room">${escapeHtml(s.room)}</div>
             <div class="teacher-slot-troops">${escapeHtml(s.troops)}</div>
@@ -6894,6 +6936,47 @@ function onExtraTripTeachersChange(inputEl) {
 
 // Попап со списком ссылок-референсов слота — открывается из расписания педагога.
 // На печати/PDF попап скрыт (no-print), но сами кликабельные ссылки в строке слота останутся.
+// Возвращает URL страницы refs.html с закодированным списком ссылок.
+// Параметры: ?d=<base64url JSON массива>&t=<template>&theme=<theme>
+function buildRefsPageUrl_(urls, template, theme) {
+  if (!Array.isArray(urls) || urls.length === 0) return '';
+  // base64url: stable JSON → utf-8 → base64 → safe-chars
+  const json = JSON.stringify(urls);
+  // unescape(encodeURIComponent(...)) — обходной приём для utf-8 → latin1, чтобы btoa не упал
+  const b64 = btoa(unescape(encodeURIComponent(json)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  // Базовый URL — относительный, чтобы работало и локально, и в репозитории
+  const base = location.origin + location.pathname.replace(/[^/]*$/, '') + 'refs.html';
+  let u = base + '?d=' + b64;
+  if (template) u += '&t=' + encodeURIComponent(template);
+  if (theme) u += '&theme=' + encodeURIComponent(theme);
+  return u;
+}
+
+// Генерирует QR-код в указанный контейнер. size в пикселях.
+// Использует библиотеку qrcodejs, подключённую через CDN.
+function renderQrInto_(containerEl, text, size) {
+  if (!containerEl || !text) return;
+  if (typeof QRCode === 'undefined') {
+    console.warn('QRCode library not loaded');
+    return;
+  }
+  containerEl.innerHTML = '';
+  // qrcodejs использует canvas+img внутри. Нужный размер передаём в width/height.
+  try {
+    new QRCode(containerEl, {
+      text: text,
+      width: size,
+      height: size,
+      colorDark: '#151617',
+      colorLight: '#FFFFFF',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  } catch(e) {
+    console.error('QR generation failed:', e);
+  }
+}
+
 function showTeacherSlotRefs(triggerEl, slotKey) {
   const cache = window._teacherSlotRefsCache || {};
   const refs = cache[slotKey] || [];
@@ -6954,10 +7037,18 @@ function renderTeacherSchedule() {
       return;
     }
     content.innerHTML = teachers.map(t => renderTeacherBlock(t)).join('');
-    return;
+  } else {
+    content.innerHTML = renderTeacherBlock(value);
   }
 
-  content.innerHTML = renderTeacherBlock(value);
+  // После вставки HTML — генерируем QR-коды во всех контейнерах .teacher-slot-qr
+  // (delay чтобы DOM точно «зафиксировался»)
+  setTimeout(() => {
+    document.querySelectorAll('.teacher-slot-qr').forEach(el => {
+      const url = el.getAttribute('data-qr-url');
+      if (url) renderQrInto_(el, url, 110); // 110px ≈ 29мм при 96dpi
+    });
+  }, 30);
 }
 
 function switchView(view) {
