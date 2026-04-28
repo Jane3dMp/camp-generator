@@ -7844,13 +7844,35 @@ async function publishSmena() {
         stateJson: stateForPublish
       })
     });
-    const data = await r.json();
+    // Сначала читаем как текст — на случай если придёт не-JSON (HTML auth-страница, редирект)
+    const text = await r.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch(parseErr) {
+      // Если не парсится — диагностика. Часто это значит что Apps Script
+      // не переразвернут или сессия истекла.
+      console.error('Apps Script вернул не-JSON. Первые 300 символов:', text.slice(0, 300));
+      throw new Error('Сервер вернул не JSON. Возможно нужно переразвернуть Apps Script.');
+    }
     if (!data.ok) throw new Error(data.error || 'API error');
     saveLocal();
     toast('Опубликовано');
-    openPublishPanel(); // обновим панель — теперь будет URL
+    // Перерисовываем панель — но если она упадёт (например потому что listPublished
+    // долго отвечает) — не показываем это как ошибку публикации.
+    try {
+      openPublishPanel();
+    } catch(panelErr) {
+      console.warn('Ошибка перерисовки панели публикации (не критично):', panelErr);
+    }
   } catch(e) {
-    toast('Ошибка: ' + e.message);
+    // Failed to fetch обычно значит сетевая проблема или CORS, но нашу
+    // публикацию это тоже может не сломать — стоит проверить view.html.
+    if (String(e.message).includes('Failed to fetch')) {
+      toast('Сеть капризничает. Откройте view.html — возможно публикация всё-таки прошла.');
+    } else {
+      toast('Ошибка: ' + e.message);
+    }
   }
 }
 
