@@ -957,22 +957,33 @@
     gap: 16px;
   }
   .day-head .day-num-big {
-    font-family: Geologica, system-ui, sans-serif;
+    font-family: Inter, system-ui, sans-serif;
     font-style: normal;
-    font-weight: 700;
-    font-size: 36px;
-    line-height: 1;
-    color: var(--yellow);
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    line-height: 1.2;
+    color: rgba(245,245,240,0.65);
+    flex-shrink: 0;
   }
   .day-head .day-num-big strong {
     font-family: Inter, system-ui, sans-serif;
     font-style: normal;
-    font-size: 11px;
+    font-size: 10px;
     letter-spacing: 0.2em;
-    color: var(--paper);
+    color: rgba(245,245,240,0.55);
     display: block;
     margin-bottom: 2px;
     font-weight: 500;
+  }
+  .day-head .day-num-big .day-num-small {
+    font-family: Geologica, system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--yellow);
+    letter-spacing: 0.04em;
+    display: inline-block;
   }
   .day-head .day-meta {
     font-family: Inter, system-ui, sans-serif;
@@ -980,16 +991,23 @@
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: rgba(245,245,240,0.65);
+    flex: 1;
   }
-  .day-head .day-meta strong {
+  .day-head .day-meta .day-date-big {
     font-family: Caveat, cursive;
     font-style: normal;
-    font-size: 22px;
+    font-size: 32px;
     color: var(--white);
     display: block;
     text-transform: none;
     letter-spacing: 0;
     font-weight: 600;
+    line-height: 1.1;
+    margin-bottom: 2px;
+  }
+  .day-head .day-meta .day-context {
+    display: block;
+    font-size: 11px;
   }
   .day-actions { display: flex; gap: 6px; align-items: center; }
 
@@ -2902,6 +2920,7 @@ const TIME_PM = '14:00 – 17:00';
 const SLOTS_AM = ['9:30–10:30', '10:30–11:30', '11:30–12:30'];
 const SLOTS_PM = ['14:00–15:00', '15:00–16:00', '16:00–17:00'];
 const WEEKDAYS = ['ВС','ПН','ВТ','СР','ЧТ','ПТ','СБ'];
+const WEEKDAYS_FULL = ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
 const MONTHS = ['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
 
 // Ротация: для каждой станции порядок прохождения отрядов в трёх часовых слотах
@@ -5031,6 +5050,7 @@ function renderDay(day, idx) {
   const date = dateForDay(idx);
   const dateStr = `${date.getDate()} ${MONTHS[date.getMonth()]}`;
   const wd = WEEKDAYS[date.getDay()];
+  const wdFull = WEEKDAYS_FULL[date.getDay()];
 
   const dayContextLabel = day.type === 'trip6_am' ? 'выезд 6 отрядов утром (полдня)' :
                          day.type === 'trip6_pm' ? 'выезд 6 отрядов после обеда (полдня)' :
@@ -5059,11 +5079,11 @@ function renderDay(day, idx) {
     <div class="day-head">
       <div class="day-num-big">
         <strong>день</strong>
-        ${String(idx+1).padStart(2,'0')} / 10
+        <span class="day-num-small">${String(idx+1).padStart(2,'0')} / 10</span>
       </div>
       <div class="day-meta">
-        <strong>${dateStr}, ${wd}</strong>
-        ${dayContextLabel}
+        <strong class="day-date-big">${dateStr}, ${wdFull}</strong>
+        <span class="day-context">${dayContextLabel}</span>
       </div>
       <div class="day-actions">
         <div class="day-type-switch">${typeSwitch}</div>
