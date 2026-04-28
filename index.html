@@ -4990,11 +4990,11 @@ function _allSlots() {
     if (d.type === 'trip6_am') result.push({slot:d.trip6_am, day:dIdx, group:'trip6_am', kind:'mixed', half:'am'});
     if (d.type === 'trip6_pm') result.push({slot:d.trip6_pm, day:dIdx, group:'trip6_pm', kind:'mixed', half:'pm'});
     // Параллельные выезды: обе группы одновременно в разных местах
-    if (d.type === 'trip6_am_split') {
+    if (d.type === 'trip6_am_split' || d.type === 'trip6_full_split') {
       result.push({slot:d.trip6_am_a, day:dIdx, group:'trip6_am_a', kind:'young',  half:'am'});
       result.push({slot:d.trip6_am_b, day:dIdx, group:'trip6_am_b', kind:'senior', half:'am'});
     }
-    if (d.type === 'trip6_pm_split') {
+    if (d.type === 'trip6_pm_split' || d.type === 'trip6_full_split') {
       result.push({slot:d.trip6_pm_a, day:dIdx, group:'trip6_pm_a', kind:'young',  half:'pm'});
       result.push({slot:d.trip6_pm_b, day:dIdx, group:'trip6_pm_b', kind:'senior', half:'pm'});
     }
@@ -5056,6 +5056,7 @@ function renderDay(day, idx) {
                          day.type === 'trip6_pm' ? 'выезд 6 отрядов после обеда (полдня)' :
                          day.type === 'trip6_am_split' ? 'параллельные выезды утром: 1-2-3 + 4-5-6 в разные места' :
                          day.type === 'trip6_pm_split' ? 'параллельные выезды днём: 1-2-3 + 4-5-6 в разные места' :
+                         day.type === 'trip6_full_split' ? 'параллельные выезды весь день: 1-2-3 + 4-5-6, утром и после обеда' :
                          day.type === 'trip3_am' ? 'утром 3 отряда на выезд (бассейн/картинг)' :
                          day.type === 'trip3_pm' ? 'после обеда 3 отряда на выезд' :
                          day.type === 'trip3_full' ? 'два выезда: утром 4-5-6, после обеда 1-2-3 (1-2-3 и 4-5-6 параллельно в кластере)' :
@@ -5070,6 +5071,7 @@ function renderDay(day, idx) {
     {key:'trip6_pm', label:'Выезд 6 днём'},
     {key:'trip6_am_split', label:'Парал. выезды утром'},
     {key:'trip6_pm_split', label:'Парал. выезды днём'},
+    {key:'trip6_full_split', label:'Парал. выезды × 2'},
   ];
   const typeSwitch = types.map(t =>
     `<button class="day-type-btn ${day.type===t.key?'active':''}" onclick="setDayType(${idx},'${t.key}')">${t.label}</button>`
@@ -5113,6 +5115,11 @@ function renderDay(day, idx) {
     // Утром обычная, параллельные выезды после обеда
     body.style.gridTemplateColumns = '1fr 1fr';
     body.appendChild(renderHalf(idx, 'am', day));
+    body.appendChild(renderTrip6SplitHalf(idx, 'pm', day));
+  } else if (day.type === 'trip6_full_split') {
+    // Параллельные выезды и утром, и после обеда
+    body.style.gridTemplateColumns = '1fr 1fr';
+    body.appendChild(renderTrip6SplitHalf(idx, 'am', day));
     body.appendChild(renderTrip6SplitHalf(idx, 'pm', day));
   } else if (day.type === 'trip3_am') {
     // Утром 3 отряда в кластере на МК + 3 отряда на одном выезде (картинг и т.п.)
@@ -5474,11 +5481,11 @@ function updateStats() {
     }
     if (d.type === 'trip6_am' && d.trip6_am.locked) locked++;
     if (d.type === 'trip6_pm' && d.trip6_pm.locked) locked++;
-    if (d.type === 'trip6_am_split') {
+    if (d.type === 'trip6_am_split' || d.type === 'trip6_full_split') {
       if (d.trip6_am_a && d.trip6_am_a.locked) locked++;
       if (d.trip6_am_b && d.trip6_am_b.locked) locked++;
     }
-    if (d.type === 'trip6_pm_split') {
+    if (d.type === 'trip6_pm_split' || d.type === 'trip6_full_split') {
       if (d.trip6_pm_a && d.trip6_pm_a.locked) locked++;
       if (d.trip6_pm_b && d.trip6_pm_b.locked) locked++;
     }
@@ -8060,8 +8067,8 @@ function buildTeacherSchedule(teacherName) {
 
     // Параллельные выезды: педагог едет с одной из двух групп
     const splitKeys = [];
-    if (d.type === 'trip6_am_split') splitKeys.push('trip6_am_a', 'trip6_am_b');
-    if (d.type === 'trip6_pm_split') splitKeys.push('trip6_pm_a', 'trip6_pm_b');
+    if (d.type === 'trip6_am_split' || d.type === 'trip6_full_split') splitKeys.push('trip6_am_a', 'trip6_am_b');
+    if (d.type === 'trip6_pm_split' || d.type === 'trip6_full_split') splitKeys.push('trip6_pm_a', 'trip6_pm_b');
     splitKeys.forEach(g => {
       const s = d[g];
       if (!s || !s.template) return;
@@ -8552,11 +8559,11 @@ function compactCellHTML(day, dayIdx, block, opts) {
 
   // === 2. Параллельные выезды (split) — у каждой группы свой выезд ===
   // trip6_am_split: 1-2-3 → trip6_am_a, 4-5-6 → trip6_am_b
-  if (day.type === 'trip6_am_split' && isAM) {
+  if ((day.type === 'trip6_am_split' || day.type === 'trip6_full_split') && isAM) {
     const slot = isGroupA ? day.trip6_am_a : day.trip6_am_b;
     return tripCellHTML(slot, 'выезд 3', troopsLabel);
   }
-  if (day.type === 'trip6_pm_split' && !isAM) {
+  if ((day.type === 'trip6_pm_split' || day.type === 'trip6_full_split') && !isAM) {
     const slot = isGroupA ? day.trip6_pm_a : day.trip6_pm_b;
     return tripCellHTML(slot, 'выезд 3', troopsLabel);
   }

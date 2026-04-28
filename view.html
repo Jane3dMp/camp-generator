@@ -743,15 +743,26 @@
         }
       }
       // Параллельные выезды: tripNote если педагог НЕ ведущий ни одной из групп, но есть в extraTripTeachers
-      if (d.type === 'trip6_am_split' || d.type === 'trip6_pm_split') {
-        const aSlot = d.type === 'trip6_am_split' ? d.trip6_am_a : d.trip6_pm_a;
-        const bSlot = d.type === 'trip6_am_split' ? d.trip6_am_b : d.trip6_pm_b;
+      // Утренняя половина
+      if (d.type === 'trip6_am_split' || d.type === 'trip6_full_split') {
+        const aSlot = d.trip6_am_a;
+        const bSlot = d.trip6_am_b;
         const tA = aSlot ? String(aSlot.teacher || '').trim().toLowerCase() : '';
         const tB = bSlot ? String(bSlot.teacher || '').trim().toLowerCase() : '';
-        // Если педагог не ведёт ни A, ни B, но в extraTripTeachers — общая плашка
         if (tA !== target && tB !== target && isTeacherOnTrip(d, target)) {
-          const half = d.type === 'trip6_am_split' ? 'утром' : 'после обеда';
-          tripNote = `Параллельные выезды ${half}: 1-2-3 → ${aSlot && aSlot.template || '?'}, 4-5-6 → ${bSlot && bSlot.template || '?'}.`;
+          tripNote = `Параллельные выезды утром: 1-2-3 → ${aSlot && aSlot.template || '?'}, 4-5-6 → ${bSlot && bSlot.template || '?'}.`;
+        }
+      }
+      // Послеобеденная половина
+      if (d.type === 'trip6_pm_split' || d.type === 'trip6_full_split') {
+        const aSlot = d.trip6_pm_a;
+        const bSlot = d.trip6_pm_b;
+        const tA = aSlot ? String(aSlot.teacher || '').trim().toLowerCase() : '';
+        const tB = bSlot ? String(bSlot.teacher || '').trim().toLowerCase() : '';
+        if (tA !== target && tB !== target && isTeacherOnTrip(d, target)) {
+          // Если уже tripNote от утренней — добавим
+          const pmNote = `Параллельные выезды после обеда: 1-2-3 → ${aSlot && aSlot.template || '?'}, 4-5-6 → ${bSlot && bSlot.template || '?'}.`;
+          tripNote = tripNote ? tripNote + ' ' + pmNote : pmNote;
         }
       }
 
@@ -805,8 +816,8 @@
 
       // Параллельные выезды: педагог в одной из двух выездных групп
       const splitKeys = [];
-      if (d.type === 'trip6_am_split') splitKeys.push('trip6_am_a', 'trip6_am_b');
-      if (d.type === 'trip6_pm_split') splitKeys.push('trip6_pm_a', 'trip6_pm_b');
+      if (d.type === 'trip6_am_split' || d.type === 'trip6_full_split') splitKeys.push('trip6_am_a', 'trip6_am_b');
+      if (d.type === 'trip6_pm_split' || d.type === 'trip6_full_split') splitKeys.push('trip6_pm_a', 'trip6_pm_b');
       splitKeys.forEach(g => {
         const s = d[g];
         if (!s || !s.template) return;
@@ -989,6 +1000,7 @@
       // Параллельные выезды — обе группы на выезде в эту половину дня
       else if (d.type === 'trip6_am_split') { activeBlocks.delete('am_cluster'); activeBlocks.delete('am_outside'); }
       else if (d.type === 'trip6_pm_split') { activeBlocks.delete('pm_cluster'); activeBlocks.delete('pm_outside'); }
+      else if (d.type === 'trip6_full_split') { activeBlocks.delete('am_cluster'); activeBlocks.delete('am_outside'); activeBlocks.delete('pm_cluster'); activeBlocks.delete('pm_outside'); }
 
       const blockLabels = {
         am_cluster: '9:30 · 1-2-3',
@@ -1016,7 +1028,7 @@
         }
       }
       // Параллельные выезды утром: две плашки рядом
-      if (d.type === 'trip6_am_split') {
+      if (d.type === 'trip6_am_split' || d.type === 'trip6_full_split') {
         const a = d.trip6_am_a;
         const b = d.trip6_am_b;
         if (a && a.template) {
@@ -1056,7 +1068,7 @@
         }
       }
       // Параллельные выезды днём: две плашки рядом
-      if (d.type === 'trip6_pm_split') {
+      if (d.type === 'trip6_pm_split' || d.type === 'trip6_full_split') {
         const a = d.trip6_pm_a;
         const b = d.trip6_pm_b;
         if (a && a.template) {
