@@ -1153,6 +1153,23 @@
   }
   .regen-group-btn:hover { background: var(--ink); color: var(--paper); border-style: solid; }
 
+  /* Кнопка зеркалирования утреннего блока на блок после обеда */
+  .mirror-group-btn {
+    background: rgba(254,214,52,0.18);
+    border: 1px solid rgba(254,214,52,0.6);
+    padding: 2px 8px;
+    cursor: pointer;
+    font-size: 10px;
+    color: var(--ink);
+    font-family: Inter, system-ui, sans-serif;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    margin-right: 4px;
+    border-radius: 2px;
+    transition: all 0.12s ease;
+  }
+  .mirror-group-btn:hover { background: var(--yellow); border-color: var(--ink); }
+
   /* 3 параллельных МК с ротацией */
   .stations {
     display: grid;
@@ -3361,7 +3378,7 @@ async function openPublishPanel() {
     const r = await fetch(LIBRARY_URL + '?action=listPublished');
     const data = await r.json();
     if (!data.ok) throw new Error(data.error || 'API error');
-    renderPublishPanelBody(data.versions || []);
+    renderPublishPanelBody(data.publications || []);
   } catch(e) {
     document.getElementById('modal-body').innerHTML = `
       <div style="padding:20px;font-family:Inter,sans-serif;color:var(--terra-deep)">Ошибка: ${escapeHtml(e.message)}</div>
@@ -5091,9 +5108,13 @@ function renderHalf(dayIdx, half, day) {
   // Блок кластера (3 параллельных МК)
   const clusterBlock = document.createElement('div');
   clusterBlock.className = 'group-block cluster';
+  const mirrorBtnCluster = isAM
+    ? `<button class="mirror-group-btn" onclick="mirrorBlockToPM(${dayIdx},'${clusterKey}')" title="Зеркалить эти МК на блок после обеда (вторая группа пройдёт то же самое)">↓ зеркалить на pm</button>`
+    : '';
   clusterBlock.innerHTML = `
     <div class="group-label cluster">
       <span><strong>В кластере</strong> · отряды ${clusterTroops.join(', ')} · 3 параллельных МК</span>
+      ${mirrorBtnCluster}
       <button class="regen-group-btn" onclick="regenGroup(${dayIdx},'${clusterKey}')">🔄 группу</button>
     </div>
     <div class="stations" id="stations-${dayIdx}-${clusterKey}"></div>
@@ -5107,9 +5128,13 @@ function renderHalf(dayIdx, half, day) {
   // Уличный блок: 3 короткие активности с ротацией (парк/спортплощадка/дворовые)
   const outsideBlock = document.createElement('div');
   outsideBlock.className = 'group-block outside';
+  const mirrorBtnOutside = isAM
+    ? `<button class="mirror-group-btn" onclick="mirrorBlockToPM(${dayIdx},'${outsideKey}')" title="Зеркалить эти уличные на блок после обеда (вторая группа пройдёт то же самое)">↓ зеркалить на pm</button>`
+    : '';
   outsideBlock.innerHTML = `
     <div class="group-label outside">
       <span><strong>На улице</strong> · отряды ${outsideTroops.join(', ')} · 3 коротких активности с ротацией</span>
+      ${mirrorBtnOutside}
       <button class="regen-group-btn" onclick="regenGroup(${dayIdx},'${outsideKey}')">🔄 группу</button>
     </div>
     <div class="stations outside" id="stations-${dayIdx}-${outsideKey}"></div>
@@ -5765,6 +5790,89 @@ async function applyVariant(day, group, idx, vIdx) {
   } else {
     toast('Применено');
   }
+}
+
+// Зеркалит утренний блок (am_cluster или am_outside) в соответствующий послеобеденный.
+// Логика:
+//   - am_cluster → pm_cluster (вторая группа пройдёт те же МК)
+//   - am_outside → pm_outside (вторая группа пройдёт те же уличные)
+//   - Закреплённые слоты в pm не трогаются (если в pm уже стоит и locked=true — не перезаписывается)
+//   - Если в pm есть НЕ-locked заполненные слоты — confirm перед перезаписью
+//   - Копируется: template, theme, teacher, room, direction, format, duration, selectedRefs
+//   - НЕ копируется: locked (всегда false), pairId
+function mirrorBlockToPM(dayIdx, sourceGroup) {
+  const day = state.schedule[dayIdx];
+  if (!day) return;
+
+  // Куда зеркалим
+  let targetGroup;
+  if (sourceGroup === 'am_cluster') targetGroup = 'pm_cluster';
+  else if (sourceGroup === 'am_outside') targetGroup = 'pm_outside';
+  else { toast('Зеркалить можно только утренние блоки'); return; }
+
+  const srcArr = day[sourceGroup];
+  const tgtArr = day[targetGroup];
+  if (!Array.isArray(srcArr) || !Array.isArray(tgtArr)) return;
+
+  // Проверяем — есть ли в pm не-locked заполненные слоты, которые мы перезапишем
+  const willOverwrite = [];
+  for (let i = 0; i < tgtArr.length; i++) {
+    const t = tgtArr[i];
+    if (t && t.template && !t.locked) {
+      willOverwrite.push((i + 1) + ': ' + t.template);
+    }
+  }
+  if (willOverwrite.length > 0) {
+    const msg = 'В блоке после обеда уже заполнено ' + willOverwrite.length + ' слот(ов):\n\n' +
+      willOverwrite.map(s => '• ' + s).join('\n') +
+      '\n\nЗакреплённые слоты ✓ не тронем. Перезаписать остальные?';
+    if (!confirm(msg)) return;
+  }
+
+  // Копируем
+  let copied = 0;
+  let skippedLocked = 0;
+  for (let i = 0; i < srcArr.length && i < tgtArr.length; i++) {
+    const src = srcArr[i];
+    const tgt = tgtArr[i];
+    // Если в pm закреплён — пропускаем
+    if (tgt && tgt.locked) {
+      skippedLocked++;
+      continue;
+    }
+    // Если в am пусто — оставляем pm как есть (не затираем пустотой)
+    if (!src || !src.template) continue;
+
+    // Собираем новый слот, копируя нужные поля
+    const newSlot = {
+      name: src.template,
+      template: src.template,
+      theme: src.theme || '',
+      teacher: src.teacher || '',
+      room: src.room || '',
+      direction: src.direction || '',
+      format: src.format || '',
+      duration: src.duration || 60,
+      locked: false,
+      pairId: null,
+      ageVariant: src.ageVariant || '',
+      groupKind: ''
+    };
+    // selectedRefs — массив URL'ов, копируем как есть
+    if (Array.isArray(src.selectedRefs)) {
+      newSlot.selectedRefs = src.selectedRefs.slice();
+    }
+    tgtArr[i] = newSlot;
+    copied++;
+  }
+
+  saveLocal();
+  render();
+
+  // Понятное сообщение что произошло
+  let msg = 'Зеркалировано: ' + copied + ' слот(ов)';
+  if (skippedLocked > 0) msg += ' · пропущено закреплённых: ' + skippedLocked;
+  toast(msg);
 }
 
 async function regenGroup(day, group) {
