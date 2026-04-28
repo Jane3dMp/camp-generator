@@ -544,6 +544,14 @@
     line-height: 1.25;
     margin-bottom: 2px;
   }
+  .compact-activity-theme {
+    font-family: Caveat, cursive;
+    font-size: 14px;
+    color: var(--yellow-deep);
+    line-height: 1.15;
+    margin-bottom: 3px;
+    font-weight: 600;
+  }
   .compact-activity-meta {
     font-family: Inter, system-ui, sans-serif;
     font-size: 10px;
@@ -581,6 +589,15 @@
     font-weight: 600;
     color: var(--ink);
     line-height: 1.2;
+  }
+  .compact-trip-cell .compact-trip-theme {
+    font-family: Caveat, cursive;
+    font-size: 15px;
+    color: var(--ink);
+    line-height: 1.15;
+    margin-top: 3px;
+    font-weight: 600;
+    opacity: 0.85;
   }
   .compact-trip-cell .compact-trip-meta {
     font-family: Inter, system-ui, sans-serif;
@@ -6105,8 +6122,11 @@ function compactCellHTML(day, dayIdx, block) {
 
   const items = filled.map(s => {
     const meta = [s.teacher || '—', s.room || '—'].filter(Boolean).join(' · ');
+    const themeHtml = s.theme && !state.workWithoutThemes
+      ? `<div class="compact-activity-theme">«${escapeHtml(s.theme)}»</div>` : '';
     return `<div class="compact-activity">
       <div class="compact-activity-name">${escapeHtml(s.template)}</div>
+      ${themeHtml}
       <div class="compact-activity-meta">
         <span class="pill-troops">${troops}</span>${escapeHtml(meta)}
       </div>
@@ -6124,9 +6144,12 @@ function tripCellHTML(slot, label, troops) {
     </td>`;
   }
   const teacher = slot.teacher && slot.teacher !== '—' ? slot.teacher : '';
+  const themeHtml = slot.theme && !state.workWithoutThemes
+    ? `<div class="compact-trip-theme">«${escapeHtml(slot.theme)}»</div>` : '';
   return `<td class="compact-trip-cell">
     <div class="compact-trip-label">🚌 ${escapeHtml(label)} · ${escapeHtml(troops)}</div>
     <div class="compact-trip-name">${escapeHtml(slot.template)}</div>
+    ${themeHtml}
     ${teacher || slot.room ? `<div class="compact-trip-meta">${escapeHtml([teacher, slot.room].filter(Boolean).join(' · '))}</div>` : ''}
   </td>`;
 }
