@@ -402,11 +402,200 @@
     font-size: 14px;
   }
 
+  /* === КОМПАКТНЫЙ ВИД === */
+  .compact-controls {
+    background: var(--paper-warm);
+    border: 1px solid var(--ink);
+    padding: 14px 18px;
+    margin-bottom: 18px;
+  }
+  .compact-control-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .compact-label {
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(21,22,23,0.6);
+    font-weight: 600;
+    margin-right: 4px;
+  }
+  .compact-week-btn { background: var(--white); }
+  .compact-week-btn.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .compact-hint {
+    font-family: Geologica, serif;
+    font-style: italic;
+    font-size: 12px;
+    color: rgba(21,22,23,0.55);
+    margin-top: 8px;
+    line-height: 1.4;
+  }
+
+  .compact-week {
+    margin-bottom: 28px;
+    page-break-after: always;
+    break-after: page;
+  }
+  .compact-week:last-child { page-break-after: auto; break-after: auto; }
+  .compact-week-title {
+    font-family: Geologica, system-ui, sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--ink);
+    margin: 0 0 6px;
+  }
+  .compact-week-title em {
+    font-family: Caveat, cursive;
+    font-style: normal;
+    font-weight: 600;
+    background: var(--yellow);
+    padding: 0 6px;
+    border-radius: 3px;
+  }
+  .compact-week-meta {
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(21,22,23,0.5);
+    margin-bottom: 12px;
+    font-weight: 500;
+  }
+
+  .compact-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--white);
+    border: 1px solid var(--ink);
+    table-layout: fixed;
+  }
+  .compact-table th, .compact-table td {
+    border: 1px solid rgba(21,22,23,0.18);
+    padding: 8px 10px;
+    vertical-align: top;
+  }
+  .compact-table th {
+    background: var(--ink);
+    color: var(--paper);
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 600;
+    text-align: left;
+  }
+  .compact-table th.compact-day-head {
+    text-align: center;
+    padding: 10px 8px;
+  }
+  .compact-table th.compact-day-head strong {
+    display: block;
+    font-family: Geologica, system-ui, sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--yellow);
+    margin-bottom: 2px;
+  }
+  .compact-table th.compact-day-head .compact-day-date {
+    font-family: Caveat, cursive;
+    font-size: 16px;
+    color: var(--white);
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 600;
+  }
+  .compact-block-label {
+    background: var(--paper-warm);
+    width: 92px;
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink);
+    font-weight: 600;
+    text-align: left;
+    vertical-align: middle;
+  }
+  .compact-block-label small {
+    display: block;
+    font-family: Geologica, serif;
+    font-style: italic;
+    font-size: 10px;
+    color: rgba(21,22,23,0.55);
+    text-transform: none;
+    letter-spacing: 0;
+    margin-top: 2px;
+    font-weight: 400;
+  }
+
+  .compact-cell-empty { color: rgba(21,22,23,0.28); font-family: Geologica, serif; font-style: italic; font-size: 11px; }
+  .compact-activity {
+    margin-bottom: 6px;
+    padding-bottom: 6px;
+    border-bottom: 1px dotted rgba(21,22,23,0.12);
+  }
+  .compact-activity:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+  .compact-activity-name {
+    font-family: Geologica, system-ui, sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink);
+    line-height: 1.25;
+    margin-bottom: 2px;
+  }
+  .compact-activity-meta {
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 10px;
+    color: rgba(21,22,23,0.65);
+    line-height: 1.35;
+  }
+  .compact-activity-meta .pill-troops {
+    background: var(--yellow);
+    color: var(--ink);
+    padding: 0 4px;
+    font-weight: 700;
+    border-radius: 2px;
+    margin-right: 4px;
+    font-size: 9px;
+  }
+  .compact-trip-cell {
+    background: var(--yellow);
+    text-align: center;
+    padding: 14px 10px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .compact-trip-cell .compact-trip-label {
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink);
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+  .compact-trip-cell .compact-trip-name {
+    font-family: Geologica, system-ui, sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.2;
+  }
+  .compact-trip-cell .compact-trip-meta {
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 10px;
+    color: var(--ink);
+    margin-top: 4px;
+    opacity: 0.75;
+  }
+
   /* === ПЕЧАТЬ === */
   @media print {
     body { background: white; padding: 0; margin: 0; }
     .no-print, .header, .config-panel, .config-actions-row, #schedule-container, .actions-bar, .toolbar, .rotation-help, #zoom-panel, .program-side { display: none !important; }
-    #teachers-view { display: block !important; }
+    /* Один из видов виден — какой именно, определяет JS, скрывая через style */
+    #teachers-view, #compact-view { /* видимость управляется JS */ }
     .teacher-slot { grid-template-columns: 110px 1fr 90px 90px; }
     .teacher-block {
       page-break-after: always;
@@ -418,6 +607,11 @@
     .teacher-block:last-child { page-break-after: auto; break-after: auto; }
     .teacher-head { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .teacher-day-trip { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    /* Компактная таблица — альбомная ориентация для лучшего вида */
+    @page { size: A4 landscape; margin: 10mm; }
+    .compact-week { page-break-after: always; break-after: page; }
+    .compact-week:last-child { page-break-after: auto; break-after: auto; }
+    .compact-table th, .compact-trip-cell { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
 
   /* Кнопки */
@@ -1499,6 +1693,7 @@
 <div class="view-switcher no-print">
   <button class="view-btn active" id="view-btn-grid" onclick="switchView('grid')">📅 Сетка смены</button>
   <button class="view-btn" id="view-btn-teachers" onclick="switchView('teachers')">👨‍🏫 Расписания педагогов</button>
+  <button class="view-btn" id="view-btn-compact" onclick="switchView('compact')">📋 Компактно</button>
 </div>
 
 <div class="config-panel">
@@ -1581,6 +1776,20 @@
     <div class="teachers-hint">Выбери педагога — увидишь его расписание на 10 дней. «Все сразу» покажет всех именованных педагогов один за другим — удобно для печати единым документом.</div>
   </div>
   <div id="teachers-content"></div>
+</div>
+
+<div id="compact-view" style="display:none">
+  <div class="compact-controls no-print">
+    <div class="compact-control-row">
+      <span class="compact-label">Компактный вид:</span>
+      <button class="btn compact-week-btn active" id="compact-week-1" onclick="renderCompactView(1)">Неделя 1 (дни 1–5)</button>
+      <button class="btn compact-week-btn" id="compact-week-2" onclick="renderCompactView(2)">Неделя 2 (дни 6–10)</button>
+      <button class="btn compact-week-btn" id="compact-week-all" onclick="renderCompactView('all')">Обе недели</button>
+      <button class="btn btn-primary" onclick="window.print()">🖨 Распечатать</button>
+    </div>
+    <div class="compact-hint">Только активность · педагог · кабинет. Для печати лучше альбомная ориентация — увидишь неделю на одном листе.</div>
+  </div>
+  <div id="compact-content"></div>
 </div>
 
 <div class="actions-bar">
@@ -5744,31 +5953,182 @@ function renderTeacherSchedule() {
 function switchView(view) {
   const grid = document.getElementById('schedule-container');
   const teachers = document.getElementById('teachers-view');
+  const compact = document.getElementById('compact-view');
   const btnGrid = document.getElementById('view-btn-grid');
   const btnTeachers = document.getElementById('view-btn-teachers');
+  const btnCompact = document.getElementById('view-btn-compact');
   const toolbar = document.querySelector('.toolbar');
   const actionsBar = document.querySelector('.actions-bar');
   const rotHelp = document.querySelector('.rotation-help');
 
+  // Сначала всё спрячем
+  const showGrid = view === 'grid';
+  if (grid) grid.style.display = showGrid ? '' : 'none';
+  if (toolbar) toolbar.style.display = showGrid ? '' : 'none';
+  if (actionsBar) actionsBar.style.display = showGrid ? '' : 'none';
+  if (rotHelp) rotHelp.style.display = showGrid ? '' : 'none';
+  if (teachers) teachers.style.display = view === 'teachers' ? 'block' : 'none';
+  if (compact) compact.style.display = view === 'compact' ? 'block' : 'none';
+
+  btnGrid.classList.toggle('active', view === 'grid');
+  btnTeachers.classList.toggle('active', view === 'teachers');
+  btnCompact.classList.toggle('active', view === 'compact');
+
   if (view === 'teachers') {
-    if (grid) grid.style.display = 'none';
-    if (toolbar) toolbar.style.display = 'none';
-    if (actionsBar) actionsBar.style.display = 'none';
-    if (rotHelp) rotHelp.style.display = 'none';
-    if (teachers) teachers.style.display = 'block';
-    btnGrid.classList.remove('active');
-    btnTeachers.classList.add('active');
     populateTeacherSelect();
     renderTeacherSchedule();
-  } else {
-    if (grid) grid.style.display = '';
-    if (toolbar) toolbar.style.display = '';
-    if (actionsBar) actionsBar.style.display = '';
-    if (rotHelp) rotHelp.style.display = '';
-    if (teachers) teachers.style.display = 'none';
-    btnGrid.classList.add('active');
-    btnTeachers.classList.remove('active');
+  } else if (view === 'compact') {
+    // По умолчанию показываем неделю 1
+    renderCompactView(window._compactWeek || 1);
   }
+}
+
+// === Компактный вид: одна неделя на 1 экран ===
+
+function renderCompactView(week) {
+  window._compactWeek = week;
+  // Подсветка активной кнопки
+  document.querySelectorAll('.compact-week-btn').forEach(b => b.classList.remove('active'));
+  const btnId = week === 'all' ? 'compact-week-all' : 'compact-week-' + week;
+  const btn = document.getElementById(btnId);
+  if (btn) btn.classList.add('active');
+
+  const content = document.getElementById('compact-content');
+  if (!content) return;
+
+  const weeks = (week === 'all') ? [1, 2] : [week];
+  content.innerHTML = weeks.map(w => buildCompactWeekHTML(w)).join('');
+}
+
+function buildCompactWeekHTML(weekNum) {
+  const startIdx = (weekNum - 1) * 5;
+  const endIdx = Math.min(startIdx + 5, NUM_DAYS);
+  const days = [];
+  for (let i = startIdx; i < endIdx; i++) {
+    days.push({ idx: i, day: state.schedule[i] });
+  }
+
+  // Период недели по датам
+  const firstDate = days[0] ? dateForDay(days[0].idx) : null;
+  const lastDate = days[days.length - 1] ? dateForDay(days[days.length - 1].idx) : null;
+  const periodStr = firstDate && lastDate
+    ? firstDate.getDate() + ' – ' + lastDate.getDate() + ' ' + MONTHS[lastDate.getMonth()]
+    : '';
+
+  // 4 строки временных блоков
+  const blocks = [
+    { key: 'am', kind: 'cluster', label: 'Утро · кластер',  time: '9:30–12:30',  troopsAM: '1-2-3', troopsPM: '4-5-6' },
+    { key: 'am', kind: 'outside', label: 'Утро · улица',    time: '9:30–12:30',  troopsAM: '4-5-6', troopsPM: '1-2-3' },
+    { key: 'pm', kind: 'cluster', label: 'После обеда · кластер', time: '14:00–17:00', troopsAM: '4-5-6', troopsPM: '1-2-3' },
+    { key: 'pm', kind: 'outside', label: 'После обеда · улица',   time: '14:00–17:00', troopsAM: '1-2-3', troopsPM: '4-5-6' }
+  ];
+
+  // Шапка таблицы
+  let headerHtml = '<th class="compact-block-label">Блок</th>';
+  days.forEach(d => {
+    const date = dateForDay(d.idx);
+    const dateStr = date.getDate() + ' ' + MONTHS[date.getMonth()];
+    const wd = WEEKDAYS[date.getDay()];
+    headerHtml += `<th class="compact-day-head">
+      <strong>День ${d.idx + 1}</strong>
+      <span class="compact-day-date">${dateStr} · ${wd}</span>
+    </th>`;
+  });
+
+  // Тело таблицы — 4 строки временных блоков
+  let bodyHtml = '';
+  blocks.forEach(block => {
+    bodyHtml += `<tr>
+      <td class="compact-block-label">
+        ${block.label}
+        <small>${block.time}</small>
+      </td>`;
+    days.forEach(d => {
+      bodyHtml += compactCellHTML(d.day, d.idx, block);
+    });
+    bodyHtml += '</tr>';
+  });
+
+  return `
+    <div class="compact-week">
+      <h2 class="compact-week-title">Неделя <em>${weekNum}</em></h2>
+      <div class="compact-week-meta">${periodStr} · смена «${escapeHtml(state.theme || '')}»</div>
+      <table class="compact-table">
+        <thead><tr>${headerHtml}</tr></thead>
+        <tbody>${bodyHtml}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+// Возвращает HTML одной ячейки таблицы для конкретного дня и блока (am-cluster, pm-outside и т.д.).
+function compactCellHTML(day, dayIdx, block) {
+  // 1. Полные выезды 6 отрядов — занимают всё утро или весь день
+  if (day.type === 'trip6_am' && block.key === 'am') {
+    return tripCellHTML(day.trip6_am, 'выезд 6', 'все 6 отрядов');
+  }
+  if (day.type === 'trip6_pm' && block.key === 'pm') {
+    return tripCellHTML(day.trip6_pm, 'выезд 6', 'все 6 отрядов');
+  }
+
+  // 2. Полу-выезды 3 отрядов — на одном из блоков (вместо обычной активности)
+  // trip3_am: утром 4-5-6 уезжает (а 1-2-3 остаётся в кластере утром)
+  // То есть в утренней строке для блока 'outside' — выезд, для 'cluster' — норм работа группы.
+  if (day.type === 'trip3_am' && block.key === 'am' && block.kind === 'outside') {
+    return tripCellHTML(day.trip_full_am, 'выезд 3', '4-5-6');
+  }
+  if (day.type === 'trip3_pm' && block.key === 'pm' && block.kind === 'outside') {
+    return tripCellHTML(day.trip_full_pm, 'выезд 3', '1-2-3');
+  }
+  // trip3_full: утром 4-5-6 на выезде, после обеда 1-2-3 на выезде
+  if (day.type === 'trip3_full' && block.key === 'am' && block.kind === 'outside') {
+    return tripCellHTML(day.trip_full_am, 'выезд 3', '4-5-6');
+  }
+  if (day.type === 'trip3_full' && block.key === 'pm' && block.kind === 'outside') {
+    return tripCellHTML(day.trip_full_pm, 'выезд 3', '1-2-3');
+  }
+
+  // 3. Обычные слоты в кластере или на улице
+  const groupKey = block.key + '_' + block.kind; // am_cluster, pm_outside и т.д.
+  const arr = day[groupKey];
+  if (!Array.isArray(arr) || arr.length === 0) {
+    return `<td><span class="compact-cell-empty">— нет —</span></td>`;
+  }
+  const filled = arr.filter(s => s && s.template);
+  if (filled.length === 0) {
+    return `<td><span class="compact-cell-empty">— нет —</span></td>`;
+  }
+  // Какая группа отрядов в этой ячейке. Утро: cluster=1-2-3, outside=4-5-6. После обеда — наоборот.
+  const troops = block.key === 'am'
+    ? (block.kind === 'cluster' ? '1-2-3' : '4-5-6')
+    : (block.kind === 'cluster' ? '4-5-6' : '1-2-3');
+
+  const items = filled.map(s => {
+    const meta = [s.teacher || '—', s.room || '—'].filter(Boolean).join(' · ');
+    return `<div class="compact-activity">
+      <div class="compact-activity-name">${escapeHtml(s.template)}</div>
+      <div class="compact-activity-meta">
+        <span class="pill-troops">${troops}</span>${escapeHtml(meta)}
+      </div>
+    </div>`;
+  }).join('');
+
+  return `<td>${items}</td>`;
+}
+
+function tripCellHTML(slot, label, troops) {
+  if (!slot || !slot.template) {
+    return `<td class="compact-trip-cell">
+      <div class="compact-trip-label">🚌 ${escapeHtml(label)}</div>
+      <div class="compact-trip-name">— не задано —</div>
+    </td>`;
+  }
+  const teacher = slot.teacher && slot.teacher !== '—' ? slot.teacher : '';
+  return `<td class="compact-trip-cell">
+    <div class="compact-trip-label">🚌 ${escapeHtml(label)} · ${escapeHtml(troops)}</div>
+    <div class="compact-trip-name">${escapeHtml(slot.template)}</div>
+    ${teacher || slot.room ? `<div class="compact-trip-meta">${escapeHtml([teacher, slot.room].filter(Boolean).join(' · '))}</div>` : ''}
+  </td>`;
 }
 
 init();
