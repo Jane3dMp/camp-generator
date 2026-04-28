@@ -995,7 +995,7 @@
   .ref-item {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     padding: 8px 10px;
     margin-bottom: 4px;
     border: 1px solid rgba(21,22,23,0.12);
@@ -1004,14 +1004,49 @@
     transition: all 0.12s ease;
   }
   .ref-item:hover { background: var(--white); border-color: rgba(21,22,23,0.3); }
+
+  /* Превью референса (слева в строке) */
+  .ref-item-thumb {
+    width: 100px;
+    height: 70px;
+    flex-shrink: 0;
+    object-fit: cover;
+    border-radius: 4px;
+    background: rgba(21,22,23,0.06);
+    display: block;
+  }
+  /* Loading-плейсхолдер пока превью не пришло */
+  .ref-item-thumb-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(90deg, rgba(21,22,23,0.04) 0%, rgba(21,22,23,0.08) 50%, rgba(21,22,23,0.04) 100%);
+    background-size: 200% 100%;
+    animation: refThumbShimmer 1.4s ease-in-out infinite;
+  }
+  @keyframes refThumbShimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+  .ref-item-thumb-placeholder {
+    font-size: 24px;
+    opacity: 0.5;
+  }
+  .ref-item-thumb-noimg {
+    background: rgba(21,22,23,0.04);
+    animation: none;
+  }
+  .ref-item.thumb-failed .ref-item-thumb { display: none; }
+
   .ref-item-link {
     flex: 1;
     text-decoration: none;
     color: var(--ink);
     display: flex;
-    align-items: center;
-    gap: 8px;
+    flex-direction: column;
+    gap: 2px;
     overflow: hidden;
+    min-width: 0;
   }
   .ref-item-icon { font-size: 16px; }
   .ref-item-host {
@@ -2610,17 +2645,43 @@ function renderRefsModalBody(templateName, refs) {
   const gimgSearch = 'https://www.google.com/search?tbm=isch&q=' + q;
   const ytSearch = 'https://www.youtube.com/results?search_query=' + q;
 
+  // Запоминаем какие URL нужно догрузить через прокси
+  const needProxy = [];
+
   let listHtml = '';
   if (refs.length === 0) {
     listHtml = `<div style="padding:20px 16px;text-align:center;color:rgba(21,22,23,0.5);font-family:Geologica, serif;font-style:italic">Пока нет сохранённых референсов. Найди подходящие через поиск ниже и приложи сюда.</div>`;
   } else {
-    listHtml = refs.map(url => {
+    listHtml = refs.map((url, idx) => {
       const host = (() => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch(e) { return ''; }})();
       const icon = host.includes('pinterest') ? '📌' : host.includes('youtube') || host.includes('youtu.be') ? '🎬' : host.includes('google') ? '🖼' : '🔗';
+      const previewId = 'ref-prev-' + idx;
+
+      // Превью пытаемся определить сразу:
+      let previewSrc = null;
+
+      // 1. YouTube — формула без запроса
+      const ytId = extractYouTubeId(url);
+      if (ytId) {
+        previewSrc = 'https://img.youtube.com/vi/' + ytId + '/hqdefault.jpg';
+      }
+      // 2. Прямые картинки
+      else if (/\.(jpg|jpeg|png|webp|gif|svg|avif)(\?|$)/i.test(url)) {
+        previewSrc = url;
+      }
+      // 3. Всё остальное — через прокси (асинхронно)
+      else {
+        needProxy.push({ url: url, previewId: previewId });
+      }
+
+      const thumbHtml = previewSrc
+        ? `<img class="ref-item-thumb" src="${escapeHtml(previewSrc)}" alt="" onerror="this.parentElement.classList.add('thumb-failed')">`
+        : `<div class="ref-item-thumb ref-item-thumb-loading" id="${previewId}"><span class="ref-item-thumb-placeholder">${icon}</span></div>`;
+
       return `
         <div class="ref-item">
+          ${thumbHtml}
           <a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="ref-item-link">
-            <span class="ref-item-icon">${icon}</span>
             <span class="ref-item-host">${escapeHtml(host || url)}</span>
             <span class="ref-item-url">${escapeHtml(url)}</span>
           </a>
@@ -2657,6 +2718,47 @@ function renderRefsModalBody(templateName, refs) {
       <button class="btn" onclick="closeModal()">Закрыть</button>
     </div>
   `;
+
+  // Подгружаем превью через прокси для тех URL, у которых не получилось определить сразу
+  needProxy.forEach(item => loadPreviewViaProxy(item.url, item.previewId));
+}
+
+// Извлекает video ID из любого формата ссылки YouTube.
+function extractYouTubeId(url) {
+  if (!url) return null;
+  const patterns = [
+    /youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
+    /youtu\.be\/([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+// Подгружает превью через серверный прокси (для Pinterest pins, статей блогов и пр.)
+async function loadPreviewViaProxy(url, previewId) {
+  try {
+    const r = await fetch(LIBRARY_URL + '?action=previewUrl&url=' + encodeURIComponent(url));
+    const data = await r.json();
+    if (!data.ok || !data.preview) return;
+    const thumb = data.preview.thumbnail;
+    const container = document.getElementById(previewId);
+    if (!container) return; // модалка уже закрыта
+    if (thumb) {
+      container.outerHTML = `<img class="ref-item-thumb" src="${thumb.replace(/"/g,'&quot;')}" alt="" onerror="this.parentElement.classList.add('thumb-failed')">`;
+    } else {
+      // Не удалось — оставляем placeholder, но в более «бесповоротном» виде
+      container.classList.remove('ref-item-thumb-loading');
+      container.classList.add('ref-item-thumb-noimg');
+    }
+  } catch(e) {
+    // Тихо проглатываем — placeholder уже стоит
+    console.warn('Превью не загрузилось для', url, e);
+  }
 }
 
 async function addRefForTemplate(templateName, btnEl) {
