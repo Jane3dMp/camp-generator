@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Расписание · Прознание</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --yellow:      #FED634;
+    --yellow-deep: #C9A800;
+    --ink:         #151617;
+    --paper:       #F5F5F0;
+    --paper-warm:  #FFFBEC;
+    --white:       #FFFFFF;
+    --moss:        #6F8754;
+    --terra:       #C77E5E;
+    --terra-deep:  #9A4B30;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    color: var(--ink);
+    line-height: 1.5;
+  }
+
+  /* === ЛОКСКРИН === */
+  body:not(.unlocked) #app,
+  body:not(.unlocked) #lock-logout-btn { display: none !important; }
+  body.unlocked #lockscreen { display: none !important; }
+
+  #lockscreen {
+    position: fixed; inset: 0;
+    background: var(--paper);
+    z-index: 99999;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  #lockscreen .lock-card {
+    background: var(--white);
+    border: 1px solid var(--ink);
+    padding: 32px 28px;
+    max-width: 360px;
+    width: 100%;
+    box-shadow: 0 12px 40px rgba(21,22,23,0.08);
+  }
+  #lockscreen .lock-eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: rgba(21,22,23,0.55);
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  #lockscreen h1 {
+    font-family: Geologica, system-ui, sans-serif;
+    font-size: 24px; font-weight: 700;
+    margin: 0 0 4px;
+  }
+  #lockscreen h1 em {
+    font-family: Caveat, cursive;
+    font-style: normal; font-weight: 600;
+    background: var(--yellow);
+    padding: 0 8px; border-radius: 4px;
+  }
+  #lockscreen .lock-sub {
+    font-family: Geologica, serif;
+    font-style: italic;
+    font-size: 13px;
+    color: rgba(21,22,23,0.6);
+    margin: 0 0 18px;
+  }
+  #lockscreen input[type="password"] {
+    font-size: 16px;
+    border: 1px solid var(--ink);
+    background: var(--white);
+    padding: 12px 14px;
+    color: var(--ink);
+    outline: none;
+    width: 100%;
+    margin-bottom: 10px;
+    letter-spacing: 0.05em;
+    border-radius: 0;
+    -webkit-appearance: none;
+  }
+  #lockscreen input[type="password"]:focus { border-color: var(--yellow-deep); }
+  #lockscreen .lock-error {
+    font-size: 12px;
+    color: #c0392b;
+    margin: -4px 0 10px;
+    min-height: 14px;
+  }
+  #lockscreen .lock-btn {
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border: 1px solid var(--ink);
+    background: var(--yellow);
+    color: var(--ink);
+    padding: 12px 18px;
+    cursor: pointer;
+    font-weight: 700;
+    width: 100%;
+  }
+  #lockscreen .lock-btn:hover { background: var(--yellow-deep); }
+  #lock-logout-btn {
+    position: fixed;
+    bottom: 12px; left: 12px;
+    z-index: 9998;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border: 1px solid rgba(21,22,23,0.25);
+    background: rgba(255,255,255,0.85);
+    color: rgba(21,22,23,0.55);
+    padding: 6px 10px;
+    cursor: pointer;
+    font-weight: 500;
+    border-radius: 3px;
+    backdrop-filter: blur(4px);
+  }
+  #lock-logout-btn:hover { background: var(--ink); color: var(--paper); }
+
+  /* === ОСНОВНОЕ === */
+  #app {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 24px 18px 80px;
+  }
+  .view-header {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  .view-eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(21,22,23,0.55);
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .view-header h1 {
+    font-family: Geologica, sans-serif;
+    font-size: 26px;
+    font-weight: 700;
+    margin: 0;
+    line-height: 1.15;
+  }
+  .view-header h1 em {
+    font-family: Caveat, cursive;
+    font-style: normal;
+    font-weight: 600;
+    background: var(--yellow);
+    padding: 0 6px;
+    border-radius: 4px;
+  }
+  .view-subhead {
+    font-family: Geologica, serif;
+    font-style: italic;
+    font-size: 13px;
+    color: rgba(21,22,23,0.65);
+    margin-top: 4px;
+  }
+  .view-controls {
+    background: var(--paper-warm);
+    border: 1px solid var(--ink);
+    padding: 14px 16px;
+    margin-bottom: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+  .view-controls label {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(21,22,23,0.55);
+    font-weight: 600;
+  }
+  .view-controls select {
+    font-size: 14px;
+    border: 1px solid var(--ink);
+    background: var(--white);
+    padding: 7px 10px;
+    color: var(--ink);
+    outline: none;
+    min-width: 160px;
+    flex: 1;
+    border-radius: 0;
+    -webkit-appearance: none;
+  }
+  .view-refresh {
+    border: 1px solid var(--ink);
+    background: var(--white);
+    padding: 7px 12px;
+    cursor: pointer;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--ink);
+    font-family: Inter, sans-serif;
+  }
+  .view-refresh:hover { background: var(--yellow); }
+  .view-loading,
+  .view-error {
+    text-align: center;
+    padding: 40px 20px;
+    font-family: Geologica, serif;
+    font-style: italic;
+    color: rgba(21,22,23,0.55);
+  }
+  .view-error { color: var(--terra-deep); }
+  .vday {
+    background: var(--white);
+    border: 1px solid var(--ink);
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+  .vday-head {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 10px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .vday-num {
+    font-family: Geologica, sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--yellow);
+  }
+  .vday-meta {
+    font-family: Caveat, cursive;
+    font-size: 16px;
+    color: var(--white);
+    font-weight: 600;
+  }
+  .vday-body { padding: 10px 14px; }
+  .vday-rest {
+    font-family: Geologica, serif;
+    font-style: italic;
+    color: rgba(21,22,23,0.4);
+    font-size: 13px;
+    padding: 6px 0;
+  }
+  .vday-trip {
+    background: var(--yellow);
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+  .vslot {
+    padding: 8px 0;
+    border-bottom: 1px dotted rgba(21,22,23,0.12);
+  }
+  .vslot:last-child { border-bottom: none; }
+  .vslot-row {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: 12px;
+    align-items: baseline;
+  }
+  .vslot-time {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .vslot-name {
+    font-family: Geologica, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.25;
+  }
+  .vslot-theme {
+    font-family: Caveat, cursive;
+    font-size: 16px;
+    color: var(--yellow-deep);
+    font-weight: 600;
+    line-height: 1.1;
+    margin-top: 2px;
+  }
+  .vslot-meta {
+    font-size: 11px;
+    color: rgba(21,22,23,0.65);
+    margin-top: 4px;
+  }
+  .pill-troops {
+    background: var(--yellow);
+    color: var(--ink);
+    padding: 1px 5px;
+    font-weight: 700;
+    border-radius: 2px;
+    margin-right: 4px;
+    font-size: 10px;
+  }
+  .vslot-refs-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .vslot-refs-grid a {
+    border: 1px solid rgba(21,22,23,0.15);
+    border-radius: 3px;
+    overflow: hidden;
+    display: block;
+    background: rgba(21,22,23,0.04);
+    text-decoration: none;
+    color: var(--ink);
+  }
+  .vslot-refs-grid a:hover { box-shadow: 0 4px 12px rgba(21,22,23,0.15); }
+  .vslot-refs-img {
+    width: 80px; height: 56px;
+    object-fit: cover;
+    display: block;
+  }
+  .view-published-at {
+    font-family: Geologica, serif;
+    font-style: italic;
+    font-size: 11px;
+    color: rgba(21,22,23,0.5);
+    text-align: center;
+    margin-top: 14px;
+  }
+  @media (max-width: 560px) {
+    #app { padding: 14px 10px 60px; }
+    .view-header h1 { font-size: 22px; }
+    .vslot-row { grid-template-columns: 80px 1fr; gap: 8px; }
+    .vslot-time { font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="lockscreen">
+  <div class="lock-card">
+    <div class="lock-eyebrow">Прознание · Coddy</div>
+    <h1>Расписание <em>смены</em></h1>
+    <p class="lock-sub">Введи пароль для просмотра. Запомнится в браузере.</p>
+    <input type="password" id="lock-password-input" placeholder="••••••••" autofocus
+           onkeydown="if(event.key==='Enter') tryUnlock()">
+    <div class="lock-error" id="lock-error"></div>
+    <button class="lock-btn" onclick="tryUnlock()">Войти</button>
+  </div>
+</div>
+<button id="lock-logout-btn" onclick="lockLogout()">🔓 Выйти</button>
+
+<div id="app">
+  <div class="view-header">
+    <div class="view-eyebrow">Прознание · Coddy · летняя смена</div>
+    <h1 id="view-title">Расписание <em>смены</em></h1>
+    <div class="view-subhead" id="view-subhead"></div>
+  </div>
+
+  <div class="view-controls" id="view-controls" style="display:none">
+    <label for="teacher-pick">Педагог:</label>
+    <select id="teacher-pick" onchange="onTeacherChange()">
+      <option value="__all__">— выбери себя —</option>
+    </select>
+    <button class="view-refresh" onclick="reloadFromServer()" title="Обновить — взять последнюю опубликованную версию">↻</button>
+  </div>
+
+  <div id="view-content">
+    <div class="view-loading">Загружаю расписание…</div>
+  </div>
+
+  <div class="view-published-at" id="view-published-at"></div>
+</div>
+
+<script>
+  const LIBRARY_URL = 'https://script.google.com/macros/s/AKfycbxb6EEzzl-FguxjpIO5YthGLj-QXh7puCD_DO4HL4wVPziHL1pEtVeuo3uNEi2i2yXq/exec';
+  const LOCK_PASSWORD_HASH = '45e5a3f82cc81679d006c8d2f6e3cce87c89ec2059fe13a2d79438f0368b226a';
+  const LOCK_TOKEN_KEY = 'camp_lock_token_v1';
+  const MONTHS = ['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
+  const WEEKDAYS = ['вс','пн','вт','ср','чт','пт','сб'];
+
+  // === ЛОКСКРИН ===
+  async function sha256Hex(text) {
+    const enc = new TextEncoder().encode(text);
+    const buf = await crypto.subtle.digest('SHA-256', enc);
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+  async function tryUnlock() {
+    const inputEl = document.getElementById('lock-password-input');
+    const errEl = document.getElementById('lock-error');
+    const pwd = (inputEl.value || '').trim();
+    errEl.textContent = '';
+    if (!pwd) { errEl.textContent = 'Введи пароль'; return; }
+    try {
+      const hex = await sha256Hex(pwd);
+      if (hex === LOCK_PASSWORD_HASH) {
+        localStorage.setItem(LOCK_TOKEN_KEY, hex);
+        document.body.classList.add('unlocked');
+        bootstrap();
+      } else {
+        errEl.textContent = 'Неверный пароль';
+        inputEl.value = '';
+        inputEl.focus();
+      }
+    } catch(e) { errEl.textContent = 'Ошибка: ' + e.message; }
+  }
+  function lockLogout() {
+    if (!confirm('Выйти? Пароль будет забыт на этом устройстве.')) return;
+    localStorage.removeItem(LOCK_TOKEN_KEY);
+    location.reload();
+  }
+  (function checkLockOnLoad() {
+    try {
+      const tok = localStorage.getItem(LOCK_TOKEN_KEY);
+      if (tok && tok === LOCK_PASSWORD_HASH) {
+        document.body.classList.add('unlocked');
+        bootstrap();
+      }
+    } catch(e) {}
+  })();
+
+  // === ДАННЫЕ ===
+  let publishedState = null;
+  let publishedMeta = null;
+  let LIBRARY = [];
+
+  function getQueryParam(name) {
+    const m = new RegExp('[?&]' + name + '=([^&#]*)').exec(window.location.search);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function dateForDay(state, dayIdx) {
+    const start = new Date(state.startDate + 'T00:00:00');
+    let d = new Date(start);
+    let workDays = 0;
+    while (workDays < dayIdx + 1) {
+      if (d.getDay() !== 0 && d.getDay() !== 6) workDays++;
+      if (workDays < dayIdx + 1) d.setDate(d.getDate() + 1);
+      else break;
+    }
+    return d;
+  }
+
+  async function bootstrap() {
+    const id = getQueryParam('id');
+    if (!id) {
+      document.getElementById('view-content').innerHTML =
+        '<div class="view-error">В ссылке не указан ID публикации. Попроси у администратора актуальную ссылку.</div>';
+      return;
+    }
+    await loadAll(id);
+    const teacherFromUrl = getQueryParam('teacher');
+    if (teacherFromUrl) {
+      const sel = document.getElementById('teacher-pick');
+      const opt = Array.from(sel.options).find(o =>
+        o.value.toLowerCase() === teacherFromUrl.toLowerCase()
+      );
+      if (opt) {
+        sel.value = opt.value;
+        renderForCurrentTeacher();
+      }
+    }
+  }
+
+  async function reloadFromServer() {
+    const id = getQueryParam('id');
+    if (!id) return;
+    const btn = document.querySelector('.view-refresh');
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    try {
+      await loadAll(id);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '↻'; }
+    }
+  }
+
+  async function loadAll(id) {
+    document.getElementById('view-content').innerHTML =
+      '<div class="view-loading">Загружаю расписание…</div>';
+    try {
+      const [pubResp, libResp] = await Promise.all([
+        fetch(LIBRARY_URL + '?action=getPublished&id=' + encodeURIComponent(id)).then(r => r.json()),
+        fetch(LIBRARY_URL + '?action=library').then(r => r.json())
+      ]);
+      if (!pubResp.ok) throw new Error(pubResp.error || 'Не удалось загрузить публикацию');
+      if (!libResp.ok) throw new Error(libResp.error || 'Не удалось загрузить библиотеку');
+
+      LIBRARY = libResp.activities || [];
+      publishedMeta = {
+        id: pubResp.version.id,
+        name: pubResp.version.name,
+        theme: pubResp.version.theme,
+        publishedAt: pubResp.version.publishedAt
+      };
+      try {
+        publishedState = JSON.parse(pubResp.version.stateJson);
+      } catch(e) {
+        throw new Error('Не удалось распарсить расписание: ' + e.message);
+      }
+      onPublishedLoaded();
+    } catch(e) {
+      document.getElementById('view-content').innerHTML =
+        '<div class="view-error">Ошибка: ' + escapeHtml(e.message) + '</div>';
+    }
+  }
+
+  function onPublishedLoaded() {
+    document.getElementById('view-controls').style.display = '';
+    if (publishedState.theme) {
+      document.getElementById('view-title').innerHTML =
+        'Смена <em>' + escapeHtml(publishedState.theme) + '</em>';
+    }
+    document.getElementById('view-subhead').textContent =
+      publishedMeta.name || ('смена «' + (publishedState.theme || '') + '»');
+
+    if (publishedMeta.publishedAt) {
+      const d = new Date(publishedMeta.publishedAt);
+      document.getElementById('view-published-at').textContent =
+        'Опубликовано ' + d.toLocaleString('ru-RU', {
+          day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+        });
+    }
+    populateTeacherSelect();
+    renderForCurrentTeacher();
+  }
+
+  function isNamedTeacher(name) {
+    if (!name) return false;
+    const n = String(name).trim().toLowerCase();
+    if (!n) return false;
+    if (n.includes('куратор')) return false;
+    if (n.includes('админ')) return false;
+    if (n.includes('вожат')) return false;
+    if (n.includes('тренер')) return false;
+    if (n.includes(',')) return false;
+    return /\s/.test(n.trim());
+  }
+
+  function getNamedTeachers() {
+    const set = new Set();
+    if (!publishedState || !Array.isArray(publishedState.schedule)) return [];
+    publishedState.schedule.forEach(d => {
+      if (!d) return;
+      ['am_cluster','am_outside','pm_cluster','pm_outside'].forEach(g => {
+        const arr = d[g];
+        if (!Array.isArray(arr)) return;
+        arr.forEach(s => {
+          if (!s) return;
+          const t = String(s.teacher || '').trim();
+          if (isNamedTeacher(t)) set.add(t);
+        });
+      });
+      ['trip_full_am','trip_full_pm','trip6_am','trip6_pm'].forEach(g => {
+        const s = d[g];
+        if (!s) return;
+        const t = String(s.teacher || '').trim();
+        if (isNamedTeacher(t)) set.add(t);
+      });
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'ru'));
+  }
+
+  function populateTeacherSelect() {
+    const sel = document.getElementById('teacher-pick');
+    const teachers = getNamedTeachers();
+    const current = sel.value;
+    sel.innerHTML = '<option value="__all__">— выбери себя —</option>'
+      + '<option value="__compact__">Все педагоги (общий вид)</option>'
+      + teachers.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+    if (current && Array.from(sel.options).some(o => o.value === current)) {
+      sel.value = current;
+    }
+  }
+
+  function onTeacherChange() {
+    renderForCurrentTeacher();
+  }
+
+  function isTeacherOnTrip(day, teacherTargetLc) {
+    const tripSlots = ['trip6_am','trip6_pm','trip_full_am','trip_full_pm'];
+    for (const k of tripSlots) {
+      const s = day[k];
+      if (!s) continue;
+      const t = String(s.teacher || '').trim().toLowerCase();
+      if (t && t === teacherTargetLc) return true;
+    }
+    const extra = String(day.extraTripTeachers || '').trim();
+    if (!extra) return false;
+    const list = extra.split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
+    return list.includes(teacherTargetLc);
+  }
+
+  function getActiveRefsForSlot(slot) {
+    if (!slot || !slot.template) return [];
+    const lib = LIBRARY.find(a => a.template === slot.template);
+    const allRefs = (lib && Array.isArray(lib.refs)) ? lib.refs : [];
+    if (!Array.isArray(slot.selectedRefs)) return allRefs.slice();
+    return slot.selectedRefs.filter(u => allRefs.includes(u));
+  }
+
+  function buildScheduleForTeacher(teacherName) {
+    const target = String(teacherName || '').trim().toLowerCase();
+    const result = [];
+    publishedState.schedule.forEach((d, idx) => {
+      const date = dateForDay(publishedState, idx);
+      const dateStr = date.getDate() + ' ' + MONTHS[date.getMonth()];
+      const weekday = WEEKDAYS[date.getDay()];
+      const slots = [];
+      let tripNote = null;
+
+      if (d.type === 'trip6_am' || d.type === 'trip6_pm') {
+        if (isTeacherOnTrip(d, target)) {
+          const slot = d.type === 'trip6_am' ? d.trip6_am : d.trip6_pm;
+          const half = d.type === 'trip6_am' ? 'утром' : 'после обеда';
+          tripNote = `Полный выезд ${half}: ${slot && slot.template ? slot.template : 'все 6 отрядов'}.`;
+        }
+      }
+
+      ['am_cluster','am_outside','pm_cluster','pm_outside'].forEach(g => {
+        const arr = d[g];
+        if (!Array.isArray(arr)) return;
+        arr.forEach(s => {
+          if (!s || !s.template) return;
+          const tch = String(s.teacher || '').trim().toLowerCase();
+          if (tch !== target) return;
+          const isAM = g.startsWith('am_');
+          const time = isAM ? '9:30–12:30' : '14:00–17:00';
+          const isOutside = g.includes('outside');
+          let troops;
+          if (isAM) troops = isOutside ? '4-5-6' : '1-2-3';
+          else      troops = isOutside ? '1-2-3' : '4-5-6';
+          slots.push({
+            time,
+            template: s.template,
+            theme: s.theme || s.ageVariant || '',
+            room: s.room || '—',
+            troops,
+            refs: getActiveRefsForSlot(s)
+          });
+        });
+      });
+
+      ['trip_full_am','trip_full_pm'].forEach(g => {
+        const s = d[g];
+        if (!s || !s.template) return;
+        const tch = String(s.teacher || '').trim().toLowerCase();
+        if (tch !== target) return;
+        const isAM = g === 'trip_full_am';
+        const time = isAM ? '9:30–12:30' : '14:00–17:00';
+        let troops;
+        if (d.type === 'trip3_am') troops = '4-5-6 (выезд)';
+        else if (d.type === 'trip3_pm') troops = '1-2-3 (выезд)';
+        else if (d.type === 'trip3_full') troops = isAM ? '4-5-6 (выезд)' : '1-2-3 (выезд)';
+        else troops = '3 отряда (выезд)';
+        slots.push({
+          time,
+          template: s.template,
+          theme: s.theme || s.ageVariant || '',
+          room: s.room || '—',
+          troops,
+          refs: getActiveRefsForSlot(s)
+        });
+      });
+
+      result.push({ idx, dateStr, weekday, slots, tripNote });
+    });
+    return result;
+  }
+
+  function renderForCurrentTeacher() {
+    const sel = document.getElementById('teacher-pick');
+    const v = sel.value;
+    if (v === '__all__' || !v) {
+      document.getElementById('view-content').innerHTML =
+        '<div class="view-loading">Выбери себя в списке выше — увидишь свои занятия на 10 дней.</div>';
+      return;
+    }
+    if (v === '__compact__') {
+      renderCompactAllView();
+      return;
+    }
+    renderTeacherView(v);
+  }
+
+  function renderTeacherView(teacherName) {
+    const days = buildScheduleForTeacher(teacherName);
+    const tripDays = days.filter(d => d.tripNote).length;
+    const totalSlots = days.reduce((s, d) => s + d.slots.length, 0);
+
+    let html = `
+      <div style="margin-bottom:14px;font-size:12px;color:rgba(21,22,23,0.65);text-align:center">
+        <strong style="color:var(--ink)">${escapeHtml(teacherName)}</strong> · ${totalSlots} занятий${tripDays > 0 ? ' · ' + tripDays + ' выездн. дн.' : ''}
+      </div>
+    `;
+
+    days.forEach(d => {
+      const isEmpty = d.slots.length === 0 && !d.tripNote;
+      html += `
+        <div class="vday">
+          <div class="vday-head">
+            <div class="vday-num">День ${d.idx + 1}</div>
+            <div class="vday-meta">${d.dateStr} · ${d.weekday}</div>
+          </div>
+          <div class="vday-body">
+      `;
+      if (d.tripNote) {
+        html += `<div class="vday-trip">🚌 ${escapeHtml(d.tripNote)}</div>`;
+      }
+      if (isEmpty) {
+        html += `<div class="vday-rest">— свободный день —</div>`;
+      } else if (d.slots.length > 0) {
+        d.slots.forEach(s => {
+          html += `
+            <div class="vslot">
+              <div class="vslot-row">
+                <div class="vslot-time">${escapeHtml(s.time)}</div>
+                <div>
+                  <div class="vslot-name">${escapeHtml(s.template)}</div>
+                  ${s.theme ? `<div class="vslot-theme">«${escapeHtml(s.theme)}»</div>` : ''}
+                  <div class="vslot-meta">
+                    <span class="pill-troops">${escapeHtml(s.troops)}</span>${escapeHtml(s.room)}
+                  </div>
+                  ${renderRefsForSlot(s.refs)}
+                </div>
+              </div>
+            </div>
+          `;
+        });
+      }
+      html += `</div></div>`;
+    });
+
+    document.getElementById('view-content').innerHTML = html;
+  }
+
+  function renderRefsForSlot(refs) {
+    if (!refs || refs.length === 0) return '';
+    let html = '<div class="vslot-refs-grid">';
+    refs.forEach(url => {
+      let host = '';
+      try { host = new URL(url).hostname.replace(/^www\./, ''); } catch(e) {}
+      const icon = host.includes('pinterest') ? '📌' : host.includes('youtube') || host.includes('youtu.be') ? '🎬' : host.includes('google') ? '🖼' : '🔗';
+      let previewSrc = null;
+      const ytId = extractYouTubeId(url);
+      if (ytId) previewSrc = 'https://img.youtube.com/vi/' + ytId + '/hqdefault.jpg';
+      else if (/\.(jpg|jpeg|png|webp|gif|svg|avif)(\?|$)/i.test(url)) previewSrc = url;
+      if (previewSrc) {
+        html += `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" title="${escapeHtml(host)}">
+          <img class="vslot-refs-img" src="${escapeHtml(previewSrc)}" alt="" onerror="this.style.display='none'">
+        </a>`;
+      } else {
+        html += `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" style="padding:5px 10px;font-size:11px;background:rgba(254,214,52,0.18);border-color:rgba(254,214,52,0.5)">${icon} ${escapeHtml(host)}</a>`;
+      }
+    });
+    html += '</div>';
+    return html;
+  }
+
+  function extractYouTubeId(url) {
+    const patterns = [
+      /youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
+      /youtu\.be\/([a-zA-Z0-9_-]{11})/,
+      /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
+      /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/
+    ];
+    for (const p of patterns) {
+      const m = url.match(p);
+      if (m) return m[1];
+    }
+    return null;
+  }
+
+  function renderCompactAllView() {
+    let html = `
+      <div style="font-family:Geologica,serif;font-style:italic;font-size:12px;color:rgba(21,22,23,0.55);text-align:center;margin-bottom:14px">
+        Полное расписание смены · все педагоги
+      </div>
+    `;
+    publishedState.schedule.forEach((d, idx) => {
+      const date = dateForDay(publishedState, idx);
+      const dateStr = date.getDate() + ' ' + MONTHS[date.getMonth()];
+      const weekday = WEEKDAYS[date.getDay()];
+
+      html += `
+        <div class="vday">
+          <div class="vday-head">
+            <div class="vday-num">День ${idx + 1}</div>
+            <div class="vday-meta">${dateStr} · ${weekday}</div>
+          </div>
+          <div class="vday-body">
+      `;
+
+      if (d.type === 'trip6_am') {
+        const s = d.trip6_am;
+        html += `<div class="vday-trip">🚌 Полный выезд утром · ${escapeHtml((s && s.template) || 'все 6 отрядов')}</div>`;
+      }
+      if (d.type === 'trip6_pm') {
+        const s = d.trip6_pm;
+        html += `<div class="vday-trip">🚌 Полный выезд после обеда · ${escapeHtml((s && s.template) || 'все 6 отрядов')}</div>`;
+      }
+
+      const allBlocks = [
+        { key: 'am_cluster', time: '9:30 · 1-2-3' },
+        { key: 'am_outside', time: '9:30 · 4-5-6' },
+        { key: 'pm_cluster', time: '14:00 · 4-5-6' },
+        { key: 'pm_outside', time: '14:00 · 1-2-3' }
+      ];
+      let hasAny = false;
+      allBlocks.forEach(b => {
+        const arr = d[b.key];
+        if (!Array.isArray(arr)) return;
+        const filled = arr.filter(s => s && s.template);
+        if (filled.length === 0) return;
+        hasAny = true;
+        filled.forEach(s => {
+          html += `
+            <div class="vslot">
+              <div class="vslot-row">
+                <div class="vslot-time">${b.time}</div>
+                <div>
+                  <div class="vslot-name">${escapeHtml(s.template)}</div>
+                  ${s.theme ? `<div class="vslot-theme">«${escapeHtml(s.theme)}»</div>` : ''}
+                  <div class="vslot-meta">
+                    ${escapeHtml(s.teacher || '—')} · ${escapeHtml(s.room || '—')}
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+      });
+      if (!hasAny && !(d.type && d.type.startsWith('trip6'))) {
+        html += `<div class="vday-rest">— расписание не задано —</div>`;
+      }
+
+      html += `</div></div>`;
+    });
+
+    document.getElementById('view-content').innerHTML = html;
+  }
+</script>
+</body>
+</html>
