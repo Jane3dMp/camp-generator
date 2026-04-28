@@ -377,6 +377,75 @@
     color: rgba(21,22,23,0.7);
   }
   .teacher-slot-troops { color: var(--yellow-deep); font-weight: 600; }
+
+  /* Строка референсов в слоте педагога */
+  .teacher-slot-refs { margin-top: 4px; }
+  .teacher-slot-refs-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 11px;
+    color: var(--ink);
+    text-decoration: none;
+    background: rgba(254,214,52,0.18);
+    border: 1px solid rgba(254,214,52,0.5);
+    border-radius: 3px;
+    padding: 2px 8px;
+    cursor: pointer;
+    transition: all 0.12s ease;
+  }
+  .teacher-slot-refs-link:hover { background: var(--yellow); border-color: var(--ink); }
+
+  /* Попап со списком ссылок (когда у слота >1 референса) */
+  .teacher-refs-popup {
+    position: absolute;
+    z-index: 9999;
+    background: var(--white);
+    border: 1px solid var(--ink);
+    box-shadow: 0 8px 24px rgba(21,22,23,0.18);
+    padding: 8px 12px 10px;
+    min-width: 240px;
+    max-width: 360px;
+    border-radius: 4px;
+  }
+  .teacher-refs-popup-head {
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(21,22,23,0.55);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .teacher-refs-popup-list { display: flex; flex-direction: column; gap: 2px; }
+  .teacher-refs-popup-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    text-decoration: none;
+    color: var(--ink);
+    border-radius: 3px;
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 12px;
+  }
+  .teacher-refs-popup-item:hover { background: rgba(254,214,52,0.18); }
+  .teacher-refs-popup-icon { font-size: 14px; }
+  .teacher-refs-popup-host { font-weight: 500; }
+  .teacher-refs-popup-close {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    border: none;
+    background: transparent;
+    color: rgba(21,22,23,0.4);
+    font-size: 12px;
+    cursor: pointer;
+    padding: 4px 6px;
+    line-height: 1;
+  }
+  .teacher-refs-popup-close:hover { color: #c0392b; }
   .teacher-day-rest {
     font-family: Geologica, serif;
     font-style: italic;
@@ -2133,7 +2202,9 @@ function convertLibraryItem(item) {
     description: item.description || '',
     trip3: item.format === 'выезд 3',
     trip6: item.format === 'выезд 6',
-    tripout: tripout
+    tripout: tripout,
+    refsCount: item.refsCount || 0,
+    refs: Array.isArray(item.refs) ? item.refs : []
   };
 }
 
@@ -3132,6 +3203,16 @@ function isRefSelectedInSlot_(slot, url) {
   return slot.selectedRefs.indexOf(url) >= 0;
 }
 
+// Возвращает массив URL'ов которые «активны» в этом слоте (selectedRefs или дефолт = все из библиотеки шаблона).
+function getSlotActiveRefs_(slot) {
+  if (!slot || !slot.template) return [];
+  const lib = LIBRARY.find(a => a.template === slot.template);
+  const allRefs = (lib && Array.isArray(lib.refs)) ? lib.refs : [];
+  if (!Array.isArray(slot.selectedRefs)) return allRefs.slice();
+  // Только те которые есть и в библиотеке, и в selectedRefs
+  return slot.selectedRefs.filter(u => allRefs.includes(u));
+}
+
 // Переключает галочку URL в slot.selectedRefs. Перерисовывает модалку и сетку.
 function toggleRefInSlot(url, allRefs) {
   const slotPath = window._refsModalSlotPath;
@@ -3322,9 +3403,14 @@ async function addRefForTemplate(templateName, btnEl) {
       toast('Эта ссылка уже была сохранена');
     } else {
       toast('Референс сохранён');
-      // Обновляем счётчик в LIBRARY локально
+      // Обновляем счётчик и сам массив в LIBRARY локально
       const lib = LIBRARY.find(a => a.template === templateName);
-      if (lib) lib.refsCount = (lib.refsCount || 0) + 1;
+      if (lib) {
+        lib.refsCount = (lib.refsCount || 0) + 1;
+        if (!Array.isArray(lib.refs)) lib.refs = [];
+        const url = (document.getElementById('ref-new-url') || {}).value || '';
+        if (url && !lib.refs.includes(url.trim())) lib.refs.push(url.trim());
+      }
     }
     // Перерисуем список
     openRefsForTemplate(templateName);
@@ -3349,7 +3435,13 @@ async function removeRefFromTemplate(templateName, url, btnEl) {
     if (!data.ok) throw new Error(data.error || 'API error');
     toast('Удалено');
     const lib = LIBRARY.find(a => a.template === templateName);
-    if (lib && lib.refsCount > 0) lib.refsCount--;
+    if (lib) {
+      if (lib.refsCount > 0) lib.refsCount--;
+      if (Array.isArray(lib.refs)) {
+        const i = lib.refs.indexOf(url);
+        if (i >= 0) lib.refs.splice(i, 1);
+      }
+    }
     openRefsForTemplate(templateName);
     if (typeof render === 'function') render();
   } catch(e) {
@@ -6078,6 +6170,7 @@ function buildTeacherSchedule(teacherName) {
           room: s.room || '—',
           troops,
           isOutside,
+          selectedRefs: getSlotActiveRefs_(s),
           slotPath: { dayIdx: idx, group: g, idx: i }
         });
       });
@@ -6107,6 +6200,7 @@ function buildTeacherSchedule(teacherName) {
         troops,
         isOutside: true,
         isTrip: true,
+        selectedRefs: getSlotActiveRefs_(s),
         slotPath: { dayIdx: idx, group: g, idx: 0, isTripSlot: true }
       });
     });
@@ -6195,12 +6289,27 @@ function renderTeacherBlock(teacherName) {
         const removeAttr = sp.isTripSlot
           ? `onclick="removeTeacherFromSlot(${sp.dayIdx},'${sp.group}',0,true,event)"`
           : `onclick="removeTeacherFromSlot(${sp.dayIdx},'${sp.group}',${sp.idx},false,event)"`;
+        // Активные референсы для слота
+        const activeRefs = Array.isArray(s.selectedRefs) ? s.selectedRefs : [];
+        let refsHtml = '';
+        if (activeRefs.length === 1) {
+          // Один — прямая ссылка
+          refsHtml = `<a class="teacher-slot-refs-link" href="${escapeHtml(activeRefs[0])}" target="_blank" rel="noopener">📎 референс</a>`;
+        } else if (activeRefs.length > 1) {
+          // Несколько — кнопка-попап со списком
+          const slotKey = `${sp.dayIdx}|${sp.group}|${sp.idx}|${sp.isTripSlot ? 1 : 0}`;
+          refsHtml = `<button type="button" class="teacher-slot-refs-link" onclick="showTeacherSlotRefs(this, '${escapeJs(slotKey)}')">📎 ${activeRefs.length} референсов</button>`;
+          // Сохраняем список под slotKey для попапа
+          if (!window._teacherSlotRefsCache) window._teacherSlotRefsCache = {};
+          window._teacherSlotRefsCache[slotKey] = activeRefs;
+        }
         html += `
           <div class="teacher-slot">
             <div class="teacher-slot-time">${s.time}</div>
             <div>
               <div class="teacher-slot-name">${escapeHtml(s.template)}</div>
               ${s.theme ? `<span class="teacher-slot-theme">«${escapeHtml(s.theme)}»</span>` : ''}
+              ${refsHtml ? `<div class="teacher-slot-refs">${refsHtml}</div>` : ''}
             </div>
             <div class="teacher-slot-room">${escapeHtml(s.room)}</div>
             <div class="teacher-slot-troops">${escapeHtml(s.troops)}</div>
@@ -6270,6 +6379,50 @@ function onExtraTripTeachersChange(inputEl) {
   // Перерисуем шапку (счётчик «выездов») с задержкой, чтобы не дёргать поле во время ввода
   clearTimeout(window._extraTripDebounce);
   window._extraTripDebounce = setTimeout(() => renderTeacherSchedule(), 800);
+}
+
+// Попап со списком ссылок-референсов слота — открывается из расписания педагога.
+// На печати/PDF попап скрыт (no-print), но сами кликабельные ссылки в строке слота останутся.
+function showTeacherSlotRefs(triggerEl, slotKey) {
+  const cache = window._teacherSlotRefsCache || {};
+  const refs = cache[slotKey] || [];
+  // Закрыть существующие попапы
+  document.querySelectorAll('.teacher-refs-popup').forEach(p => p.remove());
+  if (refs.length === 0) return;
+
+  const popup = document.createElement('div');
+  popup.className = 'teacher-refs-popup no-print';
+  popup.innerHTML = `
+    <div class="teacher-refs-popup-head">Референсы (${refs.length})</div>
+    <div class="teacher-refs-popup-list">
+      ${refs.map(url => {
+        let host = '';
+        try { host = new URL(url).hostname.replace(/^www\./, ''); } catch(e) {}
+        const icon = host.includes('pinterest') ? '📌' : host.includes('youtube') || host.includes('youtu.be') ? '🎬' : host.includes('google') ? '🖼' : '🔗';
+        return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="teacher-refs-popup-item">
+          <span class="teacher-refs-popup-icon">${icon}</span>
+          <span class="teacher-refs-popup-host">${escapeHtml(host || url)}</span>
+        </a>`;
+      }).join('')}
+    </div>
+    <button class="teacher-refs-popup-close" onclick="this.parentElement.remove()">✕</button>
+  `;
+  // Позиция: под кнопкой
+  const r = triggerEl.getBoundingClientRect();
+  popup.style.top = (window.scrollY + r.bottom + 6) + 'px';
+  popup.style.left = (window.scrollX + r.left) + 'px';
+  document.body.appendChild(popup);
+
+  // Закрытие при клике вне
+  setTimeout(() => {
+    const onClickOutside = (e) => {
+      if (!popup.contains(e.target) && e.target !== triggerEl) {
+        popup.remove();
+        document.removeEventListener('click', onClickOutside);
+      }
+    };
+    document.addEventListener('click', onClickOutside);
+  }, 50);
 }
 
 function renderTeacherSchedule() {
