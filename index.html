@@ -3947,7 +3947,7 @@ async function generateThemeForSlot(day, group, idx, isTripSlot, slotKey) {
             <a href="${pinUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">📌 Pinterest</a>
             <a href="${gimgUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🖼 Google</a>
             <a href="${ytUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🎬 YouTube</a>
-            <a href="javascript:void(0)" onclick="event.stopPropagation();openRefsForTemplate('${tplEsc}')" class="theme-refs-saved">🔖 Сохранённые</a>
+            <a href="javascript:void(0)" onclick="event.stopPropagation();openRefsForTemplate('${tplEsc}', {dayIdx:${day},group:${groupArg},idx:${idx},isTripSlot:${isTripSlot ? 'true' : 'false'},slotKey:${slotKeyArg}})" class="theme-refs-saved">🔖 Сохранённые</a>
           </div>
         </div>
       `;}).join('')}
@@ -4234,22 +4234,47 @@ async function addRefForTemplate(templateName, btnEl) {
     });
     const data = await r.json();
     if (!data.ok) throw new Error(data.error || 'API error');
-    if (data.result.alreadyPresent) {
-      toast('Эта ссылка уже была сохранена');
-    } else {
-      toast('Референс сохранён');
-      // Обновляем счётчик и сам массив в LIBRARY локально
-      const lib = LIBRARY.find(a => a.template === templateName);
-      if (lib) {
+
+    // Обновляем массив refs в LIBRARY локально
+    const lib = LIBRARY.find(a => a.template === templateName);
+    if (lib) {
+      if (!Array.isArray(lib.refs)) lib.refs = [];
+      if (!lib.refs.includes(url)) {
+        lib.refs.push(url);
         lib.refsCount = (lib.refsCount || 0) + 1;
-        if (!Array.isArray(lib.refs)) lib.refs = [];
-        const url = (document.getElementById('ref-new-url') || {}).value || '';
-        if (url && !lib.refs.includes(url.trim())) lib.refs.push(url.trim());
       }
     }
+
+    // Если модалка открыта в контексте ячейки сетки — добавляем URL в slot.selectedRefs.
+    // Это значит «свежедобавленная ссылка автоматически активна для этой ячейки».
+    const slotPath = window._refsModalSlotPath;
+    if (slotPath) {
+      const slot = getSlotByPath_(slotPath);
+      if (slot) {
+        // Если у слота ещё не было selectedRefs — это сейчас первая отметка,
+        // значит надо инициализировать массив (поведение «по умолчанию всё включено»
+        // переходит в явный список — раньше было все, теперь конкретные).
+        if (!Array.isArray(slot.selectedRefs)) {
+          // Сохраняем «всё что было до этого + новый url»
+          slot.selectedRefs = lib && Array.isArray(lib.refs) ? lib.refs.slice() : [url];
+          // Гарантируем что новый url там есть
+          if (!slot.selectedRefs.includes(url)) slot.selectedRefs.push(url);
+        } else {
+          if (!slot.selectedRefs.includes(url)) slot.selectedRefs.push(url);
+        }
+        saveLocal();
+      }
+    }
+
+    if (data.result.alreadyPresent) {
+      toast(slotPath ? 'Ссылка уже была сохранена · отмечена для этой ячейки' : 'Эта ссылка уже была сохранена');
+    } else {
+      toast(slotPath ? 'Референс сохранён и применён к ячейке' : 'Референс сохранён в библиотеку');
+    }
+
     // Перерисуем список
-    openRefsForTemplate(templateName);
-    // Перерисуем основную сетку чтобы обновился бейдж
+    openRefsForTemplate(templateName, slotPath);
+    // Перерисуем основную сетку чтобы обновился бейдж и плашка референсов
     if (typeof render === 'function') render();
   } catch(e) {
     toast('Ошибка: ' + e.message);
@@ -4277,7 +4302,7 @@ async function removeRefFromTemplate(templateName, url, btnEl) {
         if (i >= 0) lib.refs.splice(i, 1);
       }
     }
-    openRefsForTemplate(templateName);
+    openRefsForTemplate(templateName, window._refsModalSlotPath);
     if (typeof render === 'function') render();
   } catch(e) {
     toast('Ошибка: ' + e.message);
