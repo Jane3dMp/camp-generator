@@ -7866,10 +7866,32 @@ async function publishSmena() {
       console.warn('Ошибка перерисовки панели публикации (не критично):', panelErr);
     }
   } catch(e) {
-    // Failed to fetch обычно значит сетевая проблема или CORS, но нашу
-    // публикацию это тоже может не сломать — стоит проверить view.html.
+    // Failed to fetch обычно значит что fetch() не получил ответ — но
+    // публикация всё равно могла пройти (Apps Script записал в Sheets).
+    // Делаем тихую проверку через 2 секунды — есть ли публикация с этим id.
     if (String(e.message).includes('Failed to fetch')) {
-      toast('Сеть капризничает. Откройте view.html — возможно публикация всё-таки прошла.');
+      toast('Проверяю публикацию…');
+      setTimeout(async () => {
+        try {
+          const verifyR = await fetch(LIBRARY_URL + '?action=getPublished&id=' + encodeURIComponent(id));
+          const verifyText = await verifyR.text();
+          const verifyData = JSON.parse(verifyText);
+          if (verifyData.ok && verifyData.publication && verifyData.publication.id === id) {
+            // Сравним publishedAt — если свежее чем 30 секунд назад, значит наша публикация прошла
+            const pubAt = new Date(verifyData.publication.publishedAt).getTime();
+            const ageSec = (Date.now() - pubAt) / 1000;
+            if (ageSec < 30) {
+              saveLocal();
+              toast('Опубликовано (с задержкой ответа сервера)');
+              try { openPublishPanel(); } catch(_){}
+              return;
+            }
+          }
+          toast('Сеть капризничает. Открой view.html — возможно публикация прошла.');
+        } catch(verifyErr) {
+          toast('Сеть капризничает. Открой view.html — возможно публикация прошла.');
+        }
+      }, 2000);
     } else {
       toast('Ошибка: ' + e.message);
     }
