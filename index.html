@@ -7997,9 +7997,28 @@ function buildTeacherSchedule(teacherName) {
       }
     }
 
-    // Обычные слоты в кластерах + улицах
+    // Обычные слоты в кластерах + улицах.
+    // ВАЖНО: фильтруем по типу дня — не все блоки активны во всех типах.
+    // Например в trip6_am утром все на выезде → am_cluster и am_outside не показываем.
+    // В trip3_am утром одна группа в кластере, другая на выезде → am_outside не показываем.
+    const activeGroups = new Set(['am_cluster', 'am_outside', 'pm_cluster', 'pm_outside']);
+    if (d.type === 'trip6_am') {
+      activeGroups.delete('am_cluster'); activeGroups.delete('am_outside');
+    } else if (d.type === 'trip6_pm') {
+      activeGroups.delete('pm_cluster'); activeGroups.delete('pm_outside');
+    } else if (d.type === 'trip6_am_split' || d.type === 'trip6_full_split') {
+      activeGroups.delete('am_cluster'); activeGroups.delete('am_outside');
+    }
+    if (d.type === 'trip6_pm_split' || d.type === 'trip6_full_split') {
+      activeGroups.delete('pm_cluster'); activeGroups.delete('pm_outside');
+    }
+    if (d.type === 'trip3_am')        activeGroups.delete('am_outside');
+    else if (d.type === 'trip3_pm')   activeGroups.delete('pm_outside');
+    else if (d.type === 'trip3_full') { activeGroups.delete('am_outside'); activeGroups.delete('pm_outside'); }
+
     const groups = ['am_cluster', 'am_outside', 'pm_cluster', 'pm_outside'];
     groups.forEach(g => {
+      if (!activeGroups.has(g)) return;
       const arr = d[g];
       if (!Array.isArray(arr)) return;
       arr.forEach((s, i) => {

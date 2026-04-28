@@ -766,7 +766,19 @@
         }
       }
 
+      // Обычные слоты — фильтруем по типу дня (чтобы не показывать
+      // активности из блоков, которые в этот день скрыты выездом).
+      const activeGroupsT = new Set(['am_cluster', 'am_outside', 'pm_cluster', 'pm_outside']);
+      if (d.type === 'trip6_am') { activeGroupsT.delete('am_cluster'); activeGroupsT.delete('am_outside'); }
+      else if (d.type === 'trip6_pm') { activeGroupsT.delete('pm_cluster'); activeGroupsT.delete('pm_outside'); }
+      else if (d.type === 'trip6_am_split' || d.type === 'trip6_full_split') { activeGroupsT.delete('am_cluster'); activeGroupsT.delete('am_outside'); }
+      if (d.type === 'trip6_pm_split' || d.type === 'trip6_full_split') { activeGroupsT.delete('pm_cluster'); activeGroupsT.delete('pm_outside'); }
+      if (d.type === 'trip3_am') activeGroupsT.delete('am_outside');
+      else if (d.type === 'trip3_pm') activeGroupsT.delete('pm_outside');
+      else if (d.type === 'trip3_full') { activeGroupsT.delete('am_outside'); activeGroupsT.delete('pm_outside'); }
+
       ['am_cluster','am_outside','pm_cluster','pm_outside'].forEach(g => {
+        if (!activeGroupsT.has(g)) return;
         const arr = d[g];
         if (!Array.isArray(arr)) return;
         arr.forEach(s => {
