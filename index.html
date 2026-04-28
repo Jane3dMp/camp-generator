@@ -1381,6 +1381,67 @@
   }
   .variant:hover { border-color: var(--terra); background: var(--paper); }
 
+  /* Шапка окна выбора шаблона: поиск + табы + счётчик */
+  .tpl-picker-controls {
+    position: sticky;
+    top: -20px; /* учитываем padding модалки */
+    background: var(--white);
+    z-index: 10;
+    padding: 8px 0 12px;
+    margin: -8px 0 14px;
+    border-bottom: 1px solid rgba(21,22,23,0.1);
+  }
+  .tpl-picker-search-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .tpl-picker-search {
+    flex: 1;
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 13px;
+    border: 1px solid var(--ink);
+    background: var(--white);
+    padding: 8px 12px;
+    color: var(--ink);
+    outline: none;
+  }
+  .tpl-picker-search:focus { border-color: var(--yellow-deep); }
+  .tpl-picker-count {
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: rgba(21,22,23,0.55);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .tpl-picker-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .tpl-dir-tab {
+    border: 1px solid rgba(21,22,23,0.2);
+    background: var(--paper-warm);
+    color: var(--ink);
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    padding: 5px 10px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.12s ease;
+    font-weight: 500;
+  }
+  .tpl-dir-tab:hover { background: var(--white); border-color: var(--ink); }
+  .tpl-dir-tab.active {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+    font-weight: 600;
+  }
+
   /* Карточка шаблона в окне «🧱 Выбрать шаблон» — с чипами тем и полем ручного ввода */
   .tpl-card {
     cursor: default;
@@ -3540,18 +3601,95 @@ function openTemplatePicker(day, group, idx, isTripSlot, slotKey) {
   }
 
   const templates = getUniqueTemplates().filter(t => !allowedFormat || t.format === allowedFormat);
+
+  // Список доступных направлений в этом формате
+  const allDirections = Array.from(new Set(templates.map(t => t.direction).filter(Boolean))).sort();
+
+  // Сохраняем контекст в window — нужно для onchange/onclick
+  window._tplPickerState = {
+    day, group, idx, isTripSlot, slotKey,
+    allowedFormat,
+    templates,           // полный отфильтрованный по формату список
+    allDirections,
+    activeDirection: 'all',
+    searchQuery: ''
+  };
+
+  document.getElementById('modal-title').innerHTML = `Выбрать <em>шаблон занятия</em>${allowedFormat ? ' · '+allowedFormat : ''}`;
+
+  // Шапка с поиском + табами + счётчиком, и контейнер списка
+  const dirTabsHtml = `<button type="button" class="tpl-dir-tab active" data-dir="all" onclick="onTplPickerDirClick('all')">Все</button>` +
+    allDirections.map(d => `<button type="button" class="tpl-dir-tab" data-dir="${escapeJs(d)}" onclick="onTplPickerDirClick('${escapeJs(d)}')">${d}</button>`).join('');
+
+  const html = `
+    <div class="tpl-picker-controls">
+      <div class="tpl-picker-search-row">
+        <input type="text" id="tpl-picker-search" class="tpl-picker-search"
+               placeholder="🔍 поиск по названию, теме или педагогу..."
+               oninput="onTplPickerSearchInput(this.value)">
+        <span class="tpl-picker-count" id="tpl-picker-count"></span>
+      </div>
+      <div class="tpl-picker-tabs" id="tpl-picker-tabs">${dirTabsHtml}</div>
+    </div>
+    <div id="tpl-picker-list"></div>
+    <div class="modal-actions"><button class="btn" onclick="closeModal()">Отмена</button></div>
+  `;
+  document.getElementById('modal-body').innerHTML = html;
+  openModal();
+
+  // Первый рендер списка + автофокус в поиск
+  renderTemplatePickerList_();
+  setTimeout(() => {
+    const inp = document.getElementById('tpl-picker-search');
+    if (inp) inp.focus();
+  }, 60);
+}
+
+// Обработчики поиска и табов
+function onTplPickerSearchInput(value) {
+  if (!window._tplPickerState) return;
+  window._tplPickerState.searchQuery = String(value || '').trim().toLowerCase();
+  renderTemplatePickerList_();
+}
+function onTplPickerDirClick(dir) {
+  if (!window._tplPickerState) return;
+  window._tplPickerState.activeDirection = dir;
+  // Активный таб
+  const tabs = document.querySelectorAll('#tpl-picker-tabs .tpl-dir-tab');
+  tabs.forEach(t => t.classList.toggle('active', t.dataset.dir === dir));
+  renderTemplatePickerList_();
+}
+
+// Применяет фильтры и рендерит список карточек
+function renderTemplatePickerList_() {
+  const st = window._tplPickerState;
+  if (!st) return;
+  const { day, group, idx, isTripSlot, slotKey, templates, activeDirection, searchQuery } = st;
+
+  // 1. По направлению
+  let filtered = templates;
+  if (activeDirection && activeDirection !== 'all') {
+    filtered = filtered.filter(t => t.direction === activeDirection);
+  }
+  // 2. По поиску — внутри названия, имён педагогов и тем-примеров
+  if (searchQuery) {
+    const q = searchQuery;
+    filtered = filtered.filter(t => {
+      const inName = String(t.template || '').toLowerCase().includes(q);
+      const inTeachers = (t.teachers || []).some(tch => String(tch).toLowerCase().includes(q));
+      const inExamples = String(t.examples || '').toLowerCase().includes(q);
+      return inName || inTeachers || inExamples;
+    });
+  }
+
+  // Группируем по направлению для секционных подзаголовков
   const byDirection = {};
-  templates.forEach(t => {
+  filtered.forEach(t => {
     if (!byDirection[t.direction]) byDirection[t.direction] = [];
     byDirection[t.direction].push(t);
   });
 
-  document.getElementById('modal-title').innerHTML = `Выбрать <em>шаблон занятия</em>${allowedFormat ? ' · '+allowedFormat : ''}`;
-
-  let html = `<div style="font-family:Geologica, serif;font-style:italic;font-size:13px;margin-bottom:12px;color:rgba(21,22,23,0.7)">
-    Выбери шаблон. Педагог, кабинет и направление подтянутся автоматически.
-  </div>`;
-
+  let html = '';
   Object.keys(byDirection).sort().forEach(dir => {
     html += `<div style="margin-bottom:14px">
       <div style="font-family:Inter,sans-serif;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--terra-deep);margin-bottom:6px;font-weight:600">${dir}</div>`;
@@ -3597,13 +3735,21 @@ function openTemplatePicker(day, group, idx, isTripSlot, slotKey) {
     html += '</div>';
   });
 
-  if (templates.length === 0) {
-    html += `<div style="text-align:center;padding:30px;color:rgba(21,22,23,0.5);font-style:italic">Нет шаблонов для формата «${allowedFormat}»</div>`;
+  if (filtered.length === 0) {
+    if (templates.length === 0) {
+      html = `<div style="text-align:center;padding:30px;color:rgba(21,22,23,0.5);font-style:italic">Нет шаблонов для формата «${st.allowedFormat || ''}»</div>`;
+    } else {
+      html = `<div style="text-align:center;padding:30px;color:rgba(21,22,23,0.5);font-style:italic">Ничего не найдено по фильтрам.<br>Попробуй очистить поиск или выбрать «Все».</div>`;
+    }
   }
-
-  html += `<div class="modal-actions"><button class="btn" onclick="closeModal()">Отмена</button></div>`;
-  document.getElementById('modal-body').innerHTML = html;
-  openModal();
+  document.getElementById('tpl-picker-list').innerHTML = html;
+  // Счётчик
+  const cnt = document.getElementById('tpl-picker-count');
+  if (cnt) {
+    cnt.textContent = filtered.length === templates.length
+      ? `всего: ${templates.length}`
+      : `найдено: ${filtered.length} из ${templates.length}`;
+  }
 }
 
 function applyTemplate(day, group, idx, templateName, isTripSlot, slotKey) {
