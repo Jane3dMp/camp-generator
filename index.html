@@ -2953,6 +2953,7 @@
     <button class="btn btn-sm btn-ghost" onclick="regenAllByDirection('Активность / спорт')">🔄 все активн.</button>
     <button class="btn btn-sm btn-ghost" onclick="unlockAll()" title="Снять закрепление со всех слотов — удобно перед генерацией новой смены">🔓 снять закрепления</button>
     <button class="btn btn-sm btn-ghost" onclick="openRenameTeacherDialog()" title="Заменить имя педагога во всех слотах смены — после переименования в библиотеке">✏️ переименовать педагога</button>
+    <button class="btn btn-sm btn-ghost" onclick="clearAllThemes()" title="Удалить темы из всех слотов — например «Браслет дружбы». Шаблоны и педагоги остаются. Полезно если темы прилетели из старой смены или автогенерации.">🧹 очистить темы</button>
     <button class="btn btn-sm btn-ghost" onclick="openConflictsDialog()" title="Найти педагогов, которые стоят в нескольких слотах одновременно">🔍 проверить расписание</button>
   </div>
 </div>
@@ -5932,6 +5933,94 @@ function unlockAll() {
   saveLocal();
   render();
   toast('Снято закреплений: ' + count);
+}
+
+// Удаляет поле theme у всех слотов расписания. Шаблоны, педагоги и рефы — не трогаются.
+// ЗАКРЕПЛЁННЫЕ СЛОТЫ (locked: true) — не трогаются, потому что закрепление = "это важно,
+// не меняй". Если хотите их тоже очистить, сначала «🔓 снять закрепления».
+//
+// Это «строгий режим»: тема показывается у педагога только если её явно задали через
+// 📝 редактирование. Очистка нужна когда в state остались темы от старой смены или
+// от автогенерации, и они «прилетают» к педагогам без вашего ведома.
+//
+// Также чистим slot.name если он был сгенерирован как «template «theme»» —
+// возвращаем к чистому template.
+function clearAllThemes() {
+  // Собираем образец того что найдём — для confirm
+  const samples = [];
+  let totalCount = 0;
+  let lockedSkippedCount = 0;
+  const collect = (slot) => {
+    if (!slot || !slot.theme || String(slot.theme).trim() === '') return;
+    if (slot.locked) {
+      lockedSkippedCount++;
+      return;
+    }
+    totalCount++;
+    if (samples.length < 5) samples.push(slot.theme);
+  };
+  const clusterGroups = ['am_cluster', 'am_outside', 'pm_cluster', 'pm_outside'];
+  const tripSlotKeys = [
+    'trip6_am', 'trip6_pm',
+    'trip_full_am', 'trip_full_pm',
+    'trip6_am_a', 'trip6_am_b',
+    'trip6_pm_a', 'trip6_pm_b',
+    'am_outside_single', 'pm_outside_single'
+  ];
+  state.schedule.forEach(d => {
+    clusterGroups.forEach(g => {
+      if (Array.isArray(d[g])) d[g].forEach(collect);
+    });
+    tripSlotKeys.forEach(k => collect(d[k]));
+  });
+
+  if (totalCount === 0) {
+    if (lockedSkippedCount > 0) {
+      toast('Все темы — в закреплённых слотах. Сначала «🔓 снять закрепления»');
+    } else {
+      toast('Тем нет — нечего чистить');
+    }
+    return;
+  }
+  const sampleStr = samples.map(s => '«' + s + '»').join(', ') + (totalCount > samples.length ? ' и др.' : '');
+  const lockedHint = lockedSkippedCount > 0
+    ? '\n\n⚠️ Закреплённых слотов с темами: ' + lockedSkippedCount + ' — их не трогаем (закрепление = «не менять»). ' +
+      'Чтобы и их очистить, сначала «🔓 снять закрепления».'
+    : '';
+  if (!window.confirm(
+    'Очистить темы в ' + totalCount + ' ' + pluralForms(totalCount, 'слоте', 'слотах', 'слотах') + '?\n\n' +
+    'Например: ' + sampleStr + '\n\n' +
+    'Шаблоны, педагоги, кабинеты и рефы — остаются. ' +
+    'Темы можно вернуть индивидуально через 📝 редактирование слота.' +
+    lockedHint
+  )) return;
+
+  // Чистим (только незакреплённые)
+  let cleared = 0;
+  const clear = (slot) => {
+    if (!slot || !slot.theme || String(slot.theme).trim() === '') return;
+    if (slot.locked) return; // закреплённые не трогаем
+    slot.theme = '';
+    // Если name был сгенерирован как «template «theme»» — возвращаем к template
+    if (slot.template && slot.name && slot.name !== slot.template &&
+        slot.name.startsWith(slot.template) && slot.name.includes('«')) {
+      slot.name = slot.template;
+    }
+    cleared++;
+  };
+  state.schedule.forEach(d => {
+    clusterGroups.forEach(g => {
+      if (Array.isArray(d[g])) d[g].forEach(clear);
+    });
+    tripSlotKeys.forEach(k => clear(d[k]));
+  });
+
+  saveLocal();
+  render();
+  const finalMsg = lockedSkippedCount > 0
+    ? 'Очищено тем: ' + cleared + ' · пропущено закреплённых: ' + lockedSkippedCount
+    : 'Очищено тем: ' + cleared;
+  toast(finalMsg);
 }
 
 // Собирает все уникальные имена педагогов в текущем расписании с количеством слотов.
