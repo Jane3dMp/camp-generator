@@ -719,21 +719,14 @@
 
   function getActiveRefsForSlot(slot) {
     if (!slot || !slot.template) return [];
-    // Если педагог явно выбрал рефы — показываем их (они уже валидные URL'ы,
-    // сохранённые в snapshot публикации). НЕ фильтруем через текущую LIBRARY,
-    // потому что шаблон может быть переименован, временно убран в черновики
-    // или библиотека ещё не догрузилась — в любом случае selectedRefs — это
-    // явный выбор педагога на момент публикации, и он должен отображаться.
+    // СТРОГАЯ логика: показываем ТОЛЬКО явно выбранные педагогом рефы.
+    // Если поле selectedRefs не задано или пусто — у педагога не показывается
+    // никаких картинок. Это намеренно: фотографии должны попадать на view.html
+    // только когда админ их явно одобрил (через 🔖 в админке).
     if (Array.isArray(slot.selectedRefs)) {
       return slot.selectedRefs.slice();
     }
-    // Если selectedRefs нет — берём все рефы шаблона из LIBRARY как дефолт.
-    // Сравниваем без учёта регистра и пробелов: «мк макраме» и «МК макраме» —
-    // один и тот же шаблон.
-    const target = String(slot.template).trim().toLowerCase();
-    const lib = LIBRARY.find(a => String(a.template || '').trim().toLowerCase() === target);
-    const allRefs = (lib && Array.isArray(lib.refs)) ? lib.refs : [];
-    return allRefs.slice();
+    return [];
   }
 
   function buildScheduleForTeacher(teacherName) {
