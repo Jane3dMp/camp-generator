@@ -6864,15 +6864,24 @@ function _pickTeacherToRename(oldName) {
   const count = found ? found.count : 0;
   document.getElementById('modal-body').innerHTML = `
     <div style="font-family:Geologica,serif;font-style:italic;font-size:13px;color:rgba(21,22,23,0.7);margin-bottom:14px;line-height:1.5">
-      Заменить имя педагога во всех ${count} ${pluralForms(count, 'слоте', 'слотах', 'слотах')}.
+      Заменить имя педагога во всех ${count} ${pluralForms(count, 'слоте', 'слотах', 'слотах')} текущей смены.
     </div>
     <label class="eyebrow" style="display:block;margin-bottom:6px">Старое имя (как сейчас в расписании)</label>
     <input class="editor-input" id="rename-old-input" value="${escapeHtml(oldName)}" disabled style="opacity:0.6">
     <label class="eyebrow" style="display:block;margin-bottom:6px;margin-top:14px">Новое имя</label>
     <input class="editor-input" id="rename-new-input" value="${escapeHtml(oldName)}" placeholder="например, Афанасенко Женя">
+
+    <label style="display:flex;align-items:flex-start;gap:8px;padding:12px;background:#FFF6E5;border:1px solid #E8C95A;border-left:3px solid var(--yellow-deep);border-radius:4px;margin-top:14px;cursor:pointer;font-family:Inter,sans-serif;font-size:13px;line-height:1.45">
+      <input type="checkbox" id="rename-everywhere-cb" style="margin-top:3px;flex-shrink:0">
+      <span>
+        <strong>Во всей системе</strong> (рекомендуется)<br>
+        <span style="color:rgba(21,22,23,0.7);font-size:12px">Заменить также в библиотеке (лист «Активности» в Google Sheets) и во всех опубликованных сменах. Перед заменой автоматически создаётся бэкап.</span>
+      </span>
+    </label>
+
     <div class="modal-actions">
       <button class="btn" onclick="openRenameTeacherDialog()">← Назад</button>
-      <button class="btn btn-primary" onclick="_doRenameTeacher()">Заменить во всех слотах</button>
+      <button class="btn btn-primary" onclick="_doRenameTeacher()">Заменить</button>
     </div>
   `;
   // Автофокус и выделение текста для удобства
@@ -6894,6 +6903,10 @@ function _doRenameTeacher() {
     toast('Имя не изменилось');
     return;
   }
+  // Проверка чекбокса: переименовать ли во всей системе?
+  const cb = document.getElementById('rename-everywhere-cb');
+  const everywhere = !!(cb && cb.checked);
+
   pushUndoSnapshot('переименование: ' + oldName + ' → ' + newName);
   let count = 0;
   const clusterGroups = ['am_cluster', 'am_outside', 'pm_cluster', 'pm_outside'];
@@ -6916,14 +6929,49 @@ function _doRenameTeacher() {
     });
     tripSlotKeys.forEach(k => replaceIn(d[k]));
   });
-  if (count === 0) {
+  if (count === 0 && !everywhere) {
     toast('Не нашлось слотов с этим именем');
     return;
   }
   saveLocal();
   render();
   closeModal();
-  toast('Заменено: ' + count + ' ' + pluralForms(count, 'слот', 'слота', 'слотов'));
+
+  if (everywhere) {
+    // Каскадная замена в библиотеке + всех публикациях через Apps Script.
+    // Внимание: это может занять 5-30 секунд если публикаций много.
+    toast('Локально заменено: ' + count + '. Обновляю библиотеку и все публикации…');
+    fetch(LIBRARY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'renameTeacher',
+        oldName: oldName,
+        newName: newName
+      })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) {
+        toast('Ошибка каскадной замены: ' + (data.error || 'неизвестно'));
+        return;
+      }
+      const r = data.result || {};
+      const parts = [];
+      parts.push('В библиотеке: ' + (r.libraryRows || 0));
+      parts.push('публикаций: ' + (r.publicationsAffected || 0));
+      parts.push('слотов: ' + (r.slotsChanged || 0));
+      const msg = 'Каскадно обновлено · ' + parts.join(' · ');
+      toast(msg);
+      console.log('[renameTeacher] backup:', r.backupSheetName, 'отчёт:', r);
+    })
+    .catch(err => {
+      toast('Сеть недоступна или Apps Script не отвечает: ' + err.message);
+      console.error('renameTeacher failed:', err);
+    });
+  } else {
+    toast('Заменено: ' + count + ' ' + pluralForms(count, 'слот', 'слота', 'слотов'));
+  }
 }
 
 // =============================================================

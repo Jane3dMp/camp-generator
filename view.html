@@ -542,6 +542,18 @@
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
+
+  // Нормализует имя педагога/шаблона для сравнения. Покрывает типичные опечатки:
+  // регистр, ё→е, лишние пробелы. НЕ покрывает реальные опечатки (О vs А) —
+  // для них в админке есть кнопка «переименовать педагога во всей системе».
+  function normalizeName(s) {
+    if (!s) return '';
+    return String(s)
+      .toLowerCase()
+      .replace(/ё/g, 'е')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
   function dateForDay(state, dayIdx) {
     const start = new Date(state.startDate + 'T00:00:00');
     let d = new Date(start);
@@ -660,7 +672,18 @@
   }
 
   function getNamedTeachers() {
-    const set = new Set();
+    // Используем нормализованный ключ для дедупликации, но в результат кладём
+    // первое встреченное оригинальное имя — чтобы в дропдауне не было дублей
+    // вроде «Афонасенко» и «АфОнасенко».
+    const seenNorm = new Set();
+    const result = [];
+    const tryAdd = (t) => {
+      if (!isNamedTeacher(t)) return;
+      const norm = normalizeName(t);
+      if (seenNorm.has(norm)) return;
+      seenNorm.add(norm);
+      result.push(t);
+    };
     if (!publishedState || !Array.isArray(publishedState.schedule)) return [];
     publishedState.schedule.forEach(d => {
       if (!d) return;
@@ -669,18 +692,16 @@
         if (!Array.isArray(arr)) return;
         arr.forEach(s => {
           if (!s) return;
-          const t = String(s.teacher || '').trim();
-          if (isNamedTeacher(t)) set.add(t);
+          tryAdd(String(s.teacher || '').trim());
         });
       });
       ['trip_full_am','trip_full_pm','trip6_am','trip6_pm'].forEach(g => {
         const s = d[g];
         if (!s) return;
-        const t = String(s.teacher || '').trim();
-        if (isNamedTeacher(t)) set.add(t);
+        tryAdd(String(s.teacher || '').trim());
       });
     });
-    return Array.from(set).sort((a, b) => a.localeCompare(b, 'ru'));
+    return result.sort((a, b) => a.localeCompare(b, 'ru'));
   }
 
   function populateTeacherSelect() {
@@ -704,12 +725,12 @@
     for (const k of tripSlots) {
       const s = day[k];
       if (!s) continue;
-      const t = String(s.teacher || '').trim().toLowerCase();
+      const t = normalizeName(s.teacher);
       if (t && t === teacherTargetLc) return true;
     }
     const extra = String(day.extraTripTeachers || '').trim();
     if (!extra) return false;
-    const list = extra.split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
+    const list = extra.split(',').map(x => normalizeName(x)).filter(Boolean);
     return list.includes(teacherTargetLc);
   }
 
@@ -748,7 +769,7 @@
   }
 
   function buildScheduleForTeacher(teacherName) {
-    const target = String(teacherName || '').trim().toLowerCase();
+    const target = normalizeName(teacherName);
     const result = [];
     publishedState.schedule.forEach((d, idx) => {
       const date = dateForDay(publishedState, idx);
@@ -769,8 +790,8 @@
       if (d.type === 'trip6_am_split' || d.type === 'trip6_full_split') {
         const aSlot = d.trip6_am_a;
         const bSlot = d.trip6_am_b;
-        const tA = aSlot ? String(aSlot.teacher || '').trim().toLowerCase() : '';
-        const tB = bSlot ? String(bSlot.teacher || '').trim().toLowerCase() : '';
+        const tA = aSlot ? normalizeName(aSlot.teacher) : '';
+        const tB = bSlot ? normalizeName(bSlot.teacher) : '';
         if (tA !== target && tB !== target && isTeacherOnTrip(d, target)) {
           tripNote = `Параллельные выезды утром: 1-2-3 → ${aSlot && aSlot.template || '?'}, 4-5-6 → ${bSlot && bSlot.template || '?'}.`;
         }
@@ -779,8 +800,8 @@
       if (d.type === 'trip6_pm_split' || d.type === 'trip6_full_split') {
         const aSlot = d.trip6_pm_a;
         const bSlot = d.trip6_pm_b;
-        const tA = aSlot ? String(aSlot.teacher || '').trim().toLowerCase() : '';
-        const tB = bSlot ? String(bSlot.teacher || '').trim().toLowerCase() : '';
+        const tA = aSlot ? normalizeName(aSlot.teacher) : '';
+        const tB = bSlot ? normalizeName(bSlot.teacher) : '';
         if (tA !== target && tB !== target && isTeacherOnTrip(d, target)) {
           // Если уже tripNote от утренней — добавим
           const pmNote = `Параллельные выезды после обеда: 1-2-3 → ${aSlot && aSlot.template || '?'}, 4-5-6 → ${bSlot && bSlot.template || '?'}.`;
@@ -805,7 +826,7 @@
         if (!Array.isArray(arr)) return;
         arr.forEach(s => {
           if (!s || !s.template) return;
-          const tch = String(s.teacher || '').trim().toLowerCase();
+          const tch = normalizeName(s.teacher);
           if (tch !== target) return;
           const isAM = g.startsWith('am_');
           const time = isAM ? '9:30–12:30' : '14:00–17:00';
@@ -831,7 +852,7 @@
       ['trip_full_am','trip_full_pm'].forEach(g => {
         const s = d[g];
         if (!s || !s.template) return;
-        const tch = String(s.teacher || '').trim().toLowerCase();
+        const tch = normalizeName(s.teacher);
         if (tch !== target) return;
         const isAM = g === 'trip_full_am';
         const time = isAM ? '9:30–12:30' : '14:00–17:00';
@@ -857,7 +878,7 @@
       splitKeys.forEach(g => {
         const s = d[g];
         if (!s || !s.template) return;
-        const tch = String(s.teacher || '').trim().toLowerCase();
+        const tch = normalizeName(s.teacher);
         if (tch !== target) return;
         const isAM = g.startsWith('trip6_am_');
         const isGroupA = g.endsWith('_a');
