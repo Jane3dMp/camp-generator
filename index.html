@@ -3121,6 +3121,7 @@
     <button class="btn btn-sm btn-ghost" onclick="regenAllByDirection('Активность / спорт')">🔄 все активн.</button>
     <button class="btn btn-sm btn-ghost" onclick="unlockAll()" title="Снять закрепление со всех слотов — удобно перед генерацией новой смены">🔓 снять закрепления</button>
     <button class="btn btn-sm btn-ghost" onclick="openRenameTeacherDialog()" title="Заменить имя педагога во всех слотах смены — после переименования в библиотеке">✏️ переименовать педагога</button>
+    <button class="btn btn-sm btn-ghost" onclick="openRenameTemplateDialog()" title="Переименовать шаблон в библиотеке и во всех публикациях. С автоматическим бэкапом.">🏷 переименовать шаблон</button>
     <button class="btn btn-sm btn-ghost" onclick="clearAllThemes()" title="Удалить темы из всех слотов — например «Браслет дружбы». Шаблоны и педагоги остаются. Полезно если темы прилетели из старой смены или автогенерации.">🧹 очистить темы</button>
     <button class="btn btn-sm btn-ghost" onclick="cleanForeignRefs()" title="Умная чистка: убирает только «прилипшие» рефы (которых нет в библиотеке у этого шаблона). Свои рефы шаблона остаются. Самый безопасный способ привести в порядок старую смену.">🪄 умная чистка рефов</button>
     <button class="btn btn-sm btn-ghost" onclick="clearAllRefs()" title="Удалить ВСЕ выбранные референсы из всех слотов (жёсткий вариант). После этого нужно вручную через 🔖 выбрать рефы для каждого нужного слота.">🧹 очистить рефы</button>
@@ -6972,6 +6973,173 @@ function _doRenameTeacher() {
   } else {
     toast('Заменено: ' + count + ' ' + pluralForms(count, 'слот', 'слота', 'слотов'));
   }
+}
+
+// =============================================================
+// ПЕРЕИМЕНОВАНИЕ ШАБЛОНА (каскадно: библиотека + все публикации)
+// =============================================================
+// Открывает модалку с дропдауном всех уникальных шаблонов из LIBRARY.
+// После выбора — спрашивает новое имя и подтверждение.
+function openRenameTemplateDialog() {
+  if (!Array.isArray(LIBRARY) || LIBRARY.length === 0) {
+    toast('Библиотека ещё не загружена');
+    return;
+  }
+  // Уникальные шаблоны из LIBRARY (отсортированы по алфавиту)
+  const seen = new Set();
+  const uniqueTemplates = [];
+  LIBRARY.forEach(a => {
+    const tpl = String(a.template || '').trim();
+    if (!tpl) return;
+    const key = tpl.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    uniqueTemplates.push(tpl);
+  });
+  uniqueTemplates.sort((a, b) => a.localeCompare(b, 'ru'));
+
+  if (uniqueTemplates.length === 0) {
+    toast('В библиотеке нет шаблонов');
+    return;
+  }
+
+  document.getElementById('modal-title').innerHTML = 'Переименовать <em>шаблон</em>';
+  const optionsHtml = uniqueTemplates.map(t =>
+    `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`
+  ).join('');
+  document.getElementById('modal-body').innerHTML = `
+    <div style="font-family:Geologica,serif;font-style:italic;font-size:13px;color:rgba(21,22,23,0.7);margin-bottom:14px;line-height:1.5">
+      Выберите шаблон, который хотите переименовать. Изменение применится в библиотеке (Google Sheets) и во всех опубликованных сменах. Перед заменой автоматически создаётся бэкап.
+    </div>
+    <label class="eyebrow" style="display:block;margin-bottom:6px">Шаблон из библиотеки (${uniqueTemplates.length} ${pluralForms(uniqueTemplates.length, 'шаблон', 'шаблона', 'шаблонов')})</label>
+    <select class="editor-input" id="rename-tpl-select" onchange="_onRenameTemplatePick()">
+      <option value="">— выберите —</option>
+      ${optionsHtml}
+    </select>
+    <div id="rename-tpl-step2" style="display:none;margin-top:14px">
+      <label class="eyebrow" style="display:block;margin-bottom:6px">Новое имя</label>
+      <input class="editor-input" id="rename-tpl-new" placeholder="например, МК по макраме">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Отмена</button>
+      <button class="btn btn-primary" id="rename-tpl-go" onclick="_doRenameTemplate()" disabled>Переименовать</button>
+    </div>
+  `;
+  openModal();
+}
+
+function _onRenameTemplatePick() {
+  const sel = document.getElementById('rename-tpl-select');
+  const oldName = sel ? sel.value : '';
+  const step2 = document.getElementById('rename-tpl-step2');
+  const newInput = document.getElementById('rename-tpl-new');
+  const goBtn = document.getElementById('rename-tpl-go');
+  if (!oldName) {
+    if (step2) step2.style.display = 'none';
+    if (goBtn) goBtn.disabled = true;
+    return;
+  }
+  if (step2) step2.style.display = 'block';
+  if (newInput) {
+    newInput.value = oldName;
+    setTimeout(() => { newInput.focus(); newInput.select(); }, 50);
+  }
+  if (goBtn) goBtn.disabled = false;
+}
+
+function _doRenameTemplate() {
+  if (!_checkCanEdit('Переименование шаблона')) return;
+  const oldName = String(document.getElementById('rename-tpl-select').value || '').trim();
+  const newName = String(document.getElementById('rename-tpl-new').value || '').trim();
+  if (!oldName) { toast('Не выбран шаблон'); return; }
+  if (!newName) { toast('Новое имя не может быть пустым'); return; }
+  if (oldName === newName) { toast('Имя не изменилось'); return; }
+
+  if (!window.confirm(
+    'Переименовать шаблон «' + oldName + '» → «' + newName + '»?\n\n' +
+    'Изменение коснётся:\n' +
+    '• Библиотеки (лист «Активности» в Google Sheets)\n' +
+    '• Всех опубликованных смен (slot.template)\n' +
+    '• Текущей админки (state.schedule)\n\n' +
+    'Перед заменой будет создан бэкап листа «Опубликованные версии».'
+  )) return;
+
+  pushUndoSnapshot('переименование шаблона: ' + oldName + ' → ' + newName);
+
+  // Локально — заменим в текущем state админки
+  let localCount = 0;
+  const oldNorm = oldName.toLowerCase().trim();
+  const clusterGroups = ['am_cluster', 'am_outside', 'pm_cluster', 'pm_outside'];
+  const tripSlotKeys = [
+    'trip6_am', 'trip6_pm',
+    'trip_full_am', 'trip_full_pm',
+    'trip6_am_a', 'trip6_am_b',
+    'trip6_pm_a', 'trip6_pm_b',
+    'am_outside_single', 'pm_outside_single'
+  ];
+  const replaceIn = (slot) => {
+    if (!slot || !slot.template) return;
+    if (String(slot.template).trim().toLowerCase() === oldNorm) {
+      const oldTpl = slot.template;
+      slot.template = newName;
+      // Обновим slot.name если он совпадал с template
+      if (slot.name) {
+        if (String(slot.name).trim().toLowerCase() === oldNorm) {
+          slot.name = newName;
+        } else if (slot.name.startsWith(oldTpl + ' «') || slot.name.startsWith(oldTpl + ' ')) {
+          slot.name = newName + slot.name.slice(oldTpl.length);
+        }
+      }
+      localCount++;
+    }
+  };
+  state.schedule.forEach(d => {
+    clusterGroups.forEach(g => {
+      if (Array.isArray(d[g])) d[g].forEach(replaceIn);
+    });
+    tripSlotKeys.forEach(k => replaceIn(d[k]));
+  });
+
+  // Обновим LIBRARY локально, чтобы дропдауны и поиск шаблонов сразу работали с новым именем
+  LIBRARY.forEach(a => {
+    if (a && a.template && String(a.template).trim().toLowerCase() === oldNorm) {
+      a.template = newName;
+    }
+  });
+
+  saveLocal();
+  render();
+  closeModal();
+
+  // Каскад через Apps Script (бэкап + библиотека + все публикации)
+  toast('Локально заменено: ' + localCount + '. Обновляю библиотеку и все публикации…');
+  fetch(LIBRARY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({
+      action: 'renameTemplate',
+      oldName: oldName,
+      newName: newName
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (!data.ok) {
+      toast('Ошибка каскадной замены: ' + (data.error || 'неизвестно'));
+      return;
+    }
+    const r = data.result || {};
+    const parts = [];
+    parts.push('В библиотеке: ' + (r.libraryRows || 0));
+    parts.push('публикаций: ' + (r.publicationsAffected || 0));
+    parts.push('слотов: ' + (r.slotsChanged || 0));
+    toast('Каскадно обновлено · ' + parts.join(' · '));
+    console.log('[renameTemplate] backup:', r.backupSheetName, 'отчёт:', r);
+  })
+  .catch(err => {
+    toast('Сеть недоступна или Apps Script не отвечает: ' + err.message);
+    console.error('renameTemplate failed:', err);
+  });
 }
 
 // =============================================================
