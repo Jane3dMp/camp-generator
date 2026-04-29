@@ -6064,26 +6064,68 @@ function _isSharedTeacher(name) {
   return _SHARED_TEACHERS.has(String(name).trim().toLowerCase());
 }
 
-// Собирает для конкретного полу-дня словарь {teacherName: [{group, idx, slot}]}
-// чтобы потом найти тех, у кого >1 слота
+// Возвращает список «активных» слотов для конкретного полу-дня в зависимости от типа дня.
+// Каждый элемент: { slot, label } — slot для проверки teacher, label для UI.
+// Если utro/дня нет (например, утром выезд) — возвращает пустой массив.
+function _activeSlotsForHalfDay(day, half /* 'am' | 'pm' */) {
+  if (!day || !day.type) return [];
+  const out = [];
+  const t = day.type;
+
+  if (half === 'am') {
+    // Утренние варианты:
+    if (t === 'normal' || t === 'trip3_pm' || t === 'trip6_pm' || t === 'trip6_pm_split') {
+      // Утром обычная работа: cluster + outside
+      (day.am_cluster || []).forEach((s, i) => out.push({ slot: s, group: 'am_cluster', idx: i, label: 'кластер утром' }));
+      (day.am_outside || []).forEach((s, i) => out.push({ slot: s, group: 'am_outside', idx: i, label: 'улица утром' }));
+    } else if (t === 'trip3_am' || t === 'trip3_full') {
+      // Утром выезд (полу-выезд: одна группа на выезде, другая в кластере)
+      if (day.trip_full_am) out.push({ slot: day.trip_full_am, group: 'trip_full_am', idx: 0, label: 'выезд утром' });
+      (day.am_cluster || []).forEach((s, i) => out.push({ slot: s, group: 'am_cluster', idx: i, label: 'кластер утром (parallel)' }));
+    } else if (t === 'trip6_am') {
+      // Полный выезд утром — все 6 отрядов
+      if (day.trip6_am) out.push({ slot: day.trip6_am, group: 'trip6_am', idx: 0, label: 'полный выезд утром' });
+    } else if (t === 'trip6_am_split' || t === 'trip6_full_split') {
+      // Параллельные выезды утром (1-2-3 и 4-5-6 в разные места)
+      if (day.trip6_am_a) out.push({ slot: day.trip6_am_a, group: 'trip6_am_a', idx: 0, label: 'выезд утром 1-2-3' });
+      if (day.trip6_am_b) out.push({ slot: day.trip6_am_b, group: 'trip6_am_b', idx: 0, label: 'выезд утром 4-5-6' });
+    }
+  } else {
+    // Дневные варианты:
+    if (t === 'normal' || t === 'trip3_am' || t === 'trip6_am' || t === 'trip6_am_split') {
+      (day.pm_cluster || []).forEach((s, i) => out.push({ slot: s, group: 'pm_cluster', idx: i, label: 'кластер после обеда' }));
+      (day.pm_outside || []).forEach((s, i) => out.push({ slot: s, group: 'pm_outside', idx: i, label: 'улица после обеда' }));
+    } else if (t === 'trip3_pm' || t === 'trip3_full') {
+      if (day.trip_full_pm) out.push({ slot: day.trip_full_pm, group: 'trip_full_pm', idx: 0, label: 'выезд после обеда' });
+      (day.pm_cluster || []).forEach((s, i) => out.push({ slot: s, group: 'pm_cluster', idx: i, label: 'кластер после обеда (parallel)' }));
+    } else if (t === 'trip6_pm') {
+      if (day.trip6_pm) out.push({ slot: day.trip6_pm, group: 'trip6_pm', idx: 0, label: 'полный выезд после обеда' });
+    } else if (t === 'trip6_pm_split' || t === 'trip6_full_split') {
+      if (day.trip6_pm_a) out.push({ slot: day.trip6_pm_a, group: 'trip6_pm_a', idx: 0, label: 'выезд после обеда 1-2-3' });
+      if (day.trip6_pm_b) out.push({ slot: day.trip6_pm_b, group: 'trip6_pm_b', idx: 0, label: 'выезд после обеда 4-5-6' });
+    }
+  }
+  return out;
+}
+
+// Собирает для конкретного полу-дня словарь {teacherName: [{group, idx, label, slot}]}
+// чтобы потом найти тех, у кого >1 слота. Использует _activeSlotsForHalfDay,
+// то есть учитывает тип дня и не считает пустые/неиспользуемые группы.
 function _teachersInHalfDay(day, half /* 'am' | 'pm' */) {
   const map = new Map();
-  const groups = half === 'am' ? ['am_cluster', 'am_outside'] : ['pm_cluster', 'pm_outside'];
-  groups.forEach(g => {
-    if (!Array.isArray(day[g])) return;
-    day[g].forEach((slot, idx) => {
-      if (!slot || !slot.teacher) return;
-      const t = String(slot.teacher).trim();
-      if (_isSharedTeacher(t)) return; // куратор может быть везде
-      if (!map.has(t)) map.set(t, []);
-      map.get(t).push({ group: g, idx: idx, slot });
-    });
+  const activeSlots = _activeSlotsForHalfDay(day, half);
+  activeSlots.forEach(({ slot, group, idx, label }) => {
+    if (!slot || !slot.teacher) return;
+    const t = String(slot.teacher).trim();
+    if (_isSharedTeacher(t)) return;
+    if (!map.has(t)) map.set(t, []);
+    map.get(t).push({ group, idx, label, slot });
   });
   return map;
 }
 
 // Возвращает массив конфликтов:
-// [{ dayNum, dayDate, half, teacher, slots: [{group, idx, name, template}] }]
+// [{ dayNum, dayDate, half, teacher, slots: [{group, idx, label, name, template}] }]
 function findScheduleConflicts() {
   const conflicts = [];
   state.schedule.forEach((d, i) => {
@@ -6101,6 +6143,7 @@ function findScheduleConflicts() {
             slots: slots.map(s => ({
               group: s.group,
               idx: s.idx,
+              label: s.label,
               name: s.slot.name || s.slot.template,
               template: s.slot.template
             }))
@@ -6137,7 +6180,7 @@ function openConflictsDialog() {
         <span class="conflict-half">${escapeHtml(c.halfLabel)}: ${c.slots.length} ${pluralForms(c.slots.length, 'слот', 'слота', 'слотов')} одновременно</span>
       </div>
       <div class="conflict-slots">
-        ${c.slots.map(s => `<div class="conflict-slot">${_groupLabelShort(s.group)}: ${escapeHtml(s.name)}</div>`).join('')}
+        ${c.slots.map(s => `<div class="conflict-slot">${escapeHtml(s.label)}: ${escapeHtml(s.name)}</div>`).join('')}
       </div>
     </div>
   `).join('');
@@ -6950,22 +6993,18 @@ async function regenDay(day) {
   } catch(e) { toast('Ошибка: ' + e.message); }
 }
 
-// Возвращает true если педагог `teacher` уже стоит в каком-то другом слоте
-// этого полу-дня (am или pm), кроме слота {exceptGroup, exceptIdx}.
-// Используется при перегенерации, чтобы не плодить конфликты.
-function _isTeacherBusyInHalfDay(dayIdx, half /* 'am'|'pm' */, teacher, exceptGroup, exceptIdx) {
+// Возвращает true если педагог `teacher` уже стоит в каком-то другом активном
+// слоте этого полу-дня, кроме слота {exceptGroup, exceptIdx}. Учитывает тип дня —
+// если группа неактивна для данного типа, она игнорируется.
+function _isTeacherBusyInHalfDay(dayIdx, half, teacher, exceptGroup, exceptIdx) {
   if (!teacher || _isSharedTeacher(teacher)) return false;
   const day = state.schedule[dayIdx];
   if (!day) return false;
-  const groups = half === 'am' ? ['am_cluster', 'am_outside'] : ['pm_cluster', 'pm_outside'];
-  for (const g of groups) {
-    if (!Array.isArray(day[g])) continue;
-    for (let i = 0; i < day[g].length; i++) {
-      if (g === exceptGroup && i === exceptIdx) continue;
-      const slot = day[g][i];
-      if (slot && slot.teacher && String(slot.teacher).trim() === String(teacher).trim()) {
-        return true;
-      }
+  const activeSlots = _activeSlotsForHalfDay(day, half);
+  for (const { slot, group, idx } of activeSlots) {
+    if (group === exceptGroup && idx === exceptIdx) continue;
+    if (slot && slot.teacher && String(slot.teacher).trim() === String(teacher).trim()) {
+      return true;
     }
   }
   return false;
