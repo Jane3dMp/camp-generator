@@ -763,6 +763,72 @@
     color: rgba(21,22,23,0.55);
   }
 
+  /* Модалка «Что включить в тизер?» */
+  .teaser-pick-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-height: 480px;
+    overflow-y: auto;
+    margin-bottom: 14px;
+  }
+  .teaser-pick-section {
+    background: var(--white);
+    border: 1px solid rgba(21,22,23,0.10);
+    border-radius: 4px;
+    padding: 10px 12px;
+  }
+  .teaser-pick-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .teaser-pick-toggle-all {
+    font-size: 11px !important;
+    padding: 2px 8px !important;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .teaser-pick-items {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .teaser-pick-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: Inter, sans-serif;
+    transition: background 0.1s ease;
+  }
+  .teaser-pick-row:hover {
+    background: var(--paper-warm);
+  }
+  .teaser-pick-cb {
+    cursor: pointer;
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+  }
+  .teaser-pick-name {
+    flex: 1;
+    font-size: 13px;
+    color: var(--ink);
+    line-height: 1.3;
+  }
+  .teaser-pick-count {
+    font-size: 11px;
+    color: rgba(21,22,23,0.5);
+    flex-shrink: 0;
+    background: rgba(21,22,23,0.05);
+    padding: 1px 6px;
+    border-radius: 8px;
+  }
+
   /* === КОМПАКТНЫЙ ВИД === */
   .compact-controls {
     background: var(--paper-warm);
@@ -8863,12 +8929,33 @@ function pickStock(category, idx) {
 
 // Группирует все утверждённые активности смены по направлениям.
 // Возвращает {Творчество: [...], IT: [...], ...}
+// Возвращает true если шаблон входит в текущий выбор пользователя для тизера.
+// Если state.teaserSelection пуст или не задан — возвращает true (без фильтра).
+// Используется только в режиме тизера, в полной программе фильтр игнорируется.
+function _isTemplateInTeaserSelection(template) {
+  if (!Array.isArray(state.teaserSelection) || state.teaserSelection.length === 0) {
+    return true; // нет выбора — пропускаем все
+  }
+  const tpl = String(template || '').trim().toLowerCase();
+  return state.teaserSelection.some(s => String(s).trim().toLowerCase() === tpl);
+}
+
+// Глобальный флаг — true когда сейчас собирается ТИЗЕР (а не полная программа).
+// Включается в generatePDFCommon('teaser'), сбрасывается в finally.
+// Нужен чтобы groupScheduleByDirection и extractEvents применяли фильтр teaserSelection
+// ТОЛЬКО для тизера, не ломая полную программу.
+let _pdfBuildingTeaser = false;
+
 function groupScheduleByDirection() {
   const map = new Map();
+  const allow = _pdfBuildingTeaser
+    ? (tpl) => _isTemplateInTeaserSelection(tpl)
+    : () => true;
   state.schedule.forEach(d => {
     ['am_cluster','am_outside','pm_cluster','pm_outside'].forEach(g => {
       (d[g] || []).forEach(s => {
         if (!s || !s.template) return;
+        if (!allow(s.template)) return;
         const dir = s.direction || 'Прочее';
         if (!map.has(dir)) map.set(dir, new Set());
         map.get(dir).add(s.template);
@@ -8877,6 +8964,7 @@ function groupScheduleByDirection() {
     ['trip_full_am','trip_full_pm','trip6_am','trip6_pm'].forEach(g => {
       const s = d[g];
       if (!s || !s.template) return;
+      if (!allow(s.template)) return;
       const dir = s.direction || 'Прочее';
       if (!map.has(dir)) map.set(dir, new Set());
       map.get(dir).add(s.template);
@@ -8917,6 +9005,14 @@ function extractEvents() {
   const events = [];
   const ANCHOR_REGEX = /(вечеринк|ярмарк|дискотек|фестивал|конкурс|концерт|шоу|праздник)/i;
 
+  // В режиме тизера применяем фильтр выбранных шаблонов. Если шаблон события
+  // не выбран — пропускаем его. В режиме полной программы — все события.
+  const _allowEvent = (slot) => {
+    if (!_pdfBuildingTeaser) return true;
+    if (!slot || !slot.template) return false;
+    return _isTemplateInTeaserSelection(slot.template);
+  };
+
   state.schedule.forEach((d, idx) => {
     const date = dateForDay(idx);
     const dateStr = date.getDate() + ' ' + MONTHS[date.getMonth()];
@@ -8928,8 +9024,10 @@ function extractEvents() {
       const halfPrefix = d.type === 'trip6_pm_split' ? 'pm' : 'am';
       const aSlot = d['trip6_' + halfPrefix + '_a'];
       const bSlot = d['trip6_' + halfPrefix + '_b'];
-      const aName = slotDisplayName(aSlot);
-      const bName = slotDisplayName(bSlot);
+      const aAllowed = _allowEvent(aSlot);
+      const bAllowed = _allowEvent(bSlot);
+      const aName = aAllowed ? slotDisplayName(aSlot) : '';
+      const bName = bAllowed ? slotDisplayName(bSlot) : '';
       if (aName || bName) {
         events.push({
           day: dayNum, date: dateStr,
@@ -8946,6 +9044,7 @@ function extractEvents() {
     // 2. Полные выезды (все 6 отрядов)
     if (d.type === 'trip6_am' || d.type === 'trip6_pm') {
       const slot = d.type === 'trip6_am' ? d.trip6_am : d.trip6_pm;
+      if (!_allowEvent(slot)) return;
       const dispName = slotDisplayName(slot);
       if (dispName) {
         events.push({
@@ -8962,8 +9061,8 @@ function extractEvents() {
     // 3. trip3_full — все отряды побывают в выезде. Утром одна группа на выезде,
     //    после обеда наоборот. К концу дня все 6 отрядов прошли через выезд.
     if (d.type === 'trip3_full') {
-      const am = slotDisplayName(d.trip_full_am);
-      const pm = slotDisplayName(d.trip_full_pm);
+      const am = _allowEvent(d.trip_full_am) ? slotDisplayName(d.trip_full_am) : '';
+      const pm = _allowEvent(d.trip_full_pm) ? slotDisplayName(d.trip_full_pm) : '';
       const same = am && pm && am.toLowerCase() === pm.toLowerCase();
       if (same) {
         // Одно и то же занятие весь день (одни отряды утром, другие после обеда)
@@ -8997,6 +9096,7 @@ function extractEvents() {
     // 4. trip3_am / trip3_pm — половина отрядов на выезде
     if (d.type === 'trip3_am' || d.type === 'trip3_pm') {
       const slot = d.type === 'trip3_am' ? d.trip_full_am : d.trip_full_pm;
+      if (!_allowEvent(slot)) return;
       const dispName = slotDisplayName(slot);
       if (dispName) {
         events.push({
@@ -10262,6 +10362,10 @@ async function generatePDFCommon(mode) {
   }
   syncConfig();
 
+  // Флаг для groupScheduleByDirection и extractEvents: применять фильтр teaserSelection
+  // только в режиме тизера. Сбросим в finally в конце функции.
+  _pdfBuildingTeaser = (mode === 'teaser');
+
   toast('AI пишет тексты для PDF…');
   const copy = await generatePDFCopy();
 
@@ -10319,6 +10423,8 @@ async function generatePDFCommon(mode) {
   } catch(e) {
     console.error('PDF error:', e);
     toast('Ошибка PDF: ' + e.message);
+  } finally {
+    _pdfBuildingTeaser = false;
   }
 }
 
@@ -10355,8 +10461,187 @@ function generatePreviewHTML(mode) {
   }).catch(e => toast('Ошибка превью: ' + e.message));
 }
 
-async function generateTeaserPDF() { return generatePDFCommon('teaser'); }
+async function generateTeaserPDF() {
+  // Перед генерацией — спрашиваем какие активности включить в тизер.
+  // Сохраняем выбор в state.teaserSelection (Set имён шаблонов в нижнем регистре),
+  // он подхватится при следующем нажатии «Тизер».
+  openTeaserSelectionDialog();
+}
 async function generateFullPDF()   { return generatePDFCommon('full'); }
+
+// Внутренняя функция — реальный запуск тизера после выбора активностей.
+// Вызывается из модалки.
+async function _runTeaserPDFGeneration() {
+  return generatePDFCommon('teaser');
+}
+
+// Модалка «Что включить в тизер?» — чек-лист всех уникальных шаблонов смены,
+// сгруппированных по направлениям. Выбор сохраняется в state.teaserSelection.
+function openTeaserSelectionDialog() {
+  if (!state.schedule || state.schedule.length === 0) {
+    toast('Сначала собери программу смены');
+    return;
+  }
+
+  // Собираем все уникальные шаблоны смены, сгруппированные по направлениям
+  const byDir = new Map(); // direction -> Map(templateLower -> {template, count, direction})
+  const clusterGroups = ['am_cluster', 'am_outside', 'pm_cluster', 'pm_outside'];
+  const tripSlotKeys = [
+    'trip6_am', 'trip6_pm',
+    'trip_full_am', 'trip_full_pm',
+    'trip6_am_a', 'trip6_am_b',
+    'trip6_pm_a', 'trip6_pm_b',
+    'am_outside_single', 'pm_outside_single'
+  ];
+  const collect = (slot) => {
+    if (!slot || !slot.template) return;
+    const tpl = String(slot.template).trim();
+    if (!tpl) return;
+    const key = tpl.toLowerCase();
+    const dir = slot.direction || 'Прочее';
+    if (!byDir.has(dir)) byDir.set(dir, new Map());
+    const dirMap = byDir.get(dir);
+    if (!dirMap.has(key)) {
+      dirMap.set(key, { template: tpl, count: 0, direction: dir });
+    }
+    dirMap.get(key).count++;
+  };
+  state.schedule.forEach(d => {
+    clusterGroups.forEach(g => {
+      if (Array.isArray(d[g])) d[g].forEach(collect);
+    });
+    tripSlotKeys.forEach(k => collect(d[k]));
+  });
+
+  if (byDir.size === 0) {
+    toast('В смене нет активностей с шаблонами');
+    return;
+  }
+
+  // Текущий выбор (если есть)
+  const currentSelection = Array.isArray(state.teaserSelection)
+    ? new Set(state.teaserSelection.map(s => String(s).toLowerCase()))
+    : new Set();
+
+  // Порядок направлений — фиксированный, как в основном UI
+  const dirOrder = [
+    'IT',
+    'Творчество',
+    'Soft skills / нейро',
+    'Активность / спорт',
+    'Игры / квесты',
+    'Событие',
+    'Прочее'
+  ];
+  const sortedDirs = Array.from(byDir.keys()).sort((a, b) => {
+    const ai = dirOrder.indexOf(a);
+    const bi = dirOrder.indexOf(b);
+    if (ai === -1 && bi === -1) return a.localeCompare(b, 'ru');
+    if (ai === -1) return 1;
+    if (bi === -1) return -1;
+    return ai - bi;
+  });
+
+  const sectionsHtml = sortedDirs.map(dir => {
+    const items = Array.from(byDir.get(dir).values()).sort((a, b) =>
+      b.count - a.count || a.template.localeCompare(b.template, 'ru')
+    );
+    const itemsHtml = items.map(item => {
+      const isChecked = currentSelection.has(item.template.toLowerCase());
+      const escTpl = String(item.template).replace(/'/g, "\\'");
+      return `
+        <label class="teaser-pick-row">
+          <input type="checkbox" class="teaser-pick-cb" data-template="${escapeHtml(escTpl)}" ${isChecked ? 'checked' : ''}>
+          <span class="teaser-pick-name">${escapeHtml(item.template)}</span>
+          <span class="teaser-pick-count">×${item.count}</span>
+        </label>
+      `;
+    }).join('');
+    return `
+      <div class="teaser-pick-section">
+        <div class="teaser-pick-section-header">
+          <span class="direction-tag ${dirClass(dir)}">${escapeHtml(dir)}</span>
+          <button class="btn btn-sm btn-ghost teaser-pick-toggle-all" onclick="_teaserPickToggleSection(this)">все</button>
+        </div>
+        <div class="teaser-pick-items">${itemsHtml}</div>
+      </div>
+    `;
+  }).join('');
+
+  document.getElementById('modal-title').innerHTML = 'Что включить <em>в тизер</em>';
+  document.getElementById('modal-body').innerHTML = `
+    <div style="font-family:Geologica,serif;font-style:italic;font-size:13px;color:rgba(21,22,23,0.7);margin-bottom:14px;line-height:1.5">
+      Отметьте активности, которые попадут в тизер для родителей. Выбор сохранится со сменой — при следующем тизере галочки уже будут стоять.
+    </div>
+
+    <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="btn btn-sm btn-ghost" onclick="_teaserPickAll()">✓ выбрать все</button>
+      <button class="btn btn-sm btn-ghost" onclick="_teaserPickNone()">✗ снять все</button>
+      <span id="teaser-pick-counter" style="margin-left:auto;font-family:Inter,sans-serif;font-size:12px;color:rgba(21,22,23,0.6);align-self:center"></span>
+    </div>
+
+    <div class="teaser-pick-list">${sectionsHtml}</div>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Отмена</button>
+      <button class="btn btn-primary" id="teaser-pick-go" onclick="_teaserPickGenerate()">📄 Сгенерировать тизер</button>
+    </div>
+  `;
+  openModal();
+  _teaserPickUpdateCounter();
+  // При любом клике — обновляем счётчик
+  document.querySelectorAll('.teaser-pick-cb').forEach(cb => {
+    cb.addEventListener('change', _teaserPickUpdateCounter);
+  });
+}
+
+function _teaserPickUpdateCounter() {
+  const cbs = document.querySelectorAll('.teaser-pick-cb');
+  const total = cbs.length;
+  let checked = 0;
+  cbs.forEach(cb => { if (cb.checked) checked++; });
+  const counterEl = document.getElementById('teaser-pick-counter');
+  if (counterEl) counterEl.textContent = 'Выбрано: ' + checked + ' из ' + total;
+  const goBtn = document.getElementById('teaser-pick-go');
+  if (goBtn) goBtn.disabled = checked === 0;
+}
+
+function _teaserPickAll() {
+  document.querySelectorAll('.teaser-pick-cb').forEach(cb => { cb.checked = true; });
+  _teaserPickUpdateCounter();
+}
+
+function _teaserPickNone() {
+  document.querySelectorAll('.teaser-pick-cb').forEach(cb => { cb.checked = false; });
+  _teaserPickUpdateCounter();
+}
+
+// Переключает все чекбоксы внутри секции (направления) — ставит/снимает по принципу:
+// если все уже выбраны — снимаем, иначе выбираем все.
+function _teaserPickToggleSection(btn) {
+  const section = btn.closest('.teaser-pick-section');
+  if (!section) return;
+  const cbs = section.querySelectorAll('.teaser-pick-cb');
+  const allChecked = Array.from(cbs).every(cb => cb.checked);
+  cbs.forEach(cb => { cb.checked = !allChecked; });
+  _teaserPickUpdateCounter();
+}
+
+function _teaserPickGenerate() {
+  // Собираем выбранные шаблоны
+  const selected = [];
+  document.querySelectorAll('.teaser-pick-cb').forEach(cb => {
+    if (cb.checked) selected.push(cb.getAttribute('data-template'));
+  });
+  if (selected.length === 0) {
+    toast('Не выбрано ни одной активности');
+    return;
+  }
+  state.teaserSelection = selected;
+  saveLocal();
+  closeModal();
+  _runTeaserPDFGeneration();
+}
 
 // ============================================================
 // ПУБЛИКАЦИЯ СМЕНЫ — отдельная страница view.html для педагогов
