@@ -655,6 +655,64 @@
     flex-shrink: 0;
   }
 
+  /* Список конфликтов педагогов */
+  .conflicts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 400px;
+    overflow-y: auto;
+    margin-bottom: 14px;
+  }
+  .conflict-item {
+    padding: 10px 14px;
+    background: #FFF6E5;
+    border: 1px solid #E8C95A;
+    border-left: 4px solid var(--yellow-deep);
+    border-radius: 4px;
+    font-family: Inter, sans-serif;
+  }
+  .conflict-day {
+    font-family: Geologica, serif;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--ink);
+    margin-bottom: 4px;
+  }
+  .conflict-day-date {
+    font-weight: 400;
+    font-size: 11px;
+    color: rgba(21,22,23,0.55);
+  }
+  .conflict-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+    gap: 10px;
+  }
+  .conflict-teacher {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--ink);
+  }
+  .conflict-half {
+    font-size: 11px;
+    color: #c0392b;
+    font-weight: 500;
+  }
+  .conflict-slots {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .conflict-slot {
+    font-size: 11px;
+    color: rgba(21,22,23,0.7);
+    padding-left: 8px;
+    border-left: 2px solid rgba(21,22,23,0.15);
+  }
+
   /* === КОМПАКТНЫЙ ВИД === */
   .compact-controls {
     background: var(--paper-warm);
@@ -2895,6 +2953,7 @@
     <button class="btn btn-sm btn-ghost" onclick="regenAllByDirection('Активность / спорт')">🔄 все активн.</button>
     <button class="btn btn-sm btn-ghost" onclick="unlockAll()" title="Снять закрепление со всех слотов — удобно перед генерацией новой смены">🔓 снять закрепления</button>
     <button class="btn btn-sm btn-ghost" onclick="openRenameTeacherDialog()" title="Заменить имя педагога во всех слотах смены — после переименования в библиотеке">✏️ переименовать педагога</button>
+    <button class="btn btn-sm btn-ghost" onclick="openConflictsDialog()" title="Найти педагогов, которые стоят в нескольких слотах одновременно">🔍 проверить расписание</button>
   </div>
 </div>
 
@@ -5981,6 +6040,129 @@ function _doRenameTeacher() {
   toast('Заменено: ' + count + ' ' + pluralForms(count, 'слот', 'слота', 'слотов'));
 }
 
+// =============================================================
+// ВАЛИДАТОР КОНФЛИКТОВ ПЕДАГОГОВ
+// Один педагог не может быть в двух местах одновременно. Проходим
+// по всему расписанию и для каждого «полу-дня» (am или pm) считаем
+// сколько слотов у каждого педагога. Если >1 — это конфликт.
+// =============================================================
+
+// Имена «педагогов», которые на самом деле — общие группы и могут быть
+// одновременно везде (админ, кураторы — это много людей).
+const _SHARED_TEACHERS = new Set([
+  'админ, кураторы',
+  'кураторы',
+  'куратор',
+  'админ',
+  'админ, кураторы, тренера по плаванию',
+  '—',
+  ''
+]);
+
+function _isSharedTeacher(name) {
+  if (!name) return true;
+  return _SHARED_TEACHERS.has(String(name).trim().toLowerCase());
+}
+
+// Собирает для конкретного полу-дня словарь {teacherName: [{group, idx, slot}]}
+// чтобы потом найти тех, у кого >1 слота
+function _teachersInHalfDay(day, half /* 'am' | 'pm' */) {
+  const map = new Map();
+  const groups = half === 'am' ? ['am_cluster', 'am_outside'] : ['pm_cluster', 'pm_outside'];
+  groups.forEach(g => {
+    if (!Array.isArray(day[g])) return;
+    day[g].forEach((slot, idx) => {
+      if (!slot || !slot.teacher) return;
+      const t = String(slot.teacher).trim();
+      if (_isSharedTeacher(t)) return; // куратор может быть везде
+      if (!map.has(t)) map.set(t, []);
+      map.get(t).push({ group: g, idx: idx, slot });
+    });
+  });
+  return map;
+}
+
+// Возвращает массив конфликтов:
+// [{ dayNum, dayDate, half, teacher, slots: [{group, idx, name, template}] }]
+function findScheduleConflicts() {
+  const conflicts = [];
+  state.schedule.forEach((d, i) => {
+    ['am', 'pm'].forEach(half => {
+      const teachers = _teachersInHalfDay(d, half);
+      teachers.forEach((slots, teacher) => {
+        if (slots.length > 1) {
+          const date = dateForDay(i);
+          conflicts.push({
+            dayNum: i + 1,
+            dayDate: date.getDate() + ' ' + MONTHS[date.getMonth()],
+            half: half,
+            halfLabel: half === 'am' ? 'утро' : 'после обеда',
+            teacher: teacher,
+            slots: slots.map(s => ({
+              group: s.group,
+              idx: s.idx,
+              name: s.slot.name || s.slot.template,
+              template: s.slot.template
+            }))
+          });
+        }
+      });
+    });
+  });
+  return conflicts;
+}
+
+// Открывает модалку с найденными конфликтами
+function openConflictsDialog() {
+  const conflicts = findScheduleConflicts();
+  document.getElementById('modal-title').innerHTML = 'Проверка <em>расписания</em>';
+  if (conflicts.length === 0) {
+    document.getElementById('modal-body').innerHTML = `
+      <div style="font-family:Geologica,serif;font-size:15px;text-align:center;padding:30px 20px;color:rgba(21,22,23,0.7)">
+        ✓ Конфликтов не найдено<br>
+        <span style="font-size:12px;opacity:0.7;font-style:italic">Каждый педагог стоит максимум в одном слоте за раз.</span>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal()">Закрыть</button>
+      </div>
+    `;
+    openModal();
+    return;
+  }
+  const itemsHtml = conflicts.map(c => `
+    <div class="conflict-item">
+      <div class="conflict-day">День ${c.dayNum} <span class="conflict-day-date">· ${escapeHtml(c.dayDate)}</span></div>
+      <div class="conflict-row">
+        <span class="conflict-teacher">${escapeHtml(c.teacher)}</span>
+        <span class="conflict-half">${escapeHtml(c.halfLabel)}: ${c.slots.length} ${pluralForms(c.slots.length, 'слот', 'слота', 'слотов')} одновременно</span>
+      </div>
+      <div class="conflict-slots">
+        ${c.slots.map(s => `<div class="conflict-slot">${_groupLabelShort(s.group)}: ${escapeHtml(s.name)}</div>`).join('')}
+      </div>
+    </div>
+  `).join('');
+  document.getElementById('modal-body').innerHTML = `
+    <div style="font-family:Geologica,serif;font-style:italic;font-size:13px;color:rgba(21,22,23,0.7);margin-bottom:14px;line-height:1.5">
+      Найдено <strong>${conflicts.length}</strong> ${pluralForms(conflicts.length, 'конфликт', 'конфликта', 'конфликтов')}: педагог стоит в нескольких слотах одновременно. Откройте слоты в расписании и поменяйте педагога на свободного, либо нажмите «🔄 все ...» чтобы перегенерировать направление (теперь алгоритм избегает конфликтов).
+    </div>
+    <div class="conflicts-list">${itemsHtml}</div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Закрыть</button>
+    </div>
+  `;
+  openModal();
+}
+
+function _groupLabelShort(g) {
+  const map = {
+    am_cluster: 'кластер утром',
+    am_outside: 'улица утром',
+    pm_cluster: 'кластер после обеда',
+    pm_outside: 'улица после обеда'
+  };
+  return map[g] || g;
+}
+
 function editStation(day, group, idx) {
   const slot = getSlot(day, group, idx);
   document.getElementById('modal-title').innerHTML = 'Редактировать <em>вручную</em>';
@@ -6667,26 +6849,53 @@ ${candidatesList}
     const variants = JSON.parse(cleaned);
 
     const usedNow = new Set();
+    const half = isAM ? 'am' : 'pm';
+    // Собираем список педагогов уже занятых в этом полу-дне (из других групп
+    // и из закреплённых слотов этой группы). Эти педагоги — busy.
+    const initiallyBusy = new Set();
+    const allGroups = isAM ? ['am_cluster', 'am_outside'] : ['pm_cluster', 'pm_outside'];
+    allGroups.forEach(g => {
+      (state.schedule[day][g] || []).forEach((slot, idx) => {
+        // Слоты из той же группы, которые сейчас перегенерируются — не считаем busy
+        if (g === group && targets.some(t => t.i === idx)) return;
+        if (slot && slot.teacher && !_isSharedTeacher(slot.teacher)) {
+          initiallyBusy.add(String(slot.teacher).trim());
+        }
+      });
+    });
     targets.forEach(({i}, k) => {
       const v = variants[k];
       if (!v || !v.template) return;
-      const fresh = slotFromLibByTemplate(v.template);
+      let fresh = slotFromLibByTemplate(v.template);
       if (!fresh) {
         console.warn('Не нашли в библиотеке шаблон, который вернул Claude:', v.template);
         return;
       }
-      // защита от дубля внутри одного запроса
       const key = String(fresh.template).toLowerCase();
-      if (usedNow.has(key)) {
-        // попробуем взять любой другой подходящий из кандидатов
-        const fallback = candidates.find(c => !usedNow.has(c.template.toLowerCase()) && !lockedTemplates.includes(c.template));
+      const teacherBusy = fresh.teacher && !_isSharedTeacher(fresh.teacher) && initiallyBusy.has(String(fresh.teacher).trim());
+
+      // Защита от дубля шаблона ИЛИ от занятого педагога — пробуем fallback
+      if (usedNow.has(key) || teacherBusy) {
+        const fallback = candidates.find(c => {
+          if (usedNow.has(c.template.toLowerCase())) return false;
+          if (lockedTemplates.includes(c.template)) return false;
+          // педагог не должен быть в initiallyBusy
+          if (c.teacher && !_isSharedTeacher(c.teacher) && initiallyBusy.has(String(c.teacher).trim())) return false;
+          return true;
+        });
         if (fallback) {
           const fb = slotFromLibByTemplate(fallback.template);
-          if (fb) { setSlot(day, group, i, fb); usedNow.add(fallback.template.toLowerCase()); return; }
+          if (fb) {
+            setSlot(day, group, i, fb);
+            usedNow.add(fallback.template.toLowerCase());
+            if (fb.teacher && !_isSharedTeacher(fb.teacher)) initiallyBusy.add(String(fb.teacher).trim());
+            return;
+          }
         }
       }
       setSlot(day, group, i, fresh);
       usedNow.add(key);
+      if (fresh.teacher && !_isSharedTeacher(fresh.teacher)) initiallyBusy.add(String(fresh.teacher).trim());
     });
     render();
     toast('Группа обновлена');
@@ -6741,6 +6950,27 @@ async function regenDay(day) {
   } catch(e) { toast('Ошибка: ' + e.message); }
 }
 
+// Возвращает true если педагог `teacher` уже стоит в каком-то другом слоте
+// этого полу-дня (am или pm), кроме слота {exceptGroup, exceptIdx}.
+// Используется при перегенерации, чтобы не плодить конфликты.
+function _isTeacherBusyInHalfDay(dayIdx, half /* 'am'|'pm' */, teacher, exceptGroup, exceptIdx) {
+  if (!teacher || _isSharedTeacher(teacher)) return false;
+  const day = state.schedule[dayIdx];
+  if (!day) return false;
+  const groups = half === 'am' ? ['am_cluster', 'am_outside'] : ['pm_cluster', 'pm_outside'];
+  for (const g of groups) {
+    if (!Array.isArray(day[g])) continue;
+    for (let i = 0; i < day[g].length; i++) {
+      if (g === exceptGroup && i === exceptIdx) continue;
+      const slot = day[g][i];
+      if (slot && slot.teacher && String(slot.teacher).trim() === String(teacher).trim()) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 async function regenAllByDirection(direction) {
   const targets = [];
   state.schedule.forEach((d, dIdx) => {
@@ -6755,11 +6985,27 @@ async function regenAllByDirection(direction) {
   toast(`Перегенерация ${targets.length} ячеек…`);
   try {
     for (const t of targets) {
-      const vs = await genVariantsForStation(t.day, t.group, t.idx, 1);
-      if (vs[0] && vs[0].template) {
-        const fresh = slotFromLibByTemplate(vs[0].template);
-        if (fresh) setSlot(t.day, t.group, t.idx, fresh);
+      // Запрашиваем у ИИ несколько вариантов, чтобы было из чего выбрать
+      // (если первый кандидат создаёт конфликт педагогов, попробуем следующего).
+      const vs = await genVariantsForStation(t.day, t.group, t.idx, 3);
+      const half = t.group.startsWith('am') ? 'am' : 'pm';
+      let chosen = null;
+      for (const v of vs) {
+        if (!v || !v.template) continue;
+        const fresh = slotFromLibByTemplate(v.template);
+        if (!fresh) continue;
+        // Проверяем не создаст ли этот вариант конфликт педагогов в этом полу-дне
+        if (_isTeacherBusyInHalfDay(t.day, half, fresh.teacher, t.group, t.idx)) {
+          continue; // занят — пробуем следующего кандидата
+        }
+        chosen = fresh;
+        break;
       }
+      // Если все кандидаты создавали конфликт — берём первого как есть (лучше чем ничего)
+      if (!chosen && vs[0] && vs[0].template) {
+        chosen = slotFromLibByTemplate(vs[0].template);
+      }
+      if (chosen) setSlot(t.day, t.group, t.idx, chosen);
       render();
     }
     toast('Готово');
