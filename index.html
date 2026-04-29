@@ -1130,6 +1130,31 @@
     background: rgba(254,214,52,0.18);
     font-weight: 600;
   }
+  /* Read-only режим — заблокировано редактирование (другой человек редактирует) */
+  body.readonly-mode .toolbar-actions {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+  body.readonly-mode .station-actions,
+  body.readonly-mode .all-troops-actions {
+    opacity: 0.4;
+    pointer-events: none;
+  }
+  body.readonly-mode::before {
+    content: '👁 РЕЖИМ ТОЛЬКО ПРОСМОТР · Эту смену сейчас редактирует другой человек';
+    display: block;
+    background: #FFF6E5;
+    border-bottom: 2px solid var(--yellow-deep);
+    padding: 8px 16px;
+    text-align: center;
+    font-family: Inter, sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
   .btn-sm { padding: 4px 8px; font-size: 10px; letter-spacing: 0.08em; }
 
   .toolbar {
@@ -3034,6 +3059,7 @@
     <button class="btn btn-sm btn-ghost" onclick="cleanForeignRefs()" title="Умная чистка: убирает только «прилипшие» рефы (которых нет в библиотеке у этого шаблона). Свои рефы шаблона остаются. Самый безопасный способ привести в порядок старую смену.">🪄 умная чистка рефов</button>
     <button class="btn btn-sm btn-ghost" onclick="clearAllRefs()" title="Удалить ВСЕ выбранные референсы из всех слотов (жёсткий вариант). После этого нужно вручную через 🔖 выбрать рефы для каждого нужного слота.">🧹 очистить рефы</button>
     <button class="btn btn-sm btn-ghost" onclick="openConflictsDialog()" title="Найти педагогов, которые стоят в нескольких слотах одновременно">🔍 проверить расписание</button>
+    <button class="btn btn-sm btn-ghost" onclick="changeEditorName()" title="Сменить имя редактора (видно если кто-то ещё откроет ту же смену с другого компа)">👤 имя</button>
   </div>
 </div>
 
@@ -3609,6 +3635,228 @@ function _registerUndoHotkey() {
       performUndo();
     }
   });
+}
+
+// ============================================================
+// СЕССИИ (КТО СЕЙЧАС РЕДАКТИРУЕТ СМЕНУ)
+// ============================================================
+// Цель: предупредить если ту же смену открыли с другого компа/браузера.
+// Не блокируем, а даём выбор: «Только смотреть» или «Редактировать всё равно».
+//
+// Принцип:
+//   1. У каждой вкладки админки свой sessionId (живёт в sessionStorage)
+//   2. Имя редактора вводится один раз и хранится в localStorage
+//   3. Каждые 60 сек шлём heartbeat в Apps Script (он обновляет лист «Сессии»)
+//   4. При старте + при загрузке публикации проверяем — есть ли свежие чужие
+//      сессии для этого publishId? Если есть — диалог
+//   5. При закрытии вкладки шлём endSession через sendBeacon
+//
+// Read-only режим: state.readOnlyMode = true. В render() и обработчиках
+// массовых операций проверяем флаг.
+// ============================================================
+const SESSION_HEARTBEAT_MS = 60 * 1000;
+const SESSION_LS_KEY_NAME = 'camp_editor_name_v1';
+const SESSION_SS_KEY_ID = 'camp_session_id_v1';
+
+let _sessionId = null;
+let _editorName = '';
+let _heartbeatTimer = null;
+let _isReadOnly = false;
+
+// Стартовая инициализация — вызывается из init() после загрузки state.
+function _initSessions() {
+  // sessionId хранится в sessionStorage — у каждой вкладки свой
+  try {
+    let sid = sessionStorage.getItem(SESSION_SS_KEY_ID);
+    if (!sid) {
+      sid = 'sid_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+      sessionStorage.setItem(SESSION_SS_KEY_ID, sid);
+    }
+    _sessionId = sid;
+  } catch(e) {
+    _sessionId = 'sid_' + Date.now().toString(36);
+  }
+
+  // Имя редактора — из localStorage или спрашиваем
+  try {
+    _editorName = localStorage.getItem(SESSION_LS_KEY_NAME) || '';
+  } catch(e) {}
+
+  if (!_editorName) {
+    askEditorName();
+  }
+  // Проверка чужих сессий запускается из других мест (init, loadPublicationToAdmin)
+  // через checkForOtherEditors()
+}
+
+// Спрашиваем имя — мягкий prompt, можно отменить (тогда останется анонимом)
+function askEditorName() {
+  const name = window.prompt(
+    'Как вас зовут? (видно если другой человек откроет ту же смену с другого компа)\n' +
+    '\nМожно фамилию, можно ник — что угодно. Сохраним и больше не спросим.',
+    ''
+  );
+  if (name && String(name).trim()) {
+    _editorName = String(name).trim().slice(0, 40);
+    try { localStorage.setItem(SESSION_LS_KEY_NAME, _editorName); } catch(e) {}
+  } else {
+    _editorName = 'Аноним';
+  }
+}
+
+// Кнопка «сменить имя» — для админки, на случай если ввели не то
+function changeEditorName() {
+  const name = window.prompt('Ваше имя (как вы подписываетесь когда редактируете)', _editorName || '');
+  if (name === null) return;
+  const trimmed = String(name).trim().slice(0, 40);
+  if (trimmed) {
+    _editorName = trimmed;
+    try { localStorage.setItem(SESSION_LS_KEY_NAME, _editorName); } catch(e) {}
+    toast('Имя сохранено: ' + _editorName);
+    // Сразу пошлём heartbeat с новым именем
+    sendHeartbeat();
+  }
+}
+
+// Описание устройства/браузера — короткое
+function _shortUserAgent() {
+  const ua = navigator.userAgent || '';
+  let os = 'OS';
+  if (/Windows/i.test(ua)) os = 'Windows';
+  else if (/Mac/i.test(ua)) os = 'Mac';
+  else if (/Android/i.test(ua)) os = 'Android';
+  else if (/iPhone|iPad/i.test(ua)) os = 'iOS';
+  else if (/Linux/i.test(ua)) os = 'Linux';
+  let br = 'Browser';
+  if (/Edg\//i.test(ua)) br = 'Edge';
+  else if (/Chrome\//i.test(ua) && !/Chromium/i.test(ua)) br = 'Chrome';
+  else if (/Firefox\//i.test(ua)) br = 'Firefox';
+  else if (/Safari\//i.test(ua) && !/Chrome/i.test(ua)) br = 'Safari';
+  return os + ' · ' + br;
+}
+
+// Шлём heartbeat. Не ждём ответа (no-cors), Apps Script сам обновит лист.
+function sendHeartbeat() {
+  if (!state || !state.publishId || !_sessionId) return; // нечего хартбитить если не публиковали
+  if (_isReadOnly) return; // в read-only режиме мы не «редактор», не объявляем себя
+  try {
+    fetch(LIBRARY_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'heartbeat',
+        publishId: state.publishId,
+        sessionId: _sessionId,
+        editorName: _editorName || 'Аноним',
+        userAgent: _shortUserAgent()
+      })
+    });
+  } catch(e) {
+    console.warn('heartbeat failed:', e);
+  }
+}
+
+// Проверяет — есть ли другие свежие редакторы у этой смены.
+// Если есть — показывает диалог «Только смотреть / Редактировать всё равно».
+async function checkForOtherEditors() {
+  if (!state || !state.publishId) return; // нечего проверять до первой публикации
+  try {
+    const r = await fetch(LIBRARY_URL + '?action=listSessions&publishId=' + encodeURIComponent(state.publishId) + '&_t=' + Date.now());
+    const data = await r.json();
+    if (!data.ok) return;
+    // Отфильтровываем свою сессию
+    const others = (data.sessions || []).filter(s => s.sessionId !== _sessionId);
+    if (others.length === 0) return; // никого больше нет, всё ок
+    // Кто-то ещё редактирует. Показываем диалог.
+    _showOtherEditorsDialog(others);
+  } catch(e) {
+    console.warn('checkForOtherEditors failed:', e);
+  }
+}
+
+function _showOtherEditorsDialog(otherSessions) {
+  const lines = otherSessions.map(s => {
+    const name = s.editorName || 'Аноним';
+    const ua = s.userAgent || '';
+    const ago = s.ageSec < 60 ? s.ageSec + ' сек назад' : Math.round(s.ageSec / 60) + ' мин назад';
+    return `• ${escapeHtml(name)} · ${escapeHtml(ua)} · обновлено ${ago}`;
+  }).join('<br>');
+
+  document.getElementById('modal-title').innerHTML = '⚠️ Эту смену уже редактируют';
+  document.getElementById('modal-body').innerHTML = `
+    <div style="font-family:Geologica,serif;font-style:italic;font-size:14px;color:rgba(21,22,23,0.85);margin-bottom:12px;line-height:1.5">
+      Сейчас эта смена открыта в админке у:
+    </div>
+    <div style="background:#FFF6E5;border:1px solid #E8C95A;border-left:4px solid var(--yellow-deep);padding:10px 14px;border-radius:4px;font-family:Inter,sans-serif;font-size:13px;line-height:1.6;margin-bottom:14px">
+      ${lines}
+    </div>
+    <div style="font-family:Geologica,serif;font-style:italic;font-size:13px;color:rgba(21,22,23,0.7);margin-bottom:14px;line-height:1.5">
+      Если оба редактируют параллельно — последний кто нажмёт «Опубликовать», перезапишет правки другого. Выберите режим:
+    </div>
+    <div class="modal-actions" style="flex-direction:column;gap:8px;align-items:stretch">
+      <button class="btn btn-primary" onclick="_chooseSessionMode('readonly')">👁 Только смотреть (read-only)</button>
+      <button class="btn" onclick="_chooseSessionMode('edit')">✏️ Редактировать всё равно</button>
+    </div>
+  `;
+  openModal();
+}
+
+function _chooseSessionMode(mode) {
+  if (mode === 'readonly') {
+    _isReadOnly = true;
+    state.readOnlyMode = true; // флаг для render() и обработчиков
+    document.body.classList.add('readonly-mode');
+    closeModal();
+    toast('Режим: только просмотр. Редактировать запрещено.');
+    if (typeof render === 'function') render();
+  } else {
+    _isReadOnly = false;
+    state.readOnlyMode = false;
+    document.body.classList.remove('readonly-mode');
+    closeModal();
+    toast('Редактируете несмотря на других. Будьте аккуратны.');
+    sendHeartbeat();
+    startHeartbeat();
+  }
+}
+
+// Запускает таймер heartbeat (каждые 60 сек)
+function startHeartbeat() {
+  if (_heartbeatTimer) clearInterval(_heartbeatTimer);
+  if (_isReadOnly) return;
+  sendHeartbeat();
+  _heartbeatTimer = setInterval(sendHeartbeat, SESSION_HEARTBEAT_MS);
+}
+
+// Завершение сессии — при закрытии вкладки
+function endMySession() {
+  if (!_sessionId) return;
+  try {
+    const body = JSON.stringify({ action: 'endSession', sessionId: _sessionId });
+    // sendBeacon — единственный способ что-то отправить когда страница умирает
+    if (navigator.sendBeacon) {
+      const blob = new Blob([body], { type: 'text/plain;charset=utf-8' });
+      navigator.sendBeacon(LIBRARY_URL, blob);
+    } else {
+      // fallback — синхронный fetch (может не успеть, но попробуем)
+      fetch(LIBRARY_URL, { method: 'POST', mode: 'no-cors', body, keepalive: true });
+    }
+  } catch(e) {}
+}
+
+// Регистрируем обработчик закрытия вкладки
+window.addEventListener('beforeunload', endMySession);
+window.addEventListener('pagehide', endMySession);
+
+// Защита: блокируем все массовые операции в read-only режиме.
+// Возвращает true если режим разрешает изменения, false если нет (с тостом).
+function _checkCanEdit(operationName) {
+  if (_isReadOnly) {
+    toast('Режим только просмотр. ' + (operationName ? operationName + ' заблокировано.' : ''));
+    return false;
+  }
+  return true;
 }
 
 // ============================================================
@@ -6095,6 +6343,7 @@ function toggleLock(day, group, idx) {
 // и выездных (trip6_am, trip6_pm, trip_full_am/pm, trip6_*_a, trip6_*_b).
 // Удобно при старте новой смены или генерации с чистого листа.
 function unlockAll() {
+  if (!_checkCanEdit("Снятие закреплений")) return;
   // Сначала считаем сколько закреплено — если ноль, то и менять нечего, undo не нужен.
   let preCount = 0;
   const clusterGroups = ['am_cluster', 'am_outside', 'pm_cluster', 'pm_outside'];
@@ -6149,6 +6398,7 @@ function unlockAll() {
 // Также чистим slot.name если он был сгенерирован как «template «theme»» —
 // возвращаем к чистому template.
 function clearAllThemes() {
+  if (!_checkCanEdit("Очистка тем")) return;
   // Собираем образец того что найдём — для confirm
   const samples = [];
   let totalCount = 0;
@@ -6237,6 +6487,7 @@ function clearAllThemes() {
 // у нового слота «майнкрафт» висят картинки от старого «макраме». Эта функция
 // чистит сразу всё.
 function clearAllRefs() {
+  if (!_checkCanEdit("Очистка рефов")) return;
   let totalCount = 0;
   let lockedSkippedCount = 0;
   const clusterGroups = ['am_cluster', 'am_outside', 'pm_cluster', 'pm_outside'];
@@ -6471,6 +6722,7 @@ function _onCleanRefsToggleLocked() {
 }
 
 function _doCleanForeignRefs() {
+  if (!_checkCanEdit("Умная чистка рефов")) return;
   const cb = document.getElementById('clean-refs-include-locked');
   const includeLocked = !!(cb && cb.checked);
   pushUndoSnapshot('умная чистка рефов');
@@ -6565,6 +6817,7 @@ function _pickTeacherToRename(oldName) {
 }
 
 function _doRenameTeacher() {
+  if (!_checkCanEdit("Переименование педагога")) return;
   const oldName = document.getElementById('rename-old-input').value;
   const newName = String(document.getElementById('rename-new-input').value || '').trim();
   if (!newName) {
@@ -6847,6 +7100,7 @@ function openCommentEditor(day, group, idx, isTripSlot, slotKey) {
 }
 
 function _saveCommentForSlot(day, group, idx, isTripSlot, slotKey) {
+  if (!_checkCanEdit("Изменение комментария")) return;
   const slot = _getSlotAnyway(day, group, idx, isTripSlot, slotKey || null);
   if (!slot) { toast('Не нашёл слот'); return; }
   const text = String(document.getElementById('comment-textarea').value || '').trim();
@@ -6863,6 +7117,7 @@ function _saveCommentForSlot(day, group, idx, isTripSlot, slotKey) {
 }
 
 function _clearCommentForSlot(day, group, idx, isTripSlot, slotKey) {
+  if (!_checkCanEdit("Удаление комментария")) return;
   const slot = _getSlotAnyway(day, group, idx, isTripSlot, slotKey || null);
   if (!slot) return;
   if (!slot.comment) { closeModal(); return; }
@@ -7482,6 +7737,7 @@ function mirrorBlockToPM(dayIdx, sourceGroup) {
 let _inBatchOperation = false;
 
 async function regenGroup(day, group) {
+  if (!_checkCanEdit("Перегенерация группы")) return;
   const targets = state.schedule[day][group].map((s, i) => ({s, i})).filter(({s}) => !s.locked);
   if (targets.length === 0) { toast('Все позиции группы закреплены'); return; }
   if (!_inBatchOperation) pushUndoSnapshot('перегенерация группы');
@@ -7654,6 +7910,7 @@ function _isTeacherBusyInHalfDay(dayIdx, half, teacher, exceptGroup, exceptIdx) 
 }
 
 async function regenAllByDirection(direction) {
+  if (!_checkCanEdit("Перегенерация")) return;
   const targets = [];
   state.schedule.forEach((d, dIdx) => {
     if (d.type !== 'normal') return; // Только обычные дни
@@ -8483,6 +8740,14 @@ async function init() {
     _initPublishIndicator();
     _registerUndoHotkey();
     _updateUndoButton();
+    _initSessions();
+    // Если у нас уже есть publishId — проверим чужих редакторов и запустим heartbeat
+    if (state && state.publishId) {
+      checkForOtherEditors();
+      // Heartbeat запустится после того как пользователь выберет режим в диалоге
+      // (если диалога не было — стартуем сразу)
+      setTimeout(() => { if (!_isReadOnly) startHeartbeat(); }, 2000);
+    }
     return;
   }
 
@@ -8497,6 +8762,7 @@ async function init() {
   _initPublishIndicator();
   _registerUndoHotkey();
   _updateUndoButton();
+  _initSessions();
 }
 
 // Подтягивает с сервера отпечаток последней публикации (если есть state.publishId)
@@ -10312,6 +10578,17 @@ async function loadPublicationToAdmin(id) {
 
     closeModal();
     toast('Загружено: ' + (pub.name || pub.theme || pub.id));
+
+    // После загрузки новой публикации — сбрасываем read-only флаг и проверяем
+    // не редактирует ли её кто-то ещё с другого компа.
+    _isReadOnly = false;
+    state.readOnlyMode = false;
+    document.body.classList.remove('readonly-mode');
+    if (_heartbeatTimer) { clearInterval(_heartbeatTimer); _heartbeatTimer = null; }
+    setTimeout(() => {
+      checkForOtherEditors();
+      setTimeout(() => { if (!_isReadOnly) startHeartbeat(); }, 2000);
+    }, 500);
   } catch(e) {
     console.error('loadPublicationToAdmin failed:', e);
     toast('Ошибка: ' + e.message);
@@ -10436,6 +10713,7 @@ function computeScheduleFingerprint_(stateObj) {
 }
 
 async function publishSmena() {
+  if (!_checkCanEdit("Публикация")) return;
   console.log('[publishSmena] старт. publishId=', state.publishId, 'theme=', state.theme);
 
   // Авто-детект «новая смена»: если у нас уже есть publishId, но тема или дата
@@ -10565,6 +10843,8 @@ async function publishSmena() {
     _publishState.lastPublishedStartDate = String(state.startDate || '').trim();
     _publishState.changesSincePublish = 0;
     _publishState.newCampPromptDismissed = false;
+    // Запускаем heartbeat если ещё не запущен (первая публикация в этой сессии)
+    if (!_heartbeatTimer && !_isReadOnly) startHeartbeat();
     const btnEl = document.getElementById('topbar-publish-btn');
     if (btnEl) {
       btnEl.classList.remove('publish-state-dirty', 'publish-state-clean');
