@@ -1122,6 +1122,14 @@
   .btn-primary { background: var(--yellow); color: var(--ink); border-color: var(--ink); font-weight: 600; }
   .btn-primary:hover { background: var(--yellow-deep); border-color: var(--ink); color: var(--ink); }
   .btn-ghost { border: 1px dashed rgba(21,22,23,0.4); }
+  .btn[disabled] { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+  /* Кнопка Undo подсвечивается жёлтым когда есть что отменять */
+  #undo-btn:not([disabled]) {
+    border-color: var(--yellow-deep);
+    border-style: solid;
+    background: rgba(254,214,52,0.18);
+    font-weight: 600;
+  }
   .btn-sm { padding: 4px 8px; font-size: 10px; letter-spacing: 0.08em; }
 
   .toolbar {
@@ -2998,6 +3006,7 @@
     <span class="legend-item"><span class="legend-dot" style="background:var(--terra)"></span>Событие</span>
   </div>
   <div class="toolbar-actions">
+    <button id="undo-btn" class="btn btn-sm btn-ghost" onclick="performUndo()" disabled title="Нечего отменять">↶ отменить</button>
     <button class="btn btn-sm btn-ghost" onclick="regenAllByDirection('IT')">🔄 все IT</button>
     <button class="btn btn-sm btn-ghost" onclick="regenAllByDirection('Творчество')">🔄 все творч.</button>
     <button class="btn btn-sm btn-ghost" onclick="regenAllByDirection('Активность / спорт')">🔄 все активн.</button>
@@ -3484,6 +3493,100 @@ function saveLocal() {
     // И запускаем дебаунс автопубликации
     if (typeof scheduleAutopublish === 'function') scheduleAutopublish();
   }, 500);
+}
+
+// ============================================================
+// СИСТЕМА UNDO (ОТМЕНА ДЕЙСТВИЯ)
+// ============================================================
+// Принцип: перед каждым массовым изменением state делаем «снимок» (deep clone)
+// и кладём в стек _undoStack. Кнопка ↶ Undo достаёт последний снимок
+// и подменяет state. Лимит 20 шагов — экономим память.
+//
+// Snapshot — это {label, state, timestamp}. label показывается в подсказке
+// «Отменить: переименование педагога».
+//
+// Ключевые места хука: regenAllByDirection, regenGroup, переименование,
+// все clear*, smart cleanup, replaceSlot/setSlot для batch-операций.
+// ============================================================
+const _undoStack = [];
+const _UNDO_LIMIT = 20;
+
+// Делает deep clone state и кладёт в стек. Вызывается ПЕРЕД операцией.
+// label — короткое описание, показывается в тосте после Undo и в title кнопки.
+function pushUndoSnapshot(label) {
+  try {
+    const snap = {
+      label: String(label || 'действие'),
+      state: JSON.parse(JSON.stringify(state)),
+      timestamp: Date.now()
+    };
+    _undoStack.push(snap);
+    if (_undoStack.length > _UNDO_LIMIT) _undoStack.shift();
+    _updateUndoButton();
+  } catch(e) {
+    console.warn('Не удалось сохранить undo-снимок:', e);
+  }
+}
+
+// Откатывает к последнему сохранённому состоянию state.
+function performUndo() {
+  if (_undoStack.length === 0) {
+    toast('Нечего отменять');
+    return;
+  }
+  const snap = _undoStack.pop();
+  try {
+    // Подменяем state, перезаписывая поля. Не делаем `state = snap.state`
+    // потому что много мест в коде хранят ссылку на текущий state.
+    Object.keys(state).forEach(k => { delete state[k]; });
+    Object.assign(state, snap.state);
+    saveLocal();
+    if (typeof render === 'function') render();
+    _updateUndoButton();
+    const ago = Math.round((Date.now() - snap.timestamp) / 1000);
+    toast('Отменено: ' + snap.label + (ago < 60 ? '' : ' (' + Math.round(ago/60) + ' мин назад)'));
+  } catch(e) {
+    toast('Ошибка отмены: ' + e.message);
+    console.error('performUndo failed:', e);
+  }
+}
+
+// Обновляет UI кнопки Undo: количество шагов, активна/неактивна, title.
+function _updateUndoButton() {
+  const btn = document.getElementById('undo-btn');
+  if (!btn) return;
+  const n = _undoStack.length;
+  if (n === 0) {
+    btn.setAttribute('disabled', 'disabled');
+    btn.title = 'Нечего отменять';
+    btn.textContent = '↶ отменить';
+  } else {
+    btn.removeAttribute('disabled');
+    const last = _undoStack[_undoStack.length - 1];
+    btn.title = 'Отменить «' + last.label + '» (Ctrl+Z). В стеке: ' + n + ' ' + pluralForms(n, 'шаг', 'шага', 'шагов');
+    btn.textContent = '↶ отменить (' + n + ')';
+  }
+}
+
+// Хоткей Ctrl+Z / Cmd+Z. Регистрируем при первом рендере страницы.
+let _undoHotkeyRegistered = false;
+function _registerUndoHotkey() {
+  if (_undoHotkeyRegistered) return;
+  _undoHotkeyRegistered = true;
+  document.addEventListener('keydown', (e) => {
+    // Не перехватываем когда пользователь печатает в input/textarea
+    const target = e.target;
+    const isTyping = target && (
+      target.tagName === 'INPUT' ||
+      target.tagName === 'TEXTAREA' ||
+      target.isContentEditable
+    );
+    if (isTyping) return;
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+      e.preventDefault();
+      performUndo();
+    }
+  });
 }
 
 // ============================================================
@@ -5954,8 +6057,8 @@ function toggleLock(day, group, idx) {
 // и выездных (trip6_am, trip6_pm, trip_full_am/pm, trip6_*_a, trip6_*_b).
 // Удобно при старте новой смены или генерации с чистого листа.
 function unlockAll() {
-  // Считаем сколько закреплено сейчас, чтобы тост показал «снято N закреплений»
-  let count = 0;
+  // Сначала считаем сколько закреплено — если ноль, то и менять нечего, undo не нужен.
+  let preCount = 0;
   const clusterGroups = ['am_cluster', 'am_outside', 'pm_cluster', 'pm_outside'];
   const tripSlotKeys = [
     'trip6_am', 'trip6_pm',
@@ -5964,7 +6067,21 @@ function unlockAll() {
     'trip6_pm_a', 'trip6_pm_b',
     'am_outside_single', 'pm_outside_single'
   ];
+  state.schedule.forEach(d => {
+    clusterGroups.forEach(g => {
+      if (Array.isArray(d[g])) d[g].forEach(slot => { if (slot && slot.locked) preCount++; });
+    });
+    tripSlotKeys.forEach(k => { if (d[k] && d[k].locked) preCount++; });
+  });
+  if (preCount === 0) {
+    toast('Нет закреплённых слотов');
+    return;
+  }
 
+  pushUndoSnapshot('снятие закреплений');
+
+  // Теперь применяем
+  let count = 0;
   state.schedule.forEach(d => {
     clusterGroups.forEach(g => {
       if (Array.isArray(d[g])) {
@@ -5978,10 +6095,6 @@ function unlockAll() {
     });
   });
 
-  if (count === 0) {
-    toast('Нет закреплённых слотов');
-    return;
-  }
   saveLocal();
   render();
   toast('Снято закреплений: ' + count);
@@ -6046,6 +6159,8 @@ function clearAllThemes() {
     'Темы можно вернуть индивидуально через 📝 редактирование слота.' +
     lockedHint
   )) return;
+
+  pushUndoSnapshot('очистка тем');
 
   // Чистим (только незакреплённые)
   let cleared = 0;
@@ -6125,6 +6240,8 @@ function clearAllRefs() {
     'Шаблоны, темы, педагоги — не трогаем.' +
     lockedHint
   )) return;
+
+  pushUndoSnapshot('очистка рефов');
 
   let cleared = 0;
   const clear = (slot) => {
@@ -6318,6 +6435,7 @@ function _onCleanRefsToggleLocked() {
 function _doCleanForeignRefs() {
   const cb = document.getElementById('clean-refs-include-locked');
   const includeLocked = !!(cb && cb.checked);
+  pushUndoSnapshot('умная чистка рефов');
   const { cleaned, removed } = _applyForeignRefsCleaning(includeLocked);
   saveLocal();
   render();
@@ -6419,6 +6537,7 @@ function _doRenameTeacher() {
     toast('Имя не изменилось');
     return;
   }
+  pushUndoSnapshot('переименование: ' + oldName + ' → ' + newName);
   let count = 0;
   const clusterGroups = ['am_cluster', 'am_outside', 'pm_cluster', 'pm_outside'];
   const tripSlotKeys = [
@@ -7252,9 +7371,15 @@ function mirrorBlockToPM(dayIdx, sourceGroup) {
   toast(msg);
 }
 
+// Флаг — true когда мы внутри регенерации, которая сама уже сделала undo-снимок
+// (например, regenAllByDirection делает снимок один раз, потом вызывает regenGroup
+// много раз — и regenGroup не должен дублировать снимки).
+let _inBatchOperation = false;
+
 async function regenGroup(day, group) {
   const targets = state.schedule[day][group].map((s, i) => ({s, i})).filter(({s}) => !s.locked);
   if (targets.length === 0) { toast('Все позиции группы закреплены'); return; }
+  if (!_inBatchOperation) pushUndoSnapshot('перегенерация группы');
   toast(`Перегенерация группы (${targets.length})…`);
   for (const {i} of targets) {
     document.querySelector(`[data-day="${day}"][data-group="${group}"][data-station="${i}"]`)?.classList.add('generating');
@@ -7361,6 +7486,8 @@ ${candidatesList}
 async function regenDay(day) {
   if (!confirm(`Перегенерировать весь день ${day+1}? Закреплённые ячейки сохранятся.`)) return;
   const d = state.schedule[day];
+  pushUndoSnapshot('перегенерация дня ' + (day+1));
+  _inBatchOperation = true;
   toast(`Перегенерация дня ${day+1}…`);
   try {
     // Утренняя половина
@@ -7401,6 +7528,7 @@ async function regenDay(day) {
     }
     toast(`День ${day+1} готов`);
   } catch(e) { toast('Ошибка: ' + e.message); }
+  finally { _inBatchOperation = false; }
 }
 
 // Возвращает true если педагог `teacher` уже стоит в каком-то другом активном
@@ -7431,7 +7559,9 @@ async function regenAllByDirection(direction) {
     });
   });
   if (targets.length === 0) { toast(`Нет незакреплённых "${direction}"`); return; }
+  pushUndoSnapshot('перегенерация: все ' + direction);
   toast(`Перегенерация ${targets.length} ячеек…`);
+  _inBatchOperation = true;
   try {
     for (const t of targets) {
       // Запрашиваем у ИИ несколько вариантов, чтобы было из чего выбрать
@@ -7459,11 +7589,14 @@ async function regenAllByDirection(direction) {
     }
     toast('Готово');
   } catch(e) { toast('Ошибка: ' + e.message); }
+  finally { _inBatchOperation = false; }
 }
 
 async function generateAll() {
   syncConfig();
   if (!confirm(`Перегенерировать все незакреплённые ячейки на тему «${state.theme}»? Это займёт около 2 минут.`)) return;
+  pushUndoSnapshot('генерация всей смены');
+  _inBatchOperation = true;
   toast('Генерация всей смены…');
   try {
     for (let d = 0; d < NUM_DAYS; d++) {
@@ -7507,6 +7640,7 @@ async function generateAll() {
     }
     toast('Смена готова ✓');
   } catch(e) { toast('Ошибка: ' + e.message); }
+  finally { _inBatchOperation = false; }
 }
 
 function syncConfig() {
@@ -8242,6 +8376,8 @@ async function init() {
     showRestoredBanner(saved.savedAt);
     toast('Восстановлено · библиотека: ' + LIBRARY.length + ' активностей');
     _initPublishIndicator();
+    _registerUndoHotkey();
+    _updateUndoButton();
     return;
   }
 
@@ -8254,6 +8390,8 @@ async function init() {
 
   // Инициализируем индикатор публикации (общая часть для обоих веток выше)
   _initPublishIndicator();
+  _registerUndoHotkey();
+  _updateUndoButton();
 }
 
 // Подтягивает с сервера отпечаток последней публикации (если есть state.publishId)
@@ -10013,6 +10151,8 @@ async function loadPublicationToAdmin(id) {
   );
   if (!ok) return;
 
+  pushUndoSnapshot('загрузка публикации из архива');
+
   try {
     toast('Загружаю публикацию…');
     const r = await fetch(LIBRARY_URL + '?action=getPublished&id=' + encodeURIComponent(id) + '&_t=' + Date.now());
@@ -10128,6 +10268,7 @@ function startNewPublication() {
     'Продолжить?'
   );
   if (!ok) return;
+  pushUndoSnapshot('начать новую смену');
   state.publishId = null;
   _publishState.lastPublishedFingerprint = null;
   _publishState.lastPublishedAt = 0;
