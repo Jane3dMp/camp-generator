@@ -2954,6 +2954,7 @@
     <button class="btn btn-sm btn-ghost" onclick="unlockAll()" title="Снять закрепление со всех слотов — удобно перед генерацией новой смены">🔓 снять закрепления</button>
     <button class="btn btn-sm btn-ghost" onclick="openRenameTeacherDialog()" title="Заменить имя педагога во всех слотах смены — после переименования в библиотеке">✏️ переименовать педагога</button>
     <button class="btn btn-sm btn-ghost" onclick="clearAllThemes()" title="Удалить темы из всех слотов — например «Браслет дружбы». Шаблоны и педагоги остаются. Полезно если темы прилетели из старой смены или автогенерации.">🧹 очистить темы</button>
+    <button class="btn btn-sm btn-ghost" onclick="clearAllRefs()" title="Удалить выбранные референсы (картинки) из всех слотов. После этого нужно вручную через 🔖 выбрать рефы для каждого нужного слота.">🧹 очистить рефы</button>
     <button class="btn btn-sm btn-ghost" onclick="openConflictsDialog()" title="Найти педагогов, которые стоят в нескольких слотах одновременно">🔍 проверить расписание</button>
   </div>
 </div>
@@ -6020,6 +6021,79 @@ function clearAllThemes() {
   const finalMsg = lockedSkippedCount > 0
     ? 'Очищено тем: ' + cleared + ' · пропущено закреплённых: ' + lockedSkippedCount
     : 'Очищено тем: ' + cleared;
+  toast(finalMsg);
+}
+
+// Удаляет selectedRefs из всех слотов. После этого у педагогов не будет картинок,
+// пока вы вручную не выберете нужные через 🔖 в админке.
+// ЗАКРЕПЛЁННЫЕ слоты не трогаем (как и в clearAllThemes).
+//
+// Часто нужно: при смене темы смены или после миграции из старого расписания
+// в state остаются «прилипшие» selectedRefs от предыдущих шаблонов — например,
+// у нового слота «майнкрафт» висят картинки от старого «макраме». Эта функция
+// чистит сразу всё.
+function clearAllRefs() {
+  let totalCount = 0;
+  let lockedSkippedCount = 0;
+  const clusterGroups = ['am_cluster', 'am_outside', 'pm_cluster', 'pm_outside'];
+  const tripSlotKeys = [
+    'trip6_am', 'trip6_pm',
+    'trip_full_am', 'trip_full_pm',
+    'trip6_am_a', 'trip6_am_b',
+    'trip6_pm_a', 'trip6_pm_b',
+    'am_outside_single', 'pm_outside_single'
+  ];
+  const collect = (slot) => {
+    if (!slot || !Array.isArray(slot.selectedRefs) || slot.selectedRefs.length === 0) return;
+    if (slot.locked) { lockedSkippedCount++; return; }
+    totalCount++;
+  };
+  state.schedule.forEach(d => {
+    clusterGroups.forEach(g => {
+      if (Array.isArray(d[g])) d[g].forEach(collect);
+    });
+    tripSlotKeys.forEach(k => collect(d[k]));
+  });
+
+  if (totalCount === 0) {
+    if (lockedSkippedCount > 0) {
+      toast('Все рефы — в закреплённых слотах. Сначала «🔓 снять закрепления»');
+    } else {
+      toast('Рефов в слотах нет — нечего чистить');
+    }
+    return;
+  }
+
+  const lockedHint = lockedSkippedCount > 0
+    ? '\n\n⚠️ Закреплённых слотов с рефами: ' + lockedSkippedCount + ' — их не трогаем. ' +
+      'Чтобы и их очистить, сначала «🔓 снять закрепления».'
+    : '';
+  if (!window.confirm(
+    'Очистить рефы (картинки) в ' + totalCount + ' ' + pluralForms(totalCount, 'слоте', 'слотах', 'слотах') + '?\n\n' +
+    'У педагогов больше не будет картинок, пока вы вручную не отметите нужные через 🔖 в каждом слоте. ' +
+    'Шаблоны, темы, педагоги — не трогаем.' +
+    lockedHint
+  )) return;
+
+  let cleared = 0;
+  const clear = (slot) => {
+    if (!slot || !Array.isArray(slot.selectedRefs) || slot.selectedRefs.length === 0) return;
+    if (slot.locked) return;
+    slot.selectedRefs = [];
+    cleared++;
+  };
+  state.schedule.forEach(d => {
+    clusterGroups.forEach(g => {
+      if (Array.isArray(d[g])) d[g].forEach(clear);
+    });
+    tripSlotKeys.forEach(k => clear(d[k]));
+  });
+
+  saveLocal();
+  render();
+  const finalMsg = lockedSkippedCount > 0
+    ? 'Очищено рефов: ' + cleared + ' · пропущено закреплённых: ' + lockedSkippedCount
+    : 'Очищено рефов: ' + cleared;
   toast(finalMsg);
 }
 
