@@ -7940,6 +7940,14 @@ const PDF_STYLES = `
   .teaser-trip-name { font-family: Inter, sans-serif; font-size: 11px; font-weight: 600; margin-top: 5px; line-height: 1.25; color: #151617; }
   .teaser-trip-label { font-family: Inter, sans-serif; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(21,22,23,0.55); margin-top: 4px; font-weight: 500; }
 
+  /* Новый формат — пилюли с цифрами для агрегированного списка выездов и событий */
+  .teaser-trip-pills { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px; background: #FFFBEC; border: 1px solid rgba(21,22,23,0.10); border-radius: 8px; margin-bottom: 12px; }
+  .teaser-trip-pill { display: inline-flex; align-items: center; gap: 6px; background: rgba(21,22,23,0.06); padding: 4px 12px 4px 5px; border-radius: 14px; font-family: Inter, sans-serif; font-size: 11.5px; color: #151617; }
+  .teaser-trip-pill.special { background: #FED634; font-weight: 600; }
+  .teaser-trip-pill-num { background: #151617; color: #FED634; font-family: Geologica, sans-serif; font-weight: 700; font-size: 10.5px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+  .teaser-trip-pill-name { font-weight: 500; }
+  .teaser-trip-pill.special .teaser-trip-pill-name { font-weight: 600; }
+
   .teaser-reasons { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; margin-bottom: 12px; }
   .teaser-reason { display: flex; gap: 8px; align-items: flex-start; font-family: Inter, sans-serif; font-size: 11.5px; line-height: 1.4; color: rgba(21,22,23,0.85); }
   .teaser-reason::before { content: '✓'; font-weight: 800; color: #151617; background: #FED634; width: 16px; height: 16px; border-radius: 3px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 11px; margin-top: 1px; line-height: 1; }
@@ -7955,6 +7963,14 @@ const PDF_STYLES = `
   .teaser-cta-text small { display: block; font-family: Inter, sans-serif; font-size: 10px; font-weight: 400; color: #FED634; margin-bottom: 4px; letter-spacing: 0.12em; text-transform: uppercase; }
   .teaser-cta-phone { font-family: Geologica, sans-serif; font-size: 14px; font-weight: 700; line-height: 1.3; text-align: right; color: #FFFFFF; }
   .teaser-cta-phone small { display: block; font-family: Inter, sans-serif; font-size: 10px; color: #FED634; font-weight: 400; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 3px; }
+
+  /* Сноска внизу страницы 2 тизера — про гарантию 80% и замены при форс-мажоре */
+  .teaser-warranty { margin-top: 10px; padding: 10px 14px; background: rgba(21,22,23,0.04); border-left: 3px solid #FED634; border-radius: 4px; font-family: Inter, sans-serif; font-size: 10.5px; line-height: 1.45; color: rgba(21,22,23,0.78); }
+  .teaser-warranty strong { color: #151617; font-weight: 600; }
+
+  /* Та же сноска в полной программе — стр 6, под CTA */
+  .pdf-warranty { margin-top: 16px; padding: 12px 16px; background: #FFFBEC; border-left: 3px solid #FED634; border-radius: 4px; font-family: Inter, sans-serif; font-size: 11px; line-height: 1.5; color: rgba(21,22,23,0.78); }
+  .pdf-warranty strong { color: #151617; font-weight: 600; }
 </style>
 `;
 
@@ -8383,6 +8399,9 @@ function buildFairAndContactHTML(copy) {
           <div class="pdf-cta-cell"><strong>Время</strong>${DETAILS['Время'] || '7:30–17:30'}</div>
         </div>
       </div>
+      <div class="pdf-warranty">
+        <strong>Программа фиксирована на 80%.</strong> При непредвиденных обстоятельствах — погоде, болезни педагога, форс-мажоре — клуб заменяет активность на равноценную из той же категории. Темы и общая структура смены остаются.
+      </div>
       <div class="pdf-foot"><span>Прознание · Coddy · Могилёв</span><span>Запись на смену</span></div>
     </div>
   `;
@@ -8495,38 +8514,37 @@ function buildTeaserVitrinaHTML(copy) {
     `<div class="teaser-gallery-img" style="background-image:url('${escapeAttr(u)}')"></div>`
   ).join('');
 
-  // События: топ-3 (1 в начале, 1 в середине, 1 финал = ярмарка/последний)
+  // Выезды и события: агрегируем по типу активности БЕЗ привязки к датам.
+  // «Бассейн × 2», «Парк Подниколье × 3» — короткий обзор того, куда дети поедут.
   const events = extractEvents();
-  const eventDescs = (copy && Array.isArray(copy.events)) ? copy.events : [];
-  const pickedEvents = pickTopEventsForTeaser(events);
-  const tripsHtml = pickedEvents.map(e => {
-    const idx = events.indexOf(e);
-    const aiData = eventDescs[idx] || {};
-    // ВСЕГДА используем реальные данные из расписания. aiData.name — игнорируем,
-    // чтобы исключить галлюцинации ИИ (он может выдумать "Бассейн и спортландия"
-    // там где на самом деле только тренажёры). ИИ имеет право только на desc.
-    const displayName = (e.kind === 'parallel' || e.kind === 'two_in_day')
-      ? `${capFirst(e.name)} + ${capFirst(e.secondName)}`
-      : capFirst(e.name);
-    const labelText = e.isAnchor ? 'финал' :
-      e.kind === 'parallel' ? '2 группы' :
-      e.kind === 'two_in_day' ? 'два выезда' :
-      e.kind === 'full_day' ? 'полный день' :
-      e.kind === 'trip6' ? 'все отряды' : 'выезд';
+  const aggregated = aggregateTripsForTeaser(events);
+
+  // Пилюля одного типа выезда: «(N) Бассейн». Цифра в кружочке слева.
+  const renderTripPill = (item, isEvent) => {
     return `
-      <div class="teaser-trip ${e.isAnchor ? 'special' : ''}">
-        <div class="teaser-trip-day">${e.day}</div>
-        <div class="teaser-trip-name">${pdfText(displayName)}</div>
-        <div class="teaser-trip-label">${escapeHtmlPdf(labelText)}</div>
-      </div>
+      <span class="teaser-trip-pill ${isEvent ? 'special' : ''}">
+        <span class="teaser-trip-pill-num">${item.count}</span>
+        <span class="teaser-trip-pill-name">${pdfText(item.name)}</span>
+      </span>
     `;
-  }).join('');
+  };
+
+  const tripsHtml = aggregated.trips.length > 0
+    ? `<div class="teaser-trip-pills">${aggregated.trips.map(t => renderTripPill(t, false)).join('')}</div>`
+    : '';
+
+  const eventsHtml = aggregated.events.length > 0
+    ? `<div class="teaser-trip-pills">${aggregated.events.map(t => renderTripPill(t, true)).join('')}</div>`
+    : '';
+
+  // Подсчёт всех выездов для строки в reasons
+  const totalTripsCount = aggregated.trips.reduce((sum, t) => sum + t.count, 0);
 
   // 4 чек-пункта «что родитель получит»
   const reasons = [
     '10 полных дней с ' + (DETAILS['Время'] || '7:30 до 17:30'),
     '3 приёма пищи: завтрак, обед, полдник',
-    '6 выездов с педагогами и кураторами',
+    (totalTripsCount > 0 ? totalTripsCount + ' ' + pluralForms(totalTripsCount, 'выезд', 'выезда', 'выездов') : 'Выезды') + ' с педагогами и кураторами',
     'Готовые работы ребёнка домой'
   ];
   const reasonsHtml = reasons.map(r =>
@@ -8549,9 +8567,14 @@ function buildTeaserVitrinaHTML(copy) {
 
       <div class="teaser-gallery">${galleryHtml}</div>
 
-      ${pickedEvents.length > 0 ? `
-        <div class="teaser-section-h">${pickedEvents.length === 1 ? 'Главное событие' : (pickedEvents.length + ' ' + pluralForms(pickedEvents.length, 'ключевой день', 'ключевых дня', 'ключевых дней'))}</div>
-        <div class="teaser-trips-row">${tripsHtml}</div>
+      ${aggregated.trips.length > 0 ? `
+        <div class="teaser-section-h">Выезды</div>
+        ${tripsHtml}
+      ` : ''}
+
+      ${aggregated.events.length > 0 ? `
+        <div class="teaser-section-h">События</div>
+        ${eventsHtml}
       ` : ''}
 
       <div class="teaser-section-h">Что входит в стоимость</div>
@@ -8583,23 +8606,105 @@ function buildTeaserVitrinaHTML(copy) {
         </div>
       </div>
 
+      <div class="teaser-warranty">
+        <strong>Программа фиксирована на 80%.</strong> При непредвиденных обстоятельствах — погоде, болезни педагога, форс-мажоре — клуб заменяет активность на равноценную из той же категории. Темы и общая структура смены остаются.
+      </div>
+
       <div class="pdf-foot"><span>Прознание · Coddy</span><span>Раздаточный листок</span></div>
     </div>
   `;
 }
 
-// Выбирает 3 (или меньше) самых ярких события для тизера: первый по дате,
-// один анкорный (вечеринка/ярмарка), и ярмарку-финал если есть.
+// Агрегирует выезды смены БЕЗ привязки к датам, группируя одинаковые
+// активности и считая количество. Разделяет на «выезды» и «события»
+// (вечеринка/ярмарка/дискотека и т.п.).
+//
+// Возвращает: { trips: [{name, count, extra}], events: [{name, count}] }
+//   trips — обычные выезды (картинг, бассейн, парк, лес и т.п.)
+//   events — анкорные события (вечеринка, ярмарка, фестиваль)
+//
+// Группировка по «нормализованному ключу»: первое слово из имени в нижнем регистре.
+// Например, «Парк Подниколье — тренажёры» и «Парк Подниколье — фотоохота» оба
+// сольются в группу «парк», и в extra соберутся уточнения через запятую.
+function aggregateTripsForTeaser(events) {
+  if (!events || events.length === 0) return { trips: [], events: [] };
+
+  const tripGroups = new Map();   // key → {name, count, extras: Set}
+  const eventGroups = new Map();  // key → {name, count}
+
+  // Утилита: ключ группировки. Берём первое значимое слово из имени, нормализуем.
+  // «Бассейн» и «Бассейн в Подниколье» сгруппируются в «бассейн».
+  // «Парк Подниколье — тренажёры» и «Парк Подниколье — фотоохота» — в «парк подниколье».
+  const groupKey = (name) => {
+    if (!name) return '';
+    const lc = String(name).toLowerCase().trim();
+    // Уберём всё после тире/двоеточия — это уточнение
+    const main = lc.split(/[—\-:,]/)[0].trim();
+    return main || lc;
+  };
+
+  // Добавить активность в группу. Уточнение (extra) — то что после тире
+  const extractExtra = (fullName) => {
+    if (!fullName) return '';
+    const parts = String(fullName).split(/[—\-:]/);
+    if (parts.length < 2) return '';
+    return parts.slice(1).join('—').trim();
+  };
+
+  const addToGroup = (groupMap, name) => {
+    if (!name) return;
+    const key = groupKey(name);
+    if (!key) return;
+    if (!groupMap.has(key)) {
+      // Запоминаем самое короткое чистое имя как "канон" — это первое слово
+      // в правильном регистре.
+      const cleanName = String(name).split(/[—\-:,]/)[0].trim();
+      groupMap.set(key, { name: cleanName, count: 0, extras: new Set() });
+    }
+    const g = groupMap.get(key);
+    g.count++;
+    const extra = extractExtra(name);
+    if (extra) g.extras.add(extra.toLowerCase());
+  };
+
+  events.forEach(e => {
+    const target = e.isAnchor ? eventGroups : tripGroups;
+
+    // Параллельные/два-выезда: оба имени считаются отдельно
+    if (e.kind === 'parallel' || e.kind === 'two_in_day') {
+      if (e.name) addToGroup(target, e.name);
+      if (e.secondName) addToGroup(target, e.secondName);
+    } else {
+      if (e.name) addToGroup(target, e.name);
+    }
+  });
+
+  // Преобразуем Map → массив, объединяем extras через запятую
+  const mapToArray = (m) => {
+    return Array.from(m.values()).map(g => ({
+      name: g.name,
+      count: g.count,
+      extra: Array.from(g.extras).join(', ')
+    }));
+  };
+
+  let tripsArr = mapToArray(tripGroups);
+  let eventsArr = mapToArray(eventGroups);
+
+  // Сортируем выезды по count убыв., потом по имени
+  tripsArr.sort((a, b) => (b.count - a.count) || a.name.localeCompare(b.name, 'ru'));
+  eventsArr.sort((a, b) => (b.count - a.count) || a.name.localeCompare(b.name, 'ru'));
+
+  return { trips: tripsArr, events: eventsArr };
+}
+
+// Старая функция — оставлена для обратной совместимости, не используется.
 function pickTopEventsForTeaser(events) {
   if (!events || events.length === 0) return [];
   if (events.length <= 3) return events.slice();
-
-  // Стратегия: первое событие смены (хук) + последний анкор (финал) + одно из середины
   const firstEvent = events[0];
-  // Финал — самый поздний анкор, иначе самое позднее событие
   const anchors = events.filter(e => e.isAnchor);
   const final = anchors.length > 0 ? anchors[anchors.length - 1] : events[events.length - 1];
-  // Средний — что-то между ними, не дублируя
   let middle = null;
   for (let i = 1; i < events.length - 1; i++) {
     if (events[i] !== firstEvent && events[i] !== final) {
