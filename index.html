@@ -3173,7 +3173,12 @@ function defaultSlot(name, teacher, room, direction, opts={}) {
     ageVariant: opts.ageVariant || '',
     groupKind: opts.groupKind || '',
     format: opts.format || '',  // 'МК' | 'уличная' | 'выезд 3' | 'выезд 6'
-    duration: opts.duration || 60
+    duration: opts.duration || 60,
+    // Явный пустой массив рефов — нужно чтобы Object.assign из старого слота
+    // (с другими selectedRefs) мог их затереть. Без этого старые рефы остаются
+    // прилипшими к новому шаблону. Если хочется сохранить — передавайте
+    // через opts.selectedRefs.
+    selectedRefs: Array.isArray(opts.selectedRefs) ? opts.selectedRefs : []
   };
 }
 
@@ -4733,9 +4738,11 @@ function confirmTemplate(day, group, idx, optionIdx, templateName, isTripSlot, s
   };
 
   if (isTripSlot) {
-    Object.assign(state.schedule[day][slotKey], newSlot);
+    // Полная замена объекта вместо Object.assign — иначе остаются хвосты
+    // от прежнего шаблона (selectedRefs, theme и т.д.).
+    state.schedule[day][slotKey] = newSlot;
   } else {
-    setSlot(day, group, idx, newSlot);
+    replaceSlot(day, group, idx, newSlot);
   }
   closeModal();
   render();
@@ -4802,9 +4809,9 @@ function confirmTemplateAndTheme_(day, group, idx, optionIdx, templateName, them
     groupKind: ''
   };
   if (isTripSlot) {
-    Object.assign(state.schedule[day][slotKey], newSlot);
+    state.schedule[day][slotKey] = newSlot;
   } else {
-    setSlot(day, group, idx, newSlot);
+    replaceSlot(day, group, idx, newSlot);
   }
   closeModal();
   render();
@@ -5872,6 +5879,18 @@ function updateStats() {
 function getSlot(day, group, idx) { return state.schedule[day][group][idx]; }
 function setSlot(day, group, idx, patch) { Object.assign(state.schedule[day][group][idx], patch); }
 
+// Полная замена слота. В отличие от setSlot, который мержит через Object.assign
+// (и поэтому оставляет «хвосты» вроде старых selectedRefs и theme), replaceSlot
+// заменяет объект целиком. Использовать при перегенерации, когда новый шаблон —
+// это полностью другая активность, а не правка существующей.
+function replaceSlot(day, group, idx, freshSlot) {
+  if (!Array.isArray(state.schedule[day][group])) {
+    state.schedule[day][group][idx] = freshSlot;
+    return;
+  }
+  state.schedule[day][group][idx] = freshSlot;
+}
+
 function toggleLock(day, group, idx) {
   state.schedule[day][group][idx].locked = !state.schedule[day][group][idx].locked;
   render();
@@ -6929,14 +6948,14 @@ ${candidatesList}
         if (fallback) {
           const fb = slotFromLibByTemplate(fallback.template);
           if (fb) {
-            setSlot(day, group, i, fb);
+            replaceSlot(day, group, i, fb);
             usedNow.add(fallback.template.toLowerCase());
             if (fb.teacher && !_isSharedTeacher(fb.teacher)) initiallyBusy.add(String(fb.teacher).trim());
             return;
           }
         }
       }
-      setSlot(day, group, i, fresh);
+      replaceSlot(day, group, i, fresh);
       usedNow.add(key);
       if (fresh.teacher && !_isSharedTeacher(fresh.teacher)) initiallyBusy.add(String(fresh.teacher).trim());
     });
@@ -7044,7 +7063,7 @@ async function regenAllByDirection(direction) {
       if (!chosen && vs[0] && vs[0].template) {
         chosen = slotFromLibByTemplate(vs[0].template);
       }
-      if (chosen) setSlot(t.day, t.group, t.idx, chosen);
+      if (chosen) replaceSlot(t.day, t.group, t.idx, chosen);
       render();
     }
     toast('Готово');
