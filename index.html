@@ -7464,14 +7464,14 @@ function extractEvents() {
       return;
     }
 
-    // 3. trip3_full — отряды меняются местами в течение дня (одно занятие повторяется)
+    // 3. trip3_full — все отряды побывают в выезде. Утром одна группа на выезде,
+    //    после обеда наоборот. К концу дня все 6 отрядов прошли через выезд.
     if (d.type === 'trip3_full') {
-      // Берём ту активность, которая идёт на выезде (trip_full_am и trip_full_pm обычно одинаковые)
       const am = d.trip_full_am && d.trip_full_am.template ? d.trip_full_am.template : '';
       const pm = d.trip_full_pm && d.trip_full_pm.template ? d.trip_full_pm.template : '';
       const same = am && pm && am.toLowerCase() === pm.toLowerCase();
       if (same) {
-        // Дедупликация: одна запись
+        // Одно и то же занятие весь день (одни отряды утром, другие после обеда)
         events.push({
           day: dayNum, date: dateStr,
           kind: 'full_day',
@@ -7479,10 +7479,22 @@ function extractEvents() {
           name: am,
           isAnchor: ANCHOR_REGEX.test(am)
         });
-      } else {
-        // Разные — две записи (редкий случай)
-        if (am) events.push({ day: dayNum, date: dateStr, kind: 'trip3', label: 'Выезд (утро)', name: am, isAnchor: ANCHOR_REGEX.test(am) });
-        if (pm) events.push({ day: dayNum, date: dateStr, kind: 'trip3', label: 'Выезд (день)', name: pm, isAnchor: ANCHOR_REGEX.test(pm) });
+      } else if (am && pm) {
+        // ДВА разных занятия в один день (типа «утром картинг, после обеда бассейн»).
+        // Это всё равно ОДИН день с одной механикой: каждая группа побывала и там и там.
+        // Показываем как одну карточку с двумя именами.
+        events.push({
+          day: dayNum, date: dateStr,
+          kind: 'two_in_day',
+          label: 'Два выезда за день',
+          name: am,
+          secondName: pm,
+          isAnchor: ANCHOR_REGEX.test(am + ' ' + pm)
+        });
+      } else if (am) {
+        events.push({ day: dayNum, date: dateStr, kind: 'trip3', label: 'Выезд (утро)', name: am, isAnchor: ANCHOR_REGEX.test(am) });
+      } else if (pm) {
+        events.push({ day: dayNum, date: dateStr, kind: 'trip3', label: 'Выезд (день)', name: pm, isAnchor: ANCHOR_REGEX.test(pm) });
       }
       return;
     }
@@ -7672,7 +7684,7 @@ JSON.stringify(eventsForPrompt, null, 2) + '\n\n' +
 '{\n' +
 '  "headline": "4-7 слов, главное обещание",\n' +
 '  "intro": "2-3 предложения. Что это за смена и для кого",\n' +
-'  "valueProposition": "одно предложение: что родитель получит за ' + (DETAILS['Цена_поздняя'] || 'X BYN') + '",\n' +
+'  "valueProposition": "одно предложение: что ребёнок получит за смену. БЕЗ упоминания цены и валюты — она пишется отдельно",\n' +
 '  "eventsLead": "2 предложения, ведущие в раздел событий",\n' +
 '  "fairLead": "2 предложения про финальную ярмарку",\n' +
 '  "templates": {\n' +
@@ -8012,8 +8024,8 @@ function buildDirectionsHTML(copy) {
             const desc = tplDescs[tpl] || getTemplateDescription(tpl) || '';
             return `
               <div class="pdf-tpl">
-                <div class="pdf-tpl-name">${escapeHtmlPdf(tpl)}</div>
-                ${desc ? `<div class="pdf-tpl-desc">${escapeHtmlPdf(desc)}</div>` : ''}
+                <div class="pdf-tpl-name">${pdfText(tpl)}</div>
+                ${desc ? `<div class="pdf-tpl-desc">${pdfText(desc)}</div>` : ''}
                 ${refs.length > 0 ? `
                   <div class="pdf-tpl-refs">
                     ${refs.map(url => `<div class="pdf-tpl-ref" style="background-image:url('${escapeAttr(url)}')"></div>`).join('')}
@@ -8037,7 +8049,7 @@ function buildDirectionsHTML(copy) {
       <div class="pdf-direction-card compact ${dirCardClass(g.name)}">
         <div class="pdf-direction-card-title">${escapeHtmlPdf(g.name)}</div>
         <div class="pdf-direction-card-subtitle">${escapeHtmlPdf(subtitle)}</div>
-        <div class="pdf-direction-compact-desc">${escapeHtmlPdf(aiDesc || fallback)}</div>
+        <div class="pdf-direction-compact-desc">${pdfText(aiDesc || fallback)}</div>
       </div>
     `;
   };
@@ -8072,6 +8084,13 @@ function escapeHtmlPdf(s) {
     .replace(/'/g, '&#39;');
 }
 
+// Шорткат для пользовательских строк в PDF: сначала польёзм типографикой,
+// потом экранируем. Применять для названий шаблонов, тем, описаний — везде,
+// где текст приходит от пользователя.
+function pdfText(s) {
+  return escapeHtmlPdf(polishText(s));
+}
+
 function escapeAttr(s) {
   if (s === null || s === undefined) return '';
   return String(s)
@@ -8087,6 +8106,68 @@ function pluralForms(n, one, few, many) {
   if (m10 === 1 && m100 !== 11) return one;
   if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return few;
   return many;
+}
+
+// Базовая нормализация текста для вывода в PDF.
+// Применяется ко всем пользовательским строкам (названия шаблонов, темы, описания).
+// Делает то, что обычно забывают сделать вручную при вводе:
+//  • заменяет прямые "" и '' на типографские кавычки «» / „"
+//  • первую букву предложения делает заглавной — НО НЕ для известных
+//    аббревиатур и брендов («мк», «3D», «IT» и т.п.)
+//  • схлопывает двойные пробелы
+//  • убирает пробелы перед запятыми/точками
+//  • тире через пробелы (-) превращает в длинное (—)
+//  • не трогает строчные/заглавные внутри слов (там может быть «мк» намеренно)
+//
+// Применять ТОЛЬКО к финальным строкам перед .innerHTML/template literal.
+// НЕ применять к шаблонам в state — они должны сохраняться как введены.
+function polishText(s) {
+  if (s === null || s === undefined) return '';
+  let t = String(s).trim();
+  if (!t) return '';
+
+  // 1. Кавычки. Если есть прямые " или ' — заменяем на ёлочки.
+  // Обрабатываем парами: "..." → «...».
+  t = t.replace(/"([^"]+)"/g, '«$1»');
+  t = t.replace(/'([^']+)'/g, '«$1»');
+  // Одиночные кавычки в одиночных словах оставляем (могут быть апострофы)
+  t = t.replace(/(^|\s)"(?=\S)/g, '$1«');
+  t = t.replace(/(?<=\S)"(\s|$|[.,!?])/g, '»$1');
+
+  // 2. Тире: дефис между пробелами → длинное тире
+  t = t.replace(/ - /g, ' — ');
+  t = t.replace(/ -([.,!?])/g, ' —$1');
+
+  // 3. Лишние пробелы
+  t = t.replace(/\s+/g, ' ');
+  t = t.replace(/\s+([,.!?;:])/g, '$1');
+
+  // 4. Первая буква заглавная — но осторожно.
+  // Если первое слово — известная аббревиатура/бренд в нижнем регистре, оставляем.
+  // Это сохраняет стилистические решения (мк = мастер-класс, всегда строчная).
+  const firstWordMatch = t.match(/^(«|"|„)?([a-zа-яё0-9]+)/i);
+  if (firstWordMatch) {
+    const quote = firstWordMatch[1] || '';
+    const firstWord = firstWordMatch[2];
+    const firstWordLc = firstWord.toLowerCase();
+    // Слова, которые НИКОГДА не капитализируем в начале строки:
+    const keepLowercase = new Set([
+      'мк',       // мастер-класс
+      'мкл',      // (вариант)
+      '3d',       // 3D-моделинг → не трогаем
+      '2d',
+      'ит',       // ИТ как направление в нижнем регистре
+      'soft',     // Soft skills — но 'soft' уже с маленькой остаётся, .toUpperCase() сделает 'Soft' что норм
+      'ai',
+      'tinkercad', 'roblox', 'minecraft' // англоязычные бренды — оставляем как есть
+    ]);
+    if (!keepLowercase.has(firstWordLc) && /^[a-zа-яё]/.test(firstWord)) {
+      const upperFirst = firstWord.charAt(0).toUpperCase() + firstWord.slice(1);
+      t = t.replace(firstWordMatch[0], quote + upperFirst);
+    }
+  }
+
+  return t;
 }
 
 // Если ИИ не дал описание для компактного направления — генерим простое.
@@ -8108,9 +8189,11 @@ function buildEventsHTML(copy) {
   // Рендерим одну карточку события
   const renderEvent = (e, i) => {
     const aiData = eventDescs.find(x => x.idx === i) || {};
-    const displayName = aiData.name || (e.kind === 'parallel'
-      ? `${capFirst(e.name)} + ${capFirst(e.secondName)}`
-      : capFirst(e.name));
+    const displayName = aiData.name || (
+      (e.kind === 'parallel' || e.kind === 'two_in_day')
+        ? `${capFirst(e.name)} + ${capFirst(e.secondName)}`
+        : capFirst(e.name)
+    );
     const desc = aiData.desc || fallbackEventDesc(e);
     const labelText = labelForEvent(e);
     const isSpecial = e.isAnchor;
@@ -8122,8 +8205,8 @@ function buildEventsHTML(copy) {
         </div>
         <div class="pdf-event-content">
           <span class="pdf-event-label">${escapeHtmlPdf(labelText)}</span>
-          <h3 class="pdf-event-name">${escapeHtmlPdf(displayName)}</h3>
-          <p class="pdf-event-desc">${escapeHtmlPdf(desc)}</p>
+          <h3 class="pdf-event-name">${pdfText(displayName)}</h3>
+          <p class="pdf-event-desc">${pdfText(desc)}</p>
         </div>
       </div>
     `;
@@ -8154,6 +8237,7 @@ function capFirst(s) {
 function labelForEvent(e) {
   if (e.isAnchor) return 'Главное событие';
   if (e.kind === 'parallel') return 'Параллельные выезды';
+  if (e.kind === 'two_in_day') return 'Два выезда за день';
   if (e.kind === 'full_day') return 'Полный день';
   if (e.kind === 'trip6') return 'Полный выезд';
   if (e.kind === 'trip3') return 'Половинный выезд';
@@ -8164,6 +8248,9 @@ function labelForEvent(e) {
 function fallbackEventDesc(e) {
   if (e.kind === 'parallel') {
     return `Группы делятся: одна часть едет в одно место, другая в другое. Через час меняются. К концу дня все попробовали и то и другое.`;
+  }
+  if (e.kind === 'two_in_day') {
+    return `Два выезда за один день — одна группа утром на одном, другая после обеда на другом. К концу дня каждый ребёнок побывал и там и там.`;
   }
   if (e.kind === 'full_day') {
     return 'Полный день за пределами клуба, с обедом на месте. Активность, которую дети будут пересказывать дома.';
@@ -8285,7 +8372,7 @@ function buildTeaserVitrinaHTML(copy) {
         <div class="teaser-dir-mini ${dirCardClass(g.name)}">
           <div class="teaser-dir-name">${escapeHtmlPdf(g.name)}</div>
           <div class="teaser-dir-pills">
-            ${visible.map(t => `<span class="teaser-pill">${escapeHtmlPdf(t)}</span>`).join('')}
+            ${visible.map(t => `<span class="teaser-pill">${pdfText(t)}</span>`).join('')}
             ${overflow > 0 ? `<span class="teaser-pill teaser-pill-more">+ ещё ${overflow}</span>` : ''}
           </div>
         </div>
@@ -8295,7 +8382,7 @@ function buildTeaserVitrinaHTML(copy) {
       return `
         <div class="teaser-dir-mini ${dirCardClass(g.name)}">
           <div class="teaser-dir-name">${escapeHtmlPdf(g.name)}</div>
-          <div class="teaser-dir-desc">${escapeHtmlPdf(desc)}</div>
+          <div class="teaser-dir-desc">${pdfText(desc)}</div>
         </div>
       `;
     }
@@ -8330,17 +8417,20 @@ function buildTeaserVitrinaHTML(copy) {
   const tripsHtml = pickedEvents.map(e => {
     const idx = events.indexOf(e);
     const aiData = eventDescs[idx] || {};
-    const displayName = aiData.name || (e.kind === 'parallel'
-      ? `${capFirst(e.name)} + ${capFirst(e.secondName)}`
-      : capFirst(e.name));
+    const displayName = aiData.name || (
+      (e.kind === 'parallel' || e.kind === 'two_in_day')
+        ? `${capFirst(e.name)} + ${capFirst(e.secondName)}`
+        : capFirst(e.name)
+    );
     const labelText = e.isAnchor ? 'финал' :
       e.kind === 'parallel' ? '2 группы' :
+      e.kind === 'two_in_day' ? 'два выезда' :
       e.kind === 'full_day' ? 'полный день' :
       e.kind === 'trip6' ? 'все отряды' : 'выезд';
     return `
       <div class="teaser-trip ${e.isAnchor ? 'special' : ''}">
         <div class="teaser-trip-day">${e.day}</div>
-        <div class="teaser-trip-name">${escapeHtmlPdf(displayName)}</div>
+        <div class="teaser-trip-name">${pdfText(displayName)}</div>
         <div class="teaser-trip-label">${escapeHtmlPdf(labelText)}</div>
       </div>
     `;
