@@ -613,6 +613,48 @@
     min-width: 32px;
   }
 
+  /* Список педагогов в модалке "Переименовать педагога" */
+  .rename-teacher-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 360px;
+    overflow-y: auto;
+    margin-bottom: 14px;
+  }
+  .rename-teacher-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--white);
+    border: 1px solid rgba(21,22,23,0.12);
+    border-radius: 4px;
+    cursor: pointer;
+    text-align: left;
+    font-family: Inter, sans-serif;
+    transition: background 0.12s ease, border-color 0.12s ease;
+  }
+  .rename-teacher-row:hover {
+    background: var(--paper-warm);
+    border-color: var(--ink);
+  }
+  .rename-teacher-name {
+    font-size: 14px;
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .rename-teacher-count {
+    font-size: 11px;
+    color: rgba(21,22,23,0.55);
+    font-family: Inter, sans-serif;
+    background: rgba(21,22,23,0.06);
+    padding: 2px 8px;
+    border-radius: 10px;
+    flex-shrink: 0;
+  }
+
   /* === КОМПАКТНЫЙ ВИД === */
   .compact-controls {
     background: var(--paper-warm);
@@ -2852,6 +2894,7 @@
     <button class="btn btn-sm btn-ghost" onclick="regenAllByDirection('Творчество')">🔄 все творч.</button>
     <button class="btn btn-sm btn-ghost" onclick="regenAllByDirection('Активность / спорт')">🔄 все активн.</button>
     <button class="btn btn-sm btn-ghost" onclick="unlockAll()" title="Снять закрепление со всех слотов — удобно перед генерацией новой смены">🔓 снять закрепления</button>
+    <button class="btn btn-sm btn-ghost" onclick="openRenameTeacherDialog()" title="Заменить имя педагога во всех слотах смены — после переименования в библиотеке">✏️ переименовать педагога</button>
   </div>
 </div>
 
@@ -5811,6 +5854,131 @@ function unlockAll() {
   saveLocal();
   render();
   toast('Снято закреплений: ' + count);
+}
+
+// Собирает все уникальные имена педагогов в текущем расписании с количеством слотов.
+// Используется для миграции после переименования в библиотеке.
+// Возвращает массив [{teacher, count}] отсортированный по count убыв.
+function _collectTeachersInSchedule() {
+  const counts = new Map();
+  const clusterGroups = ['am_cluster', 'am_outside', 'pm_cluster', 'pm_outside'];
+  const tripSlotKeys = [
+    'trip6_am', 'trip6_pm',
+    'trip_full_am', 'trip_full_pm',
+    'trip6_am_a', 'trip6_am_b',
+    'trip6_pm_a', 'trip6_pm_b',
+    'am_outside_single', 'pm_outside_single'
+  ];
+  const tally = (slot) => {
+    if (!slot || !slot.teacher) return;
+    const t = String(slot.teacher).trim();
+    if (!t) return;
+    counts.set(t, (counts.get(t) || 0) + 1);
+  };
+  state.schedule.forEach(d => {
+    clusterGroups.forEach(g => {
+      if (Array.isArray(d[g])) d[g].forEach(tally);
+    });
+    tripSlotKeys.forEach(k => tally(d[k]));
+  });
+  return Array.from(counts.entries())
+    .map(([teacher, count]) => ({ teacher, count }))
+    .sort((a, b) => b.count - a.count || a.teacher.localeCompare(b.teacher, 'ru'));
+}
+
+// Открывает модалку «Переименовать педагога».
+// Шаг 1: показываем список педагогов с количеством слотов.
+// Шаг 2 (после клика на одного): поле ввода нового имени и кнопка «Заменить».
+function openRenameTeacherDialog() {
+  const teachers = _collectTeachersInSchedule();
+  if (teachers.length === 0) {
+    toast('В расписании нет педагогов');
+    return;
+  }
+  document.getElementById('modal-title').innerHTML = 'Переименовать <em>педагога</em>';
+  const listHtml = teachers.map(t => `
+    <button class="rename-teacher-row" onclick="_pickTeacherToRename(${JSON.stringify(t.teacher).replace(/"/g, '&quot;')})">
+      <span class="rename-teacher-name">${escapeHtml(t.teacher)}</span>
+      <span class="rename-teacher-count">${t.count} ${pluralForms(t.count, 'слот', 'слота', 'слотов')}</span>
+    </button>
+  `).join('');
+  document.getElementById('modal-body').innerHTML = `
+    <div style="font-family:Geologica,serif;font-style:italic;font-size:13px;color:rgba(21,22,23,0.7);margin-bottom:14px;line-height:1.5">
+      Если вы переименовали педагога в библиотеке (Google Sheets), но в текущем расписании остались слоты со старым именем — выберите старый вариант ниже и впишите новый. Замена применится ко всем слотам сразу.
+    </div>
+    <div class="rename-teacher-list">${listHtml}</div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Закрыть</button>
+    </div>
+  `;
+  openModal();
+}
+
+// Шаг 2 модалки — выбран конкретный педагог, теперь спрашиваем новое имя.
+function _pickTeacherToRename(oldName) {
+  const teachers = _collectTeachersInSchedule();
+  const found = teachers.find(t => t.teacher === oldName);
+  const count = found ? found.count : 0;
+  document.getElementById('modal-body').innerHTML = `
+    <div style="font-family:Geologica,serif;font-style:italic;font-size:13px;color:rgba(21,22,23,0.7);margin-bottom:14px;line-height:1.5">
+      Заменить имя педагога во всех ${count} ${pluralForms(count, 'слоте', 'слотах', 'слотах')}.
+    </div>
+    <label class="eyebrow" style="display:block;margin-bottom:6px">Старое имя (как сейчас в расписании)</label>
+    <input class="editor-input" id="rename-old-input" value="${escapeHtml(oldName)}" disabled style="opacity:0.6">
+    <label class="eyebrow" style="display:block;margin-bottom:6px;margin-top:14px">Новое имя</label>
+    <input class="editor-input" id="rename-new-input" value="${escapeHtml(oldName)}" placeholder="например, Афанасенко Женя">
+    <div class="modal-actions">
+      <button class="btn" onclick="openRenameTeacherDialog()">← Назад</button>
+      <button class="btn btn-primary" onclick="_doRenameTeacher()">Заменить во всех слотах</button>
+    </div>
+  `;
+  // Автофокус и выделение текста для удобства
+  setTimeout(() => {
+    const inp = document.getElementById('rename-new-input');
+    if (inp) { inp.focus(); inp.select(); }
+  }, 50);
+}
+
+function _doRenameTeacher() {
+  const oldName = document.getElementById('rename-old-input').value;
+  const newName = String(document.getElementById('rename-new-input').value || '').trim();
+  if (!newName) {
+    toast('Новое имя не может быть пустым');
+    return;
+  }
+  if (newName === oldName) {
+    toast('Имя не изменилось');
+    return;
+  }
+  let count = 0;
+  const clusterGroups = ['am_cluster', 'am_outside', 'pm_cluster', 'pm_outside'];
+  const tripSlotKeys = [
+    'trip6_am', 'trip6_pm',
+    'trip_full_am', 'trip_full_pm',
+    'trip6_am_a', 'trip6_am_b',
+    'trip6_pm_a', 'trip6_pm_b',
+    'am_outside_single', 'pm_outside_single'
+  ];
+  const replaceIn = (slot) => {
+    if (slot && slot.teacher === oldName) {
+      slot.teacher = newName;
+      count++;
+    }
+  };
+  state.schedule.forEach(d => {
+    clusterGroups.forEach(g => {
+      if (Array.isArray(d[g])) d[g].forEach(replaceIn);
+    });
+    tripSlotKeys.forEach(k => replaceIn(d[k]));
+  });
+  if (count === 0) {
+    toast('Не нашлось слотов с этим именем');
+    return;
+  }
+  saveLocal();
+  render();
+  closeModal();
+  toast('Заменено: ' + count + ' ' + pluralForms(count, 'слот', 'слота', 'слотов'));
 }
 
 function editStation(day, group, idx) {
