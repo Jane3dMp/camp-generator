@@ -4665,7 +4665,7 @@ async function generateThemeForSlot(day, group, idx, isTripSlot, slotKey) {
   const slot = isTripSlot ? state.schedule[day][slotKey] : getSlot(day, group, idx);
   if (!slot.template) { toast('Сначала выбери шаблон'); return; }
 
-  const libraryItem = LIBRARY.find(a => a.template === slot.template);
+  const libraryItem = LIBRARY.find(a => String(a.template||'').trim().toLowerCase() === String(slot.template||'').trim().toLowerCase());
   const examplesStr = libraryItem ? libraryItem.examples : '';
 
   // Ключ для накопления уже показанных тем — уникальный для каждой ячейки.
@@ -4812,7 +4812,7 @@ function isRefSelectedInSlot_(slot, url) {
 // Возвращает массив URL'ов которые «активны» в этом слоте (selectedRefs или дефолт = все из библиотеки шаблона).
 function getSlotActiveRefs_(slot) {
   if (!slot || !slot.template) return [];
-  const lib = LIBRARY.find(a => a.template === slot.template);
+  const lib = LIBRARY.find(a => String(a.template||'').trim().toLowerCase() === String(slot.template||'').trim().toLowerCase());
   const allRefs = (lib && Array.isArray(lib.refs)) ? lib.refs : [];
   if (!Array.isArray(slot.selectedRefs)) return allRefs.slice();
   // Только те которые есть и в библиотеке, и в selectedRefs
@@ -5007,7 +5007,7 @@ async function addRefForTemplate(templateName, btnEl) {
     if (!data.ok) throw new Error(data.error || 'API error');
 
     // Обновляем массив refs в LIBRARY локально
-    const lib = LIBRARY.find(a => a.template === templateName);
+    const lib = LIBRARY.find(a => String(a.template||'').trim().toLowerCase() === String(templateName||'').trim().toLowerCase());
     if (lib) {
       if (!Array.isArray(lib.refs)) lib.refs = [];
       if (!lib.refs.includes(url)) {
@@ -5065,7 +5065,7 @@ async function removeRefFromTemplate(templateName, url, btnEl) {
     const data = await r.json();
     if (!data.ok) throw new Error(data.error || 'API error');
     toast('Удалено');
-    const lib = LIBRARY.find(a => a.template === templateName);
+    const lib = LIBRARY.find(a => String(a.template||'').trim().toLowerCase() === String(templateName||'').trim().toLowerCase());
     if (lib) {
       if (lib.refsCount > 0) lib.refsCount--;
       if (Array.isArray(lib.refs)) {
@@ -5105,7 +5105,7 @@ async function saveThemeAsIdea(templateName, themeText, btnEl) {
       ? `Тема «${themeText}» уже была в библиотеке`
       : `Тема «${themeText}» сохранена в библиотеку`);
     // Локально тоже обновим LIBRARY, чтобы Claude в этой сессии уже видел тему как пример
-    const lib = LIBRARY.find(a => a.template === templateName);
+    const lib = LIBRARY.find(a => String(a.template||'').trim().toLowerCase() === String(templateName||'').trim().toLowerCase());
     if (lib) {
       const ex = String(lib.examples || '').trim();
       if (!ex.toLowerCase().includes(themeText.trim().toLowerCase())) {
@@ -5610,7 +5610,7 @@ function renderStation(dayIdx, groupKey, stationIdx, slot, troops, slotLabels, i
   // Если у слота есть selectedRefs — показываем «выбрано/всего». Иначе — просто общее.
   let refsBadge = '';
   if (slot.template) {
-    const lib = LIBRARY.find(a => a.template === slot.template);
+    const lib = LIBRARY.find(a => String(a.template||'').trim().toLowerCase() === String(slot.template||'').trim().toLowerCase());
     const cnt = (lib && lib.refsCount) || 0;
     if (cnt > 0) {
       if (Array.isArray(slot.selectedRefs)) {
@@ -7630,7 +7630,7 @@ function computeDirectionWeights() {
     const tpls = groups[dir];
     let refsTotal = 0;
     tpls.forEach(tpl => {
-      const item = LIBRARY.find(x => x.template === tpl);
+      const item = LIBRARY.find(x => String(x.template||'').trim().toLowerCase() === String(tpl||'').trim().toLowerCase());
       if (item && Array.isArray(item.refs)) refsTotal += item.refs.length;
     });
     weights.push({ name: dir, templates: tpls, refsTotal: refsTotal, templatesCount: tpls.length });
@@ -7719,7 +7719,7 @@ async function generatePDFCopy() {
     const tpls = groups[dir] || [];
     tpls.forEach(tpl => {
       // Только те, что есть в LIBRARY и не пустые
-      const item = LIBRARY.find(x => x.template === tpl);
+      const item = LIBRARY.find(x => String(x.template||'').trim().toLowerCase() === String(tpl||'').trim().toLowerCase());
       if (!item) return;
       templatesToDescribe.push({
         template: tpl,

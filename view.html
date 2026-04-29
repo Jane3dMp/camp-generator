@@ -719,10 +719,21 @@
 
   function getActiveRefsForSlot(slot) {
     if (!slot || !slot.template) return [];
-    const lib = LIBRARY.find(a => a.template === slot.template);
+    // Если педагог явно выбрал рефы — показываем их (они уже валидные URL'ы,
+    // сохранённые в snapshot публикации). НЕ фильтруем через текущую LIBRARY,
+    // потому что шаблон может быть переименован, временно убран в черновики
+    // или библиотека ещё не догрузилась — в любом случае selectedRefs — это
+    // явный выбор педагога на момент публикации, и он должен отображаться.
+    if (Array.isArray(slot.selectedRefs)) {
+      return slot.selectedRefs.slice();
+    }
+    // Если selectedRefs нет — берём все рефы шаблона из LIBRARY как дефолт.
+    // Сравниваем без учёта регистра и пробелов: «мк макраме» и «МК макраме» —
+    // один и тот же шаблон.
+    const target = String(slot.template).trim().toLowerCase();
+    const lib = LIBRARY.find(a => String(a.template || '').trim().toLowerCase() === target);
     const allRefs = (lib && Array.isArray(lib.refs)) ? lib.refs : [];
-    if (!Array.isArray(slot.selectedRefs)) return allRefs.slice();
-    return slot.selectedRefs.filter(u => allRefs.includes(u));
+    return allRefs.slice();
   }
 
   function buildScheduleForTeacher(teacherName) {
