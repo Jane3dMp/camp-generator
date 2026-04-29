@@ -554,6 +554,65 @@
     border-radius: 4px;
   }
 
+  /* Архив всех публикаций — список карточек */
+  .archive-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--white);
+    border: 1px solid rgba(21,22,23,0.10);
+    border-radius: 4px;
+    margin-bottom: 6px;
+  }
+  .archive-item-current {
+    background: var(--paper-warm);
+    border-color: var(--ink);
+    border-width: 1.5px;
+  }
+  .archive-item-main {
+    flex: 1;
+    min-width: 0;
+  }
+  .archive-item-name {
+    font-family: Geologica, serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 2px;
+    line-height: 1.3;
+  }
+  .archive-item-meta {
+    font-family: Inter, sans-serif;
+    font-size: 11px;
+    color: rgba(21,22,23,0.55);
+    line-height: 1.35;
+  }
+  .archive-current-badge {
+    display: inline-block;
+    background: var(--yellow);
+    color: var(--ink);
+    font-family: Inter, sans-serif;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 2px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  .archive-item-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .archive-item-actions .btn-sm {
+    padding: 4px 8px;
+    font-size: 13px;
+    min-width: 32px;
+  }
+
   /* === КОМПАКТНЫЙ ВИД === */
   .compact-controls {
     background: var(--paper-warm);
@@ -3290,7 +3349,14 @@ const _publishState = {
   lastPublishedAt: 0,               // когда мы последний раз успешно опубликовали
   changesSincePublish: 0,           // счётчик правок с момента публикации
   autopublishTimer: null,           // активный таймер автопубликации
-  autopublishEnabled: false         // включена ли автопубликация
+  autopublishEnabled: false,        // включена ли автопубликация
+  // Идентичность последней опубликованной смены — нужна, чтобы понять «это та же смена,
+  // которую мы публиковали, или уже другая». Сравнивается по theme + startDate.
+  lastPublishedTheme: '',
+  lastPublishedStartDate: '',
+  // Пометка, что мы уже спросили у пользователя «это новая смена?» в этой сессии.
+  // Чтобы не спрашивать повторно после нажатия «Нет».
+  newCampPromptDismissed: false
 };
 
 function _readAutopublishPref() {
@@ -7349,6 +7415,8 @@ async function _initPublishIndicator() {
     _publishState.lastPublishedAt = data.publication.publishedAt
       ? new Date(data.publication.publishedAt).getTime()
       : 0;
+    _publishState.lastPublishedTheme = String(serverState.theme || '').trim();
+    _publishState.lastPublishedStartDate = String(serverState.startDate || '').trim();
     _publishState.changesSincePublish = 0;
     updatePublishIndicator();
   } catch(e) {
@@ -8960,17 +9028,255 @@ async function openPublishPanel() {
           <a href="${escapeHtml(currentUrl)}" target="_blank" rel="noopener" class="btn btn-ghost" style="text-decoration:none">👁 Открыть как педагог</a>
         </div>
       </div>
+
+      <div style="margin-top:14px;padding:12px 14px;background:rgba(21,22,23,0.04);border-left:3px solid var(--yellow);border-radius:4px;font-family:Inter,sans-serif;font-size:12px;line-height:1.45">
+        <strong>Готовите новую смену?</strong> Нажмите кнопку ниже — следующая публикация уйдёт под новым URL. Старая публикация останется доступной педагогам по своей ссылке.
+      </div>
     ` : `
       <div class="publish-empty">Эта смена ещё не опубликована. Нажми «Опубликовать» — создастся уникальная ссылка для педагогов.</div>
     `}
 
-    <div class="modal-actions">
+    <div class="modal-actions" style="flex-wrap:wrap;gap:8px">
       <button class="btn" onclick="closeModal()">Закрыть</button>
+      ${currentId ? `<button class="btn btn-ghost" onclick="startNewPublication()" title="Старая публикация останется живой по своей ссылке">🆕 Начать новую смену</button>` : ''}
       ${currentId ? `<button class="btn btn-ghost" onclick="unpublishSmena()" style="color:#c0392b">Снять с публикации</button>` : ''}
       <button class="btn btn-primary" onclick="publishSmena()">${currentId ? '🔄 Обновить публикацию' : '🌐 Опубликовать'}</button>
     </div>
+
+    <div id="publish-archive-block" style="margin-top:24px;padding-top:18px;border-top:1px solid rgba(21,22,23,0.10)">
+      <div class="publish-section-title" style="display:flex;align-items:center;justify-content:space-between">
+        <span>Все опубликованные смены</span>
+        <button class="btn btn-sm btn-ghost" onclick="loadAllPublications()">↻ Обновить</button>
+      </div>
+      <div id="publish-archive-list">
+        <div style="font-family:Inter,sans-serif;font-size:12px;color:rgba(21,22,23,0.5);padding:12px 0">Загружаю архив…</div>
+      </div>
+    </div>
   `;
   openModal();
+  // Подгружаем архив в фоне — не блокируем открытие модалки
+  loadAllPublications();
+}
+
+// Загружает список всех опубликованных смен и рендерит их в #publish-archive-list.
+// Каждая публикация — карточка с темой, датой, ссылкой и действиями.
+async function loadAllPublications() {
+  const listEl = document.getElementById('publish-archive-list');
+  if (!listEl) return;
+  listEl.innerHTML = '<div style="font-family:Inter,sans-serif;font-size:12px;color:rgba(21,22,23,0.5);padding:12px 0">Загружаю архив…</div>';
+
+  try {
+    const r = await fetch(LIBRARY_URL + '?action=listPublished&_t=' + Date.now());
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || 'API error');
+    const list = data.publications || data.versions || [];
+    renderPublicationsArchive(list);
+  } catch(e) {
+    listEl.innerHTML = `<div style="font-family:Inter,sans-serif;font-size:12px;color:#c0392b;padding:12px 0">Не удалось загрузить архив: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function renderPublicationsArchive(versions) {
+  const listEl = document.getElementById('publish-archive-list');
+  if (!listEl) return;
+  if (!versions || versions.length === 0) {
+    listEl.innerHTML = '<div style="font-family:Inter,sans-serif;font-size:12px;color:rgba(21,22,23,0.5);padding:12px 0">Пока нет опубликованных смен.</div>';
+    return;
+  }
+  const baseUrl = getPublishedViewBaseUrl_();
+  const currentId = state.publishId || '';
+
+  const itemsHtml = versions.map(v => {
+    const url = baseUrl + '?id=' + encodeURIComponent(v.id);
+    const date = v.publishedAt ? new Date(v.publishedAt) : null;
+    const dateStr = date ? date.toLocaleString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+    const isCurrent = v.id === currentId;
+    const displayName = v.name || v.theme || v.id;
+    const escapedId = String(v.id).replace(/'/g, "\\'");
+    const escapedName = String(displayName).replace(/'/g, "\\'");
+    return `
+      <div class="archive-item${isCurrent ? ' archive-item-current' : ''}">
+        <div class="archive-item-main">
+          <div class="archive-item-name">${escapeHtml(displayName)}${isCurrent ? ' <span class="archive-current-badge">сейчас в админке</span>' : ''}</div>
+          <div class="archive-item-meta">
+            ${v.theme && v.theme !== displayName ? '«' + escapeHtml(v.theme) + '» · ' : ''}
+            ${escapeHtml(dateStr)}
+          </div>
+        </div>
+        <div class="archive-item-actions">
+          <button class="btn btn-sm" onclick="copyArchiveUrl('${escapedId}')" title="Скопировать ссылку">📋</button>
+          <a class="btn btn-sm" href="${escapeHtml(url)}" target="_blank" rel="noopener" title="Открыть как педагог">↗</a>
+          ${!isCurrent ? `<button class="btn btn-sm" onclick="loadPublicationToAdmin('${escapedId}')" title="Загрузить эту смену в админку для редактирования">📥</button>` : ''}
+          ${!isCurrent ? `<button class="btn btn-sm" onclick="deletePublicationFromArchive('${escapedId}', '${escapedName}')" style="color:#c0392b" title="Удалить публикацию (ссылка перестанет работать)">🗑</button>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  listEl.innerHTML = itemsHtml;
+}
+
+// Копирует URL публикации из архива в буфер обмена
+function copyArchiveUrl(id) {
+  const baseUrl = getPublishedViewBaseUrl_();
+  const url = baseUrl + '?id=' + encodeURIComponent(id);
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(
+      () => toast('Ссылка скопирована'),
+      () => toast('Не удалось скопировать')
+    );
+  } else {
+    // Fallback
+    const ta = document.createElement('textarea');
+    ta.value = url;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); toast('Ссылка скопирована'); }
+    catch(e) { toast('Не удалось скопировать'); }
+    document.body.removeChild(ta);
+  }
+}
+
+// Загружает выбранную публикацию из архива и подменяет ею state в админке.
+// Это значит: можно вернуться к старой смене и продолжить её редактировать.
+// Текущий стейт админки сначала сохраняется в localStorage (на случай отката).
+async function loadPublicationToAdmin(id) {
+  if (!id) return;
+  const ok = window.confirm(
+    'Загрузить эту публикацию в админку?\n\n' +
+    'Текущее расписание в админке будет заменено на расписание из выбранной публикации. ' +
+    'Текущее состояние сохранится в браузере (на случай отката), но если вы заранее не нажали «Опубликовать» — несохранённые правки могут потеряться.\n\n' +
+    'Продолжить?'
+  );
+  if (!ok) return;
+
+  try {
+    toast('Загружаю публикацию…');
+    const r = await fetch(LIBRARY_URL + '?action=getPublished&id=' + encodeURIComponent(id) + '&_t=' + Date.now());
+    const data = await r.json();
+    if (!data.ok || !data.publication) throw new Error(data.error || 'Публикация не найдена');
+
+    const pub = data.publication;
+    let serverState;
+    try {
+      serverState = typeof pub.stateJson === 'string' ? JSON.parse(pub.stateJson) : pub.stateJson;
+    } catch(parseErr) {
+      throw new Error('Не удалось разобрать stateJson публикации');
+    }
+    if (!serverState || !Array.isArray(serverState.schedule)) {
+      throw new Error('Публикация не содержит расписания');
+    }
+
+    // Сохраняем текущий state в "корзину" — на случай отката
+    try {
+      localStorage.setItem('camp_grid_state_backup_' + Date.now(), JSON.stringify({
+        savedAt: new Date().toISOString(),
+        state: state
+      }));
+    } catch(_) {}
+
+    // Подменяем поля state. publishId выставляем равным id публикации,
+    // чтобы дальнейшие «Опубликовать» уходили в тот же URL.
+    state.theme = serverState.theme || '';
+    state.ages = serverState.ages || state.ages;
+    state.startDate = serverState.startDate || '';
+    state.anchors = serverState.anchors || '';
+    state.schedule = serverState.schedule;
+    state.workWithoutThemes = !!serverState.workWithoutThemes;
+    state.campType = serverState.campType || state.campType;
+    state.publishId = pub.id;
+
+    // Обновляем baseline под новую публикацию
+    _publishState.lastPublishedFingerprint = computeScheduleFingerprint_({
+      theme: serverState.theme,
+      startDate: serverState.startDate,
+      schedule: serverState.schedule
+    });
+    _publishState.lastPublishedAt = pub.publishedAt ? new Date(pub.publishedAt).getTime() : Date.now();
+    _publishState.lastPublishedTheme = String(serverState.theme || '').trim();
+    _publishState.lastPublishedStartDate = String(serverState.startDate || '').trim();
+    _publishState.changesSincePublish = 0;
+    _publishState.newCampPromptDismissed = false;
+
+    saveLocal();
+    render();
+    updatePublishIndicator();
+
+    closeModal();
+    toast('Загружено: ' + (pub.name || pub.theme || pub.id));
+  } catch(e) {
+    console.error('loadPublicationToAdmin failed:', e);
+    toast('Ошибка: ' + e.message);
+  }
+}
+
+// Удаляет публикацию из архива. Если это была текущая — отвязываем state от неё.
+async function deletePublicationFromArchive(id, name) {
+  if (!id) return;
+  const ok = window.confirm(
+    'Удалить публикацию «' + (name || id) + '»?\n\n' +
+    'Ссылка перестанет работать у педагогов. Восстановить будет нельзя — снапшот удаляется из Google Sheets.\n\n' +
+    'Продолжить?'
+  );
+  if (!ok) return;
+  try {
+    toast('Удаляю…');
+    // POST в no-cors режиме — мы не получим ответ, но запрос пройдёт
+    await fetch(LIBRARY_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'unpublish', id: id })
+    });
+    // Если удалили текущую — отвязываем state
+    if (state.publishId === id) {
+      state.publishId = null;
+      _publishState.lastPublishedFingerprint = null;
+      _publishState.lastPublishedAt = 0;
+      _publishState.lastPublishedTheme = '';
+      _publishState.lastPublishedStartDate = '';
+      _publishState.changesSincePublish = 0;
+      saveLocal();
+      updatePublishIndicator();
+    }
+    // Перезагрузим список через секунду
+    setTimeout(() => loadAllPublications(), 1000);
+    toast('Удалено');
+  } catch(e) {
+    toast('Ошибка: ' + e.message);
+  }
+}
+
+// Сбрасывает связь с текущей публикацией. Старая публикация в Sheets и URL для
+// педагогов сохраняются — они продолжат работать. Просто следующее «Опубликовать»
+// создаст новую запись с новым ID.
+function startNewPublication() {
+  const oldId = state.publishId;
+  if (!oldId) {
+    toast('Эта смена ещё не публиковалась');
+    return;
+  }
+  const oldName = _publishState.lastPublishedTheme ||
+    (state.theme || 'предыдущая смена');
+  const ok = window.confirm(
+    'Отвязать админку от текущей публикации?\n\n' +
+    'Старая публикация «' + oldName + '» останется доступна педагогам по той же ссылке. ' +
+    'Следующее нажатие «Опубликовать» создаст новую публикацию под отдельным URL.\n\n' +
+    'Продолжить?'
+  );
+  if (!ok) return;
+  state.publishId = null;
+  _publishState.lastPublishedFingerprint = null;
+  _publishState.lastPublishedAt = 0;
+  _publishState.lastPublishedTheme = '';
+  _publishState.lastPublishedStartDate = '';
+  _publishState.changesSincePublish = 0;
+  _publishState.newCampPromptDismissed = false;
+  saveLocal();
+  updatePublishIndicator();
+  toast('Готово. Следующая публикация уйдёт под новым URL');
+  // Перерисуем панель — теперь там не будет блока «Текущая публикация»
+  try { openPublishPanel(); } catch(_) {}
 }
 
 function copyPublishUrl() {
@@ -9021,6 +9327,42 @@ function computeScheduleFingerprint_(stateObj) {
 }
 
 async function publishSmena() {
+  // Авто-детект «новая смена»: если у нас уже есть publishId, но тема или дата
+  // отличаются от того, что было опубликовано последний раз — это, скорее всего,
+  // другая смена. Спрашиваем пользователя, чтобы не переписать чужую публикацию.
+  if (state.publishId && _publishState.lastPublishedTheme && !_publishState.newCampPromptDismissed) {
+    const currentTheme = String(state.theme || '').trim();
+    const currentStartDate = String(state.startDate || '').trim();
+    const themeChanged = currentTheme !== _publishState.lastPublishedTheme;
+    const dateChanged = currentStartDate !== _publishState.lastPublishedStartDate;
+    if (themeChanged || dateChanged) {
+      const oldName = _publishState.lastPublishedTheme +
+        (_publishState.lastPublishedStartDate ? ' (' + _publishState.lastPublishedStartDate + ')' : '');
+      const newName = currentTheme +
+        (currentStartDate ? ' (' + currentStartDate + ')' : '');
+      const msg = 'Тема или даты смены изменились.\n\n' +
+        'Было опубликовано: «' + oldName + '»\n' +
+        'Сейчас в админке: «' + newName + '»\n\n' +
+        'Это новая смена?\n' +
+        '  «ОК» — создать новую публикацию (отдельный URL для педагогов).\n' +
+        '  «Отмена» — обновить ту же публикацию (педагоги старой смены увидят новое).';
+      const isNewCamp = window.confirm(msg);
+      if (isNewCamp) {
+        // Создаём новую публикацию: чистим publishId и связанный baseline
+        state.publishId = null;
+        _publishState.lastPublishedFingerprint = null;
+        _publishState.lastPublishedAt = 0;
+        _publishState.lastPublishedTheme = '';
+        _publishState.lastPublishedStartDate = '';
+        _publishState.changesSincePublish = 0;
+        saveLocal();
+      } else {
+        // Пользователь хочет переписать ту же публикацию — больше не спрашиваем в этой сессии
+        _publishState.newCampPromptDismissed = true;
+      }
+    }
+  }
+
   // Если ещё не публиковали — генерим новый ID. Иначе — переиспользуем.
   if (!state.publishId) {
     state.publishId = generateShortId_();
@@ -9142,7 +9484,10 @@ async function publishSmena() {
     // обнуляем счётчик правок, на 3 сек подсвечиваем кнопку зелёным.
     _publishState.lastPublishedFingerprint = expectedFingerprint;
     _publishState.lastPublishedAt = Date.now();
+    _publishState.lastPublishedTheme = String(state.theme || '').trim();
+    _publishState.lastPublishedStartDate = String(state.startDate || '').trim();
     _publishState.changesSincePublish = 0;
+    _publishState.newCampPromptDismissed = false; // сбрасываем флаг — новая публикация = чистый старт
     const btnEl = document.getElementById('topbar-publish-btn');
     if (btnEl) {
       btnEl.classList.remove('publish-state-dirty', 'publish-state-clean');
