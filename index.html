@@ -2954,7 +2954,8 @@
     <button class="btn btn-sm btn-ghost" onclick="unlockAll()" title="Снять закрепление со всех слотов — удобно перед генерацией новой смены">🔓 снять закрепления</button>
     <button class="btn btn-sm btn-ghost" onclick="openRenameTeacherDialog()" title="Заменить имя педагога во всех слотах смены — после переименования в библиотеке">✏️ переименовать педагога</button>
     <button class="btn btn-sm btn-ghost" onclick="clearAllThemes()" title="Удалить темы из всех слотов — например «Браслет дружбы». Шаблоны и педагоги остаются. Полезно если темы прилетели из старой смены или автогенерации.">🧹 очистить темы</button>
-    <button class="btn btn-sm btn-ghost" onclick="clearAllRefs()" title="Удалить выбранные референсы (картинки) из всех слотов. После этого нужно вручную через 🔖 выбрать рефы для каждого нужного слота.">🧹 очистить рефы</button>
+    <button class="btn btn-sm btn-ghost" onclick="cleanForeignRefs()" title="Умная чистка: убирает только «прилипшие» рефы (которых нет в библиотеке у этого шаблона). Свои рефы шаблона остаются. Самый безопасный способ привести в порядок старую смену.">🪄 умная чистка рефов</button>
+    <button class="btn btn-sm btn-ghost" onclick="clearAllRefs()" title="Удалить ВСЕ выбранные референсы из всех слотов (жёсткий вариант). После этого нужно вручную через 🔖 выбрать рефы для каждого нужного слота.">🧹 очистить рефы</button>
     <button class="btn btn-sm btn-ghost" onclick="openConflictsDialog()" title="Найти педагогов, которые стоят в нескольких слотах одновременно">🔍 проверить расписание</button>
   </div>
 </div>
@@ -6095,6 +6096,121 @@ function clearAllRefs() {
     ? 'Очищено рефов: ' + cleared + ' · пропущено закреплённых: ' + lockedSkippedCount
     : 'Очищено рефов: ' + cleared;
   toast(finalMsg);
+}
+
+// «Умная чистка»: проходит по всем слотам и для каждого, у кого есть selectedRefs,
+// оставляет только те URL, которые реально присутствуют в LIBRARY у его шаблона.
+// Это убирает «прилипшие» рефы от прошлых шаблонов (когда регенерация поменяла
+// template, но selectedRefs остались от старого).
+//
+// Шаблон в LIBRARY ищется case-insensitive (учтены варианты "мк макраме" / "МК макраме").
+//
+// Если у шаблона в LIBRARY нет рефов — считаем что слот был грязный, чистим
+// selectedRefs полностью (превращаем в undefined). Тогда после чистки view.html
+// возьмёт рефы из LIBRARY (там их 0 — покажет пусто), что и должно быть.
+//
+// ЗАКРЕПЛЁННЫЕ СЛОТЫ — не трогаем (как и в clearAllRefs).
+function cleanForeignRefs() {
+  const clusterGroups = ['am_cluster', 'am_outside', 'pm_cluster', 'pm_outside'];
+  const tripSlotKeys = [
+    'trip6_am', 'trip6_pm',
+    'trip_full_am', 'trip_full_pm',
+    'trip6_am_a', 'trip6_am_b',
+    'trip6_pm_a', 'trip6_pm_b',
+    'am_outside_single', 'pm_outside_single'
+  ];
+
+  // 1) Анализ что найдём
+  let toCleanCount = 0;
+  let toRemoveAllCount = 0;
+  let lockedSkippedCount = 0;
+  const stats = []; // для подробного вывода в console
+  const analyze = (slot, where) => {
+    if (!slot || !slot.template) return;
+    if (!Array.isArray(slot.selectedRefs) || slot.selectedRefs.length === 0) return;
+    if (slot.locked) { lockedSkippedCount++; return; }
+    const target = String(slot.template).trim().toLowerCase();
+    const lib = LIBRARY.find(a => String(a.template || '').trim().toLowerCase() === target);
+    const libRefs = (lib && Array.isArray(lib.refs)) ? lib.refs : [];
+    const valid = slot.selectedRefs.filter(u => libRefs.includes(u));
+    const willChange = valid.length !== slot.selectedRefs.length;
+    if (willChange) {
+      const removed = slot.selectedRefs.length - valid.length;
+      stats.push({
+        where: where,
+        template: slot.template,
+        had: slot.selectedRefs.length,
+        kept: valid.length,
+        removed: removed,
+        libRefsAvailable: libRefs.length
+      });
+      if (valid.length === 0) toRemoveAllCount++;
+      else toCleanCount++;
+    }
+  };
+  state.schedule.forEach((d, dIdx) => {
+    clusterGroups.forEach(g => {
+      if (Array.isArray(d[g])) d[g].forEach((s, i) => analyze(s, `день ${dIdx+1} ${g}[${i}]`));
+    });
+    tripSlotKeys.forEach(k => analyze(d[k], `день ${dIdx+1} ${k}`));
+  });
+
+  const total = toCleanCount + toRemoveAllCount;
+  if (total === 0) {
+    toast(lockedSkippedCount > 0
+      ? 'Все возможно-проблемные рефы — в закреплённых слотах. Сначала «🔓 снять закрепления»'
+      : 'Все рефы валидны — нечего чистить');
+    return;
+  }
+
+  // Подробный вывод в console для диагностики
+  console.log('=== Умная чистка рефов: найдено проблемных слотов:', total);
+  console.table(stats);
+
+  const lockedHint = lockedSkippedCount > 0
+    ? '\n\n⚠️ Закреплённых слотов с рефами: ' + lockedSkippedCount + ' — их не трогаем.'
+    : '';
+  if (!window.confirm(
+    'Умная чистка рефов:\n\n' +
+    '• Слотов с прилипшими рефами (из других шаблонов): ' + total + '\n' +
+    '   из них будут полностью очищены (нет ни одного валидного): ' + toRemoveAllCount + '\n' +
+    '   будут отфильтрованы (часть рефов оставим): ' + toCleanCount + '\n\n' +
+    'После чистки в каждом слоте останутся только рефы, которые реально есть в библиотеке у этого шаблона. ' +
+    'Подробности — в консоли (F12).' +
+    lockedHint
+  )) return;
+
+  // 2) Применяем
+  let cleaned = 0, removed = 0;
+  const apply = (slot) => {
+    if (!slot || !slot.template) return;
+    if (!Array.isArray(slot.selectedRefs) || slot.selectedRefs.length === 0) return;
+    if (slot.locked) return;
+    const target = String(slot.template).trim().toLowerCase();
+    const lib = LIBRARY.find(a => String(a.template || '').trim().toLowerCase() === target);
+    const libRefs = (lib && Array.isArray(lib.refs)) ? lib.refs : [];
+    const valid = slot.selectedRefs.filter(u => libRefs.includes(u));
+    if (valid.length === slot.selectedRefs.length) return; // нечего менять
+    if (valid.length === 0) {
+      // Полностью очищаем — удаляем поле, чтобы view взял из LIBRARY (там их и нет
+      // или они правильные)
+      delete slot.selectedRefs;
+      removed++;
+    } else {
+      slot.selectedRefs = valid;
+      cleaned++;
+    }
+  };
+  state.schedule.forEach(d => {
+    clusterGroups.forEach(g => {
+      if (Array.isArray(d[g])) d[g].forEach(apply);
+    });
+    tripSlotKeys.forEach(k => apply(d[k]));
+  });
+
+  saveLocal();
+  render();
+  toast('Очищено: ' + cleaned + ' · полностью удалено: ' + removed);
 }
 
 // Собирает все уникальные имена педагогов в текущем расписании с количеством слотов.
