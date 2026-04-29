@@ -2792,6 +2792,7 @@
     <button class="btn btn-sm btn-ghost" onclick="regenAllByDirection('IT')">🔄 все IT</button>
     <button class="btn btn-sm btn-ghost" onclick="regenAllByDirection('Творчество')">🔄 все творч.</button>
     <button class="btn btn-sm btn-ghost" onclick="regenAllByDirection('Активность / спорт')">🔄 все активн.</button>
+    <button class="btn btn-sm btn-ghost" onclick="unlockAll()" title="Снять закрепление со всех слотов — удобно перед генерацией новой смены">🔓 снять закрепления</button>
   </div>
 </div>
 
@@ -5707,6 +5708,43 @@ function toggleLock(day, group, idx) {
   state.schedule[day][group][idx].locked = !state.schedule[day][group][idx].locked;
   render();
   toast(state.schedule[day][group][idx].locked ? 'Закреплено' : 'Откреплено');
+}
+
+// Снимает закрепление со ВСЕХ слотов смены: и кластерных (am/pm cluster/outside),
+// и выездных (trip6_am, trip6_pm, trip_full_am/pm, trip6_*_a, trip6_*_b).
+// Удобно при старте новой смены или генерации с чистого листа.
+function unlockAll() {
+  // Считаем сколько закреплено сейчас, чтобы тост показал «снято N закреплений»
+  let count = 0;
+  const clusterGroups = ['am_cluster', 'am_outside', 'pm_cluster', 'pm_outside'];
+  const tripSlotKeys = [
+    'trip6_am', 'trip6_pm',
+    'trip_full_am', 'trip_full_pm',
+    'trip6_am_a', 'trip6_am_b',
+    'trip6_pm_a', 'trip6_pm_b',
+    'am_outside_single', 'pm_outside_single'
+  ];
+
+  state.schedule.forEach(d => {
+    clusterGroups.forEach(g => {
+      if (Array.isArray(d[g])) {
+        d[g].forEach(slot => {
+          if (slot && slot.locked) { slot.locked = false; count++; }
+        });
+      }
+    });
+    tripSlotKeys.forEach(k => {
+      if (d[k] && d[k].locked) { d[k].locked = false; count++; }
+    });
+  });
+
+  if (count === 0) {
+    toast('Нет закреплённых слотов');
+    return;
+  }
+  saveLocal();
+  render();
+  toast('Снято закреплений: ' + count);
 }
 
 function editStation(day, group, idx) {
