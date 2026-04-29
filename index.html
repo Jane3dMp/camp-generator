@@ -7409,6 +7409,22 @@ function groupScheduleByDirection() {
   return out;
 }
 
+// Возвращает имя слота для отображения в PDF.
+// Приоритет: slot.name (если педагог переименовал) → slot.template (шаблон из библиотеки).
+// Это важно: например, template может быть «Картинг», но в этой смене педагог
+// поставил name = «Спорт, Тренаж и Настолки». Родителю нужно второе.
+function slotDisplayName(slot) {
+  if (!slot) return '';
+  const name = String(slot.name || '').trim();
+  const template = String(slot.template || '').trim();
+  // Но не используем name, если он совпадает с template + темой (это автогенерация
+  // вида "Шаблон «тема»" — она не информативнее самого шаблона).
+  if (name && name !== template && !name.startsWith(template + ' «')) {
+    return name;
+  }
+  return template;
+}
+
 // Извлекает «якорные события» (выезды и крупные события) из расписания
 // с дедупликацией: параллельные выезды (split) и trip3_full схлопываем
 // в одну запись на день. Якорные события (вечеринка/ярмарка) находим по
@@ -7434,8 +7450,8 @@ function extractEvents() {
       const halfPrefix = d.type === 'trip6_pm_split' ? 'pm' : 'am';
       const aSlot = d['trip6_' + halfPrefix + '_a'];
       const bSlot = d['trip6_' + halfPrefix + '_b'];
-      const aName = aSlot && aSlot.template ? aSlot.template : '';
-      const bName = bSlot && bSlot.template ? bSlot.template : '';
+      const aName = slotDisplayName(aSlot);
+      const bName = slotDisplayName(bSlot);
       if (aName || bName) {
         events.push({
           day: dayNum, date: dateStr,
@@ -7452,13 +7468,14 @@ function extractEvents() {
     // 2. Полные выезды (все 6 отрядов)
     if (d.type === 'trip6_am' || d.type === 'trip6_pm') {
       const slot = d.type === 'trip6_am' ? d.trip6_am : d.trip6_pm;
-      if (slot && slot.template) {
+      const dispName = slotDisplayName(slot);
+      if (dispName) {
         events.push({
           day: dayNum, date: dateStr,
           kind: 'trip6',
           label: 'Полный выезд',
-          name: slot.template,
-          isAnchor: ANCHOR_REGEX.test(slot.template)
+          name: dispName,
+          isAnchor: ANCHOR_REGEX.test(dispName)
         });
       }
       return;
@@ -7467,8 +7484,8 @@ function extractEvents() {
     // 3. trip3_full — все отряды побывают в выезде. Утром одна группа на выезде,
     //    после обеда наоборот. К концу дня все 6 отрядов прошли через выезд.
     if (d.type === 'trip3_full') {
-      const am = d.trip_full_am && d.trip_full_am.template ? d.trip_full_am.template : '';
-      const pm = d.trip_full_pm && d.trip_full_pm.template ? d.trip_full_pm.template : '';
+      const am = slotDisplayName(d.trip_full_am);
+      const pm = slotDisplayName(d.trip_full_pm);
       const same = am && pm && am.toLowerCase() === pm.toLowerCase();
       if (same) {
         // Одно и то же занятие весь день (одни отряды утром, другие после обеда)
@@ -7502,13 +7519,14 @@ function extractEvents() {
     // 4. trip3_am / trip3_pm — половина отрядов на выезде
     if (d.type === 'trip3_am' || d.type === 'trip3_pm') {
       const slot = d.type === 'trip3_am' ? d.trip_full_am : d.trip_full_pm;
-      if (slot && slot.template) {
+      const dispName = slotDisplayName(slot);
+      if (dispName) {
         events.push({
           day: dayNum, date: dateStr,
           kind: 'trip3',
           label: 'Полу-выезд',
-          name: slot.template,
-          isAnchor: ANCHOR_REGEX.test(slot.template)
+          name: dispName,
+          isAnchor: ANCHOR_REGEX.test(dispName)
         });
       }
       return;
@@ -7518,11 +7536,73 @@ function extractEvents() {
 }
 
 // Возвращает первые N референсов для шаблона. Берёт из LIBRARY[i].refs (массив URL).
+// ВАЖНО: если URL уже был проксирован (есть в IMAGE_CACHE), возвращаем data: URI —
+// иначе html2canvas не сможет загрузить картинку из-за CORS.
 function getTemplateRefs(templateName, limit) {
   if (!templateName) return [];
   const item = LIBRARY.find(x => String(x.template || '').trim().toLowerCase() === String(templateName).trim().toLowerCase());
   if (!item || !Array.isArray(item.refs)) return [];
-  return item.refs.slice(0, limit || 2);
+  const urls = item.refs.slice(0, limit || 2);
+  // Подменяем оригинальные URL на data: URI если они уже прокачаны через прокси
+  return urls.map(u => IMAGE_CACHE[u] || u);
+}
+
+// Глобальный кэш проксированных картинок: { originalUrl: dataUri }.
+// Заполняется через prefetchPdfImages() перед рендером PDF.
+const IMAGE_CACHE = {};
+
+// Перед сборкой PDF: собирает все URL рефов, которые могут попасть в страницы,
+// проксирует их через Apps Script параллельно и кладёт в IMAGE_CACHE.
+// Возвращает количество успешно загруженных картинок.
+async function prefetchPdfImages(maxImages) {
+  // Собираем уникальные URL из LIBRARY (только для шаблонов, у которых есть refs)
+  const allUrls = new Set();
+  LIBRARY.forEach(item => {
+    if (Array.isArray(item.refs)) {
+      // Берём по 2 рефа на шаблон (как в getTemplateRefs) — этого хватит для всех страниц
+      item.refs.slice(0, 2).forEach(u => {
+        if (u && /^https?:/.test(u) && !IMAGE_CACHE[u]) {
+          allUrls.add(u);
+        }
+      });
+    }
+  });
+
+  const urls = Array.from(allUrls).slice(0, maxImages || 30);
+  if (urls.length === 0) return 0;
+
+  toast('Загружаю ' + urls.length + ' референсов через прокси…');
+
+  // Делаем параллельно, но батчами по 6, чтобы не убить Apps Script-квоты.
+  const BATCH = 6;
+  let loaded = 0;
+  let failed = 0;
+  for (let i = 0; i < urls.length; i += BATCH) {
+    const batch = urls.slice(i, i + BATCH);
+    const results = await Promise.all(batch.map(async url => {
+      try {
+        const r = await fetch(LIBRARY_URL + '?action=imageProxy&url=' + encodeURIComponent(url) + '&_t=' + Date.now());
+        const data = await r.json();
+        if (data.ok && data.image && data.image.dataUri) {
+          return { url, dataUri: data.image.dataUri };
+        }
+        return { url, error: (data.image && data.image.error) || data.error || 'unknown' };
+      } catch(e) {
+        return { url, error: String(e.message || e) };
+      }
+    }));
+    results.forEach(r => {
+      if (r.dataUri) {
+        IMAGE_CACHE[r.url] = r.dataUri;
+        loaded++;
+      } else {
+        failed++;
+        console.warn('Прокси не смог загрузить', r.url, '—', r.error);
+      }
+    });
+  }
+  console.log('prefetchPdfImages: загружено', loaded, ', не удалось', failed);
+  return loaded;
 }
 
 // Возвращает description шаблона из LIBRARY (из колонки «Описание» в Sheets).
@@ -7692,7 +7772,7 @@ JSON.stringify(eventsForPrompt, null, 2) + '\n\n' +
 '    ...\n' +
 '  },\n' +
 '  "events": [\n' +
-'    { "idx": 0, "name": "короткое название события (2-4 слова) — может быть просто шаблон с заглавной", "desc": "1-2 предложения для родителей: что произойдёт, чем это запомнится. Макс 25 слов" },\n' +
+'    { "idx": 0, "desc": "1-2 предложения для родителей: что произойдёт в этот день, чем это запомнится. Используй реальное название из данных СОБЫТИЯ ВЫЕЗДОВ, не выдумывай. Макс 25 слов" },\n' +
 '    ...\n' +
 '  ]\n' +
 '}\n\n' +
@@ -8142,24 +8222,29 @@ function polishText(s) {
   t = t.replace(/\s+/g, ' ');
   t = t.replace(/\s+([,.!?;:])/g, '$1');
 
-  // 4. Первая буква заглавная — но осторожно.
-  // Если первое слово — известная аббревиатура/бренд в нижнем регистре, оставляем.
-  // Это сохраняет стилистические решения (мк = мастер-класс, всегда строчная).
+  // 4. Аббревиатуры в верхний регистр. «мк» → «МК», «ит» → «ИТ» — но только
+  // как отдельные слова (не часть других слов, например, "Тимка" не должна стать "ТИмка").
+  // Делаем замену по границам слов.
+  const upperAbbrev = ['мк', 'мкл', 'ит'];
+  upperAbbrev.forEach(abbr => {
+    const re = new RegExp('(^|[\\s«"\'(])' + abbr + '(?=\\s|[.,!?:;)»]|$)', 'gi');
+    t = t.replace(re, (_, prefix) => prefix + abbr.toUpperCase());
+  });
+
+  // 5. Первая буква заглавная — но осторожно.
+  // Если первое слово — известный бренд в нижнем регистре, оставляем.
   const firstWordMatch = t.match(/^(«|"|„)?([a-zа-яё0-9]+)/i);
   if (firstWordMatch) {
     const quote = firstWordMatch[1] || '';
     const firstWord = firstWordMatch[2];
     const firstWordLc = firstWord.toLowerCase();
-    // Слова, которые НИКОГДА не капитализируем в начале строки:
+    // Слова, которые НИКОГДА не капитализируем в начале строки.
+    // Бренды и обозначения, которые именно так пишутся:
     const keepLowercase = new Set([
-      'мк',       // мастер-класс
-      'мкл',      // (вариант)
-      '3d',       // 3D-моделинг → не трогаем
-      '2d',
-      'ит',       // ИТ как направление в нижнем регистре
-      'soft',     // Soft skills — но 'soft' уже с маленькой остаётся, .toUpperCase() сделает 'Soft' что норм
-      'ai',
-      'tinkercad', 'roblox', 'minecraft' // англоязычные бренды — оставляем как есть
+      '3d', '2d',                                  // 3D-моделинг, 2D-анимация
+      'tinkercad', 'roblox', 'minecraft',          // англоязычные бренды
+      'ai',                                        // AI как бренд/термин
+      'iphone', 'ipad', 'imac'                     // на всякий случай Apple-бренды
     ]);
     if (!keepLowercase.has(firstWordLc) && /^[a-zа-яё]/.test(firstWord)) {
       const upperFirst = firstWord.charAt(0).toUpperCase() + firstWord.slice(1);
@@ -8189,11 +8274,11 @@ function buildEventsHTML(copy) {
   // Рендерим одну карточку события
   const renderEvent = (e, i) => {
     const aiData = eventDescs.find(x => x.idx === i) || {};
-    const displayName = aiData.name || (
-      (e.kind === 'parallel' || e.kind === 'two_in_day')
-        ? `${capFirst(e.name)} + ${capFirst(e.secondName)}`
-        : capFirst(e.name)
-    );
+    // ВСЕГДА строим displayName из реальных данных. ИИ может выдумать имя,
+    // не соответствующее расписанию — поэтому игнорируем aiData.name.
+    const displayName = (e.kind === 'parallel' || e.kind === 'two_in_day')
+      ? `${capFirst(e.name)} + ${capFirst(e.secondName)}`
+      : capFirst(e.name);
     const desc = aiData.desc || fallbackEventDesc(e);
     const labelText = labelForEvent(e);
     const isSpecial = e.isAnchor;
@@ -8417,11 +8502,12 @@ function buildTeaserVitrinaHTML(copy) {
   const tripsHtml = pickedEvents.map(e => {
     const idx = events.indexOf(e);
     const aiData = eventDescs[idx] || {};
-    const displayName = aiData.name || (
-      (e.kind === 'parallel' || e.kind === 'two_in_day')
-        ? `${capFirst(e.name)} + ${capFirst(e.secondName)}`
-        : capFirst(e.name)
-    );
+    // ВСЕГДА используем реальные данные из расписания. aiData.name — игнорируем,
+    // чтобы исключить галлюцинации ИИ (он может выдумать "Бассейн и спортландия"
+    // там где на самом деле только тренажёры). ИИ имеет право только на desc.
+    const displayName = (e.kind === 'parallel' || e.kind === 'two_in_day')
+      ? `${capFirst(e.name)} + ${capFirst(e.secondName)}`
+      : capFirst(e.name);
     const labelText = e.isAnchor ? 'финал' :
       e.kind === 'parallel' ? '2 группы' :
       e.kind === 'two_in_day' ? 'два выезда' :
@@ -8464,7 +8550,7 @@ function buildTeaserVitrinaHTML(copy) {
       <div class="teaser-gallery">${galleryHtml}</div>
 
       ${pickedEvents.length > 0 ? `
-        <div class="teaser-section-h">${pickedEvents.length === 1 ? 'Главное событие' : (pickedEvents.length === 2 ? '2 ключевых дня' : pickedEvents.length + ' ключевых дня')}</div>
+        <div class="teaser-section-h">${pickedEvents.length === 1 ? 'Главное событие' : (pickedEvents.length + ' ' + pluralForms(pickedEvents.length, 'ключевой день', 'ключевых дня', 'ключевых дней'))}</div>
         <div class="teaser-trips-row">${tripsHtml}</div>
       ` : ''}
 
@@ -8595,6 +8681,17 @@ async function generatePDFCommon(mode) {
 
   toast('AI пишет тексты для PDF…');
   const copy = await generatePDFCopy();
+
+  // Перед сборкой страниц — предзагружаем картинки рефов через прокси.
+  // Это решает проблему CORS: html2canvas не может рендерить картинки с Pinterest/i.pinimg
+  // напрямую, но успешно рендерит data: URI. Прокси (Apps Script) скачивает и
+  // отдаёт картинку как base64.
+  try {
+    await prefetchPdfImages(30);
+  } catch(prefetchErr) {
+    console.warn('Не удалось предзагрузить картинки (рендер продолжается без них):', prefetchErr);
+  }
+
   const pages = buildPagesArray(mode, copy);
 
   toast('Готовлю ' + pages.length + ' страниц…');
