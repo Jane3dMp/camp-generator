@@ -719,14 +719,20 @@
 
   function getActiveRefsForSlot(slot) {
     if (!slot || !slot.template) return [];
-    // СТРОГАЯ логика: показываем ТОЛЬКО явно выбранные педагогом рефы.
-    // Если поле selectedRefs не задано или пусто — у педагога не показывается
-    // никаких картинок. Это намеренно: фотографии должны попадать на view.html
-    // только когда админ их явно одобрил (через 🔖 в админке).
+    // Если педагог явно сохранил selectedRefs (хоть пустой массив, хоть с URL'ами) —
+    // используем именно их. Это уважает явный выбор админа: «снял все галочки» = пусто,
+    // «оставил пару» = пара.
     if (Array.isArray(slot.selectedRefs)) {
       return slot.selectedRefs.slice();
     }
-    return [];
+    // Если selectedRefs не задан вообще (undefined) — это значит, админ модалку не
+    // открывал и галочки не трогал. По умолчанию показываем все рефы шаблона из
+    // библиотеки. Это синхронизировано с UI админки: модалка по умолчанию показывает
+    // все галочки активными, а view честно их рисует. Сравниваем без учёта регистра.
+    const target = String(slot.template).trim().toLowerCase();
+    const lib = LIBRARY.find(a => String(a.template || '').trim().toLowerCase() === target);
+    const allRefs = (lib && Array.isArray(lib.refs)) ? lib.refs : [];
+    return allRefs.slice();
   }
 
   function buildScheduleForTeacher(teacherName) {
