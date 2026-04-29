@@ -1906,6 +1906,60 @@
     font-size: 36px;
     opacity: 0.5;
   }
+
+/* === ИНДИКАТОР СОСТОЯНИЯ ПУБЛИКАЦИИ === */
+/* Кнопка «Опубликовать» в шапке имеет три состояния:
+   1. .publish-state-clean — всё опубликовано, ничего не менялось (нейтральный вид)
+   2. .publish-state-dirty — есть несохранённые правки (жёлтая, пульсирует)
+   3. .publish-state-fresh — только что опубликовали (зелёная на пару секунд)
+   Класс ставится на саму <button>. */
+#topbar-publish-btn { position: relative; transition: all 0.3s ease; }
+#topbar-publish-btn.publish-state-clean { /* нейтрал */ }
+#topbar-publish-btn.publish-state-dirty {
+  background: var(--yellow) !important;
+  border-color: var(--yellow-deep) !important;
+  font-weight: 700 !important;
+  animation: publish-pulse 2.4s ease-in-out infinite;
+}
+#topbar-publish-btn.publish-state-fresh {
+  background: #C8E6C9 !important;
+  border-color: #2E7D32 !important;
+  color: #1B5E20 !important;
+}
+@keyframes publish-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(254,214,52,0.6); }
+  50%      { box-shadow: 0 0 0 6px rgba(254,214,52,0); }
+}
+#topbar-publish-counter {
+  display: inline-block;
+  margin-left: 6px;
+  background: rgba(21,22,23,0.85);
+  color: var(--yellow);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-family: Inter, sans-serif;
+  letter-spacing: 0;
+  line-height: 1.4;
+}
+#topbar-publish-btn.publish-state-clean #topbar-publish-counter,
+#topbar-publish-btn.publish-state-fresh #topbar-publish-counter { display: none; }
+
+#autopublish-toggle-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: Inter, sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: rgba(21,22,23,0.6);
+  cursor: pointer;
+  user-select: none;
+  padding: 0 8px;
+}
+#autopublish-toggle-wrap input { cursor: pointer; }
+#autopublish-toggle-wrap:hover { color: var(--ink); }
   .ref-item-thumb-noimg {
     background: rgba(21,22,23,0.04);
     animation: none;
@@ -2699,7 +2753,11 @@
 <div class="config-actions-row">
   <button class="btn btn-primary" onclick="generateAll()">⚡ Сгенерировать всё</button>
   <button class="btn" onclick="openDraftsPanel()" title="Черновики смен в Google Sheets">📁 Черновики</button>
-  <button class="btn" onclick="openPublishPanel()" title="Опубликовать смену для просмотра педагогами по ссылке">🌐 Опубликовать</button>
+  <button class="btn" onclick="openPublishPanel()" title="Опубликовать смену для просмотра педагогами по ссылке" id="topbar-publish-btn">🌐 Опубликовать<span id="topbar-publish-counter" style="display:none">0</span></button>
+  <label id="autopublish-toggle-wrap" title="Автоматически обновлять публикацию через 30 сек после правки (если прошло >5 мин с прошлой публикации и накопилось >3 изменений)">
+    <input type="checkbox" id="autopublish-toggle" onchange="toggleAutopublish()">
+    <span>авто</span>
+  </label>
   <button class="btn" onclick="openExpandLibraryPanel()" title="Расширить библиотеку — ИИ предложит похожие шаблоны">➕ Расширить библиотеку</button>
   <button class="btn" onclick="generateTeaserPDF()" title="Короткий PDF для рассылки в мессенджер (1 страница)">📄 Тизер</button>
   <button class="btn" onclick="generateFullPDF()" title="Полная программа смены для родителей (6 страниц)">📄 Полная программа</button>
@@ -3201,7 +3259,153 @@ function saveLocal() {
     } catch(e) {
       console.warn('Не удалось сохранить в localStorage:', e);
     }
+    // После каждого сохранения — пересчитываем индикатор публикации
+    if (typeof updatePublishIndicator === 'function') updatePublishIndicator();
+    // И запускаем дебаунс автопубликации
+    if (typeof scheduleAutopublish === 'function') scheduleAutopublish();
   }, 500);
+}
+
+// ============================================================
+// ИНДИКАТОР И АВТОПУБЛИКАЦИЯ
+// ============================================================
+// Логика:
+//   • После каждого saveLocal() считаем отпечаток текущего state и сравниваем
+//     с отпечатком, который был при последней успешной публикации (хранится
+//     в _publishState.lastPublishedFingerprint).
+//   • Если отличается — значит есть несохранённые изменения. Кнопка в шапке
+//     становится жёлтой и пульсирующей, рядом счётчик правок.
+//   • Если включена автопубликация — через 30 сек после последней правки
+//     запустим publishSmena(). Условия: с прошлой публикации >5 минут И
+//     правок >3. Это чтобы не спамить Apps Script.
+//   • После успешной публикации — индикатор зелёный 3 сек, потом нейтральный.
+const AUTOPUBLISH_LS_KEY = 'camp_autopublish_enabled_v1';
+const AUTOPUBLISH_DEBOUNCE_MS = 30 * 1000;       // ждём 30 сек тишины после правок
+const AUTOPUBLISH_MIN_INTERVAL_MS = 5 * 60 * 1000; // не чаще раза в 5 минут
+const AUTOPUBLISH_MIN_CHANGES = 3;                // и не для одиночных правок
+
+const _publishState = {
+  lastPublishedFingerprint: null,  // отпечаток того что лежит на сервере
+  lastPublishedAt: 0,               // когда мы последний раз успешно опубликовали
+  changesSincePublish: 0,           // счётчик правок с момента публикации
+  autopublishTimer: null,           // активный таймер автопубликации
+  autopublishEnabled: false         // включена ли автопубликация
+};
+
+function _readAutopublishPref() {
+  try { return localStorage.getItem(AUTOPUBLISH_LS_KEY) === '1'; }
+  catch(e) { return false; }
+}
+function _writeAutopublishPref(on) {
+  try { localStorage.setItem(AUTOPUBLISH_LS_KEY, on ? '1' : '0'); } catch(e) {}
+}
+
+function toggleAutopublish() {
+  const cb = document.getElementById('autopublish-toggle');
+  if (!cb) return;
+  _publishState.autopublishEnabled = !!cb.checked;
+  _writeAutopublishPref(_publishState.autopublishEnabled);
+  if (_publishState.autopublishEnabled) {
+    toast('Автопубликация включена. Опубликуется через 30 сек после последней правки.');
+  } else {
+    if (_publishState.autopublishTimer) {
+      clearTimeout(_publishState.autopublishTimer);
+      _publishState.autopublishTimer = null;
+    }
+    toast('Автопубликация выключена. Публикуйте вручную.');
+  }
+}
+
+function _initAutopublishToggle() {
+  const cb = document.getElementById('autopublish-toggle');
+  if (!cb) return;
+  const enabled = _readAutopublishPref();
+  cb.checked = enabled;
+  _publishState.autopublishEnabled = enabled;
+}
+
+// Отпечаток state — те же поля что и в publishSmena, чтобы можно было сравнивать.
+function _currentStateFingerprint() {
+  if (typeof state === 'undefined' || !state || !state.schedule) return '';
+  return computeScheduleFingerprint_({
+    theme: state.theme,
+    startDate: state.startDate,
+    schedule: state.schedule
+  });
+}
+
+function updatePublishIndicator() {
+  const btn = document.getElementById('topbar-publish-btn');
+  if (!btn) return;
+  const counter = document.getElementById('topbar-publish-counter');
+  const hasPublished = !!(state && state.publishId);
+
+  // Не публиковали ещё ни разу — нейтральная кнопка, без счётчика
+  if (!hasPublished) {
+    btn.classList.remove('publish-state-dirty', 'publish-state-fresh');
+    btn.classList.add('publish-state-clean');
+    if (counter) counter.style.display = 'none';
+    return;
+  }
+
+  const currentFp = _currentStateFingerprint();
+  const baselineFp = _publishState.lastPublishedFingerprint;
+
+  // Если ещё не знаем отпечаток сервера — считаем что чисто (только что загрузились).
+  // Будет пересчитано при первой ручной/авто публикации.
+  if (!baselineFp) {
+    btn.classList.remove('publish-state-dirty', 'publish-state-fresh');
+    btn.classList.add('publish-state-clean');
+    if (counter) counter.style.display = 'none';
+    return;
+  }
+
+  if (currentFp === baselineFp) {
+    btn.classList.remove('publish-state-dirty');
+    btn.classList.add('publish-state-clean');
+    if (counter) counter.style.display = 'none';
+  } else {
+    btn.classList.remove('publish-state-clean', 'publish-state-fresh');
+    btn.classList.add('publish-state-dirty');
+    if (counter) {
+      _publishState.changesSincePublish++;
+      counter.textContent = _publishState.changesSincePublish;
+      counter.style.display = '';
+    }
+  }
+}
+
+function scheduleAutopublish() {
+  if (!_publishState.autopublishEnabled) return;
+  if (!state || !state.publishId) return; // пока не опубликовали хоть раз — авто не работает
+  // Если ничего не изменилось — нечего публиковать
+  const baselineFp = _publishState.lastPublishedFingerprint;
+  if (baselineFp && _currentStateFingerprint() === baselineFp) return;
+
+  // Сбрасываем таймер при каждой новой правке (debounce — ждём затишья)
+  if (_publishState.autopublishTimer) clearTimeout(_publishState.autopublishTimer);
+  _publishState.autopublishTimer = setTimeout(async () => {
+    _publishState.autopublishTimer = null;
+    // Условия в момент срабатывания
+    const sincePublish = Date.now() - _publishState.lastPublishedAt;
+    if (sincePublish < AUTOPUBLISH_MIN_INTERVAL_MS) {
+      // Слишком рано после прошлой — отложим ещё на оставшееся время
+      const wait = AUTOPUBLISH_MIN_INTERVAL_MS - sincePublish;
+      _publishState.autopublishTimer = setTimeout(() => scheduleAutopublish(), wait + 100);
+      return;
+    }
+    if (_publishState.changesSincePublish < AUTOPUBLISH_MIN_CHANGES) {
+      // Мало правок — не публикуем автоматически (мелкое не спамим)
+      return;
+    }
+    // Поехали
+    console.log('[autopublish] запуск (правок:', _publishState.changesSincePublish, ')');
+    try {
+      await publishSmena();
+    } catch(e) {
+      console.error('[autopublish] упало:', e);
+    }
+  }, AUTOPUBLISH_DEBOUNCE_MS);
 }
 
 function loadLocal() {
@@ -7070,6 +7274,7 @@ async function init() {
     render();
     showRestoredBanner(saved.savedAt);
     toast('Восстановлено · библиотека: ' + LIBRARY.length + ' активностей');
+    _initPublishIndicator();
     return;
   }
 
@@ -7079,6 +7284,38 @@ async function init() {
   if (state.schedule[5]) state.schedule[5].type = 'trip6_am';
   if (state.schedule[7]) state.schedule[7].type = 'trip3_am';
   render();
+
+  // Инициализируем индикатор публикации (общая часть для обоих веток выше)
+  _initPublishIndicator();
+}
+
+// Подтягивает с сервера отпечаток последней публикации (если есть state.publishId)
+// и инициализирует чекбокс автопубликации. Вызывается в конце init().
+async function _initPublishIndicator() {
+  _initAutopublishToggle();
+  // Применим текущее состояние кнопки сразу (до запроса — без счётчика, нейтральная)
+  updatePublishIndicator();
+  if (!state || !state.publishId) return;
+  try {
+    const r = await fetch(LIBRARY_URL + '?action=getPublished&id=' + encodeURIComponent(state.publishId) + '&_t=' + Date.now());
+    const data = await r.json();
+    if (!data.ok || !data.publication) return;
+    const serverState = typeof data.publication.stateJson === 'string'
+      ? JSON.parse(data.publication.stateJson)
+      : data.publication.stateJson;
+    _publishState.lastPublishedFingerprint = computeScheduleFingerprint_({
+      theme: serverState.theme,
+      startDate: serverState.startDate,
+      schedule: serverState.schedule
+    });
+    _publishState.lastPublishedAt = data.publication.publishedAt
+      ? new Date(data.publication.publishedAt).getTime()
+      : 0;
+    _publishState.changesSincePublish = 0;
+    updatePublishIndicator();
+  } catch(e) {
+    console.warn('Не удалось загрузить baseline опубликованной версии:', e);
+  }
 }
 
 // ============================================================
@@ -7172,26 +7409,178 @@ function groupScheduleByDirection() {
   return out;
 }
 
-// Извлекает «якорные события» (выезды и крупные события) из расписания.
+// Извлекает «якорные события» (выезды и крупные события) из расписания
+// с дедупликацией: параллельные выезды (split) и trip3_full схлопываем
+// в одну запись на день. Якорные события (вечеринка/ярмарка) находим по
+// названию шаблона или anchors-полю.
+//
+// Вид элемента события:
+//   { day, date, label, name, secondName, kind, isAnchor }
+//   - kind: 'parallel' (split) | 'full_day' (trip3_full) | 'trip6' (полный) | 'trip3' (полу) | 'anchor'
+//   - isAnchor: true для вечеринки/ярмарки/дискотеки/фестиваля
+//   - secondName: только для kind='parallel' — вторая активность (например, картинг + бассейн)
 function extractEvents() {
   const events = [];
+  const ANCHOR_REGEX = /(вечеринк|ярмарк|дискотек|фестивал|конкурс|концерт|шоу|праздник)/i;
+
   state.schedule.forEach((d, idx) => {
     const date = dateForDay(idx);
     const dateStr = date.getDate() + ' ' + MONTHS[date.getMonth()];
+    const dayNum = idx + 1;
+
+    // 1. Параллельные выезды (split): 1-2-3 в одно место, 4-5-6 в другое
+    if (d.type === 'trip6_am_split' || d.type === 'trip6_pm_split' || d.type === 'trip6_full_split') {
+      const isFull = d.type === 'trip6_full_split';
+      const halfPrefix = d.type === 'trip6_pm_split' ? 'pm' : 'am';
+      const aSlot = d['trip6_' + halfPrefix + '_a'];
+      const bSlot = d['trip6_' + halfPrefix + '_b'];
+      const aName = aSlot && aSlot.template ? aSlot.template : '';
+      const bName = bSlot && bSlot.template ? bSlot.template : '';
+      if (aName || bName) {
+        events.push({
+          day: dayNum, date: dateStr,
+          kind: 'parallel',
+          label: isFull ? 'Параллельные выезды (день)' : 'Параллельные выезды',
+          name: aName,
+          secondName: bName,
+          isAnchor: ANCHOR_REGEX.test(aName + ' ' + bName)
+        });
+      }
+      return;
+    }
+
+    // 2. Полные выезды (все 6 отрядов)
     if (d.type === 'trip6_am' || d.type === 'trip6_pm') {
       const slot = d.type === 'trip6_am' ? d.trip6_am : d.trip6_pm;
-      if (slot && slot.template) events.push({ day: idx+1, date: dateStr, label: 'Полный выезд', name: slot.template });
+      if (slot && slot.template) {
+        events.push({
+          day: dayNum, date: dateStr,
+          kind: 'trip6',
+          label: 'Полный выезд',
+          name: slot.template,
+          isAnchor: ANCHOR_REGEX.test(slot.template)
+        });
+      }
+      return;
     }
+
+    // 3. trip3_full — отряды меняются местами в течение дня (одно занятие повторяется)
+    if (d.type === 'trip3_full') {
+      // Берём ту активность, которая идёт на выезде (trip_full_am и trip_full_pm обычно одинаковые)
+      const am = d.trip_full_am && d.trip_full_am.template ? d.trip_full_am.template : '';
+      const pm = d.trip_full_pm && d.trip_full_pm.template ? d.trip_full_pm.template : '';
+      const same = am && pm && am.toLowerCase() === pm.toLowerCase();
+      if (same) {
+        // Дедупликация: одна запись
+        events.push({
+          day: dayNum, date: dateStr,
+          kind: 'full_day',
+          label: 'Полный день в выезде',
+          name: am,
+          isAnchor: ANCHOR_REGEX.test(am)
+        });
+      } else {
+        // Разные — две записи (редкий случай)
+        if (am) events.push({ day: dayNum, date: dateStr, kind: 'trip3', label: 'Выезд (утро)', name: am, isAnchor: ANCHOR_REGEX.test(am) });
+        if (pm) events.push({ day: dayNum, date: dateStr, kind: 'trip3', label: 'Выезд (день)', name: pm, isAnchor: ANCHOR_REGEX.test(pm) });
+      }
+      return;
+    }
+
+    // 4. trip3_am / trip3_pm — половина отрядов на выезде
     if (d.type === 'trip3_am' || d.type === 'trip3_pm') {
       const slot = d.type === 'trip3_am' ? d.trip_full_am : d.trip_full_pm;
-      if (slot && slot.template) events.push({ day: idx+1, date: dateStr, label: 'Полу-выезд', name: slot.template });
-    }
-    if (d.type === 'trip3_full') {
-      if (d.trip_full_am && d.trip_full_am.template) events.push({ day: idx+1, date: dateStr, label: 'Выезд (утро)', name: d.trip_full_am.template });
-      if (d.trip_full_pm && d.trip_full_pm.template) events.push({ day: idx+1, date: dateStr, label: 'Выезд (день)', name: d.trip_full_pm.template });
+      if (slot && slot.template) {
+        events.push({
+          day: dayNum, date: dateStr,
+          kind: 'trip3',
+          label: 'Полу-выезд',
+          name: slot.template,
+          isAnchor: ANCHOR_REGEX.test(slot.template)
+        });
+      }
+      return;
     }
   });
   return events;
+}
+
+// Возвращает первые N референсов для шаблона. Берёт из LIBRARY[i].refs (массив URL).
+function getTemplateRefs(templateName, limit) {
+  if (!templateName) return [];
+  const item = LIBRARY.find(x => String(x.template || '').trim().toLowerCase() === String(templateName).trim().toLowerCase());
+  if (!item || !Array.isArray(item.refs)) return [];
+  return item.refs.slice(0, limit || 2);
+}
+
+// Возвращает description шаблона из LIBRARY (из колонки «Описание» в Sheets).
+// Если нет — пустую строку. Этот текст потом может быть использован ИИ как контекст.
+function getTemplateDescription(templateName) {
+  if (!templateName) return '';
+  const item = LIBRARY.find(x => String(x.template || '').trim().toLowerCase() === String(templateName).trim().toLowerCase());
+  return item && item.description ? String(item.description).trim() : '';
+}
+
+// Возвращает examples шаблона (примеры тем).
+function getTemplateExamples(templateName) {
+  if (!templateName) return '';
+  const item = LIBRARY.find(x => String(x.template || '').trim().toLowerCase() === String(templateName).trim().toLowerCase());
+  return item && item.examples ? String(item.examples).trim() : '';
+}
+
+// Считает «насыщенность» каждого направления в текущей смене:
+// сколько уникальных шаблонов и сколько референсов у них в сумме.
+// Возвращает [{name, templates: [...], refsTotal: N}] отсортированный по убыванию refsTotal.
+function computeDirectionWeights() {
+  const groups = groupScheduleByDirection(); // {name: [tpl1, tpl2, ...]}
+  const weights = [];
+  Object.keys(groups).forEach(dir => {
+    const tpls = groups[dir];
+    let refsTotal = 0;
+    tpls.forEach(tpl => {
+      const item = LIBRARY.find(x => x.template === tpl);
+      if (item && Array.isArray(item.refs)) refsTotal += item.refs.length;
+    });
+    weights.push({ name: dir, templates: tpls, refsTotal: refsTotal, templatesCount: tpls.length });
+  });
+  // Сортируем: сначала по референсам, потом по числу шаблонов
+  weights.sort((a, b) => (b.refsTotal - a.refsTotal) || (b.templatesCount - a.templatesCount));
+  return weights;
+}
+
+// Решает, какие направления «крупные» (с описаниями+рефами), какие — «компактные».
+// Логика:
+//   • Если у направления есть >=1 шаблон С реф.картинками → крупное (макс 2 крупных)
+//   • Тип смены даёт приоритет (Творческая → Творчество всегда крупное, IT → IT крупное и т.п.)
+function pickLargeDirections() {
+  const weights = computeDirectionWeights();
+  const ct = state.campType;
+  const ctType = ct ? String(ct.type || '').toLowerCase() : '';
+  // Маппинг типа смены → приоритетные направления
+  const priorityMap = {
+    'творческ': ['Творчество', 'Активность / спорт'],
+    'it': ['IT', 'Творчество'],
+    'спорт': ['Активность / спорт', 'Soft skills / нейро'],
+    'актив': ['Активность / спорт', 'Игры / квесты'],
+    'soft': ['Soft skills / нейро', 'Игры / квесты']
+  };
+  let priorityDirs = [];
+  for (const key in priorityMap) {
+    if (ctType.includes(key)) { priorityDirs = priorityMap[key]; break; }
+  }
+  const result = [];
+  // Сначала добавляем приоритетные (если они есть в weights и имеют референсы)
+  priorityDirs.forEach(dir => {
+    const w = weights.find(x => x.name === dir);
+    if (w && w.refsTotal > 0 && result.length < 2) result.push(w.name);
+  });
+  // Если осталось место — добавляем самые «насыщенные»
+  weights.forEach(w => {
+    if (result.length >= 2) return;
+    if (result.includes(w.name)) return;
+    if (w.refsTotal > 0) result.push(w.name);
+  });
+  return result; // массив имён направлений [name1, name2]
 }
 
 // Берёт первый «обычный» день и формирует таймлайн «один день из жизни смены»
@@ -7230,6 +7619,38 @@ async function generatePDFCopy() {
   const events = extractEvents();
   const dirsList = Object.keys(groups).join(', ');
 
+  // Готовим данные для описаний шаблонов: только из «крупных» направлений (с рефами).
+  // Описывать все 41 шаблон — лишние токены. Берём только то, что попадёт в PDF крупно.
+  const largeDirs = pickLargeDirections();
+  const templatesToDescribe = [];
+  largeDirs.forEach(dir => {
+    const tpls = groups[dir] || [];
+    tpls.forEach(tpl => {
+      // Только те, что есть в LIBRARY и не пустые
+      const item = LIBRARY.find(x => x.template === tpl);
+      if (!item) return;
+      templatesToDescribe.push({
+        template: tpl,
+        direction: dir,
+        examples: item.examples || '',
+        description: item.description || '',
+        format: item.format || ''
+      });
+    });
+  });
+  // Лимит — 12 шаблонов максимум, чтобы не раздувать промпт
+  const tplListForPrompt = templatesToDescribe.slice(0, 12);
+
+  // Описания событий: те самые, что были после дедупликации
+  const eventsForPrompt = events.map((e, i) => ({
+    idx: i,
+    day: e.day,
+    kind: e.kind,
+    label: e.label,
+    name: e.name,
+    secondName: e.secondName || ''
+  }));
+
   const prompt =
 'Ты — копирайтер детского образовательного клуба «Прознание + Coddy» в Могилёве. Пишешь продающий PDF для родителей сомневающихся детей 6–11 лет.\n\n' +
 'ИСХОДНЫЕ ДАННЫЕ:\n' +
@@ -7238,25 +7659,41 @@ async function generatePDFCopy() {
 '• Стиль тем: ' + (ct ? ct.themeStyle || '' : '') + '\n' +
 '• Направления в смене: ' + dirsList + '\n' +
 '• Якоря-события: ' + events.map(e => e.label + ' (д.' + e.day + ')').join(', ') + '\n' +
-'• Длительность: 10 дней\n' +
-'• Город: Могилёв\n\n' +
-'ЗАДАЧА: Напиши 5 коротких текстов для PDF родителям. Тон: тёплый, уверенный, без рекламной патетики. ' +
+'• Длительность: 10 дней, Город: Могилёв\n\n' +
+'ШАБЛОНЫ (для которых нужны живые описания):\n' +
+JSON.stringify(tplListForPrompt, null, 2) + '\n\n' +
+'СОБЫТИЯ ВЫЕЗДОВ (для которых нужны описания):\n' +
+JSON.stringify(eventsForPrompt, null, 2) + '\n\n' +
+'ЗАДАЧА: Напиши тексты для PDF родителям. Тон: тёплый, уверенный, без рекламной патетики. ' +
 'Без слов «уникальный», «потрясающий», «невероятный», «волшебный». ' +
-'Конкретно: что произойдёт с ребёнком, что он принесёт домой, чем будет занят. ' +
+'Конкретно: что произойдёт, что ребёнок принесёт домой. ' +
 'Язык — простой, живой. Обращение на «вы».\n\n' +
-'НУЖНО:\n' +
-'1. headline — 4-7 слов, главное обещание смены. Не «лучшее лето», а «ребёнок проживёт <тема смены> руками и головой» или подобное.\n' +
-'2. intro — 2-3 предложения. Что это за смена и для кого. Без воды.\n' +
-'3. valueProposition — одно предложение: что родитель получит за ' + (DETAILS['Цена_поздняя'] || 'X BYN') + '.\n' +
-'4. eventsLead — 2 предложения, ведущие в раздел событий смены: «эти дни ребёнок запомнит».\n' +
-'5. fairLead — 2 предложения про финальную ярмарку: что произойдёт, родители тоже придут.\n\n' +
-'Ответ — JSON-объект:\n' +
-'{"headline":"...","intro":"...","valueProposition":"...","eventsLead":"...","fairLead":"..."}';
+'ВЕРНИ JSON-ОБЪЕКТ:\n' +
+'{\n' +
+'  "headline": "4-7 слов, главное обещание",\n' +
+'  "intro": "2-3 предложения. Что это за смена и для кого",\n' +
+'  "valueProposition": "одно предложение: что родитель получит за ' + (DETAILS['Цена_поздняя'] || 'X BYN') + '",\n' +
+'  "eventsLead": "2 предложения, ведущие в раздел событий",\n' +
+'  "fairLead": "2 предложения про финальную ярмарку",\n' +
+'  "templates": {\n' +
+'    "<имя шаблона>": "1-2 предложения для родителей. Что именно ребёнок сделает + что заберёт домой / чему научится. Без воды. Макс 22 слова.",\n' +
+'    ...\n' +
+'  },\n' +
+'  "events": [\n' +
+'    { "idx": 0, "name": "короткое название события (2-4 слова) — может быть просто шаблон с заглавной", "desc": "1-2 предложения для родителей: что произойдёт, чем это запомнится. Макс 25 слов" },\n' +
+'    ...\n' +
+'  ]\n' +
+'}\n\n' +
+'ВАЖНО: для events соблюдай порядок и idx как в данных. Для templates ключи — точные имена шаблонов из ШАБЛОНЫ выше.';
 
   try {
     const text = await callClaude(prompt);
     const cleaned = text.replace(/```json|```/g, '').trim();
-    return JSON.parse(cleaned);
+    const data = JSON.parse(cleaned);
+    // Гарантируем наличие полей
+    if (!data.templates) data.templates = {};
+    if (!Array.isArray(data.events)) data.events = [];
+    return data;
   } catch(e) {
     console.warn('AI копирайт не сработал, использую fallback:', e.message);
     return {
@@ -7264,7 +7701,9 @@ async function generatePDFCopy() {
       intro: 'Городская дневная смена для детей 6–11 лет в Могилёве. Творчество, IT, спорт и события — каждый день что-то новое.',
       valueProposition: 'Структурированная программа на 10 дней, два горячих приёма пищи в день, выезды и финальная ярмарка с работами ребёнка.',
       eventsLead: 'В смене заложены большие события — выезды, спорт, праздники. Они задают ритм и собирают команду отрядов.',
-      fairLead: 'В последний день — ярмарка. Ребёнок продаёт свои работы, родители приходят, видят результат своими глазами.'
+      fairLead: 'В последний день — ярмарка. Ребёнок продаёт свои работы, родители приходят, видят результат своими глазами.',
+      templates: {},
+      events: []
     };
   }
 }
@@ -7322,12 +7761,42 @@ const PDF_STYLES = `
   .pdf-direction-card ul { margin: 0; padding: 0 0 0 16px; font-family: Inter, sans-serif; font-size: 12px; color: rgba(21,22,23,0.85); line-height: 1.5; }
   .pdf-direction-card li { margin-bottom: 3px; }
 
+  /* Адаптивные карточки направлений (новая логика) */
+  .pdf-large-dirs { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
+  .pdf-direction-card.large { padding: 14px 18px 16px; }
+  .pdf-tpl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; margin-top: 6px; }
+  .pdf-tpl { display: flex; flex-direction: column; }
+  .pdf-tpl-name { font-family: Geologica, sans-serif; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #151617; line-height: 1.25; }
+  .pdf-tpl-desc { font-family: Inter, sans-serif; font-size: 11px; line-height: 1.45; color: rgba(21,22,23,0.78); margin-bottom: 6px; }
+  .pdf-tpl-refs { display: flex; gap: 6px; margin-top: auto; }
+  .pdf-tpl-ref { width: 70px; height: 70px; border-radius: 6px; background-size: cover; background-position: center; background-color: rgba(21,22,23,0.06); flex-shrink: 0; border: 0.5px solid rgba(21,22,23,0.08); }
+  .pdf-tpl-overflow { font-family: Inter, sans-serif; font-size: 10px; color: rgba(21,22,23,0.5); margin-top: 8px; font-style: italic; }
+
+  .pdf-small-dirs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+  .pdf-direction-card.compact { padding: 12px 14px; }
+  .pdf-direction-card.compact .pdf-direction-card-title { font-size: 14px; margin-bottom: 3px; }
+  .pdf-direction-card.compact .pdf-direction-card-subtitle { margin-bottom: 6px; font-size: 10px; }
+  .pdf-direction-compact-desc { font-family: Inter, sans-serif; font-size: 11px; line-height: 1.45; color: rgba(21,22,23,0.78); }
+
   .pdf-events-list { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
   .pdf-event-row { display: grid; grid-template-columns: 70px 110px 1fr; gap: 12px; padding: 10px 14px; background: #F5F5F0; border-radius: 10px; align-items: center; }
   .pdf-event-day { font-family: Geologica, sans-serif; font-size: 22px; font-weight: 800; color: #151617; }
   .pdf-event-day small { display: block; font-family: Inter, sans-serif; font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: rgba(21,22,23,0.55); font-weight: 500; margin-top: 2px; }
   .pdf-event-label { font-family: Inter, sans-serif; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; padding: 4px 8px; background: #FED634; color: #151617; font-weight: 600; border-radius: 2px; text-align: center; }
   .pdf-event-name { font-family: Geologica, sans-serif; font-size: 16px; font-weight: 600; color: #151617; }
+
+  /* Новый формат карточек событий с описаниями */
+  .pdf-event-card { display: grid; grid-template-columns: 70px 1fr; gap: 16px; padding: 14px 18px; background: #FFFBEC; border: 1px solid rgba(21,22,23,0.10); border-radius: 12px; align-items: start; }
+  .pdf-event-card.special { background: #FED634; border-color: #B8A025; }
+  .pdf-event-day-block { text-align: center; padding-top: 2px; }
+  .pdf-event-day-num { font-family: Geologica, sans-serif; font-weight: 800; font-size: 32px; line-height: 1; color: #151617; }
+  .pdf-event-day-date { font-family: Inter, sans-serif; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(21,22,23,0.6); margin-top: 4px; font-weight: 500; }
+  .pdf-event-content { min-width: 0; }
+  .pdf-event-card .pdf-event-label { display: inline-block; font-family: Inter, sans-serif; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(21,22,23,0.7); font-weight: 600; background: rgba(21,22,23,0.08); padding: 3px 8px; border-radius: 3px; margin-bottom: 6px; text-align: left; }
+  .pdf-event-card.special .pdf-event-label { background: rgba(21,22,23,0.85); color: #FED634; }
+  .pdf-event-card .pdf-event-name { font-family: Geologica, sans-serif; font-size: 17px; font-weight: 700; margin: 0 0 4px; line-height: 1.2; color: #151617; }
+  .pdf-event-card .pdf-event-desc { font-family: Inter, sans-serif; font-size: 12px; color: rgba(21,22,23,0.78); line-height: 1.45; margin: 0; }
+  .pdf-event-card.special .pdf-event-desc { color: rgba(21,22,23,0.88); }
 
   .pdf-fair-block { background: #FED634; padding: 24px 24px; border-radius: 18px; margin-top: 18px; }
   .pdf-fair-block .pdf-h2 { margin-bottom: 8px; }
@@ -7472,48 +7941,195 @@ function buildSampleDayHTML() {
   `;
 }
 
-function buildDirectionsHTML() {
-  const groups = pdfDirectionGroups(groupScheduleByDirection());
+function buildDirectionsHTML(copy) {
+  const groups = groupScheduleByDirection();
+  const allDirs = pdfDirectionGroups(groups); // отсортированы в правильном порядке
+  const largeNames = pickLargeDirections();   // имена 1-2 «крупных» направлений
+  const large = allDirs.filter(g => largeNames.includes(g.name));
+  const small = allDirs.filter(g => !largeNames.includes(g.name));
+  const tplDescs = (copy && copy.templates) || {};
+
+  // Рендерит крупную карточку направления — со списком шаблонов, описаниями и рефами
+  const renderLarge = (g) => {
+    // Сортируем шаблоны: сначала те, у которых есть рефы
+    const templates = g.items.slice().sort((a, b) => {
+      const aRefs = getTemplateRefs(a, 2).length;
+      const bRefs = getTemplateRefs(b, 2).length;
+      return bRefs - aRefs;
+    });
+    // Лимит 4 шаблона на карточку (чтобы влезло в страницу)
+    const visible = templates.slice(0, 4);
+    const overflow = templates.length - visible.length;
+    return `
+      <div class="pdf-direction-card large ${dirCardClass(g.name)}">
+        <div class="pdf-direction-card-title">${escapeHtmlPdf(g.name)}</div>
+        <div class="pdf-direction-card-subtitle">${escapeHtmlPdf(dirSubtitle(g.name))}</div>
+        <div class="pdf-tpl-grid">
+          ${visible.map(tpl => {
+            const refs = getTemplateRefs(tpl, 2);
+            const desc = tplDescs[tpl] || getTemplateDescription(tpl) || '';
+            return `
+              <div class="pdf-tpl">
+                <div class="pdf-tpl-name">${escapeHtmlPdf(tpl)}</div>
+                ${desc ? `<div class="pdf-tpl-desc">${escapeHtmlPdf(desc)}</div>` : ''}
+                ${refs.length > 0 ? `
+                  <div class="pdf-tpl-refs">
+                    ${refs.map(url => `<div class="pdf-tpl-ref" style="background-image:url('${escapeAttr(url)}')"></div>`).join('')}
+                  </div>
+                ` : ''}
+              </div>
+            `;
+          }).join('')}
+        </div>
+        ${overflow > 0 ? `<div class="pdf-tpl-overflow">+ ещё ${overflow} ${pluralForms(overflow, 'занятие','занятия','занятий')}</div>` : ''}
+      </div>
+    `;
+  };
+
+  // Рендерит компактную карточку — без шаблонов, одной фразой
+  const renderSmall = (g) => {
+    const subtitle = dirSubtitle(g.name);
+    const aiDesc = (copy && copy.smallDirs && copy.smallDirs[g.name]) || '';
+    const fallback = compactDirSummary(g);
+    return `
+      <div class="pdf-direction-card compact ${dirCardClass(g.name)}">
+        <div class="pdf-direction-card-title">${escapeHtmlPdf(g.name)}</div>
+        <div class="pdf-direction-card-subtitle">${escapeHtmlPdf(subtitle)}</div>
+        <div class="pdf-direction-compact-desc">${escapeHtmlPdf(aiDesc || fallback)}</div>
+      </div>
+    `;
+  };
+
   return `
     <div class="pdf-page">
       <div class="pdf-section-eyebrow">Чему научится ребёнок</div>
       <h1 class="pdf-h1">Что <em>сделает</em> и чему научится</h1>
       <p class="pdf-lead">За смену ребёнок попробует разные форматы — творчество руками, программирование, спорт, командные игры. Вот что входит в программу:</p>
-      <div class="pdf-direction-grid">
-        ${groups.slice(0, 6).map(g => `
-          <div class="pdf-direction-card ${dirCardClass(g.name)}">
-            <div class="pdf-direction-card-title">${g.name}</div>
-            <div class="pdf-direction-card-subtitle">${dirSubtitle(g.name)}</div>
-            <ul>
-              ${g.items.slice(0, 5).map(t => `<li>${t}</li>`).join('')}
-            </ul>
-          </div>
-        `).join('')}
+      <div class="pdf-large-dirs">
+        ${large.map(renderLarge).join('')}
       </div>
+      ${small.length > 0 ? `
+        <div class="pdf-small-dirs">
+          ${small.slice(0, 4).map(renderSmall).join('')}
+        </div>
+      ` : ''}
       <div class="pdf-foot"><span>Прознание · Coddy</span><span>Чему научится</span></div>
     </div>
   `;
 }
 
+// Лёгкая утилита escape — основной в файле выше есть, но здесь у нас другой контекст,
+// возможно вызов идёт до загрузки. Делаем локальный fallback.
+function escapeHtmlPdf(s) {
+  if (s === null || s === undefined) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeAttr(s) {
+  if (s === null || s === undefined) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/'/g, '%27')
+    .replace(/"/g, '%22')
+    .replace(/\(/g, '%28')
+    .replace(/\)/g, '%29');
+}
+
+function pluralForms(n, one, few, many) {
+  const m10 = n % 10, m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return few;
+  return many;
+}
+
+// Если ИИ не дал описание для компактного направления — генерим простое.
+function compactDirSummary(g) {
+  const dir = g.name;
+  if (dir.includes('Soft')) return 'Тренинги на знакомство, тимбилдинги, рефлексия. Ребёнок уезжает с новыми друзьями.';
+  if (dir.includes('спорт') || dir.includes('Активность')) return 'Каждый день — два часа на улице. Спортландия, тренажёры, дворовые игры.';
+  if (dir.includes('Игры')) return 'Настольные турниры, квесты, командные игры в перерывах между основными активностями.';
+  if (dir === 'IT') return 'Coddy ведёт программирование уже 8 лет — методики выверены. Roblox, Minecraft, Tinkercad.';
+  if (dir === 'Творчество') return 'Творческие мастер-классы каждый день. Лепка, плетение, рисование — что-то заберёт домой.';
+  if (dir.includes('Событие')) return 'Выезды и крупные события — отдельная страница ниже.';
+  return 'Часть программы.';
+}
+
 function buildEventsHTML(copy) {
   const events = extractEvents().slice(0, 6); // максимум 6, чтобы не вылезли
+  const eventDescs = (copy && Array.isArray(copy.events)) ? copy.events : [];
+
+  // Рендерим одну карточку события
+  const renderEvent = (e, i) => {
+    const aiData = eventDescs.find(x => x.idx === i) || {};
+    const displayName = aiData.name || (e.kind === 'parallel'
+      ? `${capFirst(e.name)} + ${capFirst(e.secondName)}`
+      : capFirst(e.name));
+    const desc = aiData.desc || fallbackEventDesc(e);
+    const labelText = labelForEvent(e);
+    const isSpecial = e.isAnchor;
+    return `
+      <div class="pdf-event-card ${isSpecial ? 'special' : ''}">
+        <div class="pdf-event-day-block">
+          <div class="pdf-event-day-num">${e.day}</div>
+          <div class="pdf-event-day-date">${escapeHtmlPdf(e.date)}</div>
+        </div>
+        <div class="pdf-event-content">
+          <span class="pdf-event-label">${escapeHtmlPdf(labelText)}</span>
+          <h3 class="pdf-event-name">${escapeHtmlPdf(displayName)}</h3>
+          <p class="pdf-event-desc">${escapeHtmlPdf(desc)}</p>
+        </div>
+      </div>
+    `;
+  };
+
   return `
     <div class="pdf-page">
       <div class="pdf-section-eyebrow">События смены</div>
       <h1 class="pdf-h1">Дни, которые <em>запомнятся</em></h1>
-      <p class="pdf-lead">${copy.eventsLead || ''}</p>
+      <p class="pdf-lead">${escapeHtmlPdf(copy.eventsLead || '')}</p>
       <div class="pdf-events-list">
-        ${events.length > 0 ? events.map(e => `
-          <div class="pdf-event-row">
-            <div class="pdf-event-day">${e.day}<small>день · ${e.date}</small></div>
-            <div class="pdf-event-label">${e.label}</div>
-            <div class="pdf-event-name">${e.name}</div>
-          </div>
-        `).join('') : '<p class="pdf-lead">События смены оформляются ближе к её началу.</p>'}
+        ${events.length > 0
+          ? events.map(renderEvent).join('')
+          : '<p class="pdf-lead">События смены оформляются ближе к её началу.</p>'}
       </div>
       <div class="pdf-foot"><span>Прознание · Coddy</span><span>События смены</span></div>
     </div>
   `;
+}
+
+function capFirst(s) {
+  if (!s) return '';
+  s = String(s).trim();
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+// Лейбл-плашка над названием события
+function labelForEvent(e) {
+  if (e.isAnchor) return 'Главное событие';
+  if (e.kind === 'parallel') return 'Параллельные выезды';
+  if (e.kind === 'full_day') return 'Полный день';
+  if (e.kind === 'trip6') return 'Полный выезд';
+  if (e.kind === 'trip3') return 'Половинный выезд';
+  return e.label || 'Событие';
+}
+
+// Если ИИ не дал описание — генерим минимальное
+function fallbackEventDesc(e) {
+  if (e.kind === 'parallel') {
+    return `Группы делятся: одна часть едет в одно место, другая в другое. Через час меняются. К концу дня все попробовали и то и другое.`;
+  }
+  if (e.kind === 'full_day') {
+    return 'Полный день за пределами клуба, с обедом на месте. Активность, которую дети будут пересказывать дома.';
+  }
+  if (e.isAnchor) {
+    return 'Большое событие смены — собирает все отряды вместе.';
+  }
+  return 'Выезд с педагогами и кураторами. Берём с собой воду, перекус и сменку.';
 }
 
 function buildFairAndContactHTML(copy) {
@@ -7609,7 +8225,7 @@ function buildPagesArray(mode, copy) {
     buildCoverHTML(copy),
     buildAboutHTML(copy),
     buildSampleDayHTML(),
-    buildDirectionsHTML(),
+    buildDirectionsHTML(copy),
     buildEventsHTML(copy),
     buildFairAndContactHTML(copy)
   ];
@@ -7961,6 +8577,22 @@ async function publishSmena() {
   if (verified) {
     saveLocal();
     toast('Опубликовано ✓');
+    // Обновляем состояние индикатора: запоминаем отпечаток того, что сейчас на сервере,
+    // обнуляем счётчик правок, на 3 сек подсвечиваем кнопку зелёным.
+    _publishState.lastPublishedFingerprint = expectedFingerprint;
+    _publishState.lastPublishedAt = Date.now();
+    _publishState.changesSincePublish = 0;
+    const btnEl = document.getElementById('topbar-publish-btn');
+    if (btnEl) {
+      btnEl.classList.remove('publish-state-dirty', 'publish-state-clean');
+      btnEl.classList.add('publish-state-fresh');
+      setTimeout(() => {
+        if (btnEl.classList.contains('publish-state-fresh')) {
+          btnEl.classList.remove('publish-state-fresh');
+          btnEl.classList.add('publish-state-clean');
+        }
+      }, 3000);
+    }
     try {
       openPublishPanel();
     } catch(panelErr) {
