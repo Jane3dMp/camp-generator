@@ -7821,6 +7821,48 @@ const PDF_STYLES = `
   .pdf-image-hero { width: 100%; height: 300px; object-fit: cover; border-radius: 14px; display: block; margin: 14px 0; }
 
   .pdf-foot { position: absolute; bottom: 38px; left: 60px; right: 60px; display: flex; justify-content: space-between; font-family: Inter, sans-serif; font-size: 9px; color: rgba(21,22,23,0.4); letter-spacing: 0.1em; text-transform: uppercase; }
+
+  /* === ВИТРИНА ТИЗЕРА (стр 2 раздаточного листка) === */
+  .teaser-section-h { font-family: Geologica, sans-serif; font-size: 14px; font-weight: 700; margin: 14px 0 8px; display: flex; align-items: center; gap: 8px; color: #151617; }
+  .teaser-section-h::before { content: ''; display: inline-block; width: 14px; height: 14px; background: #FED634; border-radius: 3px; flex-shrink: 0; }
+
+  .teaser-dirs-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .teaser-dir-mini { border: 1px solid rgba(21,22,23,0.10); border-radius: 8px; padding: 10px 12px; background: #FFFFFF; }
+  .teaser-dir-mini.creative { background: #FFFBEC; border-left: 3px solid #FED634; }
+  .teaser-dir-mini.it { background: #EBF4FE; border-left: 3px solid #41BEEA; }
+  .teaser-dir-mini.soft { background: #F5F5F0; border-left: 3px solid #8FA370; }
+  .teaser-dir-mini.sport { background: #FFF1E5; border-left: 3px solid #FF8A3D; }
+  .teaser-dir-name { font-family: Geologica, sans-serif; font-weight: 700; font-size: 13px; margin-bottom: 5px; color: #151617; }
+  .teaser-dir-pills { display: flex; flex-wrap: wrap; gap: 4px; }
+  .teaser-pill { display: inline-block; background: rgba(21,22,23,0.07); padding: 2px 8px; border-radius: 3px; font-family: Inter, sans-serif; font-size: 10.5px; color: rgba(21,22,23,0.85); }
+  .teaser-pill-more { background: rgba(21,22,23,0.85); color: #FED634; font-weight: 600; }
+  .teaser-dir-desc { font-family: Inter, sans-serif; font-size: 11px; line-height: 1.45; color: rgba(21,22,23,0.78); }
+
+  .teaser-gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 0 0 14px; }
+  .teaser-gallery-img { aspect-ratio: 1; background-size: cover; background-position: center; background-color: rgba(21,22,23,0.06); border-radius: 6px; border: 0.5px solid rgba(21,22,23,0.08); }
+
+  .teaser-trips-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+  .teaser-trip { background: #FFFBEC; border: 1px solid rgba(21,22,23,0.10); border-radius: 8px; padding: 10px 10px 9px; text-align: center; }
+  .teaser-trip.special { background: #FED634; border-color: #B8A025; }
+  .teaser-trip-day { font-family: Geologica, sans-serif; font-size: 22px; font-weight: 800; line-height: 1; color: #151617; }
+  .teaser-trip-name { font-family: Inter, sans-serif; font-size: 11px; font-weight: 600; margin-top: 5px; line-height: 1.25; color: #151617; }
+  .teaser-trip-label { font-family: Inter, sans-serif; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(21,22,23,0.55); margin-top: 4px; font-weight: 500; }
+
+  .teaser-reasons { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; margin-bottom: 12px; }
+  .teaser-reason { display: flex; gap: 8px; align-items: flex-start; font-family: Inter, sans-serif; font-size: 11.5px; line-height: 1.4; color: rgba(21,22,23,0.85); }
+  .teaser-reason::before { content: '✓'; font-weight: 800; color: #151617; background: #FED634; width: 16px; height: 16px; border-radius: 3px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 11px; margin-top: 1px; line-height: 1; }
+
+  .teaser-prices { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .teaser-price-cell { padding: 12px 10px; background: #FFFFFF; border: 2px solid #151617; border-radius: 8px; text-align: center; }
+  .teaser-price-cell.now { background: #FED634; }
+  .teaser-price-cell strong { display: block; font-family: Geologica, sans-serif; font-size: 18px; font-weight: 800; color: #151617; line-height: 1; }
+  .teaser-price-cell small { display: block; font-family: Inter, sans-serif; font-size: 9.5px; color: rgba(21,22,23,0.7); margin-top: 4px; line-height: 1.2; }
+
+  .teaser-cta { background: #151617; color: #FFFFFF; border-radius: 10px; padding: 14px 16px; display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; align-items: center; }
+  .teaser-cta-text { font-family: Geologica, sans-serif; font-size: 13px; font-weight: 600; line-height: 1.3; color: #FFFFFF; }
+  .teaser-cta-text small { display: block; font-family: Inter, sans-serif; font-size: 10px; font-weight: 400; color: #FED634; margin-bottom: 4px; letter-spacing: 0.12em; text-transform: uppercase; }
+  .teaser-cta-phone { font-family: Geologica, sans-serif; font-size: 14px; font-weight: 700; line-height: 1.3; text-align: right; color: #FFFFFF; }
+  .teaser-cta-phone small { display: block; font-family: Inter, sans-serif; font-size: 10px; color: #FED634; font-weight: 400; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 3px; }
 </style>
 `;
 
@@ -8175,37 +8217,41 @@ function buildFairAndContactHTML(copy) {
 }
 
 // Тизер: одна страница (обложка + блок цены/контактов внизу)
-function buildTeaserHTML(copy) {
+// Тизер: две страницы — обложка с описанием и контактами + «витрина» с активностями.
+// Используется как раздаточный листок: компактнее полной программы, но больше эмоций
+// чем простая обложка. Page 1 = эмоциональный hook, Page 2 = доказательства.
+
+function buildTeaserCoverHTML(copy) {
   const dateRange = state.startDate ? formatDateRange() : '10 дней';
   return `
     <div class="pdf-page pdf-cover">
       <div class="pdf-cover-inner">
         <div class="pdf-cover-top">
           <div class="pdf-cover-eyebrow">Прознание · Coddy · летняя смена</div>
-          <h1 class="pdf-cover-title">${state.theme || 'Летняя смена'}</h1>
-          <div class="pdf-cover-accent" style="font-size:48px;line-height:1">${copy.headline || ''}</div>
+          <h1 class="pdf-cover-title">${escapeHtmlPdf(state.theme || 'Летняя смена')}</h1>
+          <div class="pdf-cover-accent" style="font-size:48px;line-height:1">${escapeHtmlPdf(copy.headline || '')}</div>
         </div>
         <div class="pdf-cover-image-block" style="flex:0 1 auto;padding:8px 0">
           <img src="${pickStock('cover', 0)}" alt="" style="width:220px;height:220px">
         </div>
         <div class="pdf-cover-bottom">
-          <p class="pdf-cover-sub" style="margin-bottom:20px">${copy.intro || ''}</p>
+          <p class="pdf-cover-sub" style="margin-bottom:20px">${escapeHtmlPdf(copy.intro || '')}</p>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;background:#151617;color:#FFF;padding:20px 22px;border-radius:14px">
             <div style="font-family:Inter,sans-serif;font-size:13px">
               <div style="font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:#FED634;font-weight:600;margin-bottom:4px">даты</div>
-              ${dateRange}, 6–11 лет
+              ${escapeHtmlPdf(dateRange)}, 6–11 лет
             </div>
             <div style="font-family:Inter,sans-serif;font-size:13px">
-              <div style="font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:#FED634;font-weight:600;margin-bottom:4px">цена</div>
-              от ${(DETAILS['Цена_ранняя'] || '850 BYN').split(' —')[0]} за смену
+              <div style="font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:#FED634;font-weight:600;margin-bottom:4px">часы</div>
+              ${escapeHtmlPdf(DETAILS['Время'] || '7:30–17:30')}
             </div>
             <div style="font-family:Inter,sans-serif;font-size:13px">
               <div style="font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:#FED634;font-weight:600;margin-bottom:4px">контакты</div>
-              ${DETAILS['Телефон_1'] || ''}<br>${DETAILS['Телефон_2'] || ''}
+              ${escapeHtmlPdf(DETAILS['Телефон_1'] || '')}<br>${escapeHtmlPdf(DETAILS['Телефон_2'] || '')}
             </div>
             <div style="font-family:Inter,sans-serif;font-size:13px">
               <div style="font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:#FED634;font-weight:600;margin-bottom:4px">адрес</div>
-              ${DETAILS['Адрес'] || 'Могилёв, переулок Пожарный, 19'}<br>
+              ${escapeHtmlPdf(DETAILS['Адрес'] || 'Могилёв, переулок Пожарный, 19')}<br>
               <span style="opacity:0.7">@proznanie_weekend</span>
             </div>
           </div>
@@ -8215,11 +8261,196 @@ function buildTeaserHTML(copy) {
   `;
 }
 
+// Стр 2: витрина — мини-карточки направлений с пилюлями шаблонов, полоса картинок,
+// 3 главных выезда, чек-лист «что родитель получит», цены и финальный CTA.
+function buildTeaserVitrinaHTML(copy) {
+  const groups = groupScheduleByDirection();
+  const allDirs = pdfDirectionGroups(groups);
+  const largeNames = pickLargeDirections(); // 1-2 «крупных» направления
+  const tplDescs = (copy && copy.templates) || {};
+
+  // Готовим 4 мини-карточки. Крупные — со списком шаблонов в виде пилюль.
+  // Компактные — одной фразой.
+  const renderCard = (g) => {
+    const isLarge = largeNames.includes(g.name);
+    if (isLarge && g.items.length > 0) {
+      // Сортируем шаблоны: сначала те у которых есть рефы (приоритет показа)
+      const tpls = g.items.slice().sort((a, b) => {
+        return getTemplateRefs(b, 1).length - getTemplateRefs(a, 1).length;
+      });
+      const PILL_LIMIT = 3;
+      const visible = tpls.slice(0, PILL_LIMIT);
+      const overflow = tpls.length - visible.length;
+      return `
+        <div class="teaser-dir-mini ${dirCardClass(g.name)}">
+          <div class="teaser-dir-name">${escapeHtmlPdf(g.name)}</div>
+          <div class="teaser-dir-pills">
+            ${visible.map(t => `<span class="teaser-pill">${escapeHtmlPdf(t)}</span>`).join('')}
+            ${overflow > 0 ? `<span class="teaser-pill teaser-pill-more">+ ещё ${overflow}</span>` : ''}
+          </div>
+        </div>
+      `;
+    } else {
+      const desc = (copy && copy.smallDirs && copy.smallDirs[g.name]) || compactDirSummary(g);
+      return `
+        <div class="teaser-dir-mini ${dirCardClass(g.name)}">
+          <div class="teaser-dir-name">${escapeHtmlPdf(g.name)}</div>
+          <div class="teaser-dir-desc">${escapeHtmlPdf(desc)}</div>
+        </div>
+      `;
+    }
+  };
+
+  // Для витрины берём топ-4 направления — те, что есть в смене
+  const cardsHtml = allDirs.slice(0, 4).map(renderCard).join('');
+
+  // Полоса картинок: 4 квадрата. Берём первые 4 рефа из всех шаблонов смены
+  // (приоритет — у крупных направлений). Если рефов мало — добиваем стоковыми.
+  const galleryUrls = [];
+  largeNames.forEach(dirName => {
+    const tpls = (groups[dirName] || []).slice(0, 4);
+    tpls.forEach(t => {
+      const refs = getTemplateRefs(t, 1);
+      if (refs.length > 0 && galleryUrls.length < 4) galleryUrls.push(refs[0]);
+    });
+  });
+  // Добиваем стоковыми если нужно
+  while (galleryUrls.length < 4) {
+    const idx = galleryUrls.length;
+    galleryUrls.push(pickStock(['creative','it','outdoor','sport'][idx % 4], 0));
+  }
+  const galleryHtml = galleryUrls.slice(0, 4).map(u =>
+    `<div class="teaser-gallery-img" style="background-image:url('${escapeAttr(u)}')"></div>`
+  ).join('');
+
+  // События: топ-3 (1 в начале, 1 в середине, 1 финал = ярмарка/последний)
+  const events = extractEvents();
+  const eventDescs = (copy && Array.isArray(copy.events)) ? copy.events : [];
+  const pickedEvents = pickTopEventsForTeaser(events);
+  const tripsHtml = pickedEvents.map(e => {
+    const idx = events.indexOf(e);
+    const aiData = eventDescs[idx] || {};
+    const displayName = aiData.name || (e.kind === 'parallel'
+      ? `${capFirst(e.name)} + ${capFirst(e.secondName)}`
+      : capFirst(e.name));
+    const labelText = e.isAnchor ? 'финал' :
+      e.kind === 'parallel' ? '2 группы' :
+      e.kind === 'full_day' ? 'полный день' :
+      e.kind === 'trip6' ? 'все отряды' : 'выезд';
+    return `
+      <div class="teaser-trip ${e.isAnchor ? 'special' : ''}">
+        <div class="teaser-trip-day">${e.day}</div>
+        <div class="teaser-trip-name">${escapeHtmlPdf(displayName)}</div>
+        <div class="teaser-trip-label">${escapeHtmlPdf(labelText)}</div>
+      </div>
+    `;
+  }).join('');
+
+  // 4 чек-пункта «что родитель получит»
+  const reasons = [
+    '10 полных дней с ' + (DETAILS['Время'] || '7:30 до 17:30'),
+    '3 приёма пищи: завтрак, обед, полдник',
+    '6 выездов с педагогами и кураторами',
+    'Готовые работы ребёнка домой'
+  ];
+  const reasonsHtml = reasons.map(r =>
+    `<div class="teaser-reason">${escapeHtmlPdf(r)}</div>`
+  ).join('');
+
+  // Цены — все 3 варианта рядом, как на стр 6 полной программы
+  const priceEarly = (DETAILS['Цена_ранняя'] || '850 BYN — до 1 мая').split('—');
+  const priceMid = (DETAILS['Цена_средняя'] || '900 BYN — до 1 июня').split('—');
+  const priceLate = (DETAILS['Цена_поздняя'] || '1000 BYN — со 2 июня').split('—');
+
+  return `
+    <div class="pdf-page">
+      <div class="pdf-section-eyebrow">Что входит в смену</div>
+      <h1 class="pdf-h1">10 дней, в которые <em>всё</em> поместится</h1>
+      <p class="pdf-lead" style="margin-bottom:14px">${escapeHtmlPdf(copy.valueProposition || copy.intro || '')}</p>
+
+      <div class="teaser-section-h">Каждый день — что-то новое</div>
+      <div class="teaser-dirs-row">${cardsHtml}</div>
+
+      <div class="teaser-gallery">${galleryHtml}</div>
+
+      ${pickedEvents.length > 0 ? `
+        <div class="teaser-section-h">${pickedEvents.length === 1 ? 'Главное событие' : (pickedEvents.length === 2 ? '2 ключевых дня' : pickedEvents.length + ' ключевых дня')}</div>
+        <div class="teaser-trips-row">${tripsHtml}</div>
+      ` : ''}
+
+      <div class="teaser-section-h">Что входит в стоимость</div>
+      <div class="teaser-reasons">${reasonsHtml}</div>
+
+      <div class="teaser-prices">
+        <div class="teaser-price-cell now">
+          <strong>${escapeHtmlPdf((priceEarly[0] || '850 BYN').trim())}</strong>
+          <small>${escapeHtmlPdf((priceEarly[1] || 'до 1 мая').trim())}</small>
+        </div>
+        <div class="teaser-price-cell">
+          <strong>${escapeHtmlPdf((priceMid[0] || '900 BYN').trim())}</strong>
+          <small>${escapeHtmlPdf((priceMid[1] || 'до 1 июня').trim())}</small>
+        </div>
+        <div class="teaser-price-cell">
+          <strong>${escapeHtmlPdf((priceLate[0] || '1000 BYN').trim())}</strong>
+          <small>${escapeHtmlPdf((priceLate[1] || 'со 2 июня').trim())}</small>
+        </div>
+      </div>
+
+      <div class="teaser-cta">
+        <div class="teaser-cta-text">
+          <small>записать ребёнка</small>
+          Звонок или Viber — менеджер расскажет про даты ближайшей смены
+        </div>
+        <div class="teaser-cta-phone">
+          <small>телефоны</small>
+          ${escapeHtmlPdf(DETAILS['Телефон_1'] || '')}<br>${escapeHtmlPdf(DETAILS['Телефон_2'] || '')}
+        </div>
+      </div>
+
+      <div class="pdf-foot"><span>Прознание · Coddy</span><span>Раздаточный листок</span></div>
+    </div>
+  `;
+}
+
+// Выбирает 3 (или меньше) самых ярких события для тизера: первый по дате,
+// один анкорный (вечеринка/ярмарка), и ярмарку-финал если есть.
+function pickTopEventsForTeaser(events) {
+  if (!events || events.length === 0) return [];
+  if (events.length <= 3) return events.slice();
+
+  // Стратегия: первое событие смены (хук) + последний анкор (финал) + одно из середины
+  const firstEvent = events[0];
+  // Финал — самый поздний анкор, иначе самое позднее событие
+  const anchors = events.filter(e => e.isAnchor);
+  const final = anchors.length > 0 ? anchors[anchors.length - 1] : events[events.length - 1];
+  // Средний — что-то между ними, не дублируя
+  let middle = null;
+  for (let i = 1; i < events.length - 1; i++) {
+    if (events[i] !== firstEvent && events[i] !== final) {
+      middle = events[i];
+      break;
+    }
+  }
+  const result = [firstEvent];
+  if (middle) result.push(middle);
+  if (final !== firstEvent && final !== middle) result.push(final);
+  return result;
+}
+
+// Старая обёртка для совместимости — но теперь возвращает массив страниц.
+// Не вызывается напрямую, остаётся для безопасности.
+function buildTeaserHTML(copy) {
+  return buildTeaserCoverHTML(copy);
+}
+
 // Возвращает массив HTML-фрагментов — по одному на страницу.
 // Каждая страница изолирована: свой контейнер, свои стили, фиксированные размеры.
 function buildPagesArray(mode, copy) {
   if (mode === 'teaser') {
-    return [buildTeaserHTML(copy)];
+    return [
+      buildTeaserCoverHTML(copy),
+      buildTeaserVitrinaHTML(copy)
+    ];
   }
   return [
     buildCoverHTML(copy),
