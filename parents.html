@@ -1231,16 +1231,33 @@
   }
 
   // ===== СЕКЦИЯ «ЧТО СДЕЛАЮТ ДЕТИ» =====
-  // Собираем уникальные шаблоны из расписания смены, тянем для каждого родительские рефы,
-  // группируем по направлениям (направление берём из LIBRARY по имени шаблона), рендерим.
-  // Шаблоны без рефов — пропускаем. Если ни у одного шаблона нет рефов — секция скрыта.
+  // Для каждого слота смены смотрим slot.parentSelectedRefs — это родительские
+  // референсы, которые админ галочками отметил «показать родителям» в данном слоте.
+  // Возможные состояния slot.parentSelectedRefs:
+  //   - массив URL (явно отмечены) — показываем эти
+  //   - undefined (галочки никогда не трогали) — fallback: тянем все родительские рефы
+  //     этого шаблона из библиотеки через getParentsRefs (поведение «по умолчанию все»)
+  //   - пустой массив [] (все галочки сняты) — этот слот ничего не показывает
+  // Уникальные шаблоны мерджим: объединяем parentSelectedRefs из всех слотов с этим шаблоном.
+  // Группируем по направлениям, рендерим горизонтальные ленты 100×100.
   async function renderWhatTheyMake() {
     if (!publishedState || !Array.isArray(publishedState.schedule)) return;
 
-    // 1. Собираем уникальные template-имена из всех слотов расписания
-    const tplSet = new Set();
+    // 1. Проходим по всем слотам и собираем для каждого шаблона:
+    //    - объединение всех parentSelectedRefs из его вхождений
+    //    - флаг hasUndefined: было ли хоть одно вхождение без явного выбора
+    //      (тогда нужно дёрнуть getParentsRefs как fallback)
+    const tplData = {}; // {tpl: {urls: Set, hasUndefined: bool}}
     const collect = (slot) => {
-      if (slot && slot.template) tplSet.add(String(slot.template).trim());
+      if (!slot || !slot.template) return;
+      const tpl = String(slot.template).trim();
+      if (!tplData[tpl]) tplData[tpl] = { urls: new Set(), hasUndefined: false };
+      if (Array.isArray(slot.parentSelectedRefs)) {
+        slot.parentSelectedRefs.forEach(u => tplData[tpl].urls.add(u));
+      } else {
+        // Явного выбора нет — нужно подтянуть всё из библиотеки
+        tplData[tpl].hasUndefined = true;
+      }
     };
     publishedState.schedule.forEach(d => {
       if (!d) return;
@@ -1250,28 +1267,37 @@
       ['trip6_am','trip6_pm','trip_full_am','trip_full_pm',
        'trip6_am_a','trip6_am_b','trip6_pm_a','trip6_pm_b'].forEach(k => collect(d[k]));
     });
-    const templates = Array.from(tplSet);
+
+    const templates = Object.keys(tplData);
     if (templates.length === 0) return;
 
-    // 2. Параллельно тянем родительские рефы для каждого шаблона.
-    // Если запросы упадут (старый Apps Script) — секция останется скрытой.
-    let results;
-    try {
-      results = await Promise.all(templates.map(tpl =>
-        fetch(LIBRARY_URL + '?action=getParentsRefs&template=' + encodeURIComponent(tpl))
-          .then(r => r.json())
-          .then(data => ({ tpl: tpl, refs: (data && data.ok) ? (data.refs || []) : [] }))
-          .catch(() => ({ tpl: tpl, refs: [] }))
-      ));
-    } catch(e) {
-      return; // тихо выходим — секция останется скрытой
+    // 2. Для шаблонов с hasUndefined тянем родительские рефы из библиотеки (fallback).
+    //    Для остальных — у нас уже есть данные из state, запрос не нужен.
+    //    Выкидываем шаблоны где итоговый набор пустой.
+    const tplsToFetch = templates.filter(tpl => tplData[tpl].hasUndefined);
+    let fetchResults = [];
+    if (tplsToFetch.length > 0) {
+      try {
+        fetchResults = await Promise.all(tplsToFetch.map(tpl =>
+          fetch(LIBRARY_URL + '?action=getParentsRefs&template=' + encodeURIComponent(tpl))
+            .then(r => r.json())
+            .then(data => ({ tpl: tpl, refs: (data && data.ok) ? (data.refs || []) : [] }))
+            .catch(() => ({ tpl: tpl, refs: [] }))
+        ));
+      } catch(e) {
+        // Тихо — для этих шаблонов покажем только то что в state (если что-то есть)
+      }
     }
+    fetchResults.forEach(({ tpl, refs }) => {
+      refs.forEach(u => tplData[tpl].urls.add(u));
+    });
 
     // 3. Группируем по направлениям. Direction достаём из LIBRARY по имени шаблона.
-    // Шаблоны без рефов отбрасываем (вариант «не показывать», как договорились).
-    const byDir = {}; // {dirName: [{template, dir, refs:[]}, ...]}
-    results.forEach(({ tpl, refs }) => {
-      if (!refs || refs.length === 0) return;
+    //    Шаблоны без рефов отбрасываем.
+    const byDir = {}; // {dirName: [{template, refs:[]}, ...]}
+    templates.forEach(tpl => {
+      const refs = Array.from(tplData[tpl].urls);
+      if (refs.length === 0) return;
       const lib = LIBRARY.find(a =>
         normalizeName(a.template || '') === normalizeName(tpl));
       const dir = (lib && lib.direction) ? lib.direction : 'Прочее';
@@ -1280,7 +1306,7 @@
     });
 
     const dirNames = Object.keys(byDir);
-    if (dirNames.length === 0) return; // нет ни одного шаблона с рефами — секция скрыта
+    if (dirNames.length === 0) return; // секция скрыта
 
     // 4. Сортировка направлений в "правильном" порядке (как в PDF Артмосфера)
     const dirOrder = ['Творчество', 'IT', 'Soft skills / нейро', 'Активность / спорт', 'Игры / квесты', 'Событие', 'Прочее'];
@@ -1301,22 +1327,21 @@
       const dirCls = dirClass(dirName);
       const dirLabel = dirShort(dirName);
 
+      // Заголовок направления — только цветная плашка, без дублирующего текста
       html += `<div class="wtm-direction">
         <div class="wtm-dir-header">
           <span class="wtm-dir-tag direction-tag ${dirCls}">${escapeHtml(dirLabel)}</span>
-          <span class="wtm-dir-name">${escapeHtml(dirName)}</span>
-        </div>`;
+        </div>
+        <div class="wtm-strip">`;
 
+      // Все картинки направления — в одной общей ленте, без разбивки по шаблонам.
+      // Имена шаблонов («МК по лепке из глины» и т.д.) родителю не нужны:
+      // они идут уже в расписании по дням ниже.
       tpls.forEach(({ template, refs }) => {
-        html += `<div class="wtm-template">
-          <div class="wtm-tpl-name">${escapeHtml(template)}</div>
-          <div class="wtm-strip">`;
-
         refs.forEach(url => {
           const thumbId = 'wtm-thumb-' + (thumbCounter++);
           // Пытаемся определить превью сразу
           let previewSrc = null;
-          // Извлекаем YouTube ID
           const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
           if (ytMatch) {
             previewSrc = 'https://img.youtube.com/vi/' + ytMatch[1] + '/hqdefault.jpg';
@@ -1335,11 +1360,9 @@
             html += `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="wtm-thumb wtm-thumb-loading" id="${thumbId}">⏳</a>`;
           }
         });
-
-        html += `</div></div>`;
       });
 
-      html += `</div>`;
+      html += `</div></div>`;
     });
 
     document.getElementById('what-they-make-content').innerHTML = html;
