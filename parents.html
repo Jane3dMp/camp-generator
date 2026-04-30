@@ -283,6 +283,98 @@
     margin-top: 6px;
   }
 
+  /* === ЧТО СДЕЛАЮТ ДЕТИ (родительские рефы) === */
+  .wtm-direction {
+    margin-bottom: 22px;
+  }
+  .wtm-direction:last-child { margin-bottom: 0; }
+  .wtm-dir-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(21,22,23,0.10);
+  }
+  .wtm-dir-tag {
+    font-family: Inter, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .wtm-dir-name {
+    font-family: Geologica, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: rgba(21,22,23,0.6);
+  }
+  .wtm-template {
+    margin-bottom: 14px;
+  }
+  .wtm-template:last-child { margin-bottom: 0; }
+  .wtm-tpl-name {
+    font-family: Geologica, sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+  /* Лента 100×100 — горизонтальный скролл, чтобы не ломать вёрстку при многих картинках */
+  .wtm-strip {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  .wtm-strip::-webkit-scrollbar { height: 6px; }
+  .wtm-strip::-webkit-scrollbar-thumb {
+    background: rgba(21,22,23,0.2);
+    border-radius: 3px;
+  }
+  .wtm-thumb {
+    flex: 0 0 100px;
+    width: 100px;
+    height: 100px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: rgba(21,22,23,0.05);
+    border: 1px solid rgba(21,22,23,0.10);
+    display: block;
+    text-decoration: none;
+    color: var(--ink);
+    position: relative;
+  }
+  .wtm-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .wtm-thumb-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: rgba(21,22,23,0.3);
+  }
+  .wtm-thumb-failed {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    color: rgba(21,22,23,0.4);
+  }
+  .wtm-thumb:hover {
+    box-shadow: 0 4px 14px rgba(21,22,23,0.15);
+  }
+
   /* === КОНТАКТЫ === */
   .contact-card {
     background: var(--ink);
@@ -441,6 +533,15 @@
       <!-- Заполняется из листа «Реквизиты» (ключи Режим_строка_1, _2, ...) -->
     </div>
     <div class="schedule-foot" id="daily-schedule-foot"></div>
+  </div>
+
+  <!-- СЕКЦИЯ 2.5: ЧТО СДЕЛАЮТ ДЕТИ (родительские рефы) -->
+  <!-- Скрыта по умолчанию. Показывается только если для шаблонов смены есть родительские рефы. -->
+  <div class="section" id="section-what-they-make" style="display:none">
+    <div class="section-eyebrow">Чему научится ребёнок</div>
+    <h2 class="section-h2">Что <em>сделают</em> дети</h2>
+    <p class="section-lead">Финальные работы по направлениям из этой смены. Нажми на картинку — откроется источник.</p>
+    <div id="what-they-make-content"></div>
   </div>
 
   <!-- СЕКЦИЯ 3: РАСПИСАНИЕ ПО ДНЯМ -->
@@ -749,6 +850,10 @@
     renderProgramHeaders();
     renderContacts();
     renderSchedule();
+    // Эта функция асинхронная — тянет родительские рефы из API и рендерит секцию,
+    // когда данные пришли. Не блокирует основной рендер. Если рефов нет ни у одного
+    // шаблона смены — секция остаётся скрытой.
+    renderWhatTheyMake();
   }
 
   // ===== HELPER: заголовок секции с {словом} → жёлтая Caveat-плашка =====
@@ -1123,6 +1228,151 @@
     });
 
     document.getElementById('view-content').innerHTML = html;
+  }
+
+  // ===== СЕКЦИЯ «ЧТО СДЕЛАЮТ ДЕТИ» =====
+  // Собираем уникальные шаблоны из расписания смены, тянем для каждого родительские рефы,
+  // группируем по направлениям (направление берём из LIBRARY по имени шаблона), рендерим.
+  // Шаблоны без рефов — пропускаем. Если ни у одного шаблона нет рефов — секция скрыта.
+  async function renderWhatTheyMake() {
+    if (!publishedState || !Array.isArray(publishedState.schedule)) return;
+
+    // 1. Собираем уникальные template-имена из всех слотов расписания
+    const tplSet = new Set();
+    const collect = (slot) => {
+      if (slot && slot.template) tplSet.add(String(slot.template).trim());
+    };
+    publishedState.schedule.forEach(d => {
+      if (!d) return;
+      ['am_cluster','am_outside','pm_cluster','pm_outside'].forEach(g => {
+        if (Array.isArray(d[g])) d[g].forEach(collect);
+      });
+      ['trip6_am','trip6_pm','trip_full_am','trip_full_pm',
+       'trip6_am_a','trip6_am_b','trip6_pm_a','trip6_pm_b'].forEach(k => collect(d[k]));
+    });
+    const templates = Array.from(tplSet);
+    if (templates.length === 0) return;
+
+    // 2. Параллельно тянем родительские рефы для каждого шаблона.
+    // Если запросы упадут (старый Apps Script) — секция останется скрытой.
+    let results;
+    try {
+      results = await Promise.all(templates.map(tpl =>
+        fetch(LIBRARY_URL + '?action=getParentsRefs&template=' + encodeURIComponent(tpl))
+          .then(r => r.json())
+          .then(data => ({ tpl: tpl, refs: (data && data.ok) ? (data.refs || []) : [] }))
+          .catch(() => ({ tpl: tpl, refs: [] }))
+      ));
+    } catch(e) {
+      return; // тихо выходим — секция останется скрытой
+    }
+
+    // 3. Группируем по направлениям. Direction достаём из LIBRARY по имени шаблона.
+    // Шаблоны без рефов отбрасываем (вариант «не показывать», как договорились).
+    const byDir = {}; // {dirName: [{template, dir, refs:[]}, ...]}
+    results.forEach(({ tpl, refs }) => {
+      if (!refs || refs.length === 0) return;
+      const lib = LIBRARY.find(a =>
+        normalizeName(a.template || '') === normalizeName(tpl));
+      const dir = (lib && lib.direction) ? lib.direction : 'Прочее';
+      if (!byDir[dir]) byDir[dir] = [];
+      byDir[dir].push({ template: tpl, refs: refs });
+    });
+
+    const dirNames = Object.keys(byDir);
+    if (dirNames.length === 0) return; // нет ни одного шаблона с рефами — секция скрыта
+
+    // 4. Сортировка направлений в "правильном" порядке (как в PDF Артмосфера)
+    const dirOrder = ['Творчество', 'IT', 'Soft skills / нейро', 'Активность / спорт', 'Игры / квесты', 'Событие', 'Прочее'];
+    dirNames.sort((a, b) => {
+      const ia = dirOrder.findIndex(d => a.startsWith(d.split(' ')[0]) || a.includes(d));
+      const ib = dirOrder.findIndex(d => b.startsWith(d.split(' ')[0]) || b.includes(d));
+      return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib);
+    });
+
+    // 5. Рендер. Для каждого URL пытаемся показать превью —
+    // напрямую если это картинка/YouTube, иначе через imageProxy_ (асинхронно).
+    const needProxy = []; // [{url, thumbId}]
+    let html = '';
+    let thumbCounter = 0;
+
+    dirNames.forEach(dirName => {
+      const tpls = byDir[dirName];
+      const dirCls = dirClass(dirName);
+      const dirLabel = dirShort(dirName);
+
+      html += `<div class="wtm-direction">
+        <div class="wtm-dir-header">
+          <span class="wtm-dir-tag direction-tag ${dirCls}">${escapeHtml(dirLabel)}</span>
+          <span class="wtm-dir-name">${escapeHtml(dirName)}</span>
+        </div>`;
+
+      tpls.forEach(({ template, refs }) => {
+        html += `<div class="wtm-template">
+          <div class="wtm-tpl-name">${escapeHtml(template)}</div>
+          <div class="wtm-strip">`;
+
+        refs.forEach(url => {
+          const thumbId = 'wtm-thumb-' + (thumbCounter++);
+          // Пытаемся определить превью сразу
+          let previewSrc = null;
+          // Извлекаем YouTube ID
+          const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+          if (ytMatch) {
+            previewSrc = 'https://img.youtube.com/vi/' + ytMatch[1] + '/hqdefault.jpg';
+          } else if (/\.(jpg|jpeg|png|webp|gif|svg|avif)(\?|$)/i.test(url)) {
+            previewSrc = url;
+          } else {
+            needProxy.push({ url: url, thumbId: thumbId });
+          }
+
+          if (previewSrc) {
+            html += `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="wtm-thumb" id="${thumbId}">
+              <img src="${escapeHtml(previewSrc)}" alt="" loading="lazy"
+                   onerror="this.parentElement.classList.add('wtm-thumb-failed');this.remove();this.parentElement.textContent='🖼';">
+            </a>`;
+          } else {
+            html += `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="wtm-thumb wtm-thumb-loading" id="${thumbId}">⏳</a>`;
+          }
+        });
+
+        html += `</div></div>`;
+      });
+
+      html += `</div>`;
+    });
+
+    document.getElementById('what-they-make-content').innerHTML = html;
+    document.getElementById('section-what-they-make').style.display = '';
+
+    // 6. Подгружаем превью через imageProxy для URL без прямой картинки
+    needProxy.forEach(item => loadWtmPreview(item.url, item.thumbId));
+  }
+
+  // Тянет превью URL через action=previewUrl и подставляет картинку в нужный thumb.
+  async function loadWtmPreview(url, thumbId) {
+    try {
+      const r = await fetch(LIBRARY_URL + '?action=previewUrl&url=' + encodeURIComponent(url));
+      const data = await r.json();
+      const el = document.getElementById(thumbId);
+      if (!el) return;
+      if (data && data.ok && data.preview && data.preview.thumbnail) {
+        el.classList.remove('wtm-thumb-loading');
+        el.innerHTML = `<img src="${escapeHtml(data.preview.thumbnail)}" alt="" loading="lazy"
+                              onerror="this.parentElement.classList.add('wtm-thumb-failed');this.remove();this.parentElement.textContent='🖼';">`;
+      } else {
+        el.classList.remove('wtm-thumb-loading');
+        el.classList.add('wtm-thumb-failed');
+        el.textContent = '🔗';
+      }
+    } catch(e) {
+      const el = document.getElementById(thumbId);
+      if (el) {
+        el.classList.remove('wtm-thumb-loading');
+        el.classList.add('wtm-thumb-failed');
+        el.textContent = '🔗';
+      }
+    }
   }
 
   // ===== СТАРТ =====
