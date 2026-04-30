@@ -5504,6 +5504,14 @@ function isRefSelectedInSlot_(slot, url) {
   return slot.selectedRefs.indexOf(url) >= 0;
 }
 
+// Зеркальная функция для родительских референсов.
+// Если у слота нет parentSelectedRefs — всё активно (показываются все рефы).
+function isParentRefSelectedInSlot_(slot, url) {
+  if (!slot) return true;
+  if (!slot.parentSelectedRefs) return true; // дефолт — все включены
+  return slot.parentSelectedRefs.indexOf(url) >= 0;
+}
+
 // Возвращает массив URL'ов которые «активны» в этом слоте (selectedRefs или дефолт = все из библиотеки шаблона).
 function getSlotActiveRefs_(slot) {
   if (!slot || !slot.template) return [];
@@ -5532,6 +5540,28 @@ function toggleRefInSlot(url, allRefs) {
   if (typeof render === 'function') render();
   // Чекбоксы синхронизируем — простой способ: перерисовать модалку.
   // Но чтобы не дёргать сеть, рендерим из кэша.
+  const cached = window._refsModalLastList;
+  const cachedParents = window._refsModalLastParentsList;
+  if (cached) renderRefsModalBody(window._refsModalLastTpl, cached, cachedParents);
+}
+
+// Зеркальная функция для родительских референсов.
+// Хранит выбор в slot.parentSelectedRefs (не в selectedRefs).
+function toggleParentRefInSlot(url, allRefs) {
+  const slotPath = window._refsModalSlotPath;
+  if (!slotPath) return;
+  const slot = getSlotByPath_(slotPath);
+  if (!slot) return;
+  // Инициализация parentSelectedRefs из дефолта (все активны) при первом снятии
+  if (!slot.parentSelectedRefs) {
+    slot.parentSelectedRefs = allRefs.slice();
+  }
+  const i = slot.parentSelectedRefs.indexOf(url);
+  if (i >= 0) slot.parentSelectedRefs.splice(i, 1);
+  else slot.parentSelectedRefs.push(url);
+  saveLocal();
+  // Перерисуем — на главной сетке этот выбор пока никак не отражается (педагогам он не нужен),
+  // но на parents.html он повлияет после публикации.
   const cached = window._refsModalLastList;
   const cachedParents = window._refsModalLastParentsList;
   if (cached) renderRefsModalBody(window._refsModalLastTpl, cached, cachedParents);
@@ -5586,10 +5616,21 @@ function renderRefsModalBody(templateName, refs, parentsRefs) {
       : `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="ref-item-thumb-link ref-item-thumb-loading" id="${previewId}"${titleAttr}>${thumbInner}</a>`;
 
     if (mode === 'parents') {
-      // Родительская карточка: без чекбокса слота, кнопка удаления вызывает другой action
+      // Родительская карточка. Если открыта из ячейки слота — добавляем чекбокс
+      // «показать родителям в этой смене». Логика идентична педагогской,
+      // но хранится в slot.parentSelectedRefs.
       const urlEsc = JSON.stringify(url).replace(/"/g, '&quot;');
+      const isSelected = isParentRefSelectedInSlot_(slot, url);
+      const allRefsForToggle = JSON.stringify(allRefs).replace(/"/g, '&quot;');
+      const checkboxHtml = showCheckboxes
+        ? `<label class="ref-item-check" title="${isSelected ? 'Покажется родителям · клик чтобы убрать из показа' : 'Не показывается родителям · клик чтобы включить'}">
+             <input type="checkbox" ${isSelected ? 'checked' : ''}
+                    onchange="event.stopPropagation();toggleParentRefInSlot(${JSON.stringify(url).replace(/"/g, '&quot;')}, ${allRefsForToggle})">
+           </label>`
+        : '';
       return `
-        <div class="ref-item">
+        <div class="ref-item ${showCheckboxes && !isSelected ? 'ref-item-unselected' : ''}">
+          ${checkboxHtml}
           ${thumbWrapHtml}
           <button class="ref-item-remove" title="Удалить ссылку из родительских референсов"
                   onclick="removeParentsRefFromTemplate('${tplEsc}', ${urlEsc}, this)">✕</button>
@@ -5645,7 +5686,9 @@ function renderRefsModalBody(templateName, refs, parentsRefs) {
   // Иначе показывается мини-предупреждение в подсказке (один раз).
   const parentsBlock = parentsAvailable ? `
     <div class="ref-section-title" style="margin-top:24px;padding-top:18px;border-top:2px solid rgba(21,22,23,0.08);display:flex;align-items:center;gap:8px">
-      <span>👨‍👩‍👧 Для родителей (${parentsRefs.length})</span>
+      <span>👨‍👩‍👧 Для родителей · ${showCheckboxes
+        ? parentsRefs.filter(u => isParentRefSelectedInSlot_(slot, u)).length + ' из ' + parentsRefs.length + ' покажется родителям'
+        : parentsRefs.length}</span>
     </div>
     <div style="font-family:Geologica, serif;font-style:italic;font-size:12px;color:rgba(21,22,23,0.6);margin-bottom:10px">
       Эти ссылки показываются на странице для родителей в секции «Что сделают дети». Сюда — красивые финальные работы и впечатляющие результаты, не процесс.
@@ -5847,10 +5890,33 @@ async function addParentsRefForTemplate(templateName, btnEl) {
     });
     const data = await r.json();
     if (!data.ok) throw new Error(data.error || 'API error');
+
+    // Если модалка открыта в контексте ячейки сетки — добавляем URL в slot.parentSelectedRefs.
+    // Логика как в addRefForTemplate: «свежедобавленная ссылка автоматически активна для этой ячейки».
+    const slotPath = window._refsModalSlotPath;
+    if (slotPath) {
+      const slot = getSlotByPath_(slotPath);
+      if (slot) {
+        // Если у слота ещё не было parentSelectedRefs — это первая отметка,
+        // значит надо инициализировать массив (поведение «по умолчанию все включены»
+        // переходит в явный список).
+        if (!Array.isArray(slot.parentSelectedRefs)) {
+          // Здесь нет сразу полного списка родительских рефов из бэкенда (он пришёл в openRefsForTemplate).
+          // Возьмём из кэша последней модалки.
+          const cached = window._refsModalLastParentsList || [];
+          slot.parentSelectedRefs = cached.slice();
+          if (!slot.parentSelectedRefs.includes(url)) slot.parentSelectedRefs.push(url);
+        } else {
+          if (!slot.parentSelectedRefs.includes(url)) slot.parentSelectedRefs.push(url);
+        }
+        saveLocal();
+      }
+    }
+
     if (data.result.alreadyPresent) {
-      toast('Эта ссылка уже была сохранена для родителей');
+      toast(slotPath ? 'Ссылка уже была сохранена · отмечена для этого слота' : 'Эта ссылка уже была сохранена для родителей');
     } else {
-      toast('Референс сохранён для родителей');
+      toast(slotPath ? 'Референс сохранён и применён к этому слоту' : 'Референс сохранён для родителей');
     }
     // Перерисуем модалку (тянет оба набора заново)
     openRefsForTemplate(templateName, window._refsModalSlotPath);
