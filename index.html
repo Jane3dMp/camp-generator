@@ -5465,10 +5465,18 @@ async function openRefsForTemplate(templateName, slotPath) {
   document.getElementById('modal-body').innerHTML = '<div class="modal-loading">Загружаю референсы…</div>';
   openModal();
   try {
-    const r = await fetch(LIBRARY_URL + '?action=getRefs&template=' + encodeURIComponent(templateName));
-    const data = await r.json();
-    if (!data.ok) throw new Error(data.error || 'API error');
-    renderRefsModalBody(templateName, data.refs || []);
+    // Грузим оба набора параллельно — для педагогов и для родителей.
+    // Если getParentsRefs упадёт (например, Apps Script ещё не переразвёрнут с новым кодом),
+    // продолжаем работать с педагогскими и помечаем родительские как недоступные.
+    const [r1, r2] = await Promise.all([
+      fetch(LIBRARY_URL + '?action=getRefs&template=' + encodeURIComponent(templateName)).then(r => r.json()),
+      fetch(LIBRARY_URL + '?action=getParentsRefs&template=' + encodeURIComponent(templateName))
+        .then(r => r.json()).catch(() => ({ ok: false }))
+    ]);
+    if (!r1.ok) throw new Error(r1.error || 'API error');
+    const teacherRefs = r1.refs || [];
+    const parentsRefs = (r2 && r2.ok) ? (r2.refs || []) : null; // null = бэкенд не поддерживает
+    renderRefsModalBody(templateName, teacherRefs, parentsRefs);
   } catch(e) {
     document.getElementById('modal-body').innerHTML = `
       <div style="padding:20px;font-family:Inter,sans-serif;color:var(--terra-deep)">Ошибка: ${escapeHtml(e.message)}</div>
@@ -5525,13 +5533,15 @@ function toggleRefInSlot(url, allRefs) {
   // Чекбоксы синхронизируем — простой способ: перерисовать модалку.
   // Но чтобы не дёргать сеть, рендерим из кэша.
   const cached = window._refsModalLastList;
-  if (cached) renderRefsModalBody(window._refsModalLastTpl, cached);
+  const cachedParents = window._refsModalLastParentsList;
+  if (cached) renderRefsModalBody(window._refsModalLastTpl, cached, cachedParents);
 }
 
-function renderRefsModalBody(templateName, refs) {
+function renderRefsModalBody(templateName, refs, parentsRefs) {
   // Кеш для toggleRefInSlot, чтобы перерисовывать без сети
   window._refsModalLastTpl = templateName;
   window._refsModalLastList = refs;
+  window._refsModalLastParentsList = parentsRefs;
 
   const tplEsc = escapeJs(templateName);
   const dirHint = 'детский мастер-класс';
@@ -5541,6 +5551,8 @@ function renderRefsModalBody(templateName, refs) {
   const ytSearch = 'https://www.youtube.com/results?search_query=' + q;
 
   // Если открыто из ячейки — у каждой ссылки появится чекбокс «использовать в этой ячейке».
+  // Чекбоксы только в педагогской секции (родительские рефы про красивые финальные работы,
+  // они не привязаны к конкретному слоту).
   const slotPath = window._refsModalSlotPath;
   const slot = getSlotByPath_(slotPath);
   const showCheckboxes = !!slot;
@@ -5548,76 +5560,125 @@ function renderRefsModalBody(templateName, refs) {
   // Запоминаем какие URL нужно догрузить через прокси
   const needProxy = [];
 
-  let listHtml = '';
-  if (refs.length === 0) {
-    listHtml = `<div style="padding:20px 16px;text-align:center;color:rgba(21,22,23,0.5);font-family:Geologica, serif;font-style:italic">Пока нет сохранённых референсов. Найди подходящие через поиск ниже и приложи сюда.</div>`;
-  } else {
-    listHtml = refs.map((url, idx) => {
-      const host = (() => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch(e) { return ''; }})();
-      const icon = host.includes('pinterest') ? '📌' : host.includes('youtube') || host.includes('youtu.be') ? '🎬' : host.includes('google') ? '🖼' : '🔗';
-      const previewId = 'ref-prev-' + idx;
+  // Helper: рендер одной карточки реф-картинки.
+  // mode: 'teacher' (с чекбоксом, кнопкой удаления addRef-стиля) | 'parents' (только удаление)
+  function renderRefThumb(url, idx, mode, allRefs) {
+    const host = (() => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch(e) { return ''; }})();
+    const icon = host.includes('pinterest') ? '📌' : host.includes('youtube') || host.includes('youtu.be') ? '🎬' : host.includes('google') ? '🖼' : '🔗';
+    const previewId = 'ref-prev-' + mode + '-' + idx;
 
-      // Превью
-      let previewSrc = null;
-      const ytId = extractYouTubeId(url);
-      if (ytId) {
-        previewSrc = 'https://img.youtube.com/vi/' + ytId + '/hqdefault.jpg';
-      } else if (/\.(jpg|jpeg|png|webp|gif|svg|avif)(\?|$)/i.test(url)) {
-        previewSrc = url;
-      } else {
-        needProxy.push({ url: url, previewId: previewId });
-      }
+    let previewSrc = null;
+    const ytId = extractYouTubeId(url);
+    if (ytId) {
+      previewSrc = 'https://img.youtube.com/vi/' + ytId + '/hqdefault.jpg';
+    } else if (/\.(jpg|jpeg|png|webp|gif|svg|avif)(\?|$)/i.test(url)) {
+      previewSrc = url;
+    } else {
+      needProxy.push({ url: url, previewId: previewId });
+    }
 
-      // Превью оборачиваем в ссылку (или div для loading)
-      const titleAttr = ' title="' + escapeHtml(host || url).replace(/"/g, '&quot;') + ' — открыть в новой вкладке"';
-      const thumbInner = previewSrc
-        ? `<img src="${escapeHtml(previewSrc)}" alt="" onerror="this.parentElement.parentElement.classList.add('thumb-failed')">`
-        : `<span class="ref-item-thumb-placeholder">${icon}</span>`;
-      const thumbWrapHtml = previewSrc
-        ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="ref-item-thumb-link"${titleAttr}>${thumbInner}<span class="ref-item-host-badge">${icon}</span></a>`
-        : `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="ref-item-thumb-link ref-item-thumb-loading" id="${previewId}"${titleAttr}>${thumbInner}</a>`;
+    const titleAttr = ' title="' + escapeHtml(host || url).replace(/"/g, '&quot;') + ' — открыть в новой вкладке"';
+    const thumbInner = previewSrc
+      ? `<img src="${escapeHtml(previewSrc)}" alt="" onerror="this.parentElement.parentElement.classList.add('thumb-failed')">`
+      : `<span class="ref-item-thumb-placeholder">${icon}</span>`;
+    const thumbWrapHtml = previewSrc
+      ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="ref-item-thumb-link"${titleAttr}>${thumbInner}<span class="ref-item-host-badge">${icon}</span></a>`
+      : `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="ref-item-thumb-link ref-item-thumb-loading" id="${previewId}"${titleAttr}>${thumbInner}</a>`;
 
-      // Чекбокс: только когда модалка открыта из ячейки сетки.
-      const isSelected = isRefSelectedInSlot_(slot, url);
-      const allRefsForToggle = JSON.stringify(refs).replace(/"/g, '&quot;');
-      const checkboxHtml = showCheckboxes
-        ? `<label class="ref-item-check" title="${isSelected ? 'Используется в этом слоте · клик чтобы убрать' : 'Не используется в этом слоте · клик чтобы добавить'}">
-             <input type="checkbox" ${isSelected ? 'checked' : ''}
-                    onchange="event.stopPropagation();toggleRefInSlot(${JSON.stringify(url).replace(/"/g, '&quot;')}, ${allRefsForToggle})">
-           </label>`
-        : '';
-
+    if (mode === 'parents') {
+      // Родительская карточка: без чекбокса слота, кнопка удаления вызывает другой action
+      const urlEsc = JSON.stringify(url).replace(/"/g, '&quot;');
       return `
-        <div class="ref-item ${showCheckboxes && !isSelected ? 'ref-item-unselected' : ''}">
-          ${checkboxHtml}
+        <div class="ref-item">
           ${thumbWrapHtml}
-          <button class="ref-item-remove" title="Удалить ссылку из библиотеки (не только из этой ячейки!)"
-                  onclick="removeRefFromTemplate('${tplEsc}', ${JSON.stringify(url).replace(/"/g, '&quot;')}, this)">✕</button>
+          <button class="ref-item-remove" title="Удалить ссылку из родительских референсов"
+                  onclick="removeParentsRefFromTemplate('${tplEsc}', ${urlEsc}, this)">✕</button>
         </div>
       `;
-    }).join('');
+    }
+
+    // Педагогская карточка (старая логика, без изменений)
+    const isSelected = isRefSelectedInSlot_(slot, url);
+    const allRefsForToggle = JSON.stringify(allRefs).replace(/"/g, '&quot;');
+    const checkboxHtml = showCheckboxes
+      ? `<label class="ref-item-check" title="${isSelected ? 'Используется в этом слоте · клик чтобы убрать' : 'Не используется в этом слоте · клик чтобы добавить'}">
+           <input type="checkbox" ${isSelected ? 'checked' : ''}
+                  onchange="event.stopPropagation();toggleRefInSlot(${JSON.stringify(url).replace(/"/g, '&quot;')}, ${allRefsForToggle})">
+         </label>`
+      : '';
+
+    return `
+      <div class="ref-item ${showCheckboxes && !isSelected ? 'ref-item-unselected' : ''}">
+        ${checkboxHtml}
+        ${thumbWrapHtml}
+        <button class="ref-item-remove" title="Удалить ссылку из библиотеки (не только из этой ячейки!)"
+                onclick="removeRefFromTemplate('${tplEsc}', ${JSON.stringify(url).replace(/"/g, '&quot;')}, this)">✕</button>
+      </div>
+    `;
+  }
+
+  // === ПЕДАГОГСКАЯ СЕКЦИЯ ===
+  let teacherListHtml = '';
+  if (refs.length === 0) {
+    teacherListHtml = `<div style="padding:20px 16px;text-align:center;color:rgba(21,22,23,0.5);font-family:Geologica, serif;font-style:italic">Пока нет сохранённых референсов. Найди подходящие через поиск ниже и приложи сюда.</div>`;
+  } else {
+    teacherListHtml = refs.map((url, idx) => renderRefThumb(url, idx, 'teacher', refs)).join('');
+  }
+
+  // === РОДИТЕЛЬСКАЯ СЕКЦИЯ ===
+  // parentsRefs === null означает что бэкенд не поддерживает (старый Apps Script)
+  const parentsAvailable = Array.isArray(parentsRefs);
+  let parentsListHtml = '';
+  if (!parentsAvailable) {
+    parentsListHtml = '';
+  } else if (parentsRefs.length === 0) {
+    parentsListHtml = `<div style="padding:20px 16px;text-align:center;color:rgba(21,22,23,0.5);font-family:Geologica, serif;font-style:italic">Пока нет родительских референсов для этого МК. Добавь сюда красивые финальные работы — родители увидят их в секции «Что сделают дети» на странице для родителей.</div>`;
+  } else {
+    parentsListHtml = parentsRefs.map((url, idx) => renderRefThumb(url, idx, 'parents', parentsRefs)).join('');
   }
 
   const slotHint = showCheckboxes
     ? `<div class="ref-slot-hint">📍 Открыто из ячейки сетки. Галочки слева — какие референсы используются в <strong>этом конкретном слоте</strong>. Снимать галочки безопасно — ссылка остаётся в библиотеке для других смен. Крестик ✕ справа — удалить из библиотеки совсем.</div>`
     : '';
+
+  // Блок «родительских» референсов рендерится только если бэкенд поддерживает action getParentsRefs.
+  // Иначе показывается мини-предупреждение в подсказке (один раз).
+  const parentsBlock = parentsAvailable ? `
+    <div class="ref-section-title" style="margin-top:24px;padding-top:18px;border-top:2px solid rgba(21,22,23,0.08);display:flex;align-items:center;gap:8px">
+      <span>👨‍👩‍👧 Для родителей (${parentsRefs.length})</span>
+    </div>
+    <div style="font-family:Geologica, serif;font-style:italic;font-size:12px;color:rgba(21,22,23,0.6);margin-bottom:10px">
+      Эти ссылки показываются на странице для родителей в секции «Что сделают дети». Сюда — красивые финальные работы и впечатляющие результаты, не процесс.
+    </div>
+    <div class="ref-list">${parentsListHtml}</div>
+
+    <div class="ref-section-title" style="margin-top:14px">Добавить ссылку для родителей</div>
+    <div class="ref-add-row">
+      <input type="url" id="parents-ref-new-url" class="ref-add-input" placeholder="https://... — финальная работа, готовый результат"
+             onkeydown="if(event.key==='Enter') addParentsRefForTemplate('${tplEsc}', this.parentElement.querySelector('button'))">
+      <button class="btn btn-primary" onclick="addParentsRefForTemplate('${tplEsc}', this)">Добавить</button>
+    </div>
+  ` : '';
+
   document.getElementById('modal-body').innerHTML = `
     <div style="font-family:Geologica, serif;font-style:italic;font-size:13px;margin-bottom:14px;color:rgba(21,22,23,0.7)">
       Эти ссылки сохраняются в библиотеку (лист «Активности», колонка «Референсы») и подтягиваются всегда, когда этот шаблон используется в любой смене.
     </div>
     ${slotHint}
 
-    <div class="ref-section-title">Сохранённые (${showCheckboxes
+    <div class="ref-section-title">🧑‍🏫 Для педагогов · сохранённые (${showCheckboxes
       ? refs.filter(u => isRefSelectedInSlot_(slot, u)).length + ' из ' + refs.length + ' активны в этом слоте'
       : refs.length})</div>
-    <div class="ref-list">${listHtml}</div>
+    <div class="ref-list">${teacherListHtml}</div>
 
-    <div class="ref-section-title" style="margin-top:18px">Добавить новую ссылку</div>
+    <div class="ref-section-title" style="margin-top:18px">Добавить ссылку для педагогов</div>
     <div class="ref-add-row">
       <input type="url" id="ref-new-url" class="ref-add-input" placeholder="https://www.pinterest.com/pin/... или другой URL"
              onkeydown="if(event.key==='Enter') addRefForTemplate('${tplEsc}', this.parentElement.querySelector('button'))">
       <button class="btn btn-primary" onclick="addRefForTemplate('${tplEsc}', this)">Добавить</button>
     </div>
+
+    ${parentsBlock}
 
     <div class="ref-section-title" style="margin-top:18px">Поиск референсов</div>
     <div class="ref-search-row">
@@ -5762,6 +5823,56 @@ async function removeRefFromTemplate(templateName, url, btnEl) {
     }
     openRefsForTemplate(templateName, window._refsModalSlotPath);
     if (typeof render === 'function') render();
+  } catch(e) {
+    toast('Ошибка: ' + e.message);
+    if (btnEl) btnEl.disabled = false;
+  }
+}
+
+// === Родительские референсы шаблона ===
+// Идентичная пара функций, но дёргает action addParentsRef / removeParentsRef и
+// работает со вторым полем ввода (#parents-ref-new-url). Не трогает LIBRARY и
+// state.schedule — родительские рефы хранятся отдельно и не привязаны к слотам.
+async function addParentsRefForTemplate(templateName, btnEl) {
+  const inputEl = document.getElementById('parents-ref-new-url');
+  if (!inputEl) return;
+  const url = inputEl.value.trim();
+  if (!url) { toast('Вставь ссылку'); return; }
+  if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'Сохраняю…'; }
+  try {
+    const r = await fetch(LIBRARY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'addParentsRef', templateName: templateName, url: url })
+    });
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || 'API error');
+    if (data.result.alreadyPresent) {
+      toast('Эта ссылка уже была сохранена для родителей');
+    } else {
+      toast('Референс сохранён для родителей');
+    }
+    // Перерисуем модалку (тянет оба набора заново)
+    openRefsForTemplate(templateName, window._refsModalSlotPath);
+  } catch(e) {
+    toast('Ошибка: ' + e.message);
+    if (btnEl) { btnEl.disabled = false; btnEl.textContent = 'Добавить'; }
+  }
+}
+
+async function removeParentsRefFromTemplate(templateName, url, btnEl) {
+  if (!confirm('Удалить эту ссылку из родительских референсов шаблона?')) return;
+  if (btnEl) btnEl.disabled = true;
+  try {
+    const r = await fetch(LIBRARY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'removeParentsRef', templateName: templateName, url: url })
+    });
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || 'API error');
+    toast('Удалено');
+    openRefsForTemplate(templateName, window._refsModalSlotPath);
   } catch(e) {
     toast('Ошибка: ' + e.message);
     if (btnEl) btnEl.disabled = false;
