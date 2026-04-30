@@ -4350,6 +4350,14 @@ function viewBaseUrl_() {
   return noFile + 'view.html';
 }
 
+// Базовый URL страницы для родителей — без пароля, упрощённое расписание + блок «о смене».
+// Та же публикация (тот же ?id=), но другая страница.
+function parentsBaseUrl_() {
+  const cur = window.location.href.split('?')[0].split('#')[0];
+  const noFile = cur.replace(/[^/]+$/, '');
+  return noFile + 'parents.html';
+}
+
 // Slug из темы: латиница не меняется, кириллица → транслит, пробелы → дефис.
 function slugify_(text) {
   if (!text) return '';
@@ -4384,15 +4392,17 @@ async function openPublishPanel() {
 
 function renderPublishPanelBody(versions) {
   const baseUrl = viewBaseUrl_();
+  const parentsBase = parentsBaseUrl_();
   const defaultName = state.theme || 'Смена';
   const defaultId = slugify_(state.theme) || ('shift-' + Date.now().toString(36));
 
   let listHtml = '';
   if (versions.length === 0) {
-    listHtml = `<div class="publish-empty">Пока нет опубликованных версий. Заполни форму ниже и опубликуй текущую смену — получишь ссылку для педагогов.</div>`;
+    listHtml = `<div class="publish-empty">Пока нет опубликованных версий. Заполни форму ниже и опубликуй текущую смену — получишь ссылки для педагогов и родителей.</div>`;
   } else {
     listHtml = versions.map(v => {
       const url = baseUrl + '?id=' + encodeURIComponent(v.id);
+      const parentsUrl = parentsBase + '?id=' + encodeURIComponent(v.id);
       const date = v.publishedAt ? new Date(v.publishedAt) : null;
       const dateStr = date ? date.toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
       return `
@@ -4403,11 +4413,16 @@ function renderPublishPanelBody(versions) {
               ${v.theme ? '«' + escapeHtml(v.theme) + '» · ' : ''}
               опубликовано ${escapeHtml(dateStr)}
             </div>
+            <div class="publish-item-url" style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(21,22,23,0.5);margin-top:6px;font-weight:600">для педагогов:</div>
             <div class="publish-item-url"><code>${escapeHtml(url)}</code></div>
+            <div class="publish-item-url" style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(21,22,23,0.5);margin-top:4px;font-weight:600">для родителей:</div>
+            <div class="publish-item-url"><code>${escapeHtml(parentsUrl)}</code></div>
           </div>
           <div class="publish-item-actions">
-            <button class="btn" onclick="copyToClipboard('${escapeJs(url)}', this)" title="Скопировать ссылку">📋</button>
-            <a class="btn" href="${escapeHtml(url)}" target="_blank" rel="noopener" title="Открыть в новой вкладке">↗</a>
+            <button class="btn" onclick="copyToClipboard('${escapeJs(url)}', this)" title="Скопировать ссылку для педагогов">📋&nbsp;педагогам</button>
+            <button class="btn" onclick="copyToClipboard('${escapeJs(parentsUrl)}', this)" title="Скопировать ссылку для родителей">👨‍👩‍👧&nbsp;родителям</button>
+            <a class="btn" href="${escapeHtml(url)}" target="_blank" rel="noopener" title="Открыть страницу для педагогов в новой вкладке">↗ педагоги</a>
+            <a class="btn" href="${escapeHtml(parentsUrl)}" target="_blank" rel="noopener" title="Открыть страницу для родителей в новой вкладке">↗ родители</a>
             <button class="btn" onclick="republishVersion('${escapeJs(v.id)}', '${escapeJs(v.name || v.theme)}')" title="Перезаписать содержимое этой версии текущим состоянием смены">↻</button>
             <button class="btn" onclick="unpublishVersion('${escapeJs(v.id)}', this)" title="Удалить публикацию (ссылка перестанет работать)">🗑</button>
           </div>
@@ -4418,7 +4433,10 @@ function renderPublishPanelBody(versions) {
 
   document.getElementById('modal-body').innerHTML = `
     <div style="font-family:Geologica, serif;font-style:italic;font-size:13px;margin-bottom:14px;color:rgba(21,22,23,0.7)">
-      Опубликованная версия — это снимок смены, доступный по ссылке. Педагоги откроют её, выберут себя и увидят актуальное расписание. Когда меняешь смену — нажимай ↻ чтобы обновить публикацию.
+      Опубликованная версия — это снимок смены. По одному <code>id</code> создаются две ссылки:
+      <strong>для педагогов</strong> (с паролем, выбор себя, референсы) и <strong>для родителей</strong>
+      (без пароля, без педагогов и кабинетов, с режимом дня и контактами).
+      Когда меняешь смену — нажимай ↻ чтобы обновить обе публикации одной кнопкой.
     </div>
 
     <div class="publish-section-title">Новая публикация</div>
