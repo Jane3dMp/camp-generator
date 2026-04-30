@@ -10915,8 +10915,9 @@ async function openPublishPanel() {
           <input type="text" readonly id="publish-url-input" value="${escapeHtml(currentUrl)}" onclick="this.select()">
           <button class="btn" onclick="copyPublishUrl()">📋 Копировать</button>
         </div>
-        <div class="publish-link-row" style="margin-top:6px">
+        <div class="publish-link-row" style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px">
           <a href="${escapeHtml(currentUrl)}" target="_blank" rel="noopener" class="btn btn-ghost" style="text-decoration:none">👁 Открыть как педагог</a>
+          <a href="${escapeHtml(currentUrl.replace('/view.html?', '/parents.html?'))}" target="_blank" rel="noopener" class="btn btn-ghost" style="text-decoration:none">👨‍👩‍👧 Открыть как родитель</a>
         </div>
       </div>
 
@@ -10997,6 +10998,7 @@ function renderPublicationsArchive(versions) {
         <div class="archive-item-actions">
           <button class="btn btn-sm" onclick="copyArchiveUrl('${escapedId}')" title="Скопировать ссылку">📋</button>
           <a class="btn btn-sm" href="${escapeHtml(url)}" target="_blank" rel="noopener" title="Открыть как педагог">↗</a>
+          <a class="btn btn-sm" href="${escapeHtml(url.replace('/view.html?', '/parents.html?'))}" target="_blank" rel="noopener" title="Открыть как родитель">👨‍👩‍👧</a>
           ${!isCurrent ? `<button class="btn btn-sm" onclick="loadPublicationToAdmin('${escapedId}')" title="Загрузить эту смену в админку для редактирования">📥</button>` : ''}
           ${!isCurrent ? `<button class="btn btn-sm" onclick="deletePublicationFromArchive('${escapedId}', '${escapedName}')" style="color:#c0392b" title="Удалить публикацию (ссылка перестанет работать)">🗑</button>` : ''}
         </div>
