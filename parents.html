@@ -493,6 +493,114 @@
   let LIBRARY = [];
   let DETAILS = {}; // ключи из листа «Реквизиты»: Адрес, Телефон_1, Режим_строка_1 и т.д.
 
+  // ===== РОДИТЕЛЬСКИЙ КОНТЕНТ =====
+  // CONTENT — единый источник для всех текстов на странице. Сначала сюда кладутся
+  // дефолты (DEFAULTS), потом сверху накладываются значения из публикации
+  // родительского контента (action getParentsContent), если она есть.
+  // Логика наложения: только непустые значения из публикации перезаписывают дефолты.
+  // Это значит, что если в редакторе оставила поле пустым — на странице появится дефолт.
+  let CONTENT = {};
+
+  // Дефолтные значения родительского контента. Используются, когда:
+  //  • публикации родительского контента ещё нет;
+  //  • в публикации какие-то поля пустые (тогда конкретные поля берутся отсюда).
+  const DEFAULTS = {
+    // Шапка страницы
+    eyebrow: 'Прознание · Coddy · летняя смена',
+
+    // Секция «О смене»
+    showAbout: true,
+    aboutEyebrow: 'О смене',
+    aboutTitle: 'Что это за {смена}', // {x} = жёлтая Caveat-плашка
+    aboutDescription: '',             // если пусто — секция не показывается
+
+    // Секция «Режим дня»
+    showDailySchedule: true,
+    dailyScheduleEyebrow: 'Один день из смены',
+    dailyScheduleTitle: 'Как устроен {обычный день}',
+    dailyScheduleLead: 'Это не вся программа — это один из обычных дней. Смены состоят из десяти таких дней с разной начинкой, плюс выезды и финальная ярмарка.',
+    dailyScheduleRows: [
+      { time: '7:30–9:30',  text: 'приём детей, завтрак' },
+      { time: '9:30–12:30', text: 'мастер-классы в кластере, улица, выезды' },
+      { time: '12:30–14:00', text: 'обед, отдых' },
+      { time: '14:00–17:00', text: 'мастер-классы в кластере, улица, выезды' },
+      { time: '17:00–17:30', text: 'полдник' },
+      { time: '17:30–18:00', text: 'встреча с родителями' }
+    ],
+    dailyScheduleFoot: 'Питание: завтрак, обед, полдник (от ООО «Овация»).',
+
+    // Секция «Программа по дням» (расписание)
+    showProgram: true,
+    programEyebrow: 'Программа по дням',
+    programTitle: 'Что будет {на каждом дне}',
+    programLead: 'Расписание активностей по дням. Программа может меняться в пределах своей категории — погода, болезнь педагога, форс-мажор. Темы и общая структура остаются.',
+
+    // Секция «Контакты»
+    showContacts: true,
+    contactsEyebrow: 'Запись и вопросы',
+    contactsTitle: 'Записать {ребёнка}',
+    contactsHeader: 'Свяжитесь с нами',
+    contactsLead: 'Позвоните или напишите в Viber — менеджер ответит на все вопросы и расскажет про даты ближайшей смены.',
+    contactsPhoneSub: 'Телефоны / Viber',
+    contactsPhone1: '+375 44 586 50 93',
+    contactsPhone2: '+375 29 315 15 83',
+    contactsAddress: 'Могилёв, переулок Пожарный, 19',
+    contactsInstagram: 'https://www.instagram.com/proznanie_weekend/',
+    contactsTime: '7:30–17:30',
+
+    // Финальная плашка
+    showProgramNote: true,
+    programNote: 'Программа фиксирована на 80%. При непредвиденных обстоятельствах — погоде, болезни педагога, форс-мажоре — клуб заменяет активность на равноценную из той же категории. Темы и общая структура смены остаются.'
+  };
+
+  // Сборка финального CONTENT: дефолты + опубликованные значения (если непустые) +
+  // подмешиваем DETAILS (старая логика — лист «Реквизиты» как fallback для контактов
+  // и режима дня; пользователь её активно не использует, но если что-то там есть —
+  // использовать тоже, но публикация всегда в приоритете).
+  function buildContent(publishedParents) {
+    // Стартуем с глубокой копии дефолтов
+    const out = JSON.parse(JSON.stringify(DEFAULTS));
+
+    // Слой 1: значения из листа «Реквизиты» (старый фоллбэк, на случай если кто-то
+    // прописал режим/контакты там — это работало в предыдущей версии).
+    if (DETAILS && Object.keys(DETAILS).length > 0) {
+      // Контакты
+      if (DETAILS['Адрес']) out.contactsAddress = DETAILS['Адрес'];
+      if (DETAILS['Время']) out.contactsTime = DETAILS['Время'];
+      if (DETAILS['Телефон_1']) out.contactsPhone1 = DETAILS['Телефон_1'];
+      if (DETAILS['Телефон_2']) out.contactsPhone2 = DETAILS['Телефон_2'];
+      if (DETAILS['Телефон_подпись']) out.contactsPhoneSub = DETAILS['Телефон_подпись'];
+      if (DETAILS['Instagram']) out.contactsInstagram = DETAILS['Instagram'];
+      // Режим дня
+      const detailRows = [];
+      for (let i = 1; i <= 20; i++) {
+        const v = DETAILS['Режим_строка_' + i];
+        if (!v) continue;
+        const m = String(v).trim().match(/^(.+?)\s+[·—-]\s+(.+)$/);
+        if (m) detailRows.push({ time: m[1].trim(), text: m[2].trim() });
+        else detailRows.push({ time: '', text: String(v).trim() });
+      }
+      if (detailRows.length > 0) out.dailyScheduleRows = detailRows;
+      if (DETAILS['Режим_подпись']) out.dailyScheduleFoot = DETAILS['Режим_подпись'];
+      if (DETAILS['Программа_фиксирована']) out.programNote = DETAILS['Программа_фиксирована'];
+    }
+
+    // Слой 2: опубликованный родительский контент (приоритетный).
+    // Перезаписываем только непустые поля, чтобы пустое поле в редакторе
+    // не затирало нормальный дефолт.
+    if (publishedParents && typeof publishedParents === 'object') {
+      Object.keys(publishedParents).forEach(k => {
+        const v = publishedParents[k];
+        if (v === undefined || v === null) return;
+        if (typeof v === 'string' && v.trim() === '') return;
+        if (Array.isArray(v) && v.length === 0) return;
+        out[k] = v;
+      });
+    }
+
+    return out;
+  }
+
   // ===== УТИЛИТЫ =====
   function getQueryParam(name) {
     const m = new RegExp('[?&]' + name + '=([^&#]*)').exec(window.location.search);
@@ -559,18 +667,28 @@
     document.getElementById('view-content').innerHTML =
       '<div class="view-loading">Загружаю программу…</div>';
     try {
-      // Загружаем три ручки параллельно: публикация + библиотека + реквизиты.
-      // Реквизиты могут упасть (пустой лист) — это не блокер, рендерим без них.
-      const [pubResp, libResp, detResp] = await Promise.all([
+      // Загружаем 4 ручки параллельно: публикация смены + библиотека + реквизиты +
+      // родительский контент (новое в этапе 1). Любая из последних трёх может упасть —
+      // это не блокер, рендерим с тем, что есть, плюс дефолтами.
+      const [pubResp, libResp, detResp, parResp] = await Promise.all([
         fetch(LIBRARY_URL + '?action=getPublished&id=' + encodeURIComponent(id)).then(r => r.json()),
         fetch(LIBRARY_URL + '?action=library').then(r => r.json()),
-        fetch(LIBRARY_URL + '?action=details').then(r => r.json()).catch(() => ({ ok: false }))
+        fetch(LIBRARY_URL + '?action=details').then(r => r.json()).catch(() => ({ ok: false })),
+        fetch(LIBRARY_URL + '?action=getParentsContent&id=' + encodeURIComponent(id))
+          .then(r => r.json()).catch(() => ({ ok: false }))
       ]);
       if (!pubResp.ok) throw new Error(pubResp.error || 'Не удалось загрузить публикацию');
       if (!libResp.ok) throw new Error(libResp.error || 'Не удалось загрузить библиотеку');
 
       LIBRARY = libResp.activities || [];
       DETAILS = (detResp && detResp.ok && detResp.details) ? detResp.details : {};
+
+      // Родительский контент: parResp.parentsContent.parentsContent — это сам объект,
+      // potentially null если ничего не опубликовано. Тогда CONTENT = чистые DEFAULTS.
+      const publishedParents = (parResp && parResp.ok && parResp.parentsContent
+        && parResp.parentsContent.parentsContent) ? parResp.parentsContent.parentsContent : null;
+      CONTENT = buildContent(publishedParents);
+
       const pub = pubResp.publication;
       if (!pub) throw new Error('Программа с этим id не найдена. Возможно, ссылка устарела.');
       if (!pub.id) throw new Error('Сервер вернул некорректную программу.');
@@ -625,22 +743,61 @@
         });
     }
 
+    renderHeader();
     renderAboutSection();
     renderDailySchedule();
+    renderProgramHeaders();
     renderContacts();
     renderSchedule();
   }
 
+  // ===== HELPER: заголовок секции с {словом} → жёлтая Caveat-плашка =====
+  // Шаблон: 'Что это за {смена}' → 'Что это за <em>смена</em>'
+  // {x} — подменяется на жёлтую плашку Caveat. Ровно одно вхождение поддерживается;
+  // если фигурных скобок нет — заголовок выводится как есть.
+  function renderTitleWithEm(template) {
+    if (!template) return '';
+    const m = String(template).match(/^(.*?)\{([^}]+)\}(.*)$/);
+    if (!m) return escapeHtml(template);
+    return escapeHtml(m[1]) + '<em>' + escapeHtml(m[2]) + '</em>' + escapeHtml(m[3]);
+  }
+
+  // ===== ШАПКА — эйброу + заголовок смены =====
+  // Заголовок берётся из publishedState.theme (смена «Артмосфера»).
+  // Эйброу — из CONTENT.eyebrow («Прознание · Coddy · летняя смена»).
+  function renderHeader() {
+    const eyebrowEl = document.querySelector('.view-eyebrow');
+    if (eyebrowEl && CONTENT.eyebrow) eyebrowEl.textContent = CONTENT.eyebrow;
+  }
+
+  // ===== СЕКЦИЯ «О СМЕНЕ» =====
+  // Источники описания, в порядке приоритета:
+  //   1. CONTENT.aboutDescription (то, что опубликовано в админке)
+  //   2. publishedState.campType.description (из листа «Типы смен»)
+  //   3. publishedState.anchors
+  // Если ничего нет — секция скрыта.
   function renderAboutSection() {
-    // Описание берём из campType.description или anchors. Если ничего нет — секцию не показываем.
     const ct = publishedState.campType;
-    const desc = (ct && ct.description) || publishedState.anchors || '';
-    if (!desc) return;
+    const desc = (CONTENT.aboutDescription && CONTENT.aboutDescription.trim()) ||
+                 (ct && ct.description) ||
+                 publishedState.anchors || '';
+    if (!desc || !CONTENT.showAbout) {
+      document.getElementById('section-about').style.display = 'none';
+      return;
+    }
 
     document.getElementById('section-about').style.display = '';
+
+    // Эйброу + заголовок секции — пробрасываем через renderTitleWithEm
+    const sectionEl = document.getElementById('section-about');
+    const eyebrow = sectionEl.querySelector('.section-eyebrow');
+    const h2 = sectionEl.querySelector('.section-h2');
+    if (eyebrow) eyebrow.textContent = CONTENT.aboutEyebrow || '';
+    if (h2) h2.innerHTML = renderTitleWithEm(CONTENT.aboutTitle || '');
+
     document.getElementById('about-description').textContent = desc;
 
-    // Факт-плашки внизу описания
+    // Факт-плашки (берутся из state, не из CONTENT — это динамика по смене)
     const facts = [];
     if (Array.isArray(publishedState.schedule)) {
       const n = publishedState.schedule.length;
@@ -652,12 +809,8 @@
       }
       facts.push({ text: n + ' ' + word, cls: 'fact-tag' });
     }
-    if (publishedState.ages) {
-      facts.push({ text: publishedState.ages, cls: 'fact-tag' });
-    }
-    if (ct && ct.type) {
-      facts.push({ text: ct.type, cls: 'fact-tag dark' });
-    }
+    if (publishedState.ages) facts.push({ text: publishedState.ages, cls: 'fact-tag' });
+    if (ct && ct.type) facts.push({ text: ct.type, cls: 'fact-tag dark' });
     facts.push({ text: 'Могилёв', cls: 'fact-tag outline' });
 
     document.getElementById('about-facts').innerHTML = facts.map(f =>
@@ -665,57 +818,93 @@
     ).join('');
   }
 
-  // ===== РЕЖИМ ДНЯ =====
-  // Берём из листа «Реквизиты» ключи Режим_строка_1, Режим_строка_2... и Режим_подпись.
-  // Каждая строка ожидается в формате «время · описание» (разделитель — точка с пробелами
-  // или дефис). Если разделителя нет — кладём всё в правую колонку.
-  // Если ни одной строки в реквизитах нет — используем дефолт (как в PDF «Артмосфера»).
+  // ===== СЕКЦИЯ «РЕЖИМ ДНЯ» =====
+  // Все строки и подпись берутся из CONTENT (туда уже подмешаны DETAILS-фоллбэки в buildContent).
   function renderDailySchedule() {
-    const DEFAULT_ROWS = [
-      ['7:30–9:30', 'приём детей, завтрак'],
-      ['9:30–12:30', 'мастер-классы в кластере, улица, выезды'],
-      ['12:30–14:00', 'обед, отдых'],
-      ['14:00–17:00', 'мастер-классы в кластере, улица, выезды'],
-      ['17:00–17:30', 'полдник'],
-      ['17:30–18:00', 'встреча с родителями']
-    ];
-    const DEFAULT_FOOT = 'Питание: завтрак, обед, полдник (от ООО «Овация»).';
+    const sectionEl = document.querySelector('.section .schedule-card')
+      ? document.querySelector('.section .schedule-card').closest('.section') : null;
 
-    // Собираем строки из DETAILS: сканируем ключи Режим_строка_1..N
-    const fromDetails = [];
-    for (let i = 1; i <= 20; i++) {
-      const v = DETAILS['Режим_строка_' + i];
-      if (!v) continue;
-      // Разделитель — только « · » (точка с пробелами) или « — » или « - » (с пробелами с обеих сторон).
-      // ВАЖНО: дефис внутри времени «9:00-10:30» НЕ считается разделителем.
-      const s = String(v).trim();
-      const m = s.match(/^(.+?)\s+[·—-]\s+(.+)$/);
-      if (m) fromDetails.push([m[1].trim(), m[2].trim()]);
-      else fromDetails.push(['', s]);
+    // Видимость секции
+    if (!CONTENT.showDailySchedule) {
+      if (sectionEl) sectionEl.style.display = 'none';
+      return;
     }
-    const rows = fromDetails.length > 0 ? fromDetails : DEFAULT_ROWS;
+    if (sectionEl) sectionEl.style.display = '';
 
+    // Эйброу/заголовок/лид — обновляем по DOM-классам внутри секции
+    if (sectionEl) {
+      const eyebrow = sectionEl.querySelector('.section-eyebrow');
+      const h2 = sectionEl.querySelector('.section-h2');
+      const lead = sectionEl.querySelector('.section-lead');
+      if (eyebrow) eyebrow.textContent = CONTENT.dailyScheduleEyebrow || '';
+      if (h2) h2.innerHTML = renderTitleWithEm(CONTENT.dailyScheduleTitle || '');
+      if (lead) lead.textContent = CONTENT.dailyScheduleLead || '';
+    }
+
+    // Сама таблица режима
+    const rows = Array.isArray(CONTENT.dailyScheduleRows) ? CONTENT.dailyScheduleRows : [];
     document.getElementById('daily-schedule-card').innerHTML = rows.map(r =>
       `<div class="schedule-row">
-        <div class="schedule-time">${escapeHtml(r[0])}</div>
-        <div class="schedule-text">${escapeHtml(r[1])}</div>
+        <div class="schedule-time">${escapeHtml(r.time || '')}</div>
+        <div class="schedule-text">${escapeHtml(r.text || '')}</div>
       </div>`
     ).join('');
 
-    const foot = DETAILS['Режим_подпись'] || DEFAULT_FOOT;
-    document.getElementById('daily-schedule-foot').textContent = foot;
+    document.getElementById('daily-schedule-foot').textContent = CONTENT.dailyScheduleFoot || '';
   }
 
-  // ===== КОНТАКТЫ =====
-  // Берём из листа «Реквизиты»: Телефон_1, Телефон_2, Телефон_подпись, Адрес,
-  // Instagram, Время. Если каких-то ключей нет — используем дефолт из PDF.
+  // ===== СЕКЦИЯ «ПРОГРАММА ПО ДНЯМ» (заголовки секции) =====
+  // Само расписание рендерится в renderSchedule (ниже). Здесь только эйброу/заголовок/лид.
+  function renderProgramHeaders() {
+    const viewContent = document.getElementById('view-content');
+    const sectionEl = viewContent ? viewContent.closest('.section') : null;
+    if (!sectionEl) return;
+
+    if (!CONTENT.showProgram) {
+      sectionEl.style.display = 'none';
+      return;
+    }
+    sectionEl.style.display = '';
+
+    const eyebrow = sectionEl.querySelector('.section-eyebrow');
+    const h2 = sectionEl.querySelector('.section-h2');
+    const lead = sectionEl.querySelector('.section-lead');
+    if (eyebrow) eyebrow.textContent = CONTENT.programEyebrow || '';
+    if (h2) h2.innerHTML = renderTitleWithEm(CONTENT.programTitle || '');
+    if (lead) lead.textContent = CONTENT.programLead || '';
+  }
+
+  // ===== СЕКЦИЯ «КОНТАКТЫ» =====
   function renderContacts() {
-    const phone1 = DETAILS['Телефон_1'] || '+375 44 586 50 93';
-    const phone2 = DETAILS['Телефон_2'] || '+375 29 315 15 83';
-    const phoneSub = DETAILS['Телефон_подпись'] || 'Телефоны / Viber';
-    const address = DETAILS['Адрес'] || 'Могилёв, переулок Пожарный, 19';
-    const instagram = DETAILS['Instagram'] || 'https://www.instagram.com/proznanie_weekend/';
-    const time = DETAILS['Время'] || '7:30–17:30';
+    const contactCard = document.querySelector('.contact-card');
+    const sectionEl = contactCard ? contactCard.closest('.section') : null;
+
+    if (!CONTENT.showContacts) {
+      if (sectionEl) sectionEl.style.display = 'none';
+      return;
+    }
+    if (sectionEl) sectionEl.style.display = '';
+
+    if (sectionEl) {
+      const eyebrow = sectionEl.querySelector('.section-eyebrow');
+      const h2 = sectionEl.querySelector('.section-h2');
+      if (eyebrow) eyebrow.textContent = CONTENT.contactsEyebrow || '';
+      if (h2) h2.innerHTML = renderTitleWithEm(CONTENT.contactsTitle || '');
+    }
+    // Заголовок и лид внутри тёмной карточки
+    if (contactCard) {
+      const h3 = contactCard.querySelector('h3');
+      const lead = contactCard.querySelector('.contact-lead');
+      if (h3) h3.textContent = CONTENT.contactsHeader || '';
+      if (lead) lead.textContent = CONTENT.contactsLead || '';
+    }
+
+    const phone1 = CONTENT.contactsPhone1 || '';
+    const phone2 = CONTENT.contactsPhone2 || '';
+    const phoneSub = CONTENT.contactsPhoneSub || 'Телефоны';
+    const address = CONTENT.contactsAddress || '';
+    const instagram = CONTENT.contactsInstagram || '';
+    const time = CONTENT.contactsTime || '';
 
     // Превращаем телефон в tel: ссылку (только цифры и +)
     const telLink = (phone) => 'tel:' + String(phone).replace(/[^\d+]/g, '');
@@ -728,44 +917,62 @@
     // Адрес: первая запятая → разрыв строки (для красоты на мобиле)
     const addressHtml = escapeHtml(address).replace(/,\s*/, ',<br>');
 
-    let phonesHtml = `<a href="${escapeHtml(telLink(phone1))}">${escapeHtml(phone1)}</a>`;
-    if (phone2) phonesHtml += `<br><a href="${escapeHtml(telLink(phone2))}">${escapeHtml(phone2)}</a>`;
+    let phonesHtml = '';
+    if (phone1) phonesHtml += `<a href="${escapeHtml(telLink(phone1))}">${escapeHtml(phone1)}</a>`;
+    if (phone2) phonesHtml += (phone1 ? '<br>' : '') + `<a href="${escapeHtml(telLink(phone2))}">${escapeHtml(phone2)}</a>`;
 
-    document.getElementById('contact-grid').innerHTML = `
-      <div>
-        <div class="contact-block-eyebrow">${escapeHtml(phoneSub)}</div>
-        <div class="contact-block-value">${phonesHtml}</div>
-      </div>
-      <div>
-        <div class="contact-block-eyebrow">Адрес</div>
-        <div class="contact-block-value">${addressHtml}</div>
-      </div>
-      <div>
-        <div class="contact-block-eyebrow">Instagram</div>
-        <div class="contact-block-value">
-          <a href="${escapeHtml(instagram)}" target="_blank" rel="noopener">${escapeHtml(igHandle)}</a>
-        </div>
-      </div>
-      <div>
-        <div class="contact-block-eyebrow">Время работы</div>
-        <div class="contact-block-value">${escapeHtml(time)}</div>
-      </div>
-    `;
-
-    // Финальная плашка «программа фиксирована на 80%» — из реквизитов или fallback
-    const noteText = DETAILS['Программа_фиксирована'] ||
-      'Программа фиксирована на 80%. При непредвиденных обстоятельствах — погоде, болезни педагога, форс-мажоре — клуб заменяет активность на равноценную из той же категории. Темы и общая структура смены остаются.';
-    // Первое предложение жирным
-    const dotIdx = noteText.indexOf('.');
-    if (dotIdx > 0) {
-      const head = noteText.slice(0, dotIdx + 1);
-      const tail = noteText.slice(dotIdx + 1);
-      document.getElementById('program-note').innerHTML =
-        '<strong>' + escapeHtml(head) + '</strong>' + escapeHtml(tail);
-    } else {
-      document.getElementById('program-note').textContent = noteText;
+    // Собираем блоки контактов. Прячем те, у которых пустое значение —
+    // например, если ты в редакторе очистила Instagram, секция «Instagram» не появится.
+    const blocks = [];
+    if (phonesHtml) {
+      blocks.push(`
+        <div>
+          <div class="contact-block-eyebrow">${escapeHtml(phoneSub)}</div>
+          <div class="contact-block-value">${phonesHtml}</div>
+        </div>`);
     }
-    document.getElementById('program-note').style.display = '';
+    if (address) {
+      blocks.push(`
+        <div>
+          <div class="contact-block-eyebrow">Адрес</div>
+          <div class="contact-block-value">${addressHtml}</div>
+        </div>`);
+    }
+    if (instagram) {
+      blocks.push(`
+        <div>
+          <div class="contact-block-eyebrow">Instagram</div>
+          <div class="contact-block-value">
+            <a href="${escapeHtml(instagram)}" target="_blank" rel="noopener">${escapeHtml(igHandle)}</a>
+          </div>
+        </div>`);
+    }
+    if (time) {
+      blocks.push(`
+        <div>
+          <div class="contact-block-eyebrow">Время работы</div>
+          <div class="contact-block-value">${escapeHtml(time)}</div>
+        </div>`);
+    }
+    document.getElementById('contact-grid').innerHTML = blocks.join('');
+
+    // Финальная плашка «программа фиксирована на 80%»
+    const noteText = CONTENT.programNote || '';
+    if (!CONTENT.showProgramNote || !noteText) {
+      document.getElementById('program-note').style.display = 'none';
+    } else {
+      // Первое предложение жирным
+      const dotIdx = noteText.indexOf('.');
+      if (dotIdx > 0) {
+        const head = noteText.slice(0, dotIdx + 1);
+        const tail = noteText.slice(dotIdx + 1);
+        document.getElementById('program-note').innerHTML =
+          '<strong>' + escapeHtml(head) + '</strong>' + escapeHtml(tail);
+      } else {
+        document.getElementById('program-note').textContent = noteText;
+      }
+      document.getElementById('program-note').style.display = '';
+    }
   }
 
   // ===== РАСПИСАНИЕ ПО ДНЯМ =====
