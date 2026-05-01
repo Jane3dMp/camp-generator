@@ -375,6 +375,82 @@
     box-shadow: 0 4px 14px rgba(21,22,23,0.15);
   }
 
+  /* === СТОИМОСТЬ === */
+  .price-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    margin-top: 10px;
+  }
+  .price-card {
+    background: var(--paper);
+    border: 1px solid rgba(21,22,23,0.12);
+    border-radius: 6px;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  /* Активная карточка — самая ранняя из непрошедших, выделяем жёлтым */
+  .price-card.active {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .price-card.active .price-deadline {
+    color: rgba(21,22,23,0.85);
+  }
+  .price-amount {
+    font-family: Geologica, sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1;
+  }
+  .price-deadline {
+    font-family: Geologica, serif;
+    font-style: italic;
+    font-size: 13px;
+    color: rgba(21,22,23,0.65);
+    line-height: 1.35;
+  }
+  .price-tag {
+    display: inline-block;
+    align-self: flex-start;
+    font-family: Inter, sans-serif;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 700;
+    background: var(--ink);
+    color: var(--paper);
+    padding: 3px 7px;
+    border-radius: 3px;
+    margin-bottom: 6px;
+  }
+  .price-card.active .price-tag {
+    background: var(--ink);
+  }
+
+  /* === VIBER-КНОПКА В КОНТАКТАХ === */
+  .viber-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    padding: 10px 18px;
+    background: #7360f2; /* фирменный фиолетовый Viber */
+    color: #fff;
+    text-decoration: none;
+    font-family: Geologica, sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    border-radius: 6px;
+    transition: background 0.15s;
+  }
+  .viber-btn:hover {
+    background: #5d4be0;
+  }
+
   /* === КОНТАКТЫ === */
   .contact-card {
     background: var(--ink);
@@ -490,6 +566,8 @@
     .contact-card { padding: 18px 18px; }
     .contact-card h3 { font-size: 19px; }
     .contact-grid { grid-template-columns: 1fr; gap: 12px; }
+    .price-grid { grid-template-columns: 1fr; gap: 10px; }
+    .price-amount { font-size: 24px; }
   }
   /* Очень узкий экран (≤380px) — Android маленький */
   @media (max-width: 380px) {
@@ -535,15 +613,6 @@
     <div class="schedule-foot" id="daily-schedule-foot"></div>
   </div>
 
-  <!-- СЕКЦИЯ 2.5: ЧТО СДЕЛАЮТ ДЕТИ (родительские рефы) -->
-  <!-- Скрыта по умолчанию. Показывается только если для шаблонов смены есть родительские рефы. -->
-  <div class="section" id="section-what-they-make" style="display:none">
-    <div class="section-eyebrow">Чему научится ребёнок</div>
-    <h2 class="section-h2">Что <em>сделают</em> дети</h2>
-    <p class="section-lead">Финальные работы по направлениям из этой смены. Нажми на картинку — откроется источник.</p>
-    <div id="what-they-make-content"></div>
-  </div>
-
   <!-- СЕКЦИЯ 3: РАСПИСАНИЕ ПО ДНЯМ -->
   <div class="section">
     <div class="section-eyebrow">Программа по дням</div>
@@ -555,6 +624,25 @@
     <div class="view-published-at" id="view-published-at"></div>
   </div>
 
+  <!-- СЕКЦИЯ 3.5: ЧТО СДЕЛАЮТ ДЕТИ (родительские рефы) -->
+  <!-- Скрыта по умолчанию. Показывается только если для шаблонов смены есть родительские рефы. -->
+  <div class="section" id="section-what-they-make" style="display:none">
+    <div class="section-eyebrow">Чему научится ребёнок</div>
+    <h2 class="section-h2">Что <em>сделают</em> дети</h2>
+    <p class="section-lead">Финальные работы по направлениям из этой смены. Нажми на картинку — откроется источник.</p>
+    <div id="what-they-make-content"></div>
+  </div>
+
+  <!-- СЕКЦИЯ 3.7: СТОИМОСТЬ -->
+  <!-- Цены берутся из листа «Реквизиты»: ключи Цена_ранняя, Цена_средняя, Цена_поздняя.
+       Прошедшие даты автоматически скрываются (см. parsePriceDate в JS). -->
+  <div class="section" id="section-price" style="display:none">
+    <div class="section-eyebrow">Сколько стоит</div>
+    <h2 class="section-h2">Стоимость <em>смены</em></h2>
+    <p class="section-lead" id="price-sub"></p>
+    <div class="price-grid" id="price-grid"></div>
+  </div>
+
   <!-- СЕКЦИЯ 4: КОНТАКТЫ -->
   <div class="section">
     <div class="section-eyebrow">Запись и вопросы</div>
@@ -564,6 +652,9 @@
       <div class="contact-lead">Позвоните или напишите в Viber — менеджер ответит на все вопросы и расскажет про даты ближайшей смены.</div>
       <div class="contact-grid" id="contact-grid">
         <!-- Заполняется из листа «Реквизиты» -->
+      </div>
+      <div id="viber-buttons-container" style="display:none">
+        <!-- Заполняется в renderContacts() — кнопка Viber на основной телефон -->
       </div>
     </div>
     <div class="program-note" id="program-note" style="display:none"></div>
@@ -849,6 +940,7 @@
     renderDailySchedule();
     renderProgramHeaders();
     renderContacts();
+    renderPrices();
     renderSchedule();
     // Эта функция асинхронная — тянет родительские рефы из API и рендерит секцию,
     // когда данные пришли. Не блокирует основной рендер. Если рефов нет ни у одного
@@ -1061,6 +1153,28 @@
     }
     document.getElementById('contact-grid').innerHTML = blocks.join('');
 
+    // Viber-кнопка. Делается на ПЕРВЫЙ непустой телефон. Из номера убираем всё кроме
+    // цифр и плюса — нужно для viber:// URL. На десктопе ссылка открывает Viber Desktop
+    // если установлен, на мобильном — приложение.
+    const viberContainer = document.getElementById('viber-buttons-container');
+    if (viberContainer) {
+      const viberPhone = phone1 || phone2;
+      if (viberPhone) {
+        const cleaned = String(viberPhone).replace(/[^\d+]/g, '');
+        // Viber требует номер БЕЗ плюса в URL (только цифры со страны)
+        const numberOnly = cleaned.replace(/^\+/, '');
+        viberContainer.innerHTML = `
+          <a href="viber://chat?number=%2B${escapeHtml(numberOnly)}" class="viber-btn">
+            <span style="font-size:18px">💬</span>
+            <span>Написать в Viber</span>
+          </a>
+        `;
+        viberContainer.style.display = '';
+      } else {
+        viberContainer.style.display = 'none';
+      }
+    }
+
     // Финальная плашка «программа фиксирована на 80%»
     const noteText = CONTENT.programNote || '';
     if (!CONTENT.showProgramNote || !noteText) {
@@ -1228,6 +1342,147 @@
     });
 
     document.getElementById('view-content').innerHTML = html;
+  }
+
+  // ===== СЕКЦИЯ «СТОИМОСТЬ» =====
+  // Цены хранятся в листе «Реквизиты»: ключи Цена_ранняя, Цена_средняя, Цена_поздняя,
+  // Цена_подпись. Каждая цена — строка вида «850 BYN — при оплате до 1 мая».
+  // Логика:
+  //   1. Парсим из строки сумму, дату дедлайна и описание
+  //   2. Пропускаем все цены, у которых дата дедлайна уже прошла (вчера и раньше)
+  //   3. Сортируем по дате дедлайна (от ближайшей к дальней)
+  //   4. Самую раннюю (ближайший дедлайн) подсвечиваем как «active» (жёлтая плашка)
+  //   5. Если ни одной актуальной цены нет — секция скрыта
+  function renderPrices() {
+    const sectionEl = document.getElementById('section-price');
+    if (!sectionEl) return;
+
+    // Читаем все три цены из реквизитов
+    const rawPrices = [
+      { key: 'Цена_ранняя',  raw: DETAILS['Цена_ранняя']  || '' },
+      { key: 'Цена_средняя', raw: DETAILS['Цена_средняя'] || '' },
+      { key: 'Цена_поздняя', raw: DETAILS['Цена_поздняя'] || '' }
+    ];
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // сравниваем по дню, без часов
+
+    const prices = [];
+    rawPrices.forEach(p => {
+      if (!p.raw) return;
+      const parsed = parsePriceLine_(p.raw);
+      if (!parsed) return;
+      // Если есть дата дедлайна и она уже прошла — отсекаем
+      if (parsed.deadline && parsed.deadline < today) return;
+      prices.push(parsed);
+    });
+
+    if (prices.length === 0) {
+      sectionEl.style.display = 'none';
+      return;
+    }
+
+    // Сортируем по дате (ближайшие сначала). Без даты — в конец.
+    prices.sort((a, b) => {
+      if (!a.deadline && !b.deadline) return 0;
+      if (!a.deadline) return 1;
+      if (!b.deadline) return -1;
+      return a.deadline.getTime() - b.deadline.getTime();
+    });
+
+    // Помечаем первую (с самым ранним дедлайном) как активную
+    if (prices.length > 0) prices[0].active = true;
+
+    sectionEl.style.display = '';
+
+    const subEl = document.getElementById('price-sub');
+    if (subEl) {
+      const sub = DETAILS['Цена_подпись'] || 'Стоимость зависит от того, когда вы оплатите смену.';
+      subEl.textContent = sub;
+    }
+
+    document.getElementById('price-grid').innerHTML = prices.map(p => {
+      const tagText = p.active ? 'Сейчас' : '';
+      const tagHtml = tagText ? `<span class="price-tag">${escapeHtml(tagText)}</span>` : '';
+      return `
+        <div class="price-card ${p.active ? 'active' : ''}">
+          ${tagHtml}
+          <div class="price-amount">${escapeHtml(p.amount)}</div>
+          <div class="price-deadline">${escapeHtml(p.deadlineText)}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // Разбирает строку вида «850 BYN — при оплате до 1 мая» в:
+  //   { amount: '850 BYN', deadlineText: 'при оплате до 1 мая', deadline: Date|null }
+  // Поддерживаемые форматы дат: «1 мая», «до 1 мая», «1 мая 2026», «01.05», «01.05.2026».
+  // Если дату распарсить не удалось — поле deadline = null (плашка покажется в любом случае).
+  function parsePriceLine_(line) {
+    if (!line) return null;
+    const s = String(line).trim();
+    // Разделяем по тире/дефису с пробелами вокруг — между суммой и описанием
+    const m = s.match(/^(.+?)\s+[—–-]\s+(.+)$/);
+    let amount, deadlineText;
+    if (m) {
+      amount = m[1].trim();
+      deadlineText = m[2].trim();
+    } else {
+      amount = s;
+      deadlineText = '';
+    }
+    return {
+      amount: amount,
+      deadlineText: deadlineText,
+      deadline: parseRussianDate_(deadlineText),
+      active: false
+    };
+  }
+
+  // Парсит русскую дату из строки. Возвращает Date или null.
+  function parseRussianDate_(s) {
+    if (!s) return null;
+    const months = {
+      'январ':0,'феврал':1,'март':2,'апрел':3,'мая':4,'май':4,
+      'июн':5,'июл':6,'август':7,'сентябр':8,'октябр':9,'ноябр':10,'декабр':11
+    };
+    const now = new Date();
+    const currentYear = now.getFullYear();
+
+    // Формат «1 мая», «1 мая 2026», «до 1 мая», «при оплате до 1 июня».
+    // Регэксп greedy для названия месяца — иначе не матчится без явного \b.
+    const ru = s.match(/(\d{1,2})\s+([а-яё]+)(?:\s+(\d{4}))?/i);
+    if (ru) {
+      const day = parseInt(ru[1], 10);
+      const monthKey = ru[2].toLowerCase();
+      let monthNum = -1;
+      Object.keys(months).forEach(k => {
+        if (monthKey.startsWith(k)) monthNum = months[k];
+      });
+      if (monthNum >= 0) {
+        const year = ru[3] ? parseInt(ru[3], 10) : currentYear;
+        const d = new Date(year, monthNum, day);
+        d.setHours(0, 0, 0, 0);
+        return d;
+      }
+    }
+
+    // Формат «01.05», «01.05.2026»
+    const num = s.match(/(\d{1,2})\.(\d{1,2})(?:\.(\d{4}|\d{2}))?/);
+    if (num) {
+      const day = parseInt(num[1], 10);
+      const month = parseInt(num[2], 10) - 1;
+      let year = currentYear;
+      if (num[3]) {
+        year = parseInt(num[3], 10);
+        if (year < 100) year += 2000;
+      }
+      const d = new Date(year, month, day);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    }
+
+    return null;
   }
 
   // ===== СЕКЦИЯ «ЧТО СДЕЛАЮТ ДЕТИ» =====
