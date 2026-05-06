@@ -211,25 +211,33 @@
     margin: 0;
     padding: 0;
   }
-  .promo-day-item {
-    display: flex;
-    gap: 10px;
-    padding: 5px 0;
-    font-size: 13.5px;
-    line-height: 1.45;
-    align-items: baseline;
-  }
-  .promo-day-time {
+  /* Заголовок блока времени: «9:30 — 12:30» серой плашкой над активностями.
+     Не ячейка слева, а отдельная строка-разделитель перед списком МК. */
+  .promo-time-block {
+    font-size: 11px;
     font-weight: 600;
-    color: rgba(21,22,23,0.7);
-    min-width: 48px;
-    flex-shrink: 0;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(21,22,23,0.55);
+    padding: 8px 0 6px;
+    border-bottom: 1px dashed rgba(21,22,23,0.15);
+    margin: 4px 0 8px;
     font-variant-numeric: tabular-nums;
   }
-  .promo-day-text {
-    flex: 1;
+  .promo-time-block:first-child {
+    padding-top: 0;
   }
-  .promo-day-text .promo-direction {
+  .promo-day-item {
+    padding: 4px 0;
+    font-size: 13.5px;
+    line-height: 1.45;
+  }
+  .promo-day-item + .promo-day-item {
+    border-top: 1px solid rgba(21,22,23,0.05);
+  }
+  /* Цветные плашки направлений (Творчество, IT, Soft skills...) рядом с названием МК.
+     Применяются прямо на <span> внутри .promo-day-item, без обёрнутого .promo-day-text. */
+  .promo-direction {
     display: inline-block;
     padding: 1px 6px;
     border-radius: 3px;
@@ -240,13 +248,13 @@
     vertical-align: 2px;
     color: var(--ink);
   }
-  .promo-day-text .promo-direction.dir-it { background: var(--dir-it); }
-  .promo-day-text .promo-direction.dir-creative { background: var(--dir-creative); }
-  .promo-day-text .promo-direction.dir-soft { background: var(--dir-soft); }
-  .promo-day-text .promo-direction.dir-active { background: var(--dir-active); }
-  .promo-day-text .promo-direction.dir-event { background: var(--dir-event); color: var(--white); }
-  .promo-day-text .promo-direction.dir-other { background: var(--paper-deep); }
-  .promo-day-text .promo-theme {
+  .promo-direction.dir-it { background: var(--dir-it); }
+  .promo-direction.dir-creative { background: var(--dir-creative); }
+  .promo-direction.dir-soft { background: var(--dir-soft); }
+  .promo-direction.dir-active { background: var(--dir-active); }
+  .promo-direction.dir-event { background: var(--dir-event); color: var(--white); }
+  .promo-direction.dir-other { background: var(--paper-deep); }
+  .promo-theme {
     font-family: Caveat, cursive;
     color: var(--terra-deep);
     margin-left: 4px;
@@ -1469,8 +1477,8 @@
         <ul class="promo-day-list">`;
 
       // Хелпер: одна строка-буллет с активностью.
-      // dirCls — CSS-класс для цветной плашки направления (Творчество/IT/...)
-      const renderItem = (timeLabel, slot) => {
+      // Время не показываем — оно теперь в общем заголовке блока сверху.
+      const renderItem = (slot) => {
         if (!slot || !slot.template) return '';
         const dir = getSlotDirection(slot);
         const dirCls = dirClass(dir);
@@ -1481,11 +1489,13 @@
         const themeChip = slot.theme
           ? `<span class="promo-theme">«${escapeHtml(slot.theme)}»</span>`
           : '';
-        return `<li class="promo-day-item">
-          <span class="promo-day-time">${escapeHtml(timeLabel)}</span>
-          <span class="promo-day-text">${dirChip}${escapeHtml(slot.template)}${themeChip}</span>
-        </li>`;
+        return `<li class="promo-day-item">${dirChip}${escapeHtml(slot.template)}${themeChip}</li>`;
       };
+
+      // Хелпер: заголовок блока времени «9:30 — 12:30» одной строкой над активностями.
+      // Используется один раз перед утренним блоком и один раз перед послеобеденным.
+      const renderTimeBlock = (timeRange) =>
+        `<li class="promo-time-block">${escapeHtml(timeRange)}</li>`;
 
       // Хелпер: жёлтая плашка выезда (как у родителей, но компактнее)
       const renderTrip = (text) => `<li><div class="promo-day-trip">🚌 ${escapeHtml(text)}</div></li>`;
@@ -1504,27 +1514,25 @@
       let hasAnyAm = false, hasAnyPm = false;
 
       // === ДО ОБЕДА ===
-      // Полный выезд утром
+      // Сначала собираем всё «утреннее»: что писать на жёлтой плашке выезда (если есть)
+      // + список МК (с дедупликацией). Потом одним блоком выводим: заголовок «9:30 — 12:30»,
+      // под ним — выезд (если был) и список МК.
+      let amTripText = '';
       if (d.type === 'trip6_am') {
         const s = d.trip6_am;
-        html += renderTrip('9:30 · полный выезд' + (s && s.template ? ' · ' + s.template : ''));
-        hasAnyAm = true;
-      }
-      // Полу-выезд утром (3 отряда)
-      if (d.type === 'trip3_am' || d.type === 'trip3_full') {
+        amTripText = 'полный выезд' + (s && s.template ? ' · ' + s.template : '');
+      } else if (d.type === 'trip3_am' || d.type === 'trip3_full') {
         const s = d.trip_full_am;
-        if (s && s.template) {
-          html += renderTrip('9:30 · часть отрядов на выезде · ' + s.template);
-          hasAnyAm = true;
-        }
-      }
-      // Параллельные выезды утром
-      if (d.type === 'trip6_am_split' || d.type === 'trip6_full_split') {
+        if (s && s.template) amTripText = 'часть отрядов на выезде · ' + s.template;
+      } else if (d.type === 'trip6_am_split' || d.type === 'trip6_full_split') {
         const a = d.trip6_am_a, b = d.trip6_am_b;
-        if (a && a.template) { html += renderTrip('9:30 · группа A на выезде · ' + a.template); hasAnyAm = true; }
-        if (b && b.template) { html += renderTrip('9:30 · группа B на выезде · ' + b.template); hasAnyAm = true; }
+        const parts = [];
+        if (a && a.template) parts.push('группа A · ' + a.template);
+        if (b && b.template) parts.push('группа B · ' + b.template);
+        if (parts.length) amTripText = 'параллельные выезды: ' + parts.join('; ');
       }
-      // Обычные утренние слоты — дедупликация по (template, theme), как у родителей.
+
+      // Обычные утренние слоты — дедупликация по (template, theme).
       const amSlots = [];
       const amSeen = new Set();
       ['am_cluster', 'am_outside'].forEach(key => {
@@ -1539,31 +1547,30 @@
           amSlots.push(s);
         });
       });
-      if (amSlots.length > 0) {
-        amSlots.forEach(s => {
-          html += renderItem('9:30', s);
-          hasAnyAm = true;
-        });
+
+      if (amTripText || amSlots.length > 0) {
+        html += renderTimeBlock('9:30 — 12:30');
+        if (amTripText) html += renderTrip(amTripText);
+        amSlots.forEach(s => { html += renderItem(s); });
+        hasAnyAm = true;
       }
 
       // === ПОСЛЕ ОБЕДА ===
+      let pmTripText = '';
       if (d.type === 'trip6_pm') {
         const s = d.trip6_pm;
-        html += renderTrip('14:00 · полный выезд' + (s && s.template ? ' · ' + s.template : ''));
-        hasAnyPm = true;
-      }
-      if (d.type === 'trip3_pm' || d.type === 'trip3_full') {
+        pmTripText = 'полный выезд' + (s && s.template ? ' · ' + s.template : '');
+      } else if (d.type === 'trip3_pm' || d.type === 'trip3_full') {
         const s = d.trip_full_pm;
-        if (s && s.template) {
-          html += renderTrip('14:00 · часть отрядов на выезде · ' + s.template);
-          hasAnyPm = true;
-        }
-      }
-      if (d.type === 'trip6_pm_split' || d.type === 'trip6_full_split') {
+        if (s && s.template) pmTripText = 'часть отрядов на выезде · ' + s.template;
+      } else if (d.type === 'trip6_pm_split' || d.type === 'trip6_full_split') {
         const a = d.trip6_pm_a, b = d.trip6_pm_b;
-        if (a && a.template) { html += renderTrip('14:00 · группа A на выезде · ' + a.template); hasAnyPm = true; }
-        if (b && b.template) { html += renderTrip('14:00 · группа B на выезде · ' + b.template); hasAnyPm = true; }
+        const parts = [];
+        if (a && a.template) parts.push('группа A · ' + a.template);
+        if (b && b.template) parts.push('группа B · ' + b.template);
+        if (parts.length) pmTripText = 'параллельные выезды: ' + parts.join('; ');
       }
+
       const pmSlots = [];
       const pmSeen = new Set();
       ['pm_cluster', 'pm_outside'].forEach(key => {
@@ -1578,11 +1585,12 @@
           pmSlots.push(s);
         });
       });
-      if (pmSlots.length > 0) {
-        pmSlots.forEach(s => {
-          html += renderItem('14:00', s);
-          hasAnyPm = true;
-        });
+
+      if (pmTripText || pmSlots.length > 0) {
+        html += renderTimeBlock('14:00 — 17:00');
+        if (pmTripText) html += renderTrip(pmTripText);
+        pmSlots.forEach(s => { html += renderItem(s); });
+        hasAnyPm = true;
       }
 
       if (!hasAnyAm && !hasAnyPm) {
