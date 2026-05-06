@@ -1,0 +1,2000 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Промо · смена сезона · Прознание + Coddy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --yellow:      #FED634;
+    --yellow-deep: #C9A800;
+    --ink:         #151617;
+    --paper:       #F5F5F0;
+    --paper-warm:  #FFFBEC;
+    --white:       #FFFFFF;
+    --moss:        #6F8754;
+    --terra:       #C77E5E;
+    --terra-deep:  #9A4B30;
+    /* Цвета направлений — для цветных плашек в слотах (синхронно с index.html) */
+    --dir-it:        #41BEEA;
+    --dir-creative:  #FED634;
+    --dir-soft:      #8FA370;
+    --dir-active:    #FF8A3D;
+    --dir-event:     #FF5C1D;
+    --paper-deep:    #ECEAE0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    color: var(--ink);
+    line-height: 1.5;
+  }
+
+  /* === ОСНОВНОЕ === */
+  #app {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 24px 18px 80px;
+  }
+  .view-header {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  .view-eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(21,22,23,0.55);
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .view-header h1 {
+    font-family: Geologica, sans-serif;
+    font-size: 26px;
+    font-weight: 700;
+    margin: 0;
+    line-height: 1.15;
+  }
+  .view-header h1 em {
+    font-family: Caveat, cursive;
+    font-style: normal;
+    font-weight: 600;
+    background: var(--yellow);
+    padding: 0 6px;
+    border-radius: 4px;
+  }
+  .view-subhead {
+    font-family: Geologica, serif;
+    font-style: italic;
+    font-size: 13px;
+    color: rgba(21,22,23,0.65);
+    margin-top: 4px;
+  }
+
+  /* === ПЕРЕКЛЮЧАТЕЛЬ СМЕН СЕЗОНА (только промо-страница) ===
+     6 кнопок-табов сверху. Активная — жёлтая, в разработке — серая
+     с пометкой «в разработке», обычные — белые с тёмной рамкой.
+     На мобиле скроллится горизонтально (overflow-x: auto). */
+  .season-switch {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 8px 0 16px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid rgba(21,22,23,0.08);
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+  .season-tab {
+    flex: 1 1 0;
+    min-width: 130px;
+    background: var(--white);
+    border: 1px solid var(--ink);
+    border-radius: 4px;
+    padding: 8px 10px;
+    text-align: left;
+    text-decoration: none;
+    color: var(--ink);
+    font-family: Inter, sans-serif;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    transition: background 0.15s;
+  }
+  .season-tab:hover {
+    background: var(--paper-warm);
+  }
+  .season-tab.active {
+    background: var(--yellow);
+    border-color: var(--ink);
+    cursor: default;
+  }
+  .season-tab.active:hover {
+    background: var(--yellow);
+  }
+  .season-tab.disabled {
+    background: var(--paper-deep);
+    border-color: rgba(21,22,23,0.2);
+    color: rgba(21,22,23,0.4);
+    cursor: not-allowed;
+  }
+  .season-tab.disabled:hover {
+    background: var(--paper-deep);
+  }
+  .season-tab-num {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(21,22,23,0.6);
+  }
+  .season-tab.active .season-tab-num {
+    color: rgba(21,22,23,0.7);
+  }
+  .season-tab.disabled .season-tab-num {
+    color: rgba(21,22,23,0.35);
+  }
+  .season-tab-label {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+  .season-tab-dates {
+    font-family: Geologica, serif;
+    font-style: italic;
+    font-size: 11px;
+    color: rgba(21,22,23,0.55);
+  }
+  .season-tab.active .season-tab-dates {
+    color: rgba(21,22,23,0.65);
+  }
+  .season-tab-status {
+    font-family: Geologica, serif;
+    font-style: italic;
+    font-size: 11px;
+    color: rgba(21,22,23,0.4);
+  }
+  .season-loading {
+    padding: 8px 0 16px;
+    font-family: Geologica, serif;
+    font-style: italic;
+    font-size: 12px;
+    color: rgba(21,22,23,0.5);
+    text-align: center;
+  }
+
+  /* === ФОРМАТ СПИСКА ДНЕЙ (промо вместо карточек) ===
+     На промо в каждом дне — заголовок «День N · дата» и буллеты активностей.
+     В отличие от parents.html где идут цветные карточки в сетке. */
+  .promo-day {
+    background: var(--white);
+    border: 1px solid var(--ink);
+    margin-bottom: 12px;
+    padding: 14px 16px 12px;
+  }
+  .promo-day-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(21,22,23,0.1);
+  }
+  .promo-day-num {
+    font-family: Geologica, sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--ink);
+  }
+  .promo-day-num em {
+    font-family: Caveat, cursive;
+    font-style: normal;
+    font-weight: 600;
+    background: var(--yellow);
+    padding: 0 5px;
+    border-radius: 3px;
+    margin-left: 4px;
+  }
+  .promo-day-weekday {
+    font-family: Caveat, cursive;
+    font-size: 14px;
+    color: rgba(21,22,23,0.55);
+  }
+  .promo-day-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .promo-day-item {
+    display: flex;
+    gap: 10px;
+    padding: 5px 0;
+    font-size: 13.5px;
+    line-height: 1.45;
+    align-items: baseline;
+  }
+  .promo-day-time {
+    font-weight: 600;
+    color: rgba(21,22,23,0.7);
+    min-width: 48px;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .promo-day-text {
+    flex: 1;
+  }
+  .promo-day-text .promo-direction {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    margin-right: 6px;
+    vertical-align: 2px;
+    color: var(--ink);
+  }
+  .promo-day-text .promo-direction.dir-it { background: var(--dir-it); }
+  .promo-day-text .promo-direction.dir-creative { background: var(--dir-creative); }
+  .promo-day-text .promo-direction.dir-soft { background: var(--dir-soft); }
+  .promo-day-text .promo-direction.dir-active { background: var(--dir-active); }
+  .promo-day-text .promo-direction.dir-event { background: var(--dir-event); color: var(--white); }
+  .promo-day-text .promo-direction.dir-other { background: var(--paper-deep); }
+  .promo-day-text .promo-theme {
+    font-family: Caveat, cursive;
+    color: var(--terra-deep);
+    margin-left: 4px;
+  }
+  .promo-day-trip {
+    background: var(--yellow);
+    border: 1px solid var(--ink);
+    padding: 5px 10px;
+    margin: 6px 0;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .view-loading,
+  .view-error {
+    text-align: center;
+    padding: 40px 20px;
+    font-family: Geologica, serif;
+    font-style: italic;
+    color: rgba(21,22,23,0.55);
+  }
+  .view-error { color: var(--terra-deep); }
+  .vday {
+    background: var(--white);
+    border: 1px solid var(--ink);
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+  .vday-head {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 10px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .vday-num {
+    font-family: Geologica, sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--yellow);
+  }
+  .vday-meta {
+    font-family: Caveat, cursive;
+    font-size: 16px;
+    color: var(--white);
+    font-weight: 600;
+  }
+  .vday-body { padding: 10px 14px; }
+  .vday-rest {
+    font-family: Geologica, serif;
+    font-style: italic;
+    color: rgba(21,22,23,0.4);
+    font-size: 13px;
+    padding: 6px 0;
+  }
+  .vday-trip {
+    background: var(--yellow);
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+  .vslot {
+    padding: 10px 0;
+    border-bottom: 1px dotted rgba(21,22,23,0.12);
+  }
+  .vslot:last-child { border-bottom: none; }
+  .vslot-row {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: 12px;
+    align-items: baseline;
+  }
+  .vslot-time {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .vslot-name {
+    font-family: Geologica, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+  .vslot-theme {
+    font-family: Caveat, cursive;
+    font-size: 16px;
+    color: var(--yellow-deep);
+    font-weight: 600;
+    line-height: 1.1;
+    margin-top: 2px;
+  }
+
+  /* === БЛОК ПАРАЛЛЕЛЬНЫХ МК (9:30–12:30 / 14:00–17:00) === */
+  /* Общий заголовок «9:30–12:30» сверху, под ним сетка из 3 карточек. */
+  .vblock {
+    padding: 10px 0;
+    border-bottom: 1px dotted rgba(21,22,23,0.12);
+  }
+  .vblock:last-child { border-bottom: none; }
+  .vblock-time {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 10px;
+    letter-spacing: 0.02em;
+  }
+  /* Сетка параллельных МК. Максимум 3 в ряд — даже если карточек 4-6,
+     то они переходят на следующие ряды по 3, а не растекаются по 4-6 в одну.
+     На мобиле — одна колонка через media. */
+  .vblock-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  /* Если карточек меньше 3 — они НЕ должны растягиваться на всю ширину.
+     Каждая остаётся той же ширины как если бы их было три. */
+  /* Карточка одного параллельного МК */
+  .vcard {
+    background: #faf8f1;
+    border: 1px solid rgba(21,22,23,0.08);
+    border-radius: 4px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .vcard-name {
+    font-family: Geologica, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+  .vcard-theme {
+    font-family: Caveat, cursive;
+    font-size: 16px;
+    color: var(--yellow-deep);
+    font-weight: 600;
+    line-height: 1.1;
+  }
+  /* Цветная плашка направления — синхронно с index.html */
+  .direction-tag {
+    display: inline-block;
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin-bottom: 4px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .dir-IT { background: var(--dir-it); color: var(--ink); }
+  .dir-Творчество { background: var(--dir-creative); color: var(--ink); }
+  .dir-Soft { background: var(--dir-soft); color: var(--white); }
+  .dir-Активность { background: var(--dir-active); color: var(--white); }
+  .dir-Игры { background: var(--yellow); color: var(--ink); }
+  .dir-Событие { background: var(--dir-event); color: var(--white); }
+  .dir-Прочее { background: var(--paper-deep); color: rgba(21,22,23,0.6); }
+
+  .view-published-at {
+    font-family: Geologica, serif;
+    font-style: italic;
+    font-size: 11px;
+    color: rgba(21,22,23,0.5);
+    text-align: center;
+    margin-top: 14px;
+  }
+
+  /* === СЕКЦИЯ «О СМЕНЕ» === */
+  .section {
+    margin-bottom: 28px;
+  }
+  .section-eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(21,22,23,0.55);
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .section-h2 {
+    font-family: Geologica, sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 0 14px;
+    line-height: 1.2;
+  }
+  .section-h2 em {
+    font-family: Caveat, cursive;
+    font-style: normal;
+    font-weight: 600;
+    background: var(--yellow);
+    padding: 0 8px;
+    border-radius: 4px;
+    margin-left: 4px;
+  }
+  .section-lead {
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--ink);
+    margin: 0 0 14px;
+  }
+  /* Метки факты-плашки под описанием смены */
+  .fact-tags {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 14px 0 4px;
+  }
+  .fact-tag {
+    font-family: Inter, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 700;
+    padding: 6px 10px;
+    border-radius: 3px;
+    background: var(--yellow);
+    color: var(--ink);
+  }
+  .fact-tag.dark { background: var(--ink); color: var(--paper); }
+  .fact-tag.outline {
+    background: var(--paper);
+    border: 1px solid var(--ink);
+  }
+
+  /* === РЕЖИМ ДНЯ === */
+  .schedule-card {
+    background: var(--white);
+    border: 1px solid var(--ink);
+    border-radius: 6px;
+    padding: 4px 0;
+    margin-bottom: 10px;
+  }
+  .schedule-row {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 14px;
+    padding: 12px 18px;
+    border-bottom: 1px solid rgba(21,22,23,0.08);
+    align-items: baseline;
+  }
+  .schedule-row:last-child { border-bottom: none; }
+  .schedule-time {
+    font-family: Inter, sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .schedule-text {
+    font-size: 13px;
+    color: var(--ink);
+    line-height: 1.45;
+  }
+  .schedule-foot {
+    font-size: 12px;
+    color: rgba(21,22,23,0.55);
+    font-style: italic;
+    font-family: Geologica, serif;
+    margin-top: 6px;
+  }
+
+  /* === ЧТО СДЕЛАЮТ ДЕТИ (родительские рефы) === */
+  .wtm-direction {
+    margin-bottom: 22px;
+  }
+  .wtm-direction:last-child { margin-bottom: 0; }
+  .wtm-dir-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(21,22,23,0.10);
+  }
+  .wtm-dir-tag {
+    font-family: Inter, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .wtm-dir-name {
+    font-family: Geologica, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: rgba(21,22,23,0.6);
+  }
+  .wtm-template {
+    margin-bottom: 14px;
+  }
+  .wtm-template:last-child { margin-bottom: 0; }
+  .wtm-tpl-name {
+    font-family: Geologica, sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+  /* Лента 100×100 — горизонтальный скролл, чтобы не ломать вёрстку при многих картинках */
+  .wtm-strip {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  .wtm-strip::-webkit-scrollbar { height: 6px; }
+  .wtm-strip::-webkit-scrollbar-thumb {
+    background: rgba(21,22,23,0.2);
+    border-radius: 3px;
+  }
+  .wtm-thumb {
+    flex: 0 0 100px;
+    width: 100px;
+    height: 100px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: rgba(21,22,23,0.05);
+    border: 1px solid rgba(21,22,23,0.10);
+    display: block;
+    text-decoration: none;
+    color: var(--ink);
+    position: relative;
+  }
+  .wtm-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .wtm-thumb-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: rgba(21,22,23,0.3);
+  }
+  .wtm-thumb-failed {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    color: rgba(21,22,23,0.4);
+  }
+  .wtm-thumb:hover {
+    box-shadow: 0 4px 14px rgba(21,22,23,0.15);
+  }
+
+  /* === СТОИМОСТЬ === */
+  .price-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    margin-top: 10px;
+  }
+  .price-card {
+    background: var(--paper);
+    border: 1px solid rgba(21,22,23,0.12);
+    border-radius: 6px;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  /* Активная карточка — самая ранняя из непрошедших, выделяем жёлтым */
+  .price-card.active {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .price-card.active .price-deadline {
+    color: rgba(21,22,23,0.85);
+  }
+  .price-amount {
+    font-family: Geologica, sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1;
+  }
+  .price-deadline {
+    font-family: Geologica, serif;
+    font-style: italic;
+    font-size: 13px;
+    color: rgba(21,22,23,0.65);
+    line-height: 1.35;
+  }
+  .price-tag {
+    display: inline-block;
+    align-self: flex-start;
+    font-family: Inter, sans-serif;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 700;
+    background: var(--ink);
+    color: var(--paper);
+    padding: 3px 7px;
+    border-radius: 3px;
+    margin-bottom: 6px;
+  }
+  .price-card.active .price-tag {
+    background: var(--ink);
+  }
+
+  /* === VIBER-КНОПКА В КОНТАКТАХ === */
+  .viber-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    padding: 10px 18px;
+    background: #7360f2; /* фирменный фиолетовый Viber */
+    color: #fff;
+    text-decoration: none;
+    font-family: Geologica, sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    border-radius: 6px;
+    transition: background 0.15s;
+  }
+  .viber-btn:hover {
+    background: #5d4be0;
+  }
+
+  /* === КОНТАКТЫ === */
+  .contact-card {
+    background: var(--ink);
+    color: var(--paper);
+    border-radius: 6px;
+    padding: 22px 24px;
+    margin-top: 10px;
+  }
+  .contact-card h3 {
+    font-family: Geologica, sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 0 6px;
+    color: var(--paper);
+  }
+  .contact-card .contact-lead {
+    font-size: 13px;
+    line-height: 1.5;
+    color: rgba(245,245,240,0.75);
+    margin-bottom: 16px;
+  }
+  .contact-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px 24px;
+  }
+  .contact-block-eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(245,245,240,0.55);
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .contact-block-value {
+    font-size: 14px;
+    line-height: 1.45;
+    color: var(--paper);
+  }
+  .contact-block-value a {
+    color: var(--yellow);
+    text-decoration: none;
+  }
+  .contact-block-value a:hover { text-decoration: underline; }
+
+  .program-note {
+    background: var(--paper-warm);
+    border-left: 3px solid var(--yellow-deep);
+    padding: 12px 16px;
+    margin-top: 16px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--ink);
+    border-radius: 0 3px 3px 0;
+  }
+  .program-note strong {
+    font-weight: 700;
+  }
+  /* === МОБИЛЬНАЯ ВЕРСИЯ === */
+  /* Планшет/малый ноутбук */
+  @media (max-width: 720px) {
+    #app { padding: 18px 14px 60px; }
+    .view-header h1 { font-size: 24px; }
+    .contact-grid { grid-template-columns: 1fr; gap: 14px; }
+    .vblock-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  /* Телефон */
+  @media (max-width: 560px) {
+    #app { padding: 14px 10px 70px; }
+    .view-header { margin-bottom: 18px; }
+    .view-header h1 { font-size: 22px; }
+    .view-eyebrow { font-size: 10px; letter-spacing: 0.18em; }
+    .view-subhead { font-size: 12px; }
+
+    .section-h2 { font-size: 19px; }
+    .section-lead { font-size: 13px; }
+
+    /* Карточка дня */
+    .vday-head { padding: 10px 12px; }
+    .vday-num { font-size: 15px; }
+    .vday-meta { font-size: 15px; }
+    .vday-body { padding: 10px 12px; }
+
+    /* Слот: вместо 2 колонок — стопкой. Время сверху мелко, контент ниже. */
+    .vslot { padding: 10px 0; }
+    .vslot-row {
+      display: block;
+      grid-template-columns: none;
+    }
+    .vslot-time {
+      display: inline-block;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      background: rgba(21,22,23,0.05);
+      padding: 2px 6px;
+      border-radius: 2px;
+      margin-bottom: 6px;
+      color: rgba(21,22,23,0.65);
+    }
+    .vslot-name { font-size: 15px; }
+    .vslot-theme { font-size: 18px; }
+
+    /* Параллельные МК на мобиле — стопкой */
+    .vblock-grid { grid-template-columns: 1fr; }
+    .vcard-name { font-size: 15px; }
+    .vcard-theme { font-size: 18px; }
+
+    /* Режим дня — две колонки сжимаем */
+    .schedule-row {
+      grid-template-columns: 90px 1fr;
+      gap: 10px;
+      padding: 10px 14px;
+    }
+    .schedule-time { font-size: 12px; }
+    .schedule-text { font-size: 13px; }
+
+    /* Контакты */
+    .contact-card { padding: 18px 18px; }
+    .contact-card h3 { font-size: 19px; }
+    .contact-grid { grid-template-columns: 1fr; gap: 12px; }
+    .price-grid { grid-template-columns: 1fr; gap: 10px; }
+    .price-amount { font-size: 24px; }
+  }
+  /* Очень узкий экран (≤380px) — Android маленький */
+  @media (max-width: 380px) {
+    .view-header h1 { font-size: 20px; }
+    .vday-head {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+    }
+    .schedule-row {
+      grid-template-columns: 1fr;
+      gap: 2px;
+      padding: 10px 12px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- ПЕРЕКЛЮЧАТЕЛЬ СМЕН СЕЗОНА — для отдела продаж.
+       Загружается из листа «Сезон» через action=getSeason. 6 кнопок:
+       активная (текущая) — жёлтая, готовые — белые с обводкой,
+       без publishId — серые с пометкой «в разработке». -->
+  <div id="season-switch" class="season-switch">
+    <div class="season-loading">Загружаю смены сезона…</div>
+  </div>
+
+  <div class="view-header">
+    <div class="view-eyebrow">Прознание · Coddy · промо смены</div>
+    <h1 id="view-title">Промо <em>смены</em></h1>
+    <div class="view-subhead" id="view-subhead"></div>
+  </div>
+
+  <!-- СЕКЦИЯ 1: О СМЕНЕ -->
+  <div class="section" id="section-about" style="display:none">
+    <div class="section-eyebrow">О смене</div>
+    <h2 class="section-h2">Что это за <em>смена</em></h2>
+    <p class="section-lead" id="about-description"></p>
+    <div class="fact-tags" id="about-facts"></div>
+  </div>
+
+  <!-- СЕКЦИЯ 2: РЕЖИМ ДНЯ -->
+  <div class="section">
+    <div class="section-eyebrow">Один день из смены</div>
+    <h2 class="section-h2">Как устроен <em>обычный день</em></h2>
+    <p class="section-lead">Это не вся программа — это один из обычных дней. Смены состоят из десяти таких дней с разной начинкой, плюс выезды и финальная ярмарка.</p>
+    <div class="schedule-card" id="daily-schedule-card">
+      <!-- Заполняется из листа «Реквизиты» (ключи Режим_строка_1, _2, ...) -->
+    </div>
+    <div class="schedule-foot" id="daily-schedule-foot"></div>
+  </div>
+
+  <!-- СЕКЦИЯ 3: РАСПИСАНИЕ ПО ДНЯМ -->
+  <div class="section">
+    <div class="section-eyebrow">Программа по дням</div>
+    <h2 class="section-h2">Что будет <em>на каждом дне</em></h2>
+    <p class="section-lead">Расписание активностей по дням. Программа может меняться в пределах своей категории — погода, болезнь педагога, форс-мажор. Темы и общая структура остаются.</p>
+    <div id="view-content">
+      <div class="view-loading">Загружаю расписание…</div>
+    </div>
+    <div class="view-published-at" id="view-published-at"></div>
+  </div>
+
+  <!-- СЕКЦИЯ 3.5: ЧТО СДЕЛАЮТ ДЕТИ (родительские рефы) -->
+  <!-- Скрыта по умолчанию. Показывается только если для шаблонов смены есть родительские рефы. -->
+  <div class="section" id="section-what-they-make" style="display:none">
+    <div class="section-eyebrow">Чем будем заниматься</div>
+    <h2 class="section-h2">Что <em>будут делать</em> дети</h2>
+    <p class="section-lead">Примеры работ, на которые мы ориентируемся в этой смене. Конкретные темы и результаты могут отличаться. Нажми на картинку — откроется источник.</p>
+    <div id="what-they-make-content"></div>
+  </div>
+
+  <!-- СЕКЦИЯ 3.7: СТОИМОСТЬ -->
+  <!-- Цены берутся из листа «Реквизиты»: ключи Цена_ранняя, Цена_средняя, Цена_поздняя.
+       Прошедшие даты автоматически скрываются (см. parsePriceDate в JS). -->
+  <div class="section" id="section-price" style="display:none">
+    <div class="section-eyebrow">Сколько стоит</div>
+    <h2 class="section-h2">Стоимость <em>смены</em></h2>
+    <p class="section-lead" id="price-sub"></p>
+    <div class="price-grid" id="price-grid"></div>
+  </div>
+
+  <!-- СЕКЦИЯ 4: КОНТАКТЫ -->
+  <div class="section">
+    <div class="section-eyebrow">Запись и вопросы</div>
+    <h2 class="section-h2">Записать <em>ребёнка</em></h2>
+    <div class="contact-card">
+      <h3>Свяжитесь с нами</h3>
+      <div class="contact-lead">Позвоните или напишите в Viber — менеджер ответит на все вопросы и расскажет про даты ближайшей смены.</div>
+      <div class="contact-grid" id="contact-grid">
+        <!-- Заполняется из листа «Реквизиты» -->
+      </div>
+      <div id="viber-buttons-container" style="display:none">
+        <!-- Заполняется в renderContacts() — кнопка Viber на основной телефон -->
+      </div>
+    </div>
+    <div class="program-note" id="program-note" style="display:none"></div>
+  </div>
+</div>
+
+<script>
+  /**
+   * parents.html — публичная страница для родителей.
+   * Отличия от view.html:
+   *   • нет пароля (страница открыта по ссылке)
+   *   • нет селектора педагога (показываем сразу программу всей смены)
+   *   • в слотах: время + название + тема + цветная плашка направления
+   *   • без педагога/кабинета/отрядов/референсов/комментариев
+   *   • добавлены секции: «о смене», «режим дня», «контакты»
+   *
+   * Берём данные через тот же action getPublished, что и view.html.
+   * Дополнительно тянем library — чтобы подтягивать direction шаблона,
+   * если в state.schedule[*].slot его нет (старые публикации).
+   */
+
+  const LIBRARY_URL = 'https://script.google.com/macros/s/AKfycbxb6EEzzl-FguxjpIO5YthGLj-QXh7puCD_DO4HL4wVPziHL1pEtVeuo3uNEi2i2yXq/exec';
+  const MONTHS = ['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
+  const WEEKDAYS = ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
+
+  let publishedState = null;
+  let publishedMeta = null;
+  let LIBRARY = [];
+  let DETAILS = {}; // ключи из листа «Реквизиты»: Адрес, Телефон_1, Режим_строка_1 и т.д.
+
+  // ===== РОДИТЕЛЬСКИЙ КОНТЕНТ =====
+  // CONTENT — единый источник для всех текстов на странице. Сначала сюда кладутся
+  // дефолты (DEFAULTS), потом сверху накладываются значения из публикации
+  // родительского контента (action getParentsContent), если она есть.
+  // Логика наложения: только непустые значения из публикации перезаписывают дефолты.
+  // Это значит, что если в редакторе оставила поле пустым — на странице появится дефолт.
+  let CONTENT = {};
+
+  // Дефолтные значения родительского контента. Используются, когда:
+  //  • публикации родительского контента ещё нет;
+  //  • в публикации какие-то поля пустые (тогда конкретные поля берутся отсюда).
+  const DEFAULTS = {
+    // Шапка страницы
+    eyebrow: 'Прознание · Coddy · летняя смена',
+
+    // Секция «О смене»
+    showAbout: true,
+    aboutEyebrow: 'О смене',
+    aboutTitle: 'Что это за {смена}', // {x} = жёлтая Caveat-плашка
+    aboutDescription: '',             // если пусто — секция не показывается
+
+    // Секция «Режим дня»
+    showDailySchedule: true,
+    dailyScheduleEyebrow: 'Один день из смены',
+    dailyScheduleTitle: 'Как устроен {обычный день}',
+    dailyScheduleLead: 'Это не вся программа — это один из обычных дней. Смены состоят из десяти таких дней с разной начинкой, плюс выезды и финальная ярмарка.',
+    dailyScheduleRows: [
+      { time: '7:30–9:30',  text: 'приём детей, завтрак' },
+      { time: '9:30–12:30', text: 'мастер-классы в кластере, улица, выезды' },
+      { time: '12:30–14:00', text: 'обед, отдых' },
+      { time: '14:00–17:00', text: 'мастер-классы в кластере, улица, выезды' },
+      { time: '17:00–17:30', text: 'полдник' },
+      { time: '17:30–18:00', text: 'встреча с родителями' }
+    ],
+    dailyScheduleFoot: 'Питание: завтрак, обед, полдник (от ООО «Овация»).',
+
+    // Секция «Программа по дням» (расписание)
+    showProgram: true,
+    programEyebrow: 'Программа по дням',
+    programTitle: 'Что будет {на каждом дне}',
+    programLead: 'Расписание активностей по дням. Программа может меняться в пределах своей категории — погода, болезнь педагога, форс-мажор. Темы и общая структура остаются.',
+
+    // Секция «Контакты»
+    showContacts: true,
+    contactsEyebrow: 'Запись и вопросы',
+    contactsTitle: 'Записать {ребёнка}',
+    contactsHeader: 'Свяжитесь с нами',
+    contactsLead: 'Позвоните или напишите в Viber — менеджер ответит на все вопросы и расскажет про даты ближайшей смены.',
+    contactsPhoneSub: 'Телефоны / Viber',
+    contactsPhone1: '+375 44 586 50 93',
+    contactsPhone2: '+375 29 315 15 83',
+    contactsAddress: 'Могилёв, переулок Пожарный, 19',
+    contactsInstagram: 'https://www.instagram.com/proznanie_weekend/',
+    contactsTime: '7:30–17:30',
+
+    // Финальная плашка
+    showProgramNote: true,
+    programNote: 'Программа фиксирована на 80%. При непредвиденных обстоятельствах — погоде, болезни педагога, форс-мажоре — клуб заменяет активность на равноценную из той же категории. Темы и общая структура смены остаются.'
+  };
+
+  // Сборка финального CONTENT: дефолты + опубликованные значения (если непустые) +
+  // подмешиваем DETAILS (старая логика — лист «Реквизиты» как fallback для контактов
+  // и режима дня; пользователь её активно не использует, но если что-то там есть —
+  // использовать тоже, но публикация всегда в приоритете).
+  function buildContent(publishedParents) {
+    // Стартуем с глубокой копии дефолтов
+    const out = JSON.parse(JSON.stringify(DEFAULTS));
+
+    // Слой 1: значения из листа «Реквизиты» (старый фоллбэк, на случай если кто-то
+    // прописал режим/контакты там — это работало в предыдущей версии).
+    if (DETAILS && Object.keys(DETAILS).length > 0) {
+      // Контакты
+      if (DETAILS['Адрес']) out.contactsAddress = DETAILS['Адрес'];
+      if (DETAILS['Время']) out.contactsTime = DETAILS['Время'];
+      if (DETAILS['Телефон_1']) out.contactsPhone1 = DETAILS['Телефон_1'];
+      if (DETAILS['Телефон_2']) out.contactsPhone2 = DETAILS['Телефон_2'];
+      if (DETAILS['Телефон_подпись']) out.contactsPhoneSub = DETAILS['Телефон_подпись'];
+      if (DETAILS['Instagram']) out.contactsInstagram = DETAILS['Instagram'];
+      // Режим дня
+      const detailRows = [];
+      for (let i = 1; i <= 20; i++) {
+        const v = DETAILS['Режим_строка_' + i];
+        if (!v) continue;
+        const m = String(v).trim().match(/^(.+?)\s+[·—-]\s+(.+)$/);
+        if (m) detailRows.push({ time: m[1].trim(), text: m[2].trim() });
+        else detailRows.push({ time: '', text: String(v).trim() });
+      }
+      if (detailRows.length > 0) out.dailyScheduleRows = detailRows;
+      if (DETAILS['Режим_подпись']) out.dailyScheduleFoot = DETAILS['Режим_подпись'];
+      if (DETAILS['Программа_фиксирована']) out.programNote = DETAILS['Программа_фиксирована'];
+    }
+
+    // Слой 2: опубликованный родительский контент (приоритетный).
+    // Перезаписываем только непустые поля, чтобы пустое поле в редакторе
+    // не затирало нормальный дефолт.
+    if (publishedParents && typeof publishedParents === 'object') {
+      Object.keys(publishedParents).forEach(k => {
+        const v = publishedParents[k];
+        if (v === undefined || v === null) return;
+        if (typeof v === 'string' && v.trim() === '') return;
+        if (Array.isArray(v) && v.length === 0) return;
+        out[k] = v;
+      });
+    }
+
+    return out;
+  }
+
+  // ===== УТИЛИТЫ =====
+  function getQueryParam(name) {
+    const m = new RegExp('[?&]' + name + '=([^&#]*)').exec(window.location.search);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function normalizeName(s) {
+    if (!s) return '';
+    return String(s).toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
+  }
+
+  // Дата N-го рабочего дня (выходные пропускаем — как в admin/view).
+  function dateForDay(state, dayIdx) {
+    const start = new Date(state.startDate + 'T00:00:00');
+    let d = new Date(start);
+    let workDays = 0;
+    while (workDays < dayIdx + 1) {
+      if (d.getDay() !== 0 && d.getDay() !== 6) workDays++;
+      if (workDays < dayIdx + 1) d.setDate(d.getDate() + 1);
+      else break;
+    }
+    return d;
+  }
+
+  // CSS-класс плашки направления — синхронно с index.html
+  function dirClass(dir) {
+    if (!dir) return 'dir-Прочее';
+    if (dir.includes('IT')) return 'dir-IT';
+    if (dir.includes('Творч')) return 'dir-Творчество';
+    if (dir.includes('Soft')) return 'dir-Soft';
+    if (dir.includes('Активн')) return 'dir-Активность';
+    if (dir.includes('Игр')) return 'dir-Игры';
+    if (dir.includes('Событ')) return 'dir-Событие';
+    return 'dir-Прочее';
+  }
+  // Короткое имя направления для плашки
+  function dirShort(dir) {
+    if (!dir) return 'прочее';
+    if (dir.includes('IT')) return 'IT';
+    if (dir.includes('Творч')) return 'творчество';
+    if (dir.includes('Soft')) return 'soft / нейро';
+    if (dir.includes('Активн')) return 'спорт';
+    if (dir.includes('Игр')) return 'игры';
+    if (dir.includes('Событ')) return 'событие';
+    return 'прочее';
+  }
+
+  // Достаёт direction слота: сперва из самого слота, иначе ищет в LIBRARY по имени шаблона.
+  function getSlotDirection(slot) {
+    if (!slot) return '';
+    if (slot.direction) return slot.direction;
+    const tpl = normalizeName(slot.template || slot.name);
+    if (!tpl) return '';
+    const lib = LIBRARY.find(a => normalizeName(a.template || a.name) === tpl);
+    return lib && lib.direction ? lib.direction : '';
+  }
+
+  // ===== ЗАГРУЗКА =====
+  async function loadAll(id) {
+    document.getElementById('view-content').innerHTML =
+      '<div class="view-loading">Загружаю программу…</div>';
+    try {
+      // Загружаем 4 ручки параллельно: публикация смены + библиотека + реквизиты +
+      // родительский контент (новое в этапе 1). Любая из последних трёх может упасть —
+      // это не блокер, рендерим с тем, что есть, плюс дефолтами.
+      const [pubResp, libResp, detResp, parResp] = await Promise.all([
+        fetch(LIBRARY_URL + '?action=getPublished&id=' + encodeURIComponent(id)).then(r => r.json()),
+        fetch(LIBRARY_URL + '?action=library').then(r => r.json()),
+        fetch(LIBRARY_URL + '?action=details').then(r => r.json()).catch(() => ({ ok: false })),
+        fetch(LIBRARY_URL + '?action=getParentsContent&id=' + encodeURIComponent(id))
+          .then(r => r.json()).catch(() => ({ ok: false }))
+      ]);
+      if (!pubResp.ok) throw new Error(pubResp.error || 'Не удалось загрузить публикацию');
+      if (!libResp.ok) throw new Error(libResp.error || 'Не удалось загрузить библиотеку');
+
+      LIBRARY = libResp.activities || [];
+      DETAILS = (detResp && detResp.ok && detResp.details) ? detResp.details : {};
+
+      // Родительский контент: parResp.parentsContent.parentsContent — это сам объект,
+      // potentially null если ничего не опубликовано. Тогда CONTENT = чистые DEFAULTS.
+      const publishedParents = (parResp && parResp.ok && parResp.parentsContent
+        && parResp.parentsContent.parentsContent) ? parResp.parentsContent.parentsContent : null;
+      CONTENT = buildContent(publishedParents);
+
+      const pub = pubResp.publication;
+      if (!pub) throw new Error('Программа с этим id не найдена. Возможно, ссылка устарела.');
+      if (!pub.id) throw new Error('Сервер вернул некорректную программу.');
+
+      publishedMeta = {
+        id: pub.id,
+        name: pub.name || '',
+        theme: pub.theme || '',
+        publishedAt: pub.publishedAt || ''
+      };
+      try {
+        publishedState = JSON.parse(pub.stateJson || '{}');
+      } catch(e) {
+        throw new Error('Не удалось разобрать программу: ' + e.message);
+      }
+      onPublishedLoaded();
+    } catch(e) {
+      document.getElementById('view-content').innerHTML =
+        '<div class="view-error">Ошибка: ' + escapeHtml(e.message) + '</div>';
+    }
+  }
+
+  // ===== ШАПКА И БЛОК «О СМЕНЕ» =====
+  function onPublishedLoaded() {
+    const theme = publishedState.theme || '';
+    if (theme) {
+      document.getElementById('view-title').innerHTML =
+        '<em>' + escapeHtml(theme) + '</em>';
+    }
+
+    // Подзаголовок: «1–10 июня 2026» (если получится посчитать)
+    let subhead = publishedMeta.name || theme || '';
+    try {
+      if (publishedState.startDate && Array.isArray(publishedState.schedule) && publishedState.schedule.length > 0) {
+        const first = dateForDay(publishedState, 0);
+        const last = dateForDay(publishedState, publishedState.schedule.length - 1);
+        const sameMonth = first.getMonth() === last.getMonth();
+        const range = sameMonth
+          ? first.getDate() + '–' + last.getDate() + ' ' + MONTHS[last.getMonth()] + ' ' + last.getFullYear()
+          : first.getDate() + ' ' + MONTHS[first.getMonth()] + ' – ' + last.getDate() + ' ' + MONTHS[last.getMonth()] + ' ' + last.getFullYear();
+        subhead = range + (subhead && subhead !== theme ? ' · ' + subhead : '');
+      }
+    } catch(e) {}
+    document.getElementById('view-subhead').textContent = subhead;
+
+    // Дата публикации (мелким курсивом снизу секции)
+    if (publishedMeta.publishedAt) {
+      const d = new Date(publishedMeta.publishedAt);
+      document.getElementById('view-published-at').textContent =
+        'Программа обновлена ' + d.toLocaleString('ru-RU', {
+          day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+        });
+    }
+
+    renderHeader();
+    renderAboutSection();
+    renderDailySchedule();
+    renderProgramHeaders();
+    renderContacts();
+    renderPrices();
+    renderSchedule();
+    // Эта функция асинхронная — тянет родительские рефы из API и рендерит секцию,
+    // когда данные пришли. Не блокирует основной рендер. Если рефов нет ни у одного
+    // шаблона смены — секция остаётся скрытой.
+    renderWhatTheyMake();
+  }
+
+  // ===== HELPER: заголовок секции с {словом} → жёлтая Caveat-плашка =====
+  // Шаблон: 'Что это за {смена}' → 'Что это за <em>смена</em>'
+  // {x} — подменяется на жёлтую плашку Caveat. Ровно одно вхождение поддерживается;
+  // если фигурных скобок нет — заголовок выводится как есть.
+  function renderTitleWithEm(template) {
+    if (!template) return '';
+    const m = String(template).match(/^(.*?)\{([^}]+)\}(.*)$/);
+    if (!m) return escapeHtml(template);
+    return escapeHtml(m[1]) + '<em>' + escapeHtml(m[2]) + '</em>' + escapeHtml(m[3]);
+  }
+
+  // ===== ШАПКА — эйброу + заголовок смены =====
+  // Заголовок берётся из publishedState.theme (смена «Артмосфера»).
+  // Эйброу — из CONTENT.eyebrow («Прознание · Coddy · летняя смена»).
+  function renderHeader() {
+    const eyebrowEl = document.querySelector('.view-eyebrow');
+    if (eyebrowEl && CONTENT.eyebrow) eyebrowEl.textContent = CONTENT.eyebrow;
+  }
+
+  // ===== СЕКЦИЯ «О СМЕНЕ» =====
+  // Источники описания, в порядке приоритета:
+  //   1. CONTENT.aboutDescription (то, что опубликовано в админке)
+  //   2. publishedState.campType.description (из листа «Типы смен»)
+  //   3. publishedState.anchors
+  // Если ничего нет — секция скрыта.
+  function renderAboutSection() {
+    const ct = publishedState.campType;
+    const desc = (CONTENT.aboutDescription && CONTENT.aboutDescription.trim()) ||
+                 (ct && ct.description) ||
+                 publishedState.anchors || '';
+    if (!desc || !CONTENT.showAbout) {
+      document.getElementById('section-about').style.display = 'none';
+      return;
+    }
+
+    document.getElementById('section-about').style.display = '';
+
+    // Эйброу + заголовок секции — пробрасываем через renderTitleWithEm
+    const sectionEl = document.getElementById('section-about');
+    const eyebrow = sectionEl.querySelector('.section-eyebrow');
+    const h2 = sectionEl.querySelector('.section-h2');
+    if (eyebrow) eyebrow.textContent = CONTENT.aboutEyebrow || '';
+    if (h2) h2.innerHTML = renderTitleWithEm(CONTENT.aboutTitle || '');
+
+    document.getElementById('about-description').textContent = desc;
+
+    // Факт-плашки (берутся из state, не из CONTENT — это динамика по смене)
+    const facts = [];
+    if (Array.isArray(publishedState.schedule)) {
+      const n = publishedState.schedule.length;
+      const lastDigit = n % 10, lastTwo = n % 100;
+      let word = 'дней';
+      if (lastTwo < 11 || lastTwo > 14) {
+        if (lastDigit === 1) word = 'день';
+        else if (lastDigit >= 2 && lastDigit <= 4) word = 'дня';
+      }
+      facts.push({ text: n + ' ' + word, cls: 'fact-tag' });
+    }
+    if (publishedState.ages) facts.push({ text: publishedState.ages, cls: 'fact-tag' });
+    if (ct && ct.type) facts.push({ text: ct.type, cls: 'fact-tag dark' });
+    facts.push({ text: 'Могилёв', cls: 'fact-tag outline' });
+
+    document.getElementById('about-facts').innerHTML = facts.map(f =>
+      `<span class="${f.cls}">${escapeHtml(f.text)}</span>`
+    ).join('');
+  }
+
+  // ===== СЕКЦИЯ «РЕЖИМ ДНЯ» =====
+  // Все строки и подпись берутся из CONTENT (туда уже подмешаны DETAILS-фоллбэки в buildContent).
+  function renderDailySchedule() {
+    const sectionEl = document.querySelector('.section .schedule-card')
+      ? document.querySelector('.section .schedule-card').closest('.section') : null;
+
+    // Видимость секции
+    if (!CONTENT.showDailySchedule) {
+      if (sectionEl) sectionEl.style.display = 'none';
+      return;
+    }
+    if (sectionEl) sectionEl.style.display = '';
+
+    // Эйброу/заголовок/лид — обновляем по DOM-классам внутри секции
+    if (sectionEl) {
+      const eyebrow = sectionEl.querySelector('.section-eyebrow');
+      const h2 = sectionEl.querySelector('.section-h2');
+      const lead = sectionEl.querySelector('.section-lead');
+      if (eyebrow) eyebrow.textContent = CONTENT.dailyScheduleEyebrow || '';
+      if (h2) h2.innerHTML = renderTitleWithEm(CONTENT.dailyScheduleTitle || '');
+      if (lead) lead.textContent = CONTENT.dailyScheduleLead || '';
+    }
+
+    // Сама таблица режима
+    const rows = Array.isArray(CONTENT.dailyScheduleRows) ? CONTENT.dailyScheduleRows : [];
+    document.getElementById('daily-schedule-card').innerHTML = rows.map(r =>
+      `<div class="schedule-row">
+        <div class="schedule-time">${escapeHtml(r.time || '')}</div>
+        <div class="schedule-text">${escapeHtml(r.text || '')}</div>
+      </div>`
+    ).join('');
+
+    document.getElementById('daily-schedule-foot').textContent = CONTENT.dailyScheduleFoot || '';
+  }
+
+  // ===== СЕКЦИЯ «ПРОГРАММА ПО ДНЯМ» (заголовки секции) =====
+  // Само расписание рендерится в renderSchedule (ниже). Здесь только эйброу/заголовок/лид.
+  function renderProgramHeaders() {
+    const viewContent = document.getElementById('view-content');
+    const sectionEl = viewContent ? viewContent.closest('.section') : null;
+    if (!sectionEl) return;
+
+    if (!CONTENT.showProgram) {
+      sectionEl.style.display = 'none';
+      return;
+    }
+    sectionEl.style.display = '';
+
+    const eyebrow = sectionEl.querySelector('.section-eyebrow');
+    const h2 = sectionEl.querySelector('.section-h2');
+    const lead = sectionEl.querySelector('.section-lead');
+    if (eyebrow) eyebrow.textContent = CONTENT.programEyebrow || '';
+    if (h2) h2.innerHTML = renderTitleWithEm(CONTENT.programTitle || '');
+    if (lead) lead.textContent = CONTENT.programLead || '';
+  }
+
+  // ===== СЕКЦИЯ «КОНТАКТЫ» =====
+  function renderContacts() {
+    const contactCard = document.querySelector('.contact-card');
+    const sectionEl = contactCard ? contactCard.closest('.section') : null;
+
+    if (!CONTENT.showContacts) {
+      if (sectionEl) sectionEl.style.display = 'none';
+      return;
+    }
+    if (sectionEl) sectionEl.style.display = '';
+
+    if (sectionEl) {
+      const eyebrow = sectionEl.querySelector('.section-eyebrow');
+      const h2 = sectionEl.querySelector('.section-h2');
+      if (eyebrow) eyebrow.textContent = CONTENT.contactsEyebrow || '';
+      if (h2) h2.innerHTML = renderTitleWithEm(CONTENT.contactsTitle || '');
+    }
+    // Заголовок и лид внутри тёмной карточки
+    if (contactCard) {
+      const h3 = contactCard.querySelector('h3');
+      const lead = contactCard.querySelector('.contact-lead');
+      if (h3) h3.textContent = CONTENT.contactsHeader || '';
+      if (lead) lead.textContent = CONTENT.contactsLead || '';
+    }
+
+    const phone1 = CONTENT.contactsPhone1 || '';
+    const phone2 = CONTENT.contactsPhone2 || '';
+    const phoneSub = CONTENT.contactsPhoneSub || 'Телефоны';
+    const address = CONTENT.contactsAddress || '';
+    const instagram = CONTENT.contactsInstagram || '';
+    const time = CONTENT.contactsTime || '';
+
+    // Превращаем телефон в tel: ссылку (только цифры и +)
+    const telLink = (phone) => 'tel:' + String(phone).replace(/[^\d+]/g, '');
+
+    // Instagram: достаём username из URL для отображения
+    let igHandle = instagram;
+    const igMatch = String(instagram).match(/instagram\.com\/([^\/\?]+)/);
+    if (igMatch) igHandle = '@' + igMatch[1];
+
+    // Адрес: первая запятая → разрыв строки (для красоты на мобиле)
+    const addressHtml = escapeHtml(address).replace(/,\s*/, ',<br>');
+
+    let phonesHtml = '';
+    if (phone1) phonesHtml += `<a href="${escapeHtml(telLink(phone1))}">${escapeHtml(phone1)}</a>`;
+    if (phone2) phonesHtml += (phone1 ? '<br>' : '') + `<a href="${escapeHtml(telLink(phone2))}">${escapeHtml(phone2)}</a>`;
+
+    // Собираем блоки контактов. Прячем те, у которых пустое значение —
+    // например, если ты в редакторе очистила Instagram, секция «Instagram» не появится.
+    const blocks = [];
+    if (phonesHtml) {
+      blocks.push(`
+        <div>
+          <div class="contact-block-eyebrow">${escapeHtml(phoneSub)}</div>
+          <div class="contact-block-value">${phonesHtml}</div>
+        </div>`);
+    }
+    if (address) {
+      blocks.push(`
+        <div>
+          <div class="contact-block-eyebrow">Адрес</div>
+          <div class="contact-block-value">${addressHtml}</div>
+        </div>`);
+    }
+    if (instagram) {
+      blocks.push(`
+        <div>
+          <div class="contact-block-eyebrow">Instagram</div>
+          <div class="contact-block-value">
+            <a href="${escapeHtml(instagram)}" target="_blank" rel="noopener">${escapeHtml(igHandle)}</a>
+          </div>
+        </div>`);
+    }
+    if (time) {
+      blocks.push(`
+        <div>
+          <div class="contact-block-eyebrow">Время работы</div>
+          <div class="contact-block-value">${escapeHtml(time)}</div>
+        </div>`);
+    }
+    document.getElementById('contact-grid').innerHTML = blocks.join('');
+
+    // Viber-кнопка. Делается на ПЕРВЫЙ непустой телефон. Из номера убираем всё кроме
+    // цифр и плюса — нужно для viber:// URL. На десктопе ссылка открывает Viber Desktop
+    // если установлен, на мобильном — приложение.
+    const viberContainer = document.getElementById('viber-buttons-container');
+    if (viberContainer) {
+      const viberPhone = phone1 || phone2;
+      if (viberPhone) {
+        const cleaned = String(viberPhone).replace(/[^\d+]/g, '');
+        // Viber требует номер БЕЗ плюса в URL (только цифры со страны)
+        const numberOnly = cleaned.replace(/^\+/, '');
+        viberContainer.innerHTML = `
+          <a href="viber://chat?number=%2B${escapeHtml(numberOnly)}" class="viber-btn">
+            <span style="font-size:18px">💬</span>
+            <span>Написать в Viber</span>
+          </a>
+        `;
+        viberContainer.style.display = '';
+      } else {
+        viberContainer.style.display = 'none';
+      }
+    }
+
+    // Финальная плашка «программа фиксирована на 80%»
+    const noteText = CONTENT.programNote || '';
+    if (!CONTENT.showProgramNote || !noteText) {
+      document.getElementById('program-note').style.display = 'none';
+    } else {
+      // Первое предложение жирным
+      const dotIdx = noteText.indexOf('.');
+      if (dotIdx > 0) {
+        const head = noteText.slice(0, dotIdx + 1);
+        const tail = noteText.slice(dotIdx + 1);
+        document.getElementById('program-note').innerHTML =
+          '<strong>' + escapeHtml(head) + '</strong>' + escapeHtml(tail);
+      } else {
+        document.getElementById('program-note').textContent = noteText;
+      }
+      document.getElementById('program-note').style.display = '';
+    }
+  }
+
+  // ===== РАСПИСАНИЕ ПО ДНЯМ =====
+  // Логика взята из renderCompactAllView в view.html. Отличия:
+  //  - в слоте показываем только: time, направление-плашку, название, тему;
+  //  - не показываем педагога, кабинет, отряды, референсы, комментарии.
+  function renderSchedule() {
+    if (!publishedState || !Array.isArray(publishedState.schedule) || publishedState.schedule.length === 0) {
+      document.getElementById('view-content').innerHTML =
+        '<div class="view-loading">Программа ещё не заполнена.</div>';
+      return;
+    }
+
+    let html = '';
+
+    publishedState.schedule.forEach((d, idx) => {
+      if (!d) return;
+      const dt = dateForDay(publishedState, idx);
+      const dateStr = dt.getDate() + ' ' + MONTHS[dt.getMonth()];
+      const weekday = WEEKDAYS[dt.getDay()];
+
+      // Заголовок дня в стиле «День 5 · 3 июл» с буквальной частью числа в Caveat,
+      // справа в курсиве — день недели. Под заголовком — список активностей буллетами.
+      html += `<div class="promo-day">
+        <div class="promo-day-head">
+          <div class="promo-day-num">День <em>${idx + 1}</em> · ${escapeHtml(dateStr)}</div>
+          <div class="promo-day-weekday">${escapeHtml(weekday)}</div>
+        </div>
+        <ul class="promo-day-list">`;
+
+      // Хелпер: одна строка-буллет с активностью.
+      // dirCls — CSS-класс для цветной плашки направления (Творчество/IT/...)
+      const renderItem = (timeLabel, slot) => {
+        if (!slot || !slot.template) return '';
+        const dir = getSlotDirection(slot);
+        const dirCls = dirClass(dir);
+        const dirLabel = dirShort(dir);
+        const dirChip = dir
+          ? `<span class="promo-direction ${dirCls}">${escapeHtml(dirLabel)}</span>`
+          : '';
+        const themeChip = slot.theme
+          ? `<span class="promo-theme">«${escapeHtml(slot.theme)}»</span>`
+          : '';
+        return `<li class="promo-day-item">
+          <span class="promo-day-time">${escapeHtml(timeLabel)}</span>
+          <span class="promo-day-text">${dirChip}${escapeHtml(slot.template)}${themeChip}</span>
+        </li>`;
+      };
+
+      // Хелпер: жёлтая плашка выезда (как у родителей, но компактнее)
+      const renderTrip = (text) => `<li><div class="promo-day-trip">🚌 ${escapeHtml(text)}</div></li>`;
+
+      // Какие блоки обычной сетки активны в зависимости от типа дня — копия из view.html.
+      const activeBlocks = new Set(['am_cluster', 'am_outside', 'pm_cluster', 'pm_outside']);
+      if (d.type === 'trip6_am')        { activeBlocks.delete('am_cluster'); activeBlocks.delete('am_outside'); }
+      else if (d.type === 'trip6_pm')   { activeBlocks.delete('pm_cluster'); activeBlocks.delete('pm_outside'); }
+      else if (d.type === 'trip3_am')   { activeBlocks.delete('am_outside'); }
+      else if (d.type === 'trip3_pm')   { activeBlocks.delete('pm_outside'); }
+      else if (d.type === 'trip3_full') { activeBlocks.delete('am_outside'); activeBlocks.delete('pm_outside'); }
+      else if (d.type === 'trip6_am_split')   { activeBlocks.delete('am_cluster'); activeBlocks.delete('am_outside'); }
+      else if (d.type === 'trip6_pm_split')   { activeBlocks.delete('pm_cluster'); activeBlocks.delete('pm_outside'); }
+      else if (d.type === 'trip6_full_split') { activeBlocks.delete('am_cluster'); activeBlocks.delete('am_outside'); activeBlocks.delete('pm_cluster'); activeBlocks.delete('pm_outside'); }
+
+      let hasAnyAm = false, hasAnyPm = false;
+
+      // === ДО ОБЕДА ===
+      // Полный выезд утром
+      if (d.type === 'trip6_am') {
+        const s = d.trip6_am;
+        html += renderTrip('9:30 · полный выезд' + (s && s.template ? ' · ' + s.template : ''));
+        hasAnyAm = true;
+      }
+      // Полу-выезд утром (3 отряда)
+      if (d.type === 'trip3_am' || d.type === 'trip3_full') {
+        const s = d.trip_full_am;
+        if (s && s.template) {
+          html += renderTrip('9:30 · часть отрядов на выезде · ' + s.template);
+          hasAnyAm = true;
+        }
+      }
+      // Параллельные выезды утром
+      if (d.type === 'trip6_am_split' || d.type === 'trip6_full_split') {
+        const a = d.trip6_am_a, b = d.trip6_am_b;
+        if (a && a.template) { html += renderTrip('9:30 · группа A на выезде · ' + a.template); hasAnyAm = true; }
+        if (b && b.template) { html += renderTrip('9:30 · группа B на выезде · ' + b.template); hasAnyAm = true; }
+      }
+      // Обычные утренние слоты — дедупликация по (template, theme), как у родителей.
+      const amSlots = [];
+      const amSeen = new Set();
+      ['am_cluster', 'am_outside'].forEach(key => {
+        if (!activeBlocks.has(key)) return;
+        const arr = d[key];
+        if (!Array.isArray(arr)) return;
+        arr.forEach(s => {
+          if (!s || !s.template) return;
+          const k = normalizeName(s.template) + '|' + (s.theme || '');
+          if (amSeen.has(k)) return;
+          amSeen.add(k);
+          amSlots.push(s);
+        });
+      });
+      if (amSlots.length > 0) {
+        amSlots.forEach(s => {
+          html += renderItem('9:30', s);
+          hasAnyAm = true;
+        });
+      }
+
+      // === ПОСЛЕ ОБЕДА ===
+      if (d.type === 'trip6_pm') {
+        const s = d.trip6_pm;
+        html += renderTrip('14:00 · полный выезд' + (s && s.template ? ' · ' + s.template : ''));
+        hasAnyPm = true;
+      }
+      if (d.type === 'trip3_pm' || d.type === 'trip3_full') {
+        const s = d.trip_full_pm;
+        if (s && s.template) {
+          html += renderTrip('14:00 · часть отрядов на выезде · ' + s.template);
+          hasAnyPm = true;
+        }
+      }
+      if (d.type === 'trip6_pm_split' || d.type === 'trip6_full_split') {
+        const a = d.trip6_pm_a, b = d.trip6_pm_b;
+        if (a && a.template) { html += renderTrip('14:00 · группа A на выезде · ' + a.template); hasAnyPm = true; }
+        if (b && b.template) { html += renderTrip('14:00 · группа B на выезде · ' + b.template); hasAnyPm = true; }
+      }
+      const pmSlots = [];
+      const pmSeen = new Set();
+      ['pm_cluster', 'pm_outside'].forEach(key => {
+        if (!activeBlocks.has(key)) return;
+        const arr = d[key];
+        if (!Array.isArray(arr)) return;
+        arr.forEach(s => {
+          if (!s || !s.template) return;
+          const k = normalizeName(s.template) + '|' + (s.theme || '');
+          if (pmSeen.has(k)) return;
+          pmSeen.add(k);
+          pmSlots.push(s);
+        });
+      });
+      if (pmSlots.length > 0) {
+        pmSlots.forEach(s => {
+          html += renderItem('14:00', s);
+          hasAnyPm = true;
+        });
+      }
+
+      if (!hasAnyAm && !hasAnyPm) {
+        html += `<li style="font-family:Geologica,serif;font-style:italic;color:rgba(21,22,23,0.5);padding:8px 0">— программа дня уточняется —</li>`;
+      }
+
+      html += `</ul></div>`;
+    });
+
+    document.getElementById('view-content').innerHTML = html;
+  }
+
+  // ===== СЕКЦИЯ «СТОИМОСТЬ» =====
+  // Цены хранятся в листе «Реквизиты»: ключи Цена_ранняя, Цена_средняя, Цена_поздняя,
+  // Цена_подпись. Каждая цена — строка вида «850 BYN — при оплате до 1 мая».
+  // Логика:
+  //   1. Парсим из строки сумму, дату дедлайна и описание
+  //   2. Пропускаем все цены, у которых дата дедлайна уже прошла (вчера и раньше)
+  //   3. Сортируем по дате дедлайна (от ближайшей к дальней)
+  //   4. Самую раннюю (ближайший дедлайн) подсвечиваем как «active» (жёлтая плашка)
+  //   5. Если ни одной актуальной цены нет — секция скрыта
+  function renderPrices() {
+    const sectionEl = document.getElementById('section-price');
+    if (!sectionEl) return;
+
+    // Читаем все три цены из реквизитов
+    const rawPrices = [
+      { key: 'Цена_ранняя',  raw: DETAILS['Цена_ранняя']  || '' },
+      { key: 'Цена_средняя', raw: DETAILS['Цена_средняя'] || '' },
+      { key: 'Цена_поздняя', raw: DETAILS['Цена_поздняя'] || '' }
+    ];
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // сравниваем по дню, без часов
+
+    const prices = [];
+    rawPrices.forEach(p => {
+      if (!p.raw) return;
+      const parsed = parsePriceLine_(p.raw);
+      if (!parsed) return;
+      // Если есть дата дедлайна и она уже прошла — отсекаем
+      if (parsed.deadline && parsed.deadline < today) return;
+      prices.push(parsed);
+    });
+
+    if (prices.length === 0) {
+      sectionEl.style.display = 'none';
+      return;
+    }
+
+    // Сортируем по дате (ближайшие сначала). Без даты — в конец.
+    prices.sort((a, b) => {
+      if (!a.deadline && !b.deadline) return 0;
+      if (!a.deadline) return 1;
+      if (!b.deadline) return -1;
+      return a.deadline.getTime() - b.deadline.getTime();
+    });
+
+    // Помечаем первую (с самым ранним дедлайном) как активную
+    if (prices.length > 0) prices[0].active = true;
+
+    sectionEl.style.display = '';
+
+    const subEl = document.getElementById('price-sub');
+    if (subEl) {
+      const sub = DETAILS['Цена_подпись'] || 'Стоимость зависит от того, когда вы оплатите смену.';
+      subEl.textContent = sub;
+    }
+
+    document.getElementById('price-grid').innerHTML = prices.map(p => {
+      const tagText = p.active ? 'Сейчас' : '';
+      const tagHtml = tagText ? `<span class="price-tag">${escapeHtml(tagText)}</span>` : '';
+      return `
+        <div class="price-card ${p.active ? 'active' : ''}">
+          ${tagHtml}
+          <div class="price-amount">${escapeHtml(p.amount)}</div>
+          <div class="price-deadline">${escapeHtml(p.deadlineText)}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // Разбирает строку вида «850 BYN — при оплате до 1 мая» в:
+  //   { amount: '850 BYN', deadlineText: 'при оплате до 1 мая', deadline: Date|null }
+  // Поддерживаемые форматы дат: «1 мая», «до 1 мая», «1 мая 2026», «01.05», «01.05.2026».
+  // Если дату распарсить не удалось — поле deadline = null (плашка покажется в любом случае).
+  function parsePriceLine_(line) {
+    if (!line) return null;
+    const s = String(line).trim();
+    // Разделяем по тире/дефису с пробелами вокруг — между суммой и описанием
+    const m = s.match(/^(.+?)\s+[—–-]\s+(.+)$/);
+    let amount, deadlineText;
+    if (m) {
+      amount = m[1].trim();
+      deadlineText = m[2].trim();
+    } else {
+      amount = s;
+      deadlineText = '';
+    }
+    return {
+      amount: amount,
+      deadlineText: deadlineText,
+      deadline: parseRussianDate_(deadlineText),
+      active: false
+    };
+  }
+
+  // Парсит русскую дату из строки. Возвращает Date или null.
+  function parseRussianDate_(s) {
+    if (!s) return null;
+    const months = {
+      'январ':0,'феврал':1,'март':2,'апрел':3,'мая':4,'май':4,
+      'июн':5,'июл':6,'август':7,'сентябр':8,'октябр':9,'ноябр':10,'декабр':11
+    };
+    const now = new Date();
+    const currentYear = now.getFullYear();
+
+    // Формат «1 мая», «1 мая 2026», «до 1 мая», «при оплате до 1 июня».
+    // Регэксп greedy для названия месяца — иначе не матчится без явного \b.
+    const ru = s.match(/(\d{1,2})\s+([а-яё]+)(?:\s+(\d{4}))?/i);
+    if (ru) {
+      const day = parseInt(ru[1], 10);
+      const monthKey = ru[2].toLowerCase();
+      let monthNum = -1;
+      Object.keys(months).forEach(k => {
+        if (monthKey.startsWith(k)) monthNum = months[k];
+      });
+      if (monthNum >= 0) {
+        const year = ru[3] ? parseInt(ru[3], 10) : currentYear;
+        const d = new Date(year, monthNum, day);
+        d.setHours(0, 0, 0, 0);
+        return d;
+      }
+    }
+
+    // Формат «01.05», «01.05.2026»
+    const num = s.match(/(\d{1,2})\.(\d{1,2})(?:\.(\d{4}|\d{2}))?/);
+    if (num) {
+      const day = parseInt(num[1], 10);
+      const month = parseInt(num[2], 10) - 1;
+      let year = currentYear;
+      if (num[3]) {
+        year = parseInt(num[3], 10);
+        if (year < 100) year += 2000;
+      }
+      const d = new Date(year, month, day);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    }
+
+    return null;
+  }
+
+  // ===== СЕКЦИЯ «ЧТО СДЕЛАЮТ ДЕТИ» =====
+  // Для каждого слота смены смотрим slot.parentSelectedRefs — это родительские
+  // референсы, которые админ галочками отметил «показать родителям» в данном слоте.
+  // Возможные состояния slot.parentSelectedRefs:
+  //   - массив URL (явно отмечены) — показываем эти
+  //   - undefined (галочки никогда не трогали) — fallback: тянем все родительские рефы
+  //     этого шаблона из библиотеки через getParentsRefs (поведение «по умолчанию все»)
+  //   - пустой массив [] (все галочки сняты) — этот слот ничего не показывает
+  // Уникальные шаблоны мерджим: объединяем parentSelectedRefs из всех слотов с этим шаблоном.
+  // Группируем по направлениям, рендерим горизонтальные ленты 100×100.
+  async function renderWhatTheyMake() {
+    if (!publishedState || !Array.isArray(publishedState.schedule)) return;
+
+    // 1. Проходим по всем слотам и собираем для каждого шаблона:
+    //    - объединение всех parentSelectedRefs из его вхождений
+    //    - флаг hasUndefined: было ли хоть одно вхождение без явного выбора
+    //      (тогда нужно дёрнуть getParentsRefs как fallback)
+    const tplData = {}; // {tpl: {urls: Set, hasUndefined: bool}}
+    const collect = (slot) => {
+      if (!slot || !slot.template) return;
+      const tpl = String(slot.template).trim();
+      if (!tplData[tpl]) tplData[tpl] = { urls: new Set(), hasUndefined: false };
+      if (Array.isArray(slot.parentSelectedRefs)) {
+        slot.parentSelectedRefs.forEach(u => tplData[tpl].urls.add(u));
+      } else {
+        // Явного выбора нет — нужно подтянуть всё из библиотеки
+        tplData[tpl].hasUndefined = true;
+      }
+    };
+    publishedState.schedule.forEach(d => {
+      if (!d) return;
+      ['am_cluster','am_outside','pm_cluster','pm_outside'].forEach(g => {
+        if (Array.isArray(d[g])) d[g].forEach(collect);
+      });
+      ['trip6_am','trip6_pm','trip_full_am','trip_full_pm',
+       'trip6_am_a','trip6_am_b','trip6_pm_a','trip6_pm_b'].forEach(k => collect(d[k]));
+    });
+
+    const templates = Object.keys(tplData);
+    if (templates.length === 0) return;
+
+    // 2. Для шаблонов с hasUndefined тянем родительские рефы из библиотеки (fallback).
+    //    Для остальных — у нас уже есть данные из state, запрос не нужен.
+    //    Выкидываем шаблоны где итоговый набор пустой.
+    const tplsToFetch = templates.filter(tpl => tplData[tpl].hasUndefined);
+    let fetchResults = [];
+    if (tplsToFetch.length > 0) {
+      try {
+        fetchResults = await Promise.all(tplsToFetch.map(tpl =>
+          fetch(LIBRARY_URL + '?action=getParentsRefs&template=' + encodeURIComponent(tpl))
+            .then(r => r.json())
+            .then(data => ({ tpl: tpl, refs: (data && data.ok) ? (data.refs || []) : [] }))
+            .catch(() => ({ tpl: tpl, refs: [] }))
+        ));
+      } catch(e) {
+        // Тихо — для этих шаблонов покажем только то что в state (если что-то есть)
+      }
+    }
+    fetchResults.forEach(({ tpl, refs }) => {
+      refs.forEach(u => tplData[tpl].urls.add(u));
+    });
+
+    // 3. Группируем по направлениям. Direction достаём из LIBRARY по имени шаблона.
+    //    Шаблоны без рефов отбрасываем.
+    const byDir = {}; // {dirName: [{template, refs:[]}, ...]}
+    templates.forEach(tpl => {
+      const refs = Array.from(tplData[tpl].urls);
+      if (refs.length === 0) return;
+      const lib = LIBRARY.find(a =>
+        normalizeName(a.template || '') === normalizeName(tpl));
+      const dir = (lib && lib.direction) ? lib.direction : 'Прочее';
+      if (!byDir[dir]) byDir[dir] = [];
+      byDir[dir].push({ template: tpl, refs: refs });
+    });
+
+    const dirNames = Object.keys(byDir);
+    if (dirNames.length === 0) return; // секция скрыта
+
+    // 4. Сортировка направлений в "правильном" порядке (как в PDF Артмосфера)
+    const dirOrder = ['Творчество', 'IT', 'Soft skills / нейро', 'Активность / спорт', 'Игры / квесты', 'Событие', 'Прочее'];
+    dirNames.sort((a, b) => {
+      const ia = dirOrder.findIndex(d => a.startsWith(d.split(' ')[0]) || a.includes(d));
+      const ib = dirOrder.findIndex(d => b.startsWith(d.split(' ')[0]) || b.includes(d));
+      return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib);
+    });
+
+    // 5. Рендер. Для каждого URL пытаемся показать превью —
+    // напрямую если это картинка/YouTube, иначе через imageProxy_ (асинхронно).
+    const needProxy = []; // [{url, thumbId}]
+    let html = '';
+    let thumbCounter = 0;
+
+    dirNames.forEach(dirName => {
+      const tpls = byDir[dirName];
+      const dirCls = dirClass(dirName);
+      const dirLabel = dirShort(dirName);
+
+      // Заголовок направления — только цветная плашка, без дублирующего текста
+      html += `<div class="wtm-direction">
+        <div class="wtm-dir-header">
+          <span class="wtm-dir-tag direction-tag ${dirCls}">${escapeHtml(dirLabel)}</span>
+        </div>
+        <div class="wtm-strip">`;
+
+      // Все картинки направления — в одной общей ленте, без разбивки по шаблонам.
+      // Имена шаблонов («МК по лепке из глины» и т.д.) родителю не нужны:
+      // они идут уже в расписании по дням ниже.
+      tpls.forEach(({ template, refs }) => {
+        refs.forEach(url => {
+          const thumbId = 'wtm-thumb-' + (thumbCounter++);
+          // Пытаемся определить превью сразу
+          let previewSrc = null;
+          const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+          if (ytMatch) {
+            previewSrc = 'https://img.youtube.com/vi/' + ytMatch[1] + '/hqdefault.jpg';
+          } else if (/\.(jpg|jpeg|png|webp|gif|svg|avif)(\?|$)/i.test(url)) {
+            previewSrc = url;
+          } else {
+            needProxy.push({ url: url, thumbId: thumbId });
+          }
+
+          if (previewSrc) {
+            html += `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="wtm-thumb" id="${thumbId}">
+              <img src="${escapeHtml(previewSrc)}" alt="" loading="lazy"
+                   onerror="this.parentElement.classList.add('wtm-thumb-failed');this.remove();this.parentElement.textContent='🖼';">
+            </a>`;
+          } else {
+            html += `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="wtm-thumb wtm-thumb-loading" id="${thumbId}">⏳</a>`;
+          }
+        });
+      });
+
+      html += `</div></div>`;
+    });
+
+    document.getElementById('what-they-make-content').innerHTML = html;
+    document.getElementById('section-what-they-make').style.display = '';
+
+    // 6. Подгружаем превью через imageProxy для URL без прямой картинки
+    needProxy.forEach(item => loadWtmPreview(item.url, item.thumbId));
+  }
+
+  // Тянет превью URL через action=previewUrl и подставляет картинку в нужный thumb.
+  async function loadWtmPreview(url, thumbId) {
+    try {
+      const r = await fetch(LIBRARY_URL + '?action=previewUrl&url=' + encodeURIComponent(url));
+      const data = await r.json();
+      const el = document.getElementById(thumbId);
+      if (!el) return;
+      if (data && data.ok && data.preview && data.preview.thumbnail) {
+        el.classList.remove('wtm-thumb-loading');
+        el.innerHTML = `<img src="${escapeHtml(data.preview.thumbnail)}" alt="" loading="lazy"
+                              onerror="this.parentElement.classList.add('wtm-thumb-failed');this.remove();this.parentElement.textContent='🖼';">`;
+      } else {
+        el.classList.remove('wtm-thumb-loading');
+        el.classList.add('wtm-thumb-failed');
+        el.textContent = '🔗';
+      }
+    } catch(e) {
+      const el = document.getElementById(thumbId);
+      if (el) {
+        el.classList.remove('wtm-thumb-loading');
+        el.classList.add('wtm-thumb-failed');
+        el.textContent = '🔗';
+      }
+    }
+  }
+
+  // ===== ПЕРЕКЛЮЧАТЕЛЬ СМЕН СЕЗОНА =====
+  // Грузим лист «Сезон» через action getSeason (массив до 6 строк со slot, publishId,
+  // status, label, dates). Рендерим 6 кнопок-табов наверху. Активная — текущий ?id.
+  // Слот без publishId с status=coming_soon — серая «в разработке», без клика.
+  // Слот без publishId с status=disabled — не показываем (свободные ячейки скрыты).
+  // Если запрос упал, тихо прячем блок — основная страница работать продолжит.
+  async function loadSeason(currentId) {
+    const box = document.getElementById('season-switch');
+    if (!box) return;
+    try {
+      const resp = await fetch(LIBRARY_URL + '?action=getSeason').then(r => r.json());
+      if (!resp || !resp.ok || !Array.isArray(resp.season)) {
+        box.style.display = 'none';
+        return;
+      }
+      renderSeasonSwitch(resp.season, currentId);
+    } catch(e) {
+      // не критично — переключатель не показан, страница работает
+      box.style.display = 'none';
+    }
+  }
+
+  function renderSeasonSwitch(season, currentId) {
+    const box = document.getElementById('season-switch');
+    if (!box) return;
+    // Сортируем по slot (на случай, если в Sheets порядок поплыл)
+    const sorted = season.slice().sort((a, b) =>
+      (parseInt(a.slot, 10) || 99) - (parseInt(b.slot, 10) || 99)
+    );
+    // Скрываем слоты со status === 'disabled' и без publishId
+    const visible = sorted.filter(s =>
+      s.publishId || (s.status || '').toLowerCase() !== 'disabled'
+    );
+    if (!visible.length) {
+      box.style.display = 'none';
+      return;
+    }
+    const html = visible.map(s => {
+      const num = s.slot || '';
+      const label = s.label || '';
+      const dates = s.dates || '';
+      const isActive = s.publishId && s.publishId === currentId;
+      const isReady = !!s.publishId;
+      let classes = 'season-tab';
+      if (isActive) classes += ' active';
+      else if (!isReady) classes += ' disabled';
+      const numText = 'Смена&nbsp;' + escapeHtml(String(num));
+      const labelHtml = label
+        ? '<div class="season-tab-label">' + escapeHtml(label) + '</div>'
+        : (isReady ? '' : '<div class="season-tab-label">' + escapeHtml('—') + '</div>');
+      const datesHtml = dates
+        ? '<div class="season-tab-dates">' + escapeHtml(dates) + '</div>'
+        : '';
+      const statusHtml = !isReady
+        ? '<div class="season-tab-status">в разработке</div>'
+        : '';
+      // Активная — span (некликабельно), готовые — <a>, неготовые — span с classes.disabled
+      if (isActive) {
+        return '<span class="' + classes + '">'
+          + '<span class="season-tab-num">' + numText + '</span>'
+          + labelHtml + datesHtml
+          + '</span>';
+      }
+      if (isReady) {
+        return '<a class="' + classes + '" href="?id=' + encodeURIComponent(s.publishId) + '">'
+          + '<span class="season-tab-num">' + numText + '</span>'
+          + labelHtml + datesHtml
+          + '</a>';
+      }
+      return '<span class="' + classes + '">'
+        + '<span class="season-tab-num">' + numText + '</span>'
+        + labelHtml + datesHtml + statusHtml
+        + '</span>';
+    }).join('');
+    box.innerHTML = html;
+  }
+
+  // ===== СТАРТ =====
+  function bootstrap() {
+    const id = getQueryParam('id');
+    if (!id) {
+      document.getElementById('view-content').innerHTML =
+        '<div class="view-error">Ссылка недействительна — нет параметра id. Спросите свежую ссылку у организаторов.</div>';
+      // переключатель смен всё равно показываем — отдел продаж может перейти на любую готовую смену
+      loadSeason(null);
+      return;
+    }
+    loadAll(id);
+    loadSeason(id);
+  }
+  bootstrap();
+</script>
+</body>
+</html>
