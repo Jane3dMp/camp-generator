@@ -173,12 +173,16 @@
     margin-bottom: 10px;
     letter-spacing: 0.02em;
   }
-  /* Сетка параллельных МК. На десктопе — три в ряд (auto-fit), на мобиле одна колонка через media. */
+  /* Сетка параллельных МК. Максимум 3 в ряд — даже если карточек 4-6,
+     то они переходят на следующие ряды по 3, а не растекаются по 4-6 в одну.
+     На мобиле — одна колонка через media. */
   .vblock-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
     gap: 10px;
   }
+  /* Если карточек меньше 3 — они НЕ должны растягиваться на всю ширину.
+     Каждая остаётся той же ширины как если бы их было три. */
   /* Карточка одного параллельного МК */
   .vcard {
     background: #faf8f1;
@@ -559,6 +563,7 @@
     #app { padding: 18px 14px 60px; }
     .view-header h1 { font-size: 24px; }
     .contact-grid { grid-template-columns: 1fr; gap: 14px; }
+    .vblock-grid { grid-template-columns: repeat(2, 1fr); }
   }
   /* Телефон */
   @media (max-width: 560px) {
@@ -676,9 +681,9 @@
   <!-- СЕКЦИЯ 3.5: ЧТО СДЕЛАЮТ ДЕТИ (родительские рефы) -->
   <!-- Скрыта по умолчанию. Показывается только если для шаблонов смены есть родительские рефы. -->
   <div class="section" id="section-what-they-make" style="display:none">
-    <div class="section-eyebrow">Чему научится ребёнок</div>
-    <h2 class="section-h2">Что <em>сделают</em> дети</h2>
-    <p class="section-lead">Финальные работы по направлениям из этой смены. Нажми на картинку — откроется источник.</p>
+    <div class="section-eyebrow">Чем будем заниматься</div>
+    <h2 class="section-h2">Что <em>будут делать</em> дети</h2>
+    <p class="section-lead">Это образцы, на которые мы будем ориентироваться, работая с детьми. Финальный результат может отличаться — но направление такое.</p>
     <div id="what-they-make-content"></div>
   </div>
 
