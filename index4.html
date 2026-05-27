@@ -1909,17 +1909,29 @@ function renderMultiHalf(dayIdx, half, mode) {
   wrap.className = 'multi-wrap';
 
   if (mode === 'seq3') {
-    // Две цепочки по 3 занятия: пара 1-2 (chainA) и пара 3-4 (chainB). Каждое занятие — со временем шага.
+    // Две цепочки. В каждой паре отрядов: chainA[0] и chainA[1] — два МК в ротации между отрядами,
+    // chainA[2] — общее занятие на оба отряда пары. Аналогично для chainB.
     const grid = document.createElement('div');
     grid.className = 'seq-cols';
-    [['chainA', 'Отряды 1, 2', 't1'], ['chainB', 'Отряды 3, 4', 't3']].forEach(([sub, label, tcls]) => {
+    [['chainA', 'Отряды 1, 2', 't1', [1, 2]], ['chainB', 'Отряды 3, 4', 't3', [3, 4]]].forEach(([sub, label, tcls, troops]) => {
+      const [tropA, tropB] = troops;
       const col = document.createElement('div');
       col.className = 'seq-col';
       col.innerHTML = `<div class="seq-col-head ${tcls}">${label}</div>`;
       const cards = document.createElement('div');
       cards.className = 'seq-col-cards';
+      // Подписи для каждой карточки:
+      //   [0] — МК A: в шаге 0 (10:00) приходит отряд A, в шаге 1 (11:10) — отряд B
+      //   [1] — МК B: в шаге 0 (10:00) приходит отряд B, в шаге 1 (11:10) — отряд A
+      //   [2] — общее занятие: в шаге 2 (12:20) оба отряда пары вместе
+      const posLabels = [
+        `${times[0]} → отр. ${tropA} · ${times[1]} → отр. ${tropB}`,
+        `${times[0]} → отр. ${tropB} · ${times[1]} → отр. ${tropA}`,
+        `${times[2]} · отряды ${tropA}, ${tropB} (общее)`
+      ];
+      // Передаём пустой timeLabel — все времена уже в posLabel
       multi[sub].forEach((slot, i) => {
-        cards.appendChild(renderMultiCard(dayIdx, half + '#' + sub, i, slot, times[i], (i+1) + '-й МК'));
+        cards.appendChild(renderMultiCard(dayIdx, half + '#' + sub, i, slot, '', posLabels[i] || ''));
       });
       col.appendChild(cards);
       grid.appendChild(col);
