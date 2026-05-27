@@ -235,6 +235,7 @@
       <option value="__all__">— выбери себя —</option>
     </select>
     <button class="view-refresh" onclick="reloadFromServer()" title="Обновить — взять последнюю опубликованную версию">↻</button>
+    <button class="view-refresh" onclick="openPrintVersion()" title="Открыть краткую версию для печати (для вожатых и админа)">📄 печать</button>
   </div>
 
   <div id="view-content">
@@ -386,11 +387,18 @@
   async function reloadFromServer() {
     const id = getQueryParam('id');
     if (!id) return;
-    const btn = document.querySelector('.view-refresh');
+    // Берём только первую .view-refresh (саму кнопку перезагрузки, не «печать»)
+    const btn = document.querySelector('.view-controls .view-refresh');
     if (btn) { btn.disabled = true; btn.textContent = '…'; }
     try { await loadAll(id); }
     finally { if (btn) { btn.disabled = false; btn.textContent = '↻'; } }
   }
+  function openPrintVersion() {
+    const id = getQueryParam('id');
+    if (!id) return;
+    window.open('print4.html?id=' + encodeURIComponent(id), '_blank');
+  }
+  window.openPrintVersion = openPrintVersion;
 
   async function loadAll(id) {
     document.getElementById('view-content').innerHTML = '<div class="view-loading">Загружаю расписание…</div>';
