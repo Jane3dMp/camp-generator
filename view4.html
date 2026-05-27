@@ -586,15 +586,21 @@
             });
           } else {
             // rot4: педагог стоит на станции, через неё по очереди проходят все 4 отряда.
+            // Порядок прихода зависит от номера станции: на шаге k у станции s сидит отряд
+            // (s - k + 4) % 4. Поэтому педагогу показываем 4 строки — по одной на каждый шаг.
             (multi.stations || []).forEach((s, st) => {
               if (!s || !s.template || normalizeName(s.teacher) !== target) return;
-              slots.push({
-                time: (times[0] || '') + '–' + ((times[times.length-1]||'').split('–')[1] || ''),
-                template: s.template, theme: s.theme || '',
-                comment: s.comment || '', room: s.room || '—',
-                troopsLabel: 'станция ' + (st+1) + ' · все 4 отряда по кругу', troop: 1, isTrip: false,
-                refs: getActiveRefsForSlot(s)
-              });
+              for (let k = 0; k < 4; k++) {
+                const troopIdx = ((st - k) % 4 + 4) % 4; // отряд, который у этой станции на шаге k
+                slots.push({
+                  time: times[k] || '',
+                  template: s.template, theme: s.theme || '',
+                  comment: s.comment || '', room: s.room || '—',
+                  troopsLabel: 'станция ' + (st+1) + ' · отряд ' + (troopIdx+1),
+                  troop: troopIdx + 1, isTrip: false,
+                  refs: getActiveRefsForSlot(s)
+                });
+              }
             });
           }
           return;
@@ -792,7 +798,11 @@
             (multi.chainA || []).forEach((s, i) => { body += card(s, times[i] || '', 'отряды 1, 2'); });
             (multi.chainB || []).forEach((s, i) => { body += card(s, times[i] || '', 'отряды 3, 4'); });
           } else {
-            (multi.stations || []).forEach((s, st) => { body += card(s, 'станция ' + (st+1), 'по кругу все 4'); });
+            // rot4: подпись «отряды 1, 4, 3, 2» = в каком порядке они приходят к этой станции
+            (multi.stations || []).forEach((s, st) => {
+              const order = [0,1,2,3].map(k => ((st - k) % 4 + 4) % 4 + 1).join(', ');
+              body += card(s, 'станция ' + (st+1), 'отряды ' + order);
+            });
           }
           return body ? h + body : '';
         }
