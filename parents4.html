@@ -612,7 +612,7 @@
     const mode = halfModeP(type, half);
     if (mode === 'trip4')    return [0];
     if (mode === 'trip2')    return [0, 1, 2];
-    if (mode === 'parallel') return [0, 2];
+    if (mode === 'parallel' || mode === 'parallel2') return [0, 2];
     return [0, 1, 2, 3];
   }
 

@@ -465,9 +465,8 @@
     return (lib && Array.isArray(lib.refs)) ? lib.refs.slice() : [];
   }
 
-  // Собирает расписание одного педагога: по дням, его слоты (утро/вечер, какой отряд).
   // По типу дня и половине возвращает массив «активных» слотов с подписью отрядов:
-  // [{ idx, troopsLabel, isTrip }]. Мусорные слоты выездных раскладок пропускаются.
+  // [{ idx, troopsLabel, isTrip, timeOverride? }]. Мусорные слоты выездных раскладок пропускаются.
   function activeSlotsForHalf(dayType, half) {
     const mode = halfMode4(dayType, half);
     if (mode === 'trip4')    return [{ idx: 0, troopsLabel: 'все 4 отряда', isTrip: true }];
@@ -480,6 +479,19 @@
       { idx: 0, troopsLabel: 'отряды 1, 2 (выезд)', isTrip: true },
       { idx: 2, troopsLabel: 'отряды 3, 4 (выезд)', isTrip: true }
     ];
+    if (mode === 'parallel2') {
+      // 4 строки: 1-й круг (1-2→А, 3-4→Б), 2-й круг (1-2→Б, 3-4→А).
+      // Времена дробятся пополам, чтобы у педагога было видно, в какой круг он стоит.
+      const isAM = half === 'am';
+      const t1 = isAM ? '9:30 – 11:30' : '14:00 – 15:45';
+      const t2 = isAM ? '11:30 – 13:30' : '15:45 – 17:30';
+      return [
+        { idx: 0, troopsLabel: 'отряды 1, 2 · 1-й круг', isTrip: true, timeOverride: t1 },
+        { idx: 2, troopsLabel: 'отряды 3, 4 · 1-й круг', isTrip: true, timeOverride: t1 },
+        { idx: 2, troopsLabel: 'отряды 1, 2 · 2-й круг', isTrip: true, timeOverride: t2 },
+        { idx: 0, troopsLabel: 'отряды 3, 4 · 2-й круг', isTrip: true, timeOverride: t2 }
+      ];
+    }
     // normal
     return [
       { idx: 0, troopsLabel: 'отряд 1', isTrip: false },
@@ -586,7 +598,7 @@
           if (!s || !s.template) return;
           if (normalizeName(s.teacher) !== target) return;
           slots.push({
-            time,
+            time: a.timeOverride || time,
             template: s.template,
             theme: s.theme || '',
             comment: s.comment || '',
@@ -744,17 +756,18 @@
         const arr = d[half];
         if (!Array.isArray(arr)) return '';
         const active = activeSlotsForHalf(d, half);
-        const filled = active.map(a => ({ s: arr[a.idx], troop: a.idx + 1, label: a.troopsLabel, isTrip: a.isTrip }))
+        const filled = active.map(a => ({ s: arr[a.idx], troop: a.idx + 1, label: a.troopsLabel, isTrip: a.isTrip, timeOverride: a.timeOverride }))
                              .filter(x => x.s && x.s.template);
         if (filled.length === 0) return '';
         let h = `<div class="vmeal"><span>${label}</span><span class="vmeal-time">${time}</span></div>`;
-        filled.forEach(({ s, troop, label: troopsLabel, isTrip }) => {
+        filled.forEach(({ s, troop, label: troopsLabel, isTrip, timeOverride }) => {
           const trip = isTrip || !!s.isTrip;
           const tripBadge = trip ? '<span class="vslot-trip-badge">🚌 выезд</span>' : '';
+          const timeBadge = timeOverride ? `<span class="vslot-time-inline">${escapeHtml(timeOverride)}</span> ` : '';
           h += `
             <div class="vslot${trip ? ' is-trip' : ''}">
               <div class="vslot-row">
-                <div class="vslot-time"><span class="pill-troop t${troop}">${escapeHtml(troopsLabel || ('отряд ' + troop))}</span></div>
+                <div class="vslot-time"><span class="pill-troop t${troop}">${escapeHtml(troopsLabel || ('отряд ' + troop))}</span>${timeOverride ? '<br><span style="font-size:10px;color:var(--yellow-deep);font-style:italic">'+escapeHtml(timeOverride)+'</span>' : ''}</div>
                 <div>
                   <div class="vslot-name">${tripBadge}${escapeHtml(s.template)}</div>
                   ${s.theme ? `<div class="vslot-theme">«${escapeHtml(s.theme)}»</div>` : ''}

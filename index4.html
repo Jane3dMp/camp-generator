@@ -511,6 +511,25 @@
     padding: 12px 14px 16px;
     background: var(--paper);
   }
+  /* «Выезды 2 круга»: два временных интервала подряд, по две плашки в каждом */
+  .parallel2-grid {
+    display: flex; flex-direction: column; gap: 0;
+    background: var(--paper);
+  }
+  .parallel2-round-label {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-family: Inter, sans-serif; font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; font-weight: 700; color: rgba(21,22,23,0.55);
+    padding: 10px 14px 4px;
+  }
+  .parallel2-round-label .parallel2-time {
+    font-family: Geologica, serif; font-style: italic; font-size: 13px;
+    color: var(--yellow-deep); letter-spacing: 0; text-transform: none;
+  }
+  .parallel2-grid .parallel-row { padding: 0 14px 8px; }
+  .parallel2-grid .parallel-row:last-child { padding-bottom: 16px; }
+  /* Во 2-м круге плашки чуть приглушены, чтобы было видно «это автоматическое отражение» */
+  .parallel2-mirror .trip-plate { background: linear-gradient(135deg, rgba(254,214,52,0.32), rgba(254,214,52,0.14)); }
 
   /* === Режим «много МК»: seq3 (цепочки) и rot4 (станции + ротация) === */
   .multi-wrap { padding: 12px 14px 16px; background: var(--paper); }
@@ -1452,14 +1471,23 @@ function multiStepTimes(half, mode) {
   return out;
 }
 
+// Времена двух кругов «Выезды 2 круга»: половина дня делится пополам по времени.
+// До обеда (9:30–13:30) → 9:30–11:30 + 11:30–13:30
+// После обеда (14:00–17:30) → 14:00–15:45 + 15:45–17:30
+function parallel2Times(half) {
+  if (half === 'am') return ['9:30 – 11:30', '11:30 – 13:30'];
+  return ['14:00 – 15:45', '15:45 – 17:30'];
+}
+
 // Список режимов для одной половины дня — кнопки переключателя.
 const HALF_MODES = [
-  { key: 'normal',   label: 'Обычный' },
-  { key: 'seq3',     label: '3 МК подряд' },
-  { key: 'rot4',     label: 'Ротация 4' },
-  { key: 'trip2',    label: 'Выезд 2 + кластер' },
-  { key: 'trip4',    label: 'Выезд 4' },
-  { key: 'parallel', label: 'Параллельные выезды' }
+  { key: 'normal',    label: 'Обычный' },
+  { key: 'seq3',      label: '3 МК подряд' },
+  { key: 'rot4',      label: 'Ротация 4' },
+  { key: 'trip2',     label: 'Выезд 2 + кластер' },
+  { key: 'trip4',     label: 'Выезд 4' },
+  { key: 'parallel',  label: 'Параллельные выезды' },
+  { key: 'parallel2', label: 'Выезды 2 круга' }
 ];
 function halfModeLabel(mode) {
   const t = HALF_MODES.find(x => x.key === mode);
@@ -1683,6 +1711,7 @@ function renderHalf(dayIdx, half) {
   const modeHint = mode === 'trip4' ? ' · выезд всех 4'
     : mode === 'trip2' ? ' · выезд 2 + кластер'
     : mode === 'parallel' ? ' · параллельные выезды'
+    : mode === 'parallel2' ? ' · 2 круга с обменом'
     : mode === 'seq3' ? ' · 3 МК подряд (с 10:00)'
     : mode === 'rot4' ? ' · ротация 4 станций (с 9:30)'
     : '';
@@ -1738,6 +1767,37 @@ function renderHalf(dayIdx, half) {
     swapTools.className = 'row-tools no-print';
     swapTools.innerHTML = `<button class="btn btn-sm btn-ghost" onclick="swapHalfGroups(${dayIdx},'${half}')" title="Поменять местами: что было у отрядов 1-2 → станет у 3-4 и наоборот">↔ поменять группы</button>`;
     wrap.appendChild(swapTools);
+  } else if (mode === 'parallel2') {
+    // «Выезды 2 круга»: два временных интервала подряд в одной половине дня.
+    // Слот 0 = выезд А (то, с чего начинают 1-2). Слот 2 = выезд Б (то, с чего начинают 3-4).
+    // Круг 1: 1-2 → А, 3-4 → Б. Круг 2: меняются местами автоматически.
+    const [t1, t2] = parallel2Times(half);
+    const grid = document.createElement('div');
+    grid.className = 'parallel2-grid';
+    // Круг 1
+    const round1Label = document.createElement('div');
+    round1Label.className = 'parallel2-round-label';
+    round1Label.innerHTML = `<span>1-й круг</span><span class="parallel2-time">${t1}</span>`;
+    grid.appendChild(round1Label);
+    const row1 = document.createElement('div');
+    row1.className = 'parallel-row';
+    row1.appendChild(renderTripPlate(dayIdx, half, 0, arr[0], 'отряды 1, 2 · 1-й круг'));
+    row1.appendChild(renderTripPlate(dayIdx, half, 2, arr[2], 'отряды 3, 4 · 1-й круг'));
+    grid.appendChild(row1);
+    // Круг 2 — это зеркально то же самое, без новых данных. Используем псевдо-карточки:
+    // показываем тот же выезд Б для отрядов 1, 2 и тот же выезд А для отрядов 3, 4.
+    const round2Label = document.createElement('div');
+    round2Label.className = 'parallel2-round-label';
+    round2Label.innerHTML = `<span>2-й круг · автоматический обмен</span><span class="parallel2-time">${t2}</span>`;
+    grid.appendChild(round2Label);
+    const row2 = document.createElement('div');
+    row2.className = 'parallel-row parallel2-mirror';
+    // 1-2 идут на выезд Б (тот, который для слота 2). Кнопки редактирования у этих плашек
+    // указывают на исходный слот (2), чтобы изменения попадали в выезд Б.
+    row2.appendChild(renderTripPlate(dayIdx, half, 2, arr[2], 'отряды 1, 2 · 2-й круг'));
+    row2.appendChild(renderTripPlate(dayIdx, half, 0, arr[0], 'отряды 3, 4 · 2-й круг'));
+    grid.appendChild(row2);
+    wrap.appendChild(grid);
   } else if (mode === 'seq3' || mode === 'rot4') {
     wrap.appendChild(renderMultiHalf(dayIdx, half, mode));
   } else {
@@ -2077,7 +2137,7 @@ function setHalfType(day, half, mode) {
   } else if (mode === 'trip2') {
     arr[0].isTrip = false; arr[1].isTrip = false;
     arr[2].isTrip = true; arr[3].isTrip = false;
-  } else if (mode === 'parallel') {
+  } else if (mode === 'parallel' || mode === 'parallel2') {
     arr[0].isTrip = true; arr[1].isTrip = false;
     arr[2].isTrip = true; arr[3].isTrip = false;
   } else {
@@ -3138,7 +3198,7 @@ function _normalizeStateShape() {
     'trip2_am':      ['trip2','normal'],    'trip2_pm':      ['normal','trip2'],    'trip2_full':    ['trip2','trip2'],
     'parallel_am':   ['parallel','normal'], 'parallel_pm':   ['normal','parallel'], 'parallel_full': ['parallel','parallel']
   };
-  const HALF_KEYS = ['normal','seq3','rot4','trip2','trip4','parallel'];
+  const HALF_KEYS = ['normal','seq3','rot4','trip2','trip4','parallel','parallel2'];
 
   state.schedule.forEach(d => {
     // Миграция: если есть старый day.type — разворачиваем в amType/pmType.
