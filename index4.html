@@ -515,8 +515,10 @@
   /* === Режим «много МК»: seq3 (цепочки) и rot4 (станции + ротация) === */
   .multi-wrap { padding: 12px 14px 16px; background: var(--paper); }
   /* seq3: две колонки-цепочки */
-  .seq-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  .seq-col { display: flex; flex-direction: column; gap: 8px; }
+  /* seq3: две цепочки одна под другой; в каждой 3 карточки в строку (плитка 1×3) */
+  .seq-cols { display: flex; flex-direction: column; gap: 14px; }
+  .seq-col { display: flex; flex-direction: column; gap: 6px; }
+  .seq-col-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .seq-col-head {
     font-family: Inter, system-ui, sans-serif; font-size: 10px; letter-spacing: 0.14em;
     text-transform: uppercase; font-weight: 700; color: var(--ink);
@@ -616,8 +618,8 @@
   /* Внутри колонок утро/вечер выездные раскладки тесные — складываем в столбик */
   .day-halves .trip2-row,
   .day-halves .parallel-row { grid-template-columns: 1fr; }
-  /* Много-МК внутри колонок: цепочки в один столбик, станции 2×2 */
-  .day-halves .seq-cols { grid-template-columns: 1fr; }
+  /* Много-МК внутри колонок: цепочки seq3 — по 3 в строку, но если узко — авто-уменьшение */
+  .day-halves .seq-col-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .day-halves .stations-row { grid-template-columns: repeat(2, 1fr); }
 
   /* Карточка одного отряда */
@@ -1073,6 +1075,8 @@
     .day-type-label { min-width: auto; }
     .day-type-switch { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .day-type-btn { flex: 0 0 auto; }
+    /* На узком экране seq3-карточки идут в один столбик */
+    .seq-col-cards { grid-template-columns: 1fr; }
   }
 
   @media print {
@@ -1836,9 +1840,12 @@ function renderMultiHalf(dayIdx, half, mode) {
       const col = document.createElement('div');
       col.className = 'seq-col';
       col.innerHTML = `<div class="seq-col-head ${tcls}">${label}</div>`;
+      const cards = document.createElement('div');
+      cards.className = 'seq-col-cards';
       multi[sub].forEach((slot, i) => {
-        col.appendChild(renderMultiCard(dayIdx, half + '#' + sub, i, slot, times[i], (i+1) + '-й МК'));
+        cards.appendChild(renderMultiCard(dayIdx, half + '#' + sub, i, slot, times[i], (i+1) + '-й МК'));
       });
+      col.appendChild(cards);
       grid.appendChild(col);
     });
     wrap.appendChild(grid);
