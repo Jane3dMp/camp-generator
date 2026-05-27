@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Печатное расписание · Прознание</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --yellow:      #FED634;
+    --yellow-deep: #C9A800;
+    --ink:         #151617;
+    --paper:       #F5F5F0;
+    --paper-warm:  #FFFBEC;
+    --white:       #FFFFFF;
+    --troop-1: #41BEEA;
+    --troop-2: #FF8A3D;
+    --troop-3: #8FA370;
+    --troop-4: #C879D8;
+    /* Регулируемый шрифт: меняется кнопкой ±, по умолчанию 100% = 13px */
+    --print-font-size: 13px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #2a2a2a;
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    color: var(--ink);
+    line-height: 1.45;
+    font-size: var(--print-font-size);
+  }
+  /* ── ЛОКСКРИН (тот же что в view4 / parents4) ── */
+  body:not(.unlocked) #app { display: none !important; }
+  body.unlocked #lockscreen { display: none !important; }
+  #lockscreen {
+    position: fixed; inset: 0; background: var(--ink); color: var(--paper);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000;
+  }
+  #lockscreen h1 {
+    font-family: Caveat, cursive; font-weight: 600; font-size: 38px; margin: 0 0 6px;
+    color: var(--yellow);
+  }
+  #lockscreen p { font-size: 13px; opacity: 0.7; margin: 0 0 22px; }
+  #lockscreen input {
+    background: transparent; border: none; border-bottom: 2px solid var(--yellow);
+    color: var(--paper); font-family: Inter; font-size: 18px; padding: 8px 4px;
+    width: 240px; text-align: center; letter-spacing: 0.3em; outline: none;
+  }
+  #lockscreen .lock-err { color: #ff8b8b; font-size: 12px; margin-top: 12px; min-height: 16px; }
+
+  /* ── ШАПКА ── */
+  .top-bar {
+    background: var(--ink); color: var(--white);
+    padding: 18px 24px 14px;
+    position: sticky; top: 0; z-index: 50;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+  }
+  .top-bar-inner {
+    max-width: 1600px; margin: 0 auto;
+    display: flex; align-items: baseline; justify-content: space-between; gap: 24px; flex-wrap: wrap;
+  }
+  .brand {
+    font-family: Inter; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+    opacity: 0.5;
+  }
+  .title {
+    font-family: Caveat, cursive; font-weight: 600; font-size: 32px;
+    margin: 0; line-height: 1;
+  }
+  .title em {
+    background: var(--yellow); color: var(--ink); padding: 2px 12px;
+    font-style: italic;
+  }
+  .subhead {
+    font-family: Inter; font-size: 12px; letter-spacing: 0.1em;
+    text-transform: uppercase; opacity: 0.7;
+  }
+  .actions {
+    display: flex; gap: 8px;
+  }
+  .actions button {
+    background: transparent; color: var(--white); border: 1px solid rgba(255,255,255,0.3);
+    padding: 7px 14px; font-family: Inter; font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; cursor: pointer; border-radius: 3px;
+  }
+  .actions button:hover { background: var(--yellow); color: var(--ink); border-color: var(--yellow); }
+  .actions .btn-primary { background: var(--yellow); color: var(--ink); border-color: var(--yellow); font-weight: 700; }
+
+  /* ── СЕТКА ── */
+  .week-wrap {
+    background: var(--white);
+    max-width: 1600px;
+    margin: 24px auto;
+    padding: 28px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  }
+  .week-head {
+    font-family: Inter; margin-bottom: 18px;
+    display: flex; align-items: baseline; gap: 14px;
+  }
+  .week-title {
+    font-weight: 700; font-size: 18px;
+  }
+  .week-title em {
+    background: var(--yellow); padding: 1px 8px; font-style: italic;
+    font-family: Caveat; font-weight: 600; font-size: 22px;
+  }
+  .week-sub {
+    font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: rgba(21,22,23,0.55);
+  }
+
+  table.print-grid {
+    width: 100%; border-collapse: collapse;
+    table-layout: fixed;
+  }
+  table.print-grid th, table.print-grid td {
+    border: 1px solid rgba(21,22,23,0.18);
+    padding: 8px 10px; vertical-align: top;
+    font-size: 0.92em; line-height: 1.4;
+  }
+  table.print-grid thead th {
+    background: var(--ink); color: var(--white);
+    font-family: Caveat, cursive; font-size: 1.5em; font-weight: 600;
+    text-align: left; padding: 12px 14px;
+  }
+  table.print-grid thead th .day-sub {
+    display: block; font-family: Inter; font-size: 0.6em; font-weight: 500;
+    letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.7; margin-top: 2px;
+  }
+  /* Левая колонка-метка блока */
+  table.print-grid td.block-label, table.print-grid th.block-label {
+    width: 110px; background: var(--ink); color: var(--white);
+    font-family: Inter; font-weight: 700; font-size: 0.78em; letter-spacing: 0.08em;
+    text-transform: uppercase; line-height: 1.4;
+    padding: 12px 12px;
+  }
+  table.print-grid td.block-label .time { display: block; font-weight: 500; opacity: 0.8; margin-top: 4px; font-size: 0.95em; }
+
+  /* Ячейка дня */
+  table.print-grid td.cell { background: var(--paper-warm); }
+  /* Жёлтая ячейка = выезд */
+  table.print-grid td.cell.trip { background: var(--yellow); }
+  table.print-grid td.cell.empty {
+    background: var(--paper); color: rgba(21,22,23,0.4);
+    font-family: Geologica; font-style: italic; font-size: 0.9em;
+    text-align: center;
+  }
+  /* ── Внутри ячейки ── */
+  .item {
+    margin-bottom: 12px; padding-bottom: 10px;
+    border-bottom: 1px dotted rgba(21,22,23,0.18);
+  }
+  .item:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+  .item-trip-tag {
+    display: inline-block; background: var(--ink); color: var(--white);
+    padding: 1px 6px; border-radius: 2px;
+    font-size: 0.7em; letter-spacing: 0.08em; text-transform: uppercase;
+    margin-right: 4px;
+  }
+  .item-name {
+    font-weight: 600; line-height: 1.3; margin-bottom: 3px;
+  }
+  .item-theme {
+    font-family: Caveat, cursive; font-style: italic; font-size: 1.05em;
+    color: var(--yellow-deep); margin: 1px 0 4px;
+    line-height: 1.2;
+  }
+  .item-meta {
+    display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center;
+    font-size: 0.82em; color: rgba(21,22,23,0.7);
+  }
+  .item-time {
+    font-family: Inter; font-weight: 500; font-style: italic;
+    color: var(--yellow-deep); margin-right: 4px; font-size: 0.85em;
+  }
+  /* Бейдж отрядов: «1-2», «3-4», «1-2-3-4», «отр.1» */
+  .badge-troops {
+    display: inline-block; background: var(--yellow); padding: 1px 6px; border-radius: 2px;
+    font-weight: 700; font-size: 0.78em; letter-spacing: 0.04em;
+    color: var(--ink);
+  }
+  /* Внутри жёлтой ячейки бейдж становится тёмный, чтобы был контраст */
+  td.trip .badge-troops { background: var(--ink); color: var(--white); }
+
+  /* ── Регулятор шрифта в углу (не печатается) ── */
+  .font-control {
+    position: fixed; bottom: 18px; left: 18px; z-index: 100;
+    background: var(--white); border: 1px solid var(--ink); padding: 4px 6px;
+    display: flex; gap: 4px; align-items: center; font-family: Inter; font-size: 11px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    border-radius: 4px;
+  }
+  .font-control label { letter-spacing: 0.1em; text-transform: uppercase; font-size: 9px; opacity: 0.55; margin-right: 4px; }
+  .font-control button {
+    background: var(--paper); border: 1px solid rgba(21,22,23,0.3);
+    width: 22px; height: 22px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; padding: 0; line-height: 1;
+  }
+  .font-control button:hover { background: var(--yellow); }
+  .font-control .size { min-width: 36px; text-align: center; font-weight: 600; font-size: 11px; }
+
+  /* ── ПЕЧАТЬ ── */
+  @page {
+    size: A4 landscape;
+    margin: 8mm 8mm 8mm 8mm;
+  }
+  @media print {
+    body { background: var(--white); font-size: 9.5pt; }
+    .top-bar, .font-control { display: none !important; }
+    .week-wrap {
+      margin: 0; padding: 0; box-shadow: none; max-width: 100%;
+      page-break-after: always;
+      page-break-inside: avoid;
+    }
+    .week-wrap:last-child { page-break-after: auto; }
+    .week-head { margin-bottom: 8pt; }
+    .week-title { font-size: 14pt; }
+    .week-title em { font-size: 16pt; }
+    table.print-grid thead th { padding: 4pt 6pt; font-size: 14pt; }
+    table.print-grid td, table.print-grid th { padding: 3pt 4pt; }
+    .item { margin-bottom: 5pt; padding-bottom: 4pt; }
+    .item-name { font-size: 9pt; }
+    .item-theme { font-size: 9pt; }
+    .item-meta { font-size: 7.5pt; }
+    /* Принтер всегда печатает цвет фона — иначе все жёлтые ячейки станут белыми */
+    body, .week-wrap, td.cell.trip {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+  }
+
+  /* Адаптив для предпросмотра на узких экранах: горизонтальная прокрутка */
+  @media (max-width: 1100px) {
+    .week-wrap { padding: 16px; overflow-x: auto; }
+    table.print-grid { min-width: 1100px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="lockscreen">
+  <h1>Прознание · Coddy</h1>
+  <p>введи пароль чтобы открыть расписание</p>
+  <input type="password" id="lock-input" placeholder="••••••" autocomplete="off" autofocus>
+  <div class="lock-err" id="lock-err"></div>
+</div>
+
+<div id="app">
+  <div class="top-bar">
+    <div class="top-bar-inner">
+      <div>
+        <div class="brand">Прознание · Coddy · Печатное расписание · 4 отряда</div>
+        <h1 class="title" id="view-title">Смена</h1>
+        <div class="subhead" id="view-subhead"></div>
+      </div>
+      <div class="actions">
+        <button onclick="window.print()" class="btn-primary">🖨 Печать</button>
+        <button onclick="goBack()">← в просмотр</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="weeks-container">
+    <div class="week-wrap"><em>Загрузка расписания…</em></div>
+  </div>
+</div>
+
+<div class="font-control">
+  <label>Шрифт</label>
+  <button onclick="changeFontSize(-1)" title="Меньше">−</button>
+  <div class="size" id="size-display">100%</div>
+  <button onclick="changeFontSize(1)" title="Больше">+</button>
+  <button onclick="resetFontSize()" title="Сбросить" style="margin-left:4px">↻</button>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ── ЛОКСКРИН — тот же sha256-пароль что в view4 ──
+  const PASS_HASH = '45e5a3f82cc81679d006c8d2f6e3cce87c89ec2059fe13a2d79438f0368b226a';
+  async function sha256(s) {
+    const buf = new TextEncoder().encode(s);
+    const hash = await crypto.subtle.digest('SHA-256', buf);
+    return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('');
+  }
+  function setUnlocked() {
+    document.body.classList.add('unlocked');
+    try { sessionStorage.setItem('proznanie_unlocked','1'); } catch(e) {}
+  }
+  if (sessionStorage.getItem('proznanie_unlocked') === '1') setUnlocked();
+  const lockInput = document.getElementById('lock-input');
+  const lockErr = document.getElementById('lock-err');
+  lockInput.addEventListener('keydown', async e => {
+    if (e.key === 'Enter') {
+      const v = lockInput.value;
+      if ((await sha256(v)) === PASS_HASH) { setUnlocked(); init(); }
+      else { lockErr.textContent = 'Неверный пароль'; lockInput.value=''; lockInput.focus(); }
+    }
+  });
+
+  // ── ОБЩИЕ КОНСТАНТЫ И УТИЛИТЫ ──
+  const LIBRARY_URL = 'https://script.google.com/macros/s/AKfycbxb6EEzzl-FguxjpIO5YthGLj-QXh7puCD_DO4HL4wVPziHL1pEtVeuo3uNEi2i2yXq/exec';
+  const NUM_DAYS = 10;
+  const NUM_TROOPS = 4;
+  const TIME_AM = '9:30 – 13:30';
+  const TIME_PM = '14:00 – 17:30';
+  const MONTHS = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+  const WEEKDAYS_FULL = ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
+  const WEEKDAYS_SHORT = ['вс','пн','вт','ср','чт','пт','сб'];
+
+  function escapeHtml(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function dateForDay(state, idx) {
+    // Смены всегда начинаются с понедельника; первый день = startDate (понедельник).
+    const start = new Date(state.startDate || new Date());
+    const d = new Date(start);
+    d.setDate(d.getDate() + idx);
+    return d;
+  }
+
+  // ── РЕЖИМ ПОЛОВИНЫ ДНЯ ──
+  function halfMode4(dOrType, half) {
+    if (dOrType && typeof dOrType === 'object' && (dOrType.amType !== undefined || dOrType.pmType !== undefined)) {
+      return dOrType[half + 'Type'] || 'normal';
+    }
+    // legacy: строковый day.type (старые публикации)
+    const type = String(dOrType || '');
+    const isAM = half === 'am';
+    switch (type) {
+      case 'seq3_am':       return isAM ? 'seq3' : 'normal';
+      case 'seq3_pm':       return isAM ? 'normal' : 'seq3';
+      case 'seq3_full':     return 'seq3';
+      case 'rot4_am':       return isAM ? 'rot4' : 'normal';
+      case 'rot4_pm':       return isAM ? 'normal' : 'rot4';
+      case 'rot4_full':     return 'rot4';
+      case 'trip4_am':      return isAM ? 'trip4' : 'normal';
+      case 'trip4_pm':      return isAM ? 'normal' : 'trip4';
+      case 'trip2_am':      return isAM ? 'trip2' : 'normal';
+      case 'trip2_pm':      return isAM ? 'normal' : 'trip2';
+      case 'trip2_full':    return 'trip2';
+      case 'parallel_am':   return isAM ? 'parallel' : 'normal';
+      case 'parallel_pm':   return isAM ? 'normal' : 'parallel';
+      case 'parallel_full': return 'parallel';
+      default:              return 'normal';
+    }
+  }
+  function multiStepTimes(half, mode) {
+    const fmt = m => Math.floor(m/60) + ':' + String(m%60).padStart(2,'0');
+    let startMin, endMin, n;
+    if (half === 'am') {
+      if (mode === 'seq3') { startMin = 600; endMin = 810; n = 3; }
+      else                 { startMin = 570; endMin = 810; n = 4; }
+    } else {
+      if (mode === 'seq3') { startMin = 870; endMin = 1050; n = 3; }
+      else                 { startMin = 840; endMin = 1050; n = 4; }
+    }
+    const step = Math.round((endMin - startMin) / n);
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const a = startMin + i*step;
+      const b = (i === n-1) ? endMin : startMin + (i+1)*step;
+      out.push(fmt(a) + '–' + fmt(b));
+    }
+    return out;
+  }
+  function parallel2Times(half) {
+    if (half === 'am') return ['9:30–11:30', '11:30–13:30'];
+    return ['14:00–15:45', '15:45–17:30'];
+  }
+
+  // ── ЗАГРУЗКА ПУБЛИКАЦИИ ──
+  let publishedState = null;
+  let publishedMeta = null;
+  let publishedId = '';
+
+  async function init() {
+    publishedId = (new URLSearchParams(location.search).get('id') || '').trim();
+    if (!publishedId) {
+      document.getElementById('weeks-container').innerHTML = '<div class="week-wrap"><em>Не передан id публикации. Откройте печать из админки или из просмотра, чтобы передать id.</em></div>';
+      return;
+    }
+    try {
+      const r = await fetch(LIBRARY_URL + '?action=getPublished&id=' + encodeURIComponent(publishedId));
+      const data = await r.json();
+      if (!data.ok || !data.publication) throw new Error(data.error || 'Не найдено');
+      publishedMeta = data.publication;
+      publishedState = JSON.parse(publishedMeta.stateJson || '{}');
+      normalizeState();
+      renderHeader();
+      renderAllWeeks();
+    } catch(e) {
+      document.getElementById('weeks-container').innerHTML = '<div class="week-wrap" style="color:#c0392b"><strong>Не удалось загрузить:</strong> ' + escapeHtml(e.message || e) + '</div>';
+    }
+  }
+
+  function normalizeState() {
+    if (!Array.isArray(publishedState.schedule)) publishedState.schedule = [];
+    publishedState.schedule.forEach(d => {
+      // На случай если публикация ещё в старом формате с day.type
+      if (d.type && !d.amType && !d.pmType) {
+        const am = halfMode4(d.type, 'am');
+        const pm = halfMode4(d.type, 'pm');
+        d.amType = am; d.pmType = pm;
+      }
+    });
+  }
+
+  function renderHeader() {
+    const t = publishedState.theme || publishedMeta.theme || '';
+    document.getElementById('view-title').innerHTML = t ? ('Смена <em>' + escapeHtml(t) + '</em>') : 'Печатное расписание';
+    const start = new Date(publishedState.startDate || new Date());
+    const totalDays = Math.min(publishedState.schedule.length, NUM_DAYS);
+    const last = new Date(start); last.setDate(last.getDate() + totalDays - 1);
+    const range = start.getDate() + ' ' + MONTHS[start.getMonth()] + ' — ' + last.getDate() + ' ' + MONTHS[last.getMonth()];
+    document.getElementById('view-subhead').textContent = range + ' · 4 отряда · ' + totalDays + ' дней';
+  }
+
+  // ── РЕНДЕР НЕДЕЛЬ ──
+  function renderAllWeeks() {
+    const container = document.getElementById('weeks-container');
+    const total = Math.min(publishedState.schedule.length, NUM_DAYS);
+    let html = '';
+    // Неделя 1: дни 0-4, Неделя 2: дни 5-9
+    for (let w = 0; w < 2; w++) {
+      const startIdx = w * 5;
+      const endIdx = Math.min(startIdx + 5, total);
+      if (startIdx >= total) break;
+      html += renderWeek(w + 1, startIdx, endIdx);
+    }
+    container.innerHTML = html || '<div class="week-wrap"><em>Нет дней для печати.</em></div>';
+  }
+
+  function renderWeek(weekNum, startIdx, endIdx) {
+    const theme = publishedState.theme || '';
+    const startDate = dateForDay(publishedState, startIdx);
+    const endDate = dateForDay(publishedState, endIdx - 1);
+    const dateRange = startDate.getDate() + ' ' + MONTHS[startDate.getMonth()] + ' – ' +
+                      endDate.getDate() + ' ' + MONTHS[endDate.getMonth()];
+
+    // Заголовки дней
+    let theadHtml = '<tr><th class="block-label">блок</th>';
+    for (let i = startIdx; i < endIdx; i++) {
+      const dt = dateForDay(publishedState, i);
+      theadHtml += `<th>День ${i+1}<span class="day-sub">${dt.getDate()} ${MONTHS[dt.getMonth()]} · ${WEEKDAYS_SHORT[dt.getDay()].toUpperCase()}</span></th>`;
+    }
+    theadHtml += '</tr>';
+
+    // Тело: 4 строки (утро 1-2, утро 3-4, после обеда 1-2, после обеда 3-4)
+    const rows = [
+      { half: 'am', troops: [1,2], label: 'До обеда<br>отряды 1, 2', time: '9:30–13:30' },
+      { half: 'am', troops: [3,4], label: 'До обеда<br>отряды 3, 4', time: '9:30–13:30' },
+      { half: 'pm', troops: [1,2], label: 'После обеда<br>отряды 1, 2', time: '14:00–17:30' },
+      { half: 'pm', troops: [3,4], label: 'После обеда<br>отряды 3, 4', time: '14:00–17:30' }
+    ];
+
+    let tbodyHtml = '';
+    rows.forEach(row => {
+      tbodyHtml += '<tr>';
+      tbodyHtml += `<td class="block-label">${row.label}<span class="time">${row.time}</span></td>`;
+      for (let i = startIdx; i < endIdx; i++) {
+        const d = publishedState.schedule[i];
+        tbodyHtml += renderCell(d, row.half, row.troops);
+      }
+      tbodyHtml += '</tr>';
+    });
+
+    return `
+      <div class="week-wrap">
+        <div class="week-head">
+          <span class="week-title">Неделя <em>${weekNum}</em></span>
+          <span class="week-sub">${dateRange}${theme ? ' · смена «' + escapeHtml(theme) + '»' : ''}</span>
+        </div>
+        <table class="print-grid">
+          <thead>${theadHtml}</thead>
+          <tbody>${tbodyHtml}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  // ── СОДЕРЖИМОЕ ЯЧЕЙКИ ──
+  // Возвращает <td>...</td> со всем что есть в этом блоке (полудне) для пары отрядов.
+  // troops = [a, b] — пара отрядов (например [1,2] или [3,4]).
+  function renderCell(d, half, troops) {
+    if (!d) return '<td class="cell empty">—</td>';
+    const mode = halfMode4(d, half);
+    const [tA, tB] = troops;
+    const isPairA = tA === 1; // пара 1-2 vs пара 3-4. Слоты в plain am[]/pm[]: 0,1 — пара A; 2,3 — пара B.
+    const slotIdxA = isPairA ? 0 : 2;
+    const slotIdxB = isPairA ? 1 : 3;
+
+    // Содержимое — массив строк (одна на занятие), плюс флаг isTrip для подкраски ячейки.
+    const items = [];
+    let cellIsTrip = false;
+
+    const arr = Array.isArray(d[half]) ? d[half] : [];
+
+    // Хелпер: формирует один item HTML
+    function item(slot, opts) {
+      opts = opts || {};
+      if (!slot || !slot.template) return '';
+      const trip = !!opts.trip;
+      const time = opts.time || '';
+      const troopsLabel = opts.troopsLabel || '';
+      const tripTag = trip ? '<span class="item-trip-tag">🚌 выезд</span>' : '';
+      const timeHtml = time ? `<span class="item-time">${escapeHtml(time)}</span>` : '';
+      const troopsBadge = troopsLabel ? `<span class="badge-troops">${escapeHtml(troopsLabel)}</span>` : '';
+      const theme = slot.theme ? `<div class="item-theme">«${escapeHtml(slot.theme)}»</div>` : '';
+      const meta = [];
+      if (slot.teacher) meta.push(escapeHtml(slot.teacher));
+      if (slot.room) meta.push(escapeHtml(slot.room));
+      const metaHtml = meta.length ? `<div class="item-meta">${timeHtml}${troopsBadge}${meta.join(' · ')}</div>` : (timeHtml || troopsBadge ? `<div class="item-meta">${timeHtml}${troopsBadge}</div>` : '');
+      return `<div class="item">
+        <div class="item-name">${tripTag}${escapeHtml(slot.template)}</div>
+        ${theme}
+        ${metaHtml}
+      </div>`;
+    }
+
+    if (mode === 'normal') {
+      // Каждому из двух отрядов пары — своё занятие. (slotIdxA — отряд tA, slotIdxB — отряд tB)
+      const s1 = arr[slotIdxA];
+      const s2 = arr[slotIdxB];
+      const has1 = s1 && s1.template;
+      const has2 = s2 && s2.template;
+      if (has1) items.push(item(s1, { troopsLabel: 'отр.' + tA, trip: !!s1.isTrip }));
+      if (has2) items.push(item(s2, { troopsLabel: 'отр.' + tB, trip: !!s2.isTrip }));
+      cellIsTrip = (has1 && s1.isTrip) && (has2 && s2.isTrip);
+    }
+    else if (mode === 'rot4') {
+      // Ротация-4: 4 станции, отряд tA проходит их в порядке (tA-1, tA, tA+1, tA+2)%4
+      // Но нас интересует пара (tA, tB), а они проходят станции по-разному (отстают на 1).
+      // Поэтому покажем для одного отряда (tA) — его 4 станции по времени.
+      // Второй отряд пары (tB) идёт со сдвигом, но в рамках этой строки таблицы (отряды tA, tB)
+      // мы показываем «куда ходит отряд tA», а у tB своя строка таблицы.
+      // НО: у нас строки делятся «пара 1-2 / пара 3-4», а не «отряд 1 / отряд 2». В rot4
+      // каждый отряд ходит сам по себе, поэтому для пары будем показывать оба отряда:
+      const multi = d[half + 'Multi'];
+      const stations = (multi && multi.stations) || [];
+      const times = multiStepTimes(half, 'rot4');
+      // Для отряда t: на шаге k он на станции (t-1 + k) % 4
+      [tA, tB].forEach(t => {
+        for (let k = 0; k < 4; k++) {
+          const stIdx = ((t - 1) + k) % 4;
+          const s = stations[stIdx];
+          if (s && s.template) {
+            items.push(item(s, { time: times[k], troopsLabel: 'отр.' + t }));
+          }
+        }
+      });
+    }
+    else if (mode === 'seq3') {
+      // 2 МК в ротации между отрядами пары + общий третий слот
+      const multi = d[half + 'Multi'];
+      const chain = (multi && (isPairA ? multi.chainA : multi.chainB)) || [];
+      const times = multiStepTimes(half, 'seq3');
+      // chain[0]: МК A. На шаге 0 — отряд tA, на шаге 1 — отряд tB
+      if (chain[0] && chain[0].template) {
+        items.push(item(chain[0], { time: times[0], troopsLabel: 'отр.' + tA }));
+        items.push(item(chain[0], { time: times[1], troopsLabel: 'отр.' + tB }));
+      }
+      // chain[1]: МК B. На шаге 0 — отряд tB, на шаге 1 — отряд tA
+      if (chain[1] && chain[1].template) {
+        items.push(item(chain[1], { time: times[0], troopsLabel: 'отр.' + tB }));
+        items.push(item(chain[1], { time: times[1], troopsLabel: 'отр.' + tA }));
+      }
+      // chain[2]: общее занятие на оба отряда пары
+      if (chain[2] && chain[2].template) {
+        items.push(item(chain[2], { time: times[2], troopsLabel: tA + '-' + tB }));
+      }
+    }
+    else if (mode === 'seq3trip') {
+      // 3 МК + выезд 2: одна пара учится (chainA), другая едет
+      const multi = d[half + 'Multi'];
+      if (!multi) return '<td class="cell empty">—</td>';
+      const sg = multi.studyGroup || 'A';
+      const studyPair = sg === 'A' ? [1,2] : [3,4];
+      const tripPair  = sg === 'A' ? [3,4] : [1,2];
+      const isStudyRow = (tA === studyPair[0]);
+      const times = multiStepTimes(half, 'seq3');
+      if (isStudyRow) {
+        // Эта строка — про учащуюся пару: 3 МК подряд
+        const chain = multi.chainA || [];
+        chain.forEach((s, i) => {
+          if (s && s.template) items.push(item(s, { time: times[i], troopsLabel: tA + '-' + tB }));
+        });
+      } else {
+        // Эта строка — про едущую пару: один выезд
+        const tripIdx = sg === 'A' ? 2 : 0;
+        const tripSlot = arr[tripIdx];
+        if (tripSlot && tripSlot.template) {
+          items.push(item(tripSlot, { troopsLabel: tA + '-' + tB, trip: true }));
+          cellIsTrip = true;
+        }
+      }
+    }
+    else if (mode === 'trip4') {
+      // Все 4 отряда на одном выезде. Слот am[0]. Показываем в обеих строках пары (1-2 и 3-4).
+      const s = arr[0];
+      if (s && s.template) {
+        items.push(item(s, { troopsLabel: '1-2-3-4', trip: true }));
+        cellIsTrip = true;
+      }
+    }
+    else if (mode === 'trip2') {
+      // Кластер 0,1 — обычные МК для отрядов tA, tB. Слот 2 — выезд пары 3-4.
+      // Но trip2 — это «выезд 2-х (3,4) + кластер из 1,2». Значит для пары 1-2 — два своих МК,
+      // для пары 3-4 — общий выезд.
+      if (isPairA) {
+        const s1 = arr[0], s2 = arr[1];
+        if (s1 && s1.template) items.push(item(s1, { troopsLabel: 'отр.' + tA }));
+        if (s2 && s2.template) items.push(item(s2, { troopsLabel: 'отр.' + tB }));
+      } else {
+        const s = arr[2];
+        if (s && s.template) {
+          items.push(item(s, { troopsLabel: tA + '-' + tB, trip: true }));
+          cellIsTrip = true;
+        }
+      }
+    }
+    else if (mode === 'parallel') {
+      // Два параллельных выезда: am[0] — для пары 1-2, am[2] — для пары 3-4
+      const idx = isPairA ? 0 : 2;
+      const s = arr[idx];
+      if (s && s.template) {
+        items.push(item(s, { troopsLabel: tA + '-' + tB, trip: true }));
+        cellIsTrip = true;
+      }
+    }
+    else if (mode === 'parallel2') {
+      // 2 круга с обменом. 1-й круг: pairA → am[0], pairB → am[2]. 2-й круг: меняются местами.
+      const [t1, t2] = parallel2Times(half);
+      const myFirst = isPairA ? arr[0] : arr[2];   // что у пары в 1-м круге
+      const mySecond = isPairA ? arr[2] : arr[0];  // что у пары во 2-м круге (это «партнёрский» выезд)
+      if (myFirst && myFirst.template) {
+        items.push(item(myFirst, { time: t1, troopsLabel: tA + '-' + tB, trip: true }));
+        cellIsTrip = true;
+      }
+      if (mySecond && mySecond.template) {
+        items.push(item(mySecond, { time: t2, troopsLabel: tA + '-' + tB, trip: true }));
+        cellIsTrip = true;
+      }
+    }
+
+    if (items.length === 0) return '<td class="cell empty">—</td>';
+    return '<td class="cell' + (cellIsTrip ? ' trip' : '') + '">' + items.join('') + '</td>';
+  }
+
+  // ── РЕГУЛЯТОР ШРИФТА ──
+  let fontScale = 100;
+  function applyFontSize() {
+    const px = 13 * (fontScale / 100);
+    document.documentElement.style.setProperty('--print-font-size', px + 'px');
+    document.getElementById('size-display').textContent = fontScale + '%';
+    try { localStorage.setItem('print4_font_scale', String(fontScale)); } catch(e) {}
+  }
+  function changeFontSize(delta) {
+    fontScale = Math.max(60, Math.min(140, fontScale + delta * 10));
+    applyFontSize();
+  }
+  function resetFontSize() { fontScale = 100; applyFontSize(); }
+  // Восстанавливаем сохранённый масштаб
+  try {
+    const saved = parseInt(localStorage.getItem('print4_font_scale'), 10);
+    if (!isNaN(saved) && saved >= 60 && saved <= 140) { fontScale = saved; applyFontSize(); }
+  } catch(e) {}
+  // Глобально для onclick кнопок
+  window.changeFontSize = changeFontSize;
+  window.resetFontSize = resetFontSize;
+  window.goBack = function() {
+    if (publishedId) location.href = 'view4.html?id=' + encodeURIComponent(publishedId);
+    else history.back();
+  };
+
+  // Если уже разблокировано — стартуем сразу
+  if (document.body.classList.contains('unlocked')) init();
+})();
+</script>
+</body>
+</html>
