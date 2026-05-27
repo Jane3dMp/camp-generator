@@ -136,8 +136,16 @@
     font-family: Inter; font-weight: 700; font-size: 0.78em; letter-spacing: 0.08em;
     text-transform: uppercase; line-height: 1.4;
     padding: 12px 12px;
+    position: relative;
   }
-  table.print-grid td.block-label .time { display: block; font-weight: 500; opacity: 0.8; margin-top: 4px; font-size: 0.95em; }
+  /* Цветная полоска слева — окрашена под цвет отряда */
+  table.print-grid td.t1-label { background: var(--troop-1); color: var(--white); }
+  table.print-grid td.t2-label { background: var(--troop-2); color: var(--white); }
+  table.print-grid td.t3-label { background: var(--troop-3); color: var(--white); }
+  table.print-grid td.t4-label { background: var(--troop-4); color: var(--white); }
+  table.print-grid td.block-label .time { display: block; font-weight: 500; opacity: 0.85; margin-top: 4px; font-size: 0.95em; }
+  /* Толстая граница сверху у первой строки отряда — визуальный разделитель отрядов */
+  table.print-grid tr.troop-group-start td { border-top: 2px solid var(--ink); }
 
   /* Ячейка дня */
   table.print-grid td.cell { background: var(--paper-warm); }
@@ -150,40 +158,34 @@
   }
   /* ── Внутри ячейки ── */
   .item {
-    margin-bottom: 12px; padding-bottom: 10px;
-    border-bottom: 1px dotted rgba(21,22,23,0.18);
+    margin-bottom: 9px; padding-bottom: 7px;
+    border-bottom: 1px dotted rgba(21,22,23,0.2);
   }
   .item:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+  .item-line {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 7px;
+    line-height: 1.3; margin-bottom: 2px;
+  }
+  .item-time {
+    font-family: Inter; font-weight: 600; font-style: normal;
+    color: var(--yellow-deep); font-size: 0.82em;
+    background: rgba(254,214,52,0.25); padding: 1px 6px; border-radius: 2px;
+    white-space: nowrap; letter-spacing: 0.02em;
+  }
+  .item-name { font-weight: 600; }
   .item-trip-tag {
     display: inline-block; background: var(--ink); color: var(--white);
     padding: 1px 6px; border-radius: 2px;
     font-size: 0.7em; letter-spacing: 0.08em; text-transform: uppercase;
-    margin-right: 4px;
-  }
-  .item-name {
-    font-weight: 600; line-height: 1.3; margin-bottom: 3px;
   }
   .item-theme {
     font-family: Caveat, cursive; font-style: italic; font-size: 1.05em;
-    color: var(--yellow-deep); margin: 1px 0 4px;
+    color: var(--yellow-deep); margin: 1px 0 3px;
     line-height: 1.2;
   }
   .item-meta {
-    display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center;
-    font-size: 0.82em; color: rgba(21,22,23,0.7);
+    font-size: 0.78em; color: rgba(21,22,23,0.7); line-height: 1.4;
   }
-  .item-time {
-    font-family: Inter; font-weight: 500; font-style: italic;
-    color: var(--yellow-deep); margin-right: 4px; font-size: 0.85em;
-  }
-  /* Бейдж отрядов: «1-2», «3-4», «1-2-3-4», «отр.1» */
-  .badge-troops {
-    display: inline-block; background: var(--yellow); padding: 1px 6px; border-radius: 2px;
-    font-weight: 700; font-size: 0.78em; letter-spacing: 0.04em;
-    color: var(--ink);
-  }
-  /* Внутри жёлтой ячейки бейдж становится тёмный, чтобы был контраст */
-  td.trip .badge-troops { background: var(--ink); color: var(--white); }
 
   /* ── Регулятор шрифта в углу (не печатается) ── */
   .font-control {
@@ -444,29 +446,35 @@
     const dateRange = startDate.getDate() + ' ' + MONTHS[startDate.getMonth()] + ' – ' +
                       endDate.getDate() + ' ' + MONTHS[endDate.getMonth()];
 
-    // Заголовки дней
-    let theadHtml = '<tr><th class="block-label">блок</th>';
+    // Шапка дней
+    let theadHtml = '<tr><th class="block-label">отряд</th>';
     for (let i = startIdx; i < endIdx; i++) {
       const dt = dateForDay(publishedState, i);
       theadHtml += `<th>День ${i+1}<span class="day-sub">${dt.getDate()} ${MONTHS[dt.getMonth()]} · ${WEEKDAYS_SHORT[dt.getDay()].toUpperCase()}</span></th>`;
     }
     theadHtml += '</tr>';
 
-    // Тело: 4 строки (утро 1-2, утро 3-4, после обеда 1-2, после обеда 3-4)
-    const rows = [
-      { half: 'am', troops: [1,2], label: 'До обеда<br>отряды 1, 2', time: '9:30–13:30' },
-      { half: 'am', troops: [3,4], label: 'До обеда<br>отряды 3, 4', time: '9:30–13:30' },
-      { half: 'pm', troops: [1,2], label: 'После обеда<br>отряды 1, 2', time: '14:00–17:30' },
-      { half: 'pm', troops: [3,4], label: 'После обеда<br>отряды 3, 4', time: '14:00–17:30' }
-    ];
+    // Тело: 8 строк = 4 отряда × 2 половины дня.
+    // Сначала все отряды утром (1, 2, 3, 4 — до обеда), потом — после обеда.
+    // Группировка важна: вожатый смотрит свою строку «отряд 1 · утро» и видит весь день,
+    // потом строка «отряд 1 · вечер» сразу под ней.
+    const rows = [];
+    for (let troop = 1; troop <= NUM_TROOPS; troop++) {
+      rows.push({ troop, half: 'am', label: 'Отряд ' + troop + '<br>до обеда', time: '9:30–13:30' });
+      rows.push({ troop, half: 'pm', label: 'Отряд ' + troop + '<br>после обеда', time: '14:00–17:30' });
+    }
 
     let tbodyHtml = '';
+    let lastTroop = 0;
     rows.forEach(row => {
-      tbodyHtml += '<tr>';
-      tbodyHtml += `<td class="block-label">${row.label}<span class="time">${row.time}</span></td>`;
+      const isNewTroopGroup = row.troop !== lastTroop;
+      lastTroop = row.troop;
+      const rowClass = 't' + row.troop + (isNewTroopGroup ? ' troop-group-start' : '');
+      tbodyHtml += `<tr class="${rowClass}">`;
+      tbodyHtml += `<td class="block-label t${row.troop}-label">${row.label}<span class="time">${row.time}</span></td>`;
       for (let i = startIdx; i < endIdx; i++) {
         const d = publishedState.schedule[i];
-        tbodyHtml += renderCell(d, row.half, row.troops);
+        tbodyHtml += renderTroopCell(d, row.half, row.troop);
       }
       tbodyHtml += '</tr>';
     });
@@ -485,172 +493,147 @@
     `;
   }
 
-  // ── СОДЕРЖИМОЕ ЯЧЕЙКИ ──
-  // Возвращает <td>...</td> со всем что есть в этом блоке (полудне) для пары отрядов.
-  // troops = [a, b] — пара отрядов (например [1,2] или [3,4]).
-  function renderCell(d, half, troops) {
+  // Содержимое одной ячейки: расписание ОДНОГО отряда в этот блок дня.
+  // Один отряд — одна история. Строки «время · МК · педагог · кабинет», без повторов и без бейджей.
+  function renderTroopCell(d, half, troop) {
     if (!d) return '<td class="cell empty">—</td>';
     const mode = halfMode4(d, half);
-    const [tA, tB] = troops;
-    const isPairA = tA === 1; // пара 1-2 vs пара 3-4. Слоты в plain am[]/pm[]: 0,1 — пара A; 2,3 — пара B.
-    const slotIdxA = isPairA ? 0 : 2;
-    const slotIdxB = isPairA ? 1 : 3;
+    const arr = Array.isArray(d[half]) ? d[half] : [];
+    const isPairA = (troop === 1 || troop === 2);
+    const partner = isPairA ? (troop === 1 ? 2 : 1) : (troop === 3 ? 4 : 3);
 
-    // Содержимое — массив строк (одна на занятие), плюс флаг isTrip для подкраски ячейки.
-    const items = [];
+    const items = []; // {time?, slot, tripBadge?, pairLabel?}
     let cellIsTrip = false;
 
-    const arr = Array.isArray(d[half]) ? d[half] : [];
-
-    // Хелпер: формирует один item HTML
-    function item(slot, opts) {
-      opts = opts || {};
-      if (!slot || !slot.template) return '';
-      const trip = !!opts.trip;
-      const time = opts.time || '';
-      const troopsLabel = opts.troopsLabel || '';
-      const tripTag = trip ? '<span class="item-trip-tag">🚌 выезд</span>' : '';
-      const timeHtml = time ? `<span class="item-time">${escapeHtml(time)}</span>` : '';
-      const troopsBadge = troopsLabel ? `<span class="badge-troops">${escapeHtml(troopsLabel)}</span>` : '';
-      const theme = slot.theme ? `<div class="item-theme">«${escapeHtml(slot.theme)}»</div>` : '';
-      const meta = [];
-      if (slot.teacher) meta.push(escapeHtml(slot.teacher));
-      if (slot.room) meta.push(escapeHtml(slot.room));
-      const metaHtml = meta.length ? `<div class="item-meta">${timeHtml}${troopsBadge}${meta.join(' · ')}</div>` : (timeHtml || troopsBadge ? `<div class="item-meta">${timeHtml}${troopsBadge}</div>` : '');
-      return `<div class="item">
-        <div class="item-name">${tripTag}${escapeHtml(slot.template)}</div>
-        ${theme}
-        ${metaHtml}
-      </div>`;
-    }
-
     if (mode === 'normal') {
-      // Каждому из двух отрядов пары — своё занятие. (slotIdxA — отряд tA, slotIdxB — отряд tB)
-      const s1 = arr[slotIdxA];
-      const s2 = arr[slotIdxB];
-      const has1 = s1 && s1.template;
-      const has2 = s2 && s2.template;
-      if (has1) items.push(item(s1, { troopsLabel: 'отр.' + tA, trip: !!s1.isTrip }));
-      if (has2) items.push(item(s2, { troopsLabel: 'отр.' + tB, trip: !!s2.isTrip }));
-      cellIsTrip = (has1 && s1.isTrip) && (has2 && s2.isTrip);
+      // У отряда своё одно занятие на весь блок (slot[troop-1])
+      const s = arr[troop - 1];
+      if (s && s.template) {
+        items.push({ slot: s, time: '', trip: !!s.isTrip });
+        cellIsTrip = !!s.isTrip;
+      }
     }
     else if (mode === 'rot4') {
-      // Ротация-4: 4 станции, отряд tA проходит их в порядке (tA-1, tA, tA+1, tA+2)%4
-      // Но нас интересует пара (tA, tB), а они проходят станции по-разному (отстают на 1).
-      // Поэтому покажем для одного отряда (tA) — его 4 станции по времени.
-      // Второй отряд пары (tB) идёт со сдвигом, но в рамках этой строки таблицы (отряды tA, tB)
-      // мы показываем «куда ходит отряд tA», а у tB своя строка таблицы.
-      // НО: у нас строки делятся «пара 1-2 / пара 3-4», а не «отряд 1 / отряд 2». В rot4
-      // каждый отряд ходит сам по себе, поэтому для пары будем показывать оба отряда:
+      // Отряд проходит 4 станции по очереди. На шаге k он на станции ((troop-1) + k) % 4.
       const multi = d[half + 'Multi'];
       const stations = (multi && multi.stations) || [];
       const times = multiStepTimes(half, 'rot4');
-      // Для отряда t: на шаге k он на станции (t-1 + k) % 4
-      [tA, tB].forEach(t => {
-        for (let k = 0; k < 4; k++) {
-          const stIdx = ((t - 1) + k) % 4;
-          const s = stations[stIdx];
-          if (s && s.template) {
-            items.push(item(s, { time: times[k], troopsLabel: 'отр.' + t }));
-          }
-        }
-      });
+      for (let k = 0; k < 4; k++) {
+        const stIdx = ((troop - 1) + k) % 4;
+        const s = stations[stIdx];
+        if (s && s.template) items.push({ slot: s, time: times[k] });
+      }
     }
     else if (mode === 'seq3') {
-      // 2 МК в ротации между отрядами пары + общий третий слот
+      // У отряда 3 занятия по времени: 10:00, 11:10, 12:20.
+      // chain[0] = МК A; chain[1] = МК B; chain[2] = общий.
+      // Для отряда tA (первого в паре): шаг 0 → МК A, шаг 1 → МК B, шаг 2 → общий.
+      // Для отряда tB (второго): шаг 0 → МК B, шаг 1 → МК A, шаг 2 → общий.
       const multi = d[half + 'Multi'];
       const chain = (multi && (isPairA ? multi.chainA : multi.chainB)) || [];
       const times = multiStepTimes(half, 'seq3');
-      // chain[0]: МК A. На шаге 0 — отряд tA, на шаге 1 — отряд tB
-      if (chain[0] && chain[0].template) {
-        items.push(item(chain[0], { time: times[0], troopsLabel: 'отр.' + tA }));
-        items.push(item(chain[0], { time: times[1], troopsLabel: 'отр.' + tB }));
-      }
-      // chain[1]: МК B. На шаге 0 — отряд tB, на шаге 1 — отряд tA
-      if (chain[1] && chain[1].template) {
-        items.push(item(chain[1], { time: times[0], troopsLabel: 'отр.' + tB }));
-        items.push(item(chain[1], { time: times[1], troopsLabel: 'отр.' + tA }));
-      }
-      // chain[2]: общее занятие на оба отряда пары
-      if (chain[2] && chain[2].template) {
-        items.push(item(chain[2], { time: times[2], troopsLabel: tA + '-' + tB }));
-      }
+      // Определяем «я первый в паре или второй»
+      const isFirstInPair = (troop === 1 || troop === 3);
+      const seq = isFirstInPair ? [0, 1, 2] : [1, 0, 2];
+      seq.forEach((slotIdx, stepIdx) => {
+        const s = chain[slotIdx];
+        if (s && s.template) items.push({ slot: s, time: times[stepIdx] });
+      });
     }
     else if (mode === 'seq3trip') {
-      // 3 МК + выезд 2: одна пара учится (chainA), другая едет
+      // Учится одна пара (chainA, в studyGroup), едет другая.
       const multi = d[half + 'Multi'];
-      if (!multi) return '<td class="cell empty">—</td>';
-      const sg = multi.studyGroup || 'A';
-      const studyPair = sg === 'A' ? [1,2] : [3,4];
-      const tripPair  = sg === 'A' ? [3,4] : [1,2];
-      const isStudyRow = (tA === studyPair[0]);
-      const times = multiStepTimes(half, 'seq3');
-      if (isStudyRow) {
-        // Эта строка — про учащуюся пару: 3 МК подряд
-        const chain = multi.chainA || [];
-        chain.forEach((s, i) => {
-          if (s && s.template) items.push(item(s, { time: times[i], troopsLabel: tA + '-' + tB }));
-        });
-      } else {
-        // Эта строка — про едущую пару: один выезд
-        const tripIdx = sg === 'A' ? 2 : 0;
-        const tripSlot = arr[tripIdx];
-        if (tripSlot && tripSlot.template) {
-          items.push(item(tripSlot, { troopsLabel: tA + '-' + tB, trip: true }));
-          cellIsTrip = true;
+      if (multi) {
+        const sg = multi.studyGroup || 'A';
+        const studyPair = sg === 'A' ? [1,2] : [3,4];
+        const tripPair  = sg === 'A' ? [3,4] : [1,2];
+        const iAmStudying = studyPair.indexOf(troop) >= 0;
+        if (iAmStudying) {
+          // 3 МК подряд для меня
+          const chain = multi.chainA || [];
+          const times = multiStepTimes(half, 'seq3');
+          chain.forEach((s, i) => {
+            if (s && s.template) items.push({ slot: s, time: times[i] });
+          });
+        } else {
+          // Выезд — слот am[2] если studyGroup='A', am[0] если 'B'
+          const tripIdx = sg === 'A' ? 2 : 0;
+          const s = arr[tripIdx];
+          if (s && s.template) {
+            items.push({ slot: s, trip: true });
+            cellIsTrip = true;
+          }
         }
       }
     }
     else if (mode === 'trip4') {
-      // Все 4 отряда на одном выезде. Слот am[0]. Показываем в обеих строках пары (1-2 и 3-4).
+      // Все 4 отряда на одном выезде
       const s = arr[0];
       if (s && s.template) {
-        items.push(item(s, { troopsLabel: '1-2-3-4', trip: true }));
+        items.push({ slot: s, trip: true });
         cellIsTrip = true;
       }
     }
     else if (mode === 'trip2') {
-      // Кластер 0,1 — обычные МК для отрядов tA, tB. Слот 2 — выезд пары 3-4.
-      // Но trip2 — это «выезд 2-х (3,4) + кластер из 1,2». Значит для пары 1-2 — два своих МК,
-      // для пары 3-4 — общий выезд.
+      // У пары A (1-2) обычные слоты, у пары B (3-4) общий выезд из am[2]
       if (isPairA) {
-        const s1 = arr[0], s2 = arr[1];
-        if (s1 && s1.template) items.push(item(s1, { troopsLabel: 'отр.' + tA }));
-        if (s2 && s2.template) items.push(item(s2, { troopsLabel: 'отр.' + tB }));
+        const s = arr[troop - 1];
+        if (s && s.template) items.push({ slot: s });
       } else {
         const s = arr[2];
         if (s && s.template) {
-          items.push(item(s, { troopsLabel: tA + '-' + tB, trip: true }));
+          items.push({ slot: s, trip: true });
           cellIsTrip = true;
         }
       }
     }
     else if (mode === 'parallel') {
-      // Два параллельных выезда: am[0] — для пары 1-2, am[2] — для пары 3-4
+      // Два выезда: am[0] для пары 1-2, am[2] для пары 3-4
       const idx = isPairA ? 0 : 2;
       const s = arr[idx];
       if (s && s.template) {
-        items.push(item(s, { troopsLabel: tA + '-' + tB, trip: true }));
+        items.push({ slot: s, trip: true });
         cellIsTrip = true;
       }
     }
     else if (mode === 'parallel2') {
-      // 2 круга с обменом. 1-й круг: pairA → am[0], pairB → am[2]. 2-й круг: меняются местами.
+      // Два круга с обменом
       const [t1, t2] = parallel2Times(half);
-      const myFirst = isPairA ? arr[0] : arr[2];   // что у пары в 1-м круге
-      const mySecond = isPairA ? arr[2] : arr[0];  // что у пары во 2-м круге (это «партнёрский» выезд)
+      const myFirst = isPairA ? arr[0] : arr[2];
+      const mySecond = isPairA ? arr[2] : arr[0];
       if (myFirst && myFirst.template) {
-        items.push(item(myFirst, { time: t1, troopsLabel: tA + '-' + tB, trip: true }));
+        items.push({ slot: myFirst, time: t1, trip: true });
         cellIsTrip = true;
       }
       if (mySecond && mySecond.template) {
-        items.push(item(mySecond, { time: t2, troopsLabel: tA + '-' + tB, trip: true }));
+        items.push({ slot: mySecond, time: t2, trip: true });
         cellIsTrip = true;
       }
     }
 
     if (items.length === 0) return '<td class="cell empty">—</td>';
-    return '<td class="cell' + (cellIsTrip ? ' trip' : '') + '">' + items.join('') + '</td>';
+
+    const html = items.map(it => formatItem(it)).join('');
+    return '<td class="cell' + (cellIsTrip ? ' trip' : '') + '">' + html + '</td>';
+  }
+
+  // Одна строка-занятие: «10:00 · МК · педагог · кабинет», тема курсивом ниже.
+  function formatItem(it) {
+    const s = it.slot;
+    if (!s || !s.template) return '';
+    const time = it.time || '';
+    const tripTag = it.trip ? '<span class="item-trip-tag">🚌 выезд</span>' : '';
+    const timeHtml = time ? `<span class="item-time">${escapeHtml(time)}</span>` : '';
+    const theme = s.theme ? `<div class="item-theme">«${escapeHtml(s.theme)}»</div>` : '';
+    const meta = [];
+    if (s.teacher) meta.push(escapeHtml(s.teacher));
+    if (s.room) meta.push(escapeHtml(s.room));
+    const metaHtml = meta.length ? `<div class="item-meta">${meta.join(' · ')}</div>` : '';
+    return `<div class="item">
+      <div class="item-line">${timeHtml}${tripTag}<span class="item-name">${escapeHtml(s.template)}</span></div>
+      ${theme}
+      ${metaHtml}
+    </div>`;
   }
 
   // ── РЕГУЛЯТОР ШРИФТА ──
