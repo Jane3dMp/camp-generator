@@ -572,7 +572,13 @@
   // (дедупликация по template+theme), потому что разным отрядам часто ставят
   // одно и то же или разное. Выезды — карточкой с бейджем. Без отрядов/педагогов.
   // Режим половины дня по типу (синхронно с index4/view4).
-  function halfModeP(type, half) {
+  function halfModeP(dOrType, half) {
+    // Новая модель: объект дня с amType/pmType
+    if (dOrType && typeof dOrType === 'object' && (dOrType.amType !== undefined || dOrType.pmType !== undefined)) {
+      return dOrType[half + 'Type'] || 'normal';
+    }
+    // Старая модель: строка day.type (для совместимости со старыми публикациями)
+    const type = String(dOrType || '');
     const isAM = half === 'am';
     switch (type) {
       case 'seq3_am':       return isAM ? 'seq3' : 'normal';
@@ -643,14 +649,14 @@
 
       // Собирает уникальные активности блока (am/pm) с дедупликацией по template+theme.
       const collectUnique = (half) => {
-        const mode = halfModeP(d.type || 'normal', half);
+        const mode = halfModeP(d, half);
         let pool;
         if (mode === 'seq3' || mode === 'rot4') {
           pool = multiSlots(d, half);
         } else {
           const arr = d[half];
           if (!Array.isArray(arr)) return [];
-          const activeIdx = activeSlotIndices4(d.type || 'normal', half);
+          const activeIdx = activeSlotIndices4(d, half);
           pool = activeIdx.map(i => arr[i]);
         }
         const seen = new Set();
@@ -763,11 +769,11 @@
     publishedState.schedule.forEach(d => {
       if (!d) return;
       ['am','pm'].forEach(half => {
-        const mode = halfModeP(d.type || 'normal', half);
+        const mode = halfModeP(d, half);
         if (mode === 'seq3' || mode === 'rot4') {
           multiSlots(d, half).forEach(collect);
         } else if (Array.isArray(d[half])) {
-          activeSlotIndices4(d.type || 'normal', half).forEach(i => collect(d[half][i]));
+          activeSlotIndices4(d, half).forEach(i => collect(d[half][i]));
         }
       });
     });

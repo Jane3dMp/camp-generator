@@ -417,7 +417,7 @@
     publishedState.schedule.forEach(d => {
       if (!d) return;
       ['am','pm'].forEach(half => {
-        const mode = halfMode4(d.type || 'normal', half);
+        const mode = halfMode4(d, half);
         if (mode === 'seq3' || mode === 'rot4') {
           const multi = d[half + 'Multi'];
           if (!multi) return;
@@ -430,7 +430,7 @@
         if (!Array.isArray(arr)) return;
         // Только активные слоты по типу дня — чтобы «призраки» из мусорных
         // слотов выездных раскладок не попадали в список.
-        activeSlotsForHalf(d.type || 'normal', half).forEach(a => {
+        activeSlotsForHalf(d, half).forEach(a => {
           const s = arr[a.idx];
           if (s) tryAdd(String(s.teacher || '').trim());
         });
@@ -488,7 +488,13 @@
       { idx: 3, troopsLabel: 'отряд 4', isTrip: false }
     ];
   }
-  function halfMode4(type, half) {
+  function halfMode4(dOrType, half) {
+    // Новая модель: объект дня с amType/pmType
+    if (dOrType && typeof dOrType === 'object' && (dOrType.amType !== undefined || dOrType.pmType !== undefined)) {
+      return dOrType[half + 'Type'] || 'normal';
+    }
+    // Старая модель: строка day.type (для совместимости со старыми публикациями)
+    const type = String(dOrType || '');
     const isAM = half === 'am';
     switch (type) {
       case 'seq3_am':       return isAM ? 'seq3' : 'normal';
@@ -538,7 +544,7 @@
       const weekday = WEEKDAYS[date.getDay()];
       const slots = [];
       ['am','pm'].forEach(half => {
-        const mode = halfMode4(d.type || 'normal', half);
+        const mode = halfMode4(d, half);
         // Режим «много МК» — занятия из amMulti/pmMulti.
         if (mode === 'seq3' || mode === 'rot4') {
           const multi = d[half + 'Multi'];
@@ -574,7 +580,7 @@
         const arr = d[half];
         if (!Array.isArray(arr)) return;
         const time = half === 'am' ? TIME_AM : TIME_PM;
-        const active = activeSlotsForHalf(d.type || 'normal', half);
+        const active = activeSlotsForHalf(d, half);
         active.forEach(a => {
           const s = arr[a.idx];
           if (!s || !s.template) return;
@@ -709,7 +715,7 @@
           <div class="vday-body">`;
 
       const renderHalf = (half, time, label) => {
-        const mode = halfMode4(d.type || 'normal', half);
+        const mode = halfMode4(d, half);
         // Режим «много МК»: показываем цепочки/станции со временами шагов.
         if (mode === 'seq3' || mode === 'rot4') {
           const multi = d[half + 'Multi'];
@@ -737,7 +743,7 @@
         }
         const arr = d[half];
         if (!Array.isArray(arr)) return '';
-        const active = activeSlotsForHalf(d.type || 'normal', half);
+        const active = activeSlotsForHalf(d, half);
         const filled = active.map(a => ({ s: arr[a.idx], troop: a.idx + 1, label: a.troopsLabel, isTrip: a.isTrip }))
                              .filter(x => x.s && x.s.template);
         if (filled.length === 0) return '';

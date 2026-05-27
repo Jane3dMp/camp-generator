@@ -444,14 +444,25 @@
     border-right: 1px solid var(--ink);
   }
 
-  /* Переключатель типов дня */
+  /* Переключатель режимов половины дня — две строки (до обеда / после обеда) */
+  .day-type-row {
+    display: flex; align-items: center; gap: 8px;
+    border-top: 1px solid rgba(21,22,23,0.18);
+    background: var(--paper-deep);
+    padding: 0 0 0 12px;
+  }
+  .day-type-row + .day-type-row { border-top: 1px solid rgba(21,22,23,0.1); }
+  .day-type-label {
+    font-family: Inter, system-ui, sans-serif; font-size: 10px;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: rgba(21,22,23,0.55); font-weight: 700;
+    flex-shrink: 0; min-width: 88px;
+  }
   .day-type-switch {
     display: flex;
     flex-wrap: wrap;
     gap: 0;
-    border-top: 1px solid var(--ink);
-    border-bottom: 1px solid var(--ink);
-    background: var(--paper-deep);
+    flex: 1;
   }
   .day-type-btn {
     background: transparent;
@@ -1045,6 +1056,7 @@
     .day-halves .troops-row { grid-template-columns: repeat(2, 1fr); }
     .config-panel { grid-template-columns: 1fr 1fr; }
     .day-type-btn { font-size: 9px; padding: 6px 8px; letter-spacing: 0.04em; }
+    .day-type-label { min-width: 70px; font-size: 9px; }
   }
   @media (max-width: 640px) {
     .troops-row { grid-template-columns: 1fr; }
@@ -1052,6 +1064,8 @@
     .trip2-row, .parallel-row { grid-template-columns: 1fr; }
     .day-head { grid-template-columns: 1fr; gap: 8px; }
     /* Переключатель типов — горизонтальная прокрутка вместо переноса */
+    .day-type-row { padding: 4px 8px; gap: 6px; }
+    .day-type-label { min-width: auto; }
     .day-type-switch { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .day-type-btn { flex: 0 0 auto; }
   }
@@ -1384,7 +1398,8 @@ function isTripFormat(fmt) {
 
 function emptyDay() {
   return {
-    type: 'normal',  // тип дня: см. DAY_TYPES — управляет раскладкой (выезды/параллельные/много МК)
+    amType: 'normal',  // режим первой половины дня: normal | seq3 | rot4 | trip2 | trip4 | parallel
+    pmType: 'normal',  // режим второй половины дня
     am: Array.from({length: NUM_TROOPS}, () => defaultSlot()),
     pm: Array.from({length: NUM_TROOPS}, () => defaultSlot())
     // amMulti / pmMulti — добавляются по необходимости (режим нескольких МК):
@@ -1404,10 +1419,8 @@ function emptyMulti(mode) {
 
 // Времена шагов внутри половины с несколькими МК.
 // seq3: 3 занятия с 10:00, по 70 мин до 13:30 (после обеда — с 14:30, по 70 мин).
-// rot4: 4 станции с 9:30, по 60 мин до 13:30 (после обеда — с 14:00, по 60 мин... но half=pm
-//        начинается в 14:00 — там 4×~52 мин до 17:30; оставим равные доли).
+// rot4: 4 станции с 9:30, по 60 мин до 13:30 (после обеда — с 14:00).
 function multiStepTimes(half, mode) {
-  // Возвращает массив строк «9:30–10:30».
   const fmt = (mins) => {
     const h = Math.floor(mins / 60), m = mins % 60;
     return h + ':' + String(m).padStart(2, '0');
@@ -1430,28 +1443,17 @@ function multiStepTimes(half, mode) {
   return out;
 }
 
-// Типы дня. Данные всегда плоские (am[4]/pm[4]) ИЛИ amMulti/pmMulti для режимов с несколькими МК.
-// type меняет раскладку и группировку.
-// Группа A = отряды 1,2 (индексы 0,1); группа B = отряды 3,4 (индексы 2,3).
-const DAY_TYPES = [
-  { key: 'normal',        label: 'Обычный' },
-  { key: 'seq3_am',       label: '3 МК до обеда' },
-  { key: 'seq3_pm',       label: '3 МК после' },
-  { key: 'seq3_full',     label: '3 МК × 2' },
-  { key: 'rot4_am',       label: 'Ротация 4 до обеда' },
-  { key: 'rot4_pm',       label: 'Ротация 4 после' },
-  { key: 'rot4_full',     label: 'Ротация 4 × 2' },
-  { key: 'trip2_am',      label: 'Выезд 2 до обеда' },
-  { key: 'trip2_pm',      label: 'Выезд 2 после' },
-  { key: 'trip2_full',    label: 'Выезд 2 × 2' },
-  { key: 'trip4_am',      label: 'Выезд 4 до обеда' },
-  { key: 'trip4_pm',      label: 'Выезд 4 после' },
-  { key: 'parallel_am',   label: 'Парал. до обеда' },
-  { key: 'parallel_pm',   label: 'Парал. после' },
-  { key: 'parallel_full', label: 'Парал. × 2' }
+// Список режимов для одной половины дня — кнопки переключателя.
+const HALF_MODES = [
+  { key: 'normal',   label: 'Обычный' },
+  { key: 'seq3',     label: '3 МК подряд' },
+  { key: 'rot4',     label: 'Ротация 4' },
+  { key: 'trip2',    label: 'Выезд 2 + кластер' },
+  { key: 'trip4',    label: 'Выезд 4' },
+  { key: 'parallel', label: 'Параллельные выезды' }
 ];
-function dayTypeLabel(key) {
-  const t = DAY_TYPES.find(x => x.key === key);
+function halfModeLabel(mode) {
+  const t = HALF_MODES.find(x => x.key === mode);
   return t ? t.label : 'Обычный';
 }
 
@@ -1608,8 +1610,8 @@ function renderDay(day, idx) {
   const dayContextLabel = idx === 0 ? 'старт смены, знакомство' :
                           idx === NUM_DAYS - 1 ? 'финал смены' : 'учебный день';
 
-  const dayTypeBtns = DAY_TYPES.map(t =>
-    `<button class="day-type-btn ${day.type === t.key ? 'active' : ''}" onclick="setDayType(${idx},'${t.key}')">${t.label}</button>`
+  const halfBtns = (half) => HALF_MODES.map(m =>
+    `<button class="day-type-btn ${day[half+'Type'] === m.key ? 'active' : ''}" onclick="setHalfType(${idx},'${half}','${m.key}')">${m.label}</button>`
   ).join('');
 
   card.innerHTML = `
@@ -1627,7 +1629,14 @@ function renderDay(day, idx) {
         <button class="btn btn-sm" onclick="clearDay(${idx})" title="Очистить весь день">🧹 день</button>
       </div>
     </div>
-    <div class="day-type-switch no-print">${dayTypeBtns}</div>
+    <div class="day-type-row no-print">
+      <span class="day-type-label">До обеда:</span>
+      <div class="day-type-switch">${halfBtns('am')}</div>
+    </div>
+    <div class="day-type-row no-print">
+      <span class="day-type-label">После обеда:</span>
+      <div class="day-type-switch">${halfBtns('pm')}</div>
+    </div>
     <div class="day-body" id="day-body-${idx}"></div>
   `;
   const body = card.querySelector(`#day-body-${idx}`);
@@ -1658,7 +1667,7 @@ function renderHalf(dayIdx, half) {
   const time = isAM ? TIME_AM : TIME_PM;
   const arr = state.schedule[dayIdx][half];
   const day = state.schedule[dayIdx];
-  const mode = halfMode(day.type, half);
+  const mode = halfMode(day, half);
 
   const wrap = document.createElement('div');
 
@@ -1738,9 +1747,16 @@ function renderHalf(dayIdx, half) {
   return wrap;
 }
 
-// Возвращает режим раскладки конкретной половины дня по типу дня.
-// 'normal' | 'trip4' | 'trip2' | 'parallel'
-function halfMode(type, half) {
+// Возвращает режим раскладки конкретной половины дня.
+// Совместимо: можно передать ИЛИ день (объект с amType/pmType), ИЛИ старую строку type.
+// 'normal' | 'trip4' | 'trip2' | 'parallel' | 'seq3' | 'rot4'
+function halfMode(dOrType, half) {
+  // Новый путь: передан объект дня
+  if (dOrType && typeof dOrType === 'object' && (dOrType.amType !== undefined || dOrType.pmType !== undefined)) {
+    return dOrType[half + 'Type'] || 'normal';
+  }
+  // Старый путь: строка day.type — оставлен для совместимости (миграция, archive)
+  const type = String(dOrType || '');
   const isAM = half === 'am';
   switch (type) {
     case 'seq3_am':       return isAM ? 'seq3' : 'normal';
@@ -2019,43 +2035,39 @@ function clearDay(day) {
   toast('День очищен');
 }
 
-// Меняет тип дня. При переключении на выездной режим помечает ведущие слоты как выезд
-// (isTrip=true), при возврате к normal — снимает isTrip со всех слотов половины.
-// Данные не теряются: слоты остаются на местах, меняется только их роль и раскладка.
-function setDayType(day, type) {
+// Меняет режим ОДНОЙ половины дня (до обеда или после), не трогая другую.
+// Это ключевое отличие от старой setDayType: данные второй половины полностью сохраняются.
+// При переходе в выездной режим помечает ведущие слоты isTrip, при возврате к normal — снимает.
+function setHalfType(day, half, mode) {
   const d = state.schedule[day];
   if (!d) return;
-  if (d.type === type) return;
-  if (!DAY_TYPES.find(t => t.key === type)) return;
-  pushUndoSnapshot('тип дня → ' + dayTypeLabel(type));
-  d.type = type;
+  const key = half + 'Type';
+  if (d[key] === mode) return;
+  if (!HALF_MODES.find(m => m.key === mode)) return;
+  pushUndoSnapshot((half==='am'?'до обеда':'после обеда') + ' → ' + halfModeLabel(mode));
+  d[key] = mode;
 
-  // Проставляем/снимаем isTrip и создаём структуры «много МК» по новому режиму.
-  ['am','pm'].forEach(half => {
-    const mode = halfMode(type, half);
-    const arr = d[half];
-    const multiKey = half + 'Multi';
-    if (mode === 'seq3' || mode === 'rot4') {
-      // Создаём структуру, если её ещё нет; сохраняем при переключении seq3↔rot4.
-      if (!d[multiKey] || typeof d[multiKey] !== 'object') d[multiKey] = emptyMulti(mode);
-      d[multiKey].mode = mode;
-      arr.forEach(s => { s.isTrip = false; });
-    } else if (mode === 'trip4') {
-      arr[0].isTrip = true;
-      arr[1].isTrip = false; arr[2].isTrip = false; arr[3].isTrip = false;
-    } else if (mode === 'trip2') {
-      arr[0].isTrip = false; arr[1].isTrip = false;
-      arr[2].isTrip = true; arr[3].isTrip = false;
-    } else if (mode === 'parallel') {
-      arr[0].isTrip = true; arr[1].isTrip = false;
-      arr[2].isTrip = true; arr[3].isTrip = false;
-    } else {
-      arr.forEach(s => { s.isTrip = isTripFormat(s.format); });
-    }
-  });
+  const arr = d[half];
+  const multiKey = half + 'Multi';
+  if (mode === 'seq3' || mode === 'rot4') {
+    if (!d[multiKey] || typeof d[multiKey] !== 'object') d[multiKey] = emptyMulti(mode);
+    d[multiKey].mode = mode;
+    arr.forEach(s => { s.isTrip = false; });
+  } else if (mode === 'trip4') {
+    arr[0].isTrip = true;
+    arr[1].isTrip = false; arr[2].isTrip = false; arr[3].isTrip = false;
+  } else if (mode === 'trip2') {
+    arr[0].isTrip = false; arr[1].isTrip = false;
+    arr[2].isTrip = true; arr[3].isTrip = false;
+  } else if (mode === 'parallel') {
+    arr[0].isTrip = true; arr[1].isTrip = false;
+    arr[2].isTrip = true; arr[3].isTrip = false;
+  } else {
+    arr.forEach(s => { s.isTrip = isTripFormat(s.format); });
+  }
 
   render();
-  toast('День ' + (day+1) + ': ' + dayTypeLabel(type));
+  toast((half==='am'?'До обеда':'После обеда') + ': ' + halfModeLabel(mode));
 }
 
 // Меняет местами группы в половине дня для trip2: пара (1,2) ↔ (3,4).
@@ -3087,17 +3099,38 @@ function _normalizeStateShape() {
   // Если дней меньше/больше NUM_DAYS — подгоняем
   while (state.schedule.length < NUM_DAYS) state.schedule.push(emptyDay());
   if (state.schedule.length > NUM_DAYS) state.schedule = state.schedule.slice(0, NUM_DAYS);
+  // Миграция старой модели day.type (единый тип на день) → раздельные amType/pmType.
+  // Карта значений day.type: {key: [amType, pmType]}
+  const TYPE_TO_HALVES = {
+    'normal':        ['normal','normal'],
+    'seq3_am':       ['seq3','normal'],     'seq3_pm':       ['normal','seq3'],     'seq3_full':     ['seq3','seq3'],
+    'rot4_am':       ['rot4','normal'],     'rot4_pm':       ['normal','rot4'],     'rot4_full':     ['rot4','rot4'],
+    'trip4_am':      ['trip4','normal'],    'trip4_pm':      ['normal','trip4'],
+    'trip2_am':      ['trip2','normal'],    'trip2_pm':      ['normal','trip2'],    'trip2_full':    ['trip2','trip2'],
+    'parallel_am':   ['parallel','normal'], 'parallel_pm':   ['normal','parallel'], 'parallel_full': ['parallel','parallel']
+  };
+  const HALF_KEYS = ['normal','seq3','rot4','trip2','trip4','parallel'];
+
   state.schedule.forEach(d => {
-    if (!d.type || !DAY_TYPES.find(t => t.key === d.type)) d.type = 'normal';
+    // Миграция: если есть старый day.type — разворачиваем в amType/pmType.
+    if (d.type && !d.amType && !d.pmType) {
+      const pair = TYPE_TO_HALVES[d.type] || ['normal','normal'];
+      d.amType = pair[0];
+      d.pmType = pair[1];
+    }
+    if (!d.amType || HALF_KEYS.indexOf(d.amType) < 0) d.amType = 'normal';
+    if (!d.pmType || HALF_KEYS.indexOf(d.pmType) < 0) d.pmType = 'normal';
+    delete d.type;
+
     ['am','pm'].forEach(h => {
       if (!Array.isArray(d[h])) d[h] = [];
       while (d[h].length < NUM_TROOPS) d[h].push(defaultSlot());
       if (d[h].length > NUM_TROOPS) d[h] = d[h].slice(0, NUM_TROOPS);
       d[h] = d[h].map(s => Object.assign(defaultSlot(), s || {}));
     });
-    // Нормализуем структуры «много МК», если они есть или нужны по типу дня.
+    // Нормализуем структуры «много МК», если они есть или нужны по режиму половины.
     ['am','pm'].forEach(half => {
-      const mode = halfMode(d.type, half);
+      const mode = d[half + 'Type'];
       const key = half + 'Multi';
       if (mode === 'seq3' || mode === 'rot4') {
         if (!d[key] || typeof d[key] !== 'object') d[key] = emptyMulti(mode);
@@ -3358,7 +3391,7 @@ let _inBatch = false;
 async function genHalf(day, half) {
   if (!_inBatch) { syncConfig(); pushUndoSnapshot('генерация блока'); }
   // Активные слоты по типу дня — мусорные слоты выездных раскладок не трогаем.
-  const mode = halfMode(state.schedule[day].type || 'normal', half);
+  const mode = halfMode(state.schedule[day], half);
   const activeIdx = mode === 'trip4' ? [0] : mode === 'trip2' ? [0,1,2] : mode === 'parallel' ? [0,2] : [0,1,2,3];
   const targets = activeIdx.map(i => ({ s: state.schedule[day][half][i], i })).filter(({s}) => !s.locked);
   if (targets.length === 0) { toast('Все отряды закреплены'); return; }
@@ -3603,7 +3636,8 @@ function computeScheduleFingerprint4_(stateObj) {
       theme: stateObj.theme || '',
       startDate: stateObj.startDate || '',
       schedule: (stateObj.schedule || []).map(d => ({
-        type: d.type || 'normal',
+        amType: d.amType || 'normal',
+        pmType: d.pmType || 'normal',
         am: (d.am || []).map(slotFp),
         pm: (d.pm || []).map(slotFp),
         amMulti: multiFp(d.amMulti),
