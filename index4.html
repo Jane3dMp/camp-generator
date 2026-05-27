@@ -183,6 +183,63 @@
   .ct-radio { font-family: Inter, sans-serif; font-size: 13px; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
   .ct-error { color: var(--event); font-family: Inter, sans-serif; font-size: 13px; font-weight: 600; min-height: 18px; margin-top: 8px; }
   @media (max-width: 640px) { .ct-row { grid-template-columns: 1fr; } }
+
+  /* === ПАНЕЛЬ РЕФЕРЕНСОВ === */
+  .icon-btn.has-refs { background: rgba(254,214,52,0.5); border-color: var(--yellow-deep); }
+  .refs-panel { display: flex; flex-direction: column; gap: 4px; }
+  .refs-status {
+    font-family: Inter, sans-serif; font-size: 12px; color: rgba(21,22,23,0.7);
+    background: var(--paper-warm); border: 1px solid rgba(21,22,23,0.12);
+    padding: 8px 12px; margin-bottom: 12px; border-radius: 4px; line-height: 1.5;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  }
+  .refs-status .btn-sm { white-space: nowrap; }
+  .refs-empty {
+    font-family: Geologica, serif; font-style: italic; font-size: 13px; color: rgba(21,22,23,0.6);
+    background: rgba(21,22,23,0.03); padding: 16px; text-align: center; border-radius: 4px;
+    margin-bottom: 12px;
+  }
+  .refs-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px; margin-bottom: 10px;
+  }
+  .refs-card {
+    position: relative; border: 2px solid rgba(21,22,23,0.18); border-radius: 4px;
+    background: var(--white); overflow: hidden; transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    display: flex; flex-direction: column;
+  }
+  .refs-card.checked { border-color: var(--yellow-deep); box-shadow: 0 0 0 2px rgba(254,214,52,0.25); }
+  .refs-card:not(.checked) { opacity: 0.55; }
+  .refs-card:hover { opacity: 1; }
+  .refs-card-check {
+    position: absolute; top: 6px; left: 6px; z-index: 2;
+    background: var(--white); border: 1px solid var(--ink); padding: 3px; border-radius: 3px;
+    display: flex; align-items: center; cursor: pointer;
+  }
+  .refs-card-check input { margin: 0; cursor: pointer; width: 14px; height: 14px; accent-color: var(--yellow-deep); }
+  .refs-card-remove {
+    position: absolute; top: 6px; right: 6px; z-index: 2;
+    width: 22px; height: 22px; border-radius: 50%; border: 1px solid rgba(21,22,23,0.3);
+    background: var(--white); color: rgba(21,22,23,0.6); font-size: 14px; line-height: 1;
+    cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center;
+  }
+  .refs-card-remove:hover { background: #c0392b; color: var(--white); border-color: #c0392b; }
+  .refs-card-link { text-decoration: none; color: var(--ink); display: block; }
+  .refs-card-img {
+    width: 100%; height: 110px; object-fit: cover; display: block; background: rgba(21,22,23,0.06);
+  }
+  .refs-card.no-img .refs-card-img { display: none; }
+  .refs-card-noimg {
+    height: 110px; display: flex; align-items: center; justify-content: center;
+    font-family: Inter, sans-serif; font-size: 12px; color: rgba(21,22,23,0.55);
+    background: rgba(21,22,23,0.04); padding: 0 8px; text-align: center; word-break: break-all;
+  }
+  .refs-card-host {
+    font-family: Inter, sans-serif; font-size: 10px; color: rgba(21,22,23,0.55);
+    padding: 5px 8px; border-top: 1px solid rgba(21,22,23,0.08);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .refs-add-row { padding-top: 4px; }
   .btn-ghost { border: 1px dashed rgba(21,22,23,0.4); }
   .btn[disabled] { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
   .btn-sm { padding: 4px 8px; font-size: 10px; letter-spacing: 0.08em; }
@@ -1733,6 +1790,7 @@ function renderTripPlate(dayIdx, half, tIdx, slot, troopsLabel) {
       <button class="icon-btn" onclick="event.stopPropagation();openTemplatePicker(${dayIdx},'${half}',${tIdx})" title="Выбрать выезд из библиотеки">🧱</button>
       <button class="icon-btn" onclick="event.stopPropagation();openVariants(${dayIdx},'${half}',${tIdx})" title="Подобрать варианты через ИИ">🔄</button>
       <button class="icon-btn" onclick="event.stopPropagation();generateThemeForSlot(${dayIdx},'${half}',${tIdx})" title="Подобрать тему">✨</button>
+      <button class="icon-btn ${(Array.isArray(slot.selectedRefs) && slot.selectedRefs.length) || getTemplateRefs_(slot.template).length ? 'has-refs' : ''}" onclick="event.stopPropagation();openRefsPanel(${dayIdx},'${half}',${tIdx})" title="Референсы">🖼</button>
       <button class="icon-btn ${slot.comment ? 'has-comment' : ''}" onclick="event.stopPropagation();openCommentEditor(${dayIdx},'${half}',${tIdx})" title="${slot.comment ? 'Комментарий: ' + escapeHtml(slot.comment) : 'Добавить комментарий'}">💬</button>
       <button class="icon-btn" onclick="event.stopPropagation();editSlot(${dayIdx},'${half}',${tIdx})" title="Редактировать вручную">✏</button>
       <button class="icon-btn" onclick="event.stopPropagation();clearSlot(${dayIdx},'${half}',${tIdx})" title="Очистить">🗑</button>
@@ -1824,6 +1882,7 @@ function renderMultiCard(dayIdx, half, idx, slot, timeLabel, posLabel) {
       <button class="icon-btn" onclick="event.stopPropagation();openTemplatePicker(${dayIdx},'${half}',${idx})" title="Выбрать МК из библиотеки">🧱</button>
       <button class="icon-btn" onclick="event.stopPropagation();openVariants(${dayIdx},'${half}',${idx})" title="Подобрать варианты через ИИ">🔄</button>
       <button class="icon-btn" onclick="event.stopPropagation();generateThemeForSlot(${dayIdx},'${half}',${idx})" title="Подобрать тему">✨</button>
+      <button class="icon-btn ${(Array.isArray(slot.selectedRefs) && slot.selectedRefs.length) || getTemplateRefs_(slot.template).length ? 'has-refs' : ''}" onclick="event.stopPropagation();openRefsPanel(${dayIdx},'${half}',${idx})" title="Референсы">🖼</button>
       <button class="icon-btn ${slot.comment ? 'has-comment' : ''}" onclick="event.stopPropagation();openCommentEditor(${dayIdx},'${half}',${idx})" title="${slot.comment ? 'Комментарий: ' + escapeHtml(slot.comment) : 'Добавить комментарий'}">💬</button>
       <button class="icon-btn" onclick="event.stopPropagation();editSlot(${dayIdx},'${half}',${idx})" title="Редактировать вручную">✏</button>
       <button class="icon-btn" onclick="event.stopPropagation();clearSlot(${dayIdx},'${half}',${idx})" title="Очистить">🗑</button>
@@ -1875,6 +1934,7 @@ function renderTroopCard(dayIdx, half, tIdx, slot) {
       <button class="icon-btn" onclick="event.stopPropagation();toggleTripFlag(${dayIdx},'${half}',${tIdx})" title="${slot.isTrip ? 'Сделать обычным МК' : 'Пометить как выезд'}">🚌</button>
       <button class="icon-btn" onclick="event.stopPropagation();openVariants(${dayIdx},'${half}',${tIdx})" title="Подобрать варианты через ИИ">🔄</button>
       <button class="icon-btn" onclick="event.stopPropagation();generateThemeForSlot(${dayIdx},'${half}',${tIdx})" title="Подобрать тему">✨</button>
+      <button class="icon-btn ${(Array.isArray(slot.selectedRefs) && slot.selectedRefs.length) || getTemplateRefs_(slot.template).length ? 'has-refs' : ''}" onclick="event.stopPropagation();openRefsPanel(${dayIdx},'${half}',${tIdx})" title="Референсы">🖼</button>
       <button class="icon-btn ${slot.comment ? 'has-comment' : ''}" onclick="event.stopPropagation();openCommentEditor(${dayIdx},'${half}',${tIdx})" title="${slot.comment ? 'Комментарий: ' + escapeHtml(slot.comment) : 'Добавить комментарий'}">💬</button>
       <button class="icon-btn" onclick="event.stopPropagation();editSlot(${dayIdx},'${half}',${tIdx})" title="Редактировать вручную">✏</button>
       <button class="icon-btn" onclick="event.stopPropagation();clearSlot(${dayIdx},'${half}',${tIdx})" title="Очистить">🗑</button>
@@ -2343,6 +2403,262 @@ async function submitCreateTemplate_() {
   } catch(e) {
     setErr('Не удалось сохранить: ' + e.message);
     if (btn) { btn.disabled = false; btn.textContent = 'Создать и сохранить'; }
+  }
+}
+
+// ============================================================
+// РЕФЕРЕНСЫ К СЛОТУ
+// ============================================================
+// Серверная сторона (Apps Script): action=addRef / removeRef / getRefs — работают с
+// колонкой «Референсы» в листе «Активности». Локально храним в LIBRARY[i].refs.
+// У слота есть необязательный selectedRefs (выбор подмножества). Если пустой/нет —
+// показываются ВСЕ рефы шаблона (fallback в view4/parents4).
+
+// Получить актуальный список рефов шаблона из локальной LIBRARY (берём из первой
+// строки с этим именем — рефы хранятся одинаково для всех педагогов одного шаблона).
+function getTemplateRefs_(templateName) {
+  if (!templateName) return [];
+  const t = String(templateName).trim().toLowerCase();
+  const lib = LIBRARY.find(a => String(a.template || '').trim().toLowerCase() === t);
+  return (lib && Array.isArray(lib.refs)) ? lib.refs.slice() : [];
+}
+
+// Обновить рефы шаблона во всех записях LIBRARY (на случай если педагогов несколько).
+function setTemplateRefsLocal_(templateName, refsArr) {
+  const t = String(templateName).trim().toLowerCase();
+  LIBRARY.forEach(a => {
+    if (String(a.template || '').trim().toLowerCase() === t) {
+      a.refs = refsArr.slice();
+      a.refsCount = refsArr.length;
+    }
+  });
+}
+
+// Превью URL: возвращает {previewSrc, kind} для рендера карточки реф'а.
+function refPreviewInfo_(url) {
+  let host = '';
+  try { host = new URL(url).hostname.replace(/^www\./, ''); } catch(e) {}
+  // YouTube — берём thumbnail из id
+  const ytPatterns = [
+    /youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
+    /youtu\.be\/([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/
+  ];
+  for (const p of ytPatterns) {
+    const m = url.match(p);
+    if (m) return { previewSrc: 'https://img.youtube.com/vi/' + m[1] + '/hqdefault.jpg', kind: 'youtube', host: host };
+  }
+  // Прямая ссылка на картинку
+  if (/\.(jpg|jpeg|png|webp|gif|svg|avif)(\?|$)/i.test(url)) {
+    return { previewSrc: url, kind: 'image', host: host };
+  }
+  // Pinterest — у i.pinimg.com уже прямая картинка (обработано выше); для pinterest.com — иконка
+  return { previewSrc: null, kind: 'link', host: host };
+}
+
+// Открыть окно референсов для слота (составной half поддерживается).
+function openRefsPanel(day, half, idx) {
+  const slot = getSlot(day, half, idx);
+  if (!slot) { toast('Слот не найден'); return; }
+  if (!slot.template) { toast('Сначала выбери МК для слота'); return; }
+
+  window._refsPanelCtx = { day, half, idx, templateName: slot.template };
+
+  document.getElementById('modal-title').innerHTML = `Референсы <em>${escapeHtml(slot.template)}</em>`;
+  renderRefsPanelBody_();
+  openModal();
+}
+
+function renderRefsPanelBody_() {
+  const ctx = window._refsPanelCtx;
+  if (!ctx) return;
+  const slot = getSlot(ctx.day, ctx.half, ctx.idx);
+  if (!slot) { closeModal(); return; }
+  const allRefs = getTemplateRefs_(ctx.templateName);
+  const selected = Array.isArray(slot.selectedRefs) ? slot.selectedRefs.slice() : null;
+  // По умолчанию: если selectedRefs пуст/null — слот использует ВСЕ рефы шаблона.
+  const useAll = !selected || selected.length === 0;
+
+  let cardsHtml = '';
+  if (allRefs.length === 0) {
+    cardsHtml = `<div class="refs-empty">У шаблона ещё нет сохранённых референсов. Добавь первый через поле ниже — он сохранится в библиотеку (Google Sheets) и появится у этого шаблона в любых сменах.</div>`;
+  } else {
+    cardsHtml = '<div class="refs-grid">' + allRefs.map(url => {
+      const info = refPreviewInfo_(url);
+      const isChecked = useAll || (selected && selected.indexOf(url) >= 0);
+      const escUrl = escapeHtml(url);
+      const escUrlJs = escapeJs(url);
+      const previewHtml = info.previewSrc
+        ? `<img class="refs-card-img" src="${escapeHtml(info.previewSrc)}" alt="" onerror="this.parentNode.classList.add('no-img')">`
+        : `<div class="refs-card-noimg">🔗 ${escapeHtml(info.host || 'ссылка')}</div>`;
+      return `
+        <div class="refs-card ${isChecked ? 'checked' : ''}">
+          <label class="refs-card-check">
+            <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleRefSelection_('${escUrlJs}', this.checked)">
+          </label>
+          <a class="refs-card-link" href="${escUrl}" target="_blank" rel="noopener" title="${escUrl}">
+            ${previewHtml}
+            <div class="refs-card-host">${escapeHtml(info.host || 'ссылка')}</div>
+          </a>
+          <button class="refs-card-remove" onclick="removeRefFromLibrary_('${escUrlJs}')" title="Удалить из библиотеки (для всех смен)">×</button>
+        </div>`;
+    }).join('') + '</div>';
+  }
+
+  const selectedCount = useAll ? allRefs.length : selected.length;
+  const statusHtml = allRefs.length === 0 ? '' :
+    useAll
+      ? `<div class="refs-status">Используются <strong>все ${allRefs.length}</strong> референсов шаблона. Сними галочки, чтобы оставить только нужные для этого занятия.</div>`
+      : `<div class="refs-status">Выбрано: <strong>${selectedCount}</strong> из ${allRefs.length}. ${selectedCount === 0 ? 'Без референсов.' : ''} <button class="btn btn-sm btn-ghost" onclick="resetRefSelection_()">использовать все</button></div>`;
+
+  document.getElementById('modal-body').innerHTML = `
+    <div class="refs-panel">
+      ${statusHtml}
+      ${cardsHtml}
+      <div class="refs-add-row">
+        <label class="ct-label" style="margin-top:14px">Добавить новый референс (URL картинки, Pinterest, YouTube или любая ссылка)</label>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="refs-add-input" class="ct-input" placeholder="https://..." onkeydown="if(event.key==='Enter'){event.preventDefault();addRefToLibrary_();}" autocomplete="off">
+          <button class="btn btn-primary" id="refs-add-btn" onclick="addRefToLibrary_()">Добавить</button>
+        </div>
+        <div id="refs-add-error" class="ct-error"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" onclick="closeModal()">Готово</button>
+      </div>
+    </div>
+  `;
+  setTimeout(() => { const inp = document.getElementById('refs-add-input'); if (inp) inp.focus(); }, 60);
+}
+
+// Переключить выбор реф'а для слота. Если включается реф — добавляем в selectedRefs.
+// Если выключается — убираем. Особый случай: если selectedRefs ещё null (использовалось «все»),
+// при первом снятии галочки фиксируем «все КРОМЕ снятого».
+function toggleRefSelection_(url, checked) {
+  const ctx = window._refsPanelCtx;
+  if (!ctx) return;
+  const slot = getSlot(ctx.day, ctx.half, ctx.idx);
+  if (!slot) return;
+  pushUndoSnapshot('изменение референсов');
+
+  const allRefs = getTemplateRefs_(ctx.templateName);
+  let cur = Array.isArray(slot.selectedRefs) ? slot.selectedRefs.slice() : null;
+  // Если slot.selectedRefs пуст (=использовать все), при первом клике инициализируем явно
+  if (!cur || cur.length === 0) cur = allRefs.slice();
+
+  if (checked) {
+    if (cur.indexOf(url) < 0) cur.push(url);
+  } else {
+    cur = cur.filter(u => u !== url);
+  }
+  slot.selectedRefs = cur;
+  saveLocal();
+  renderRefsPanelBody_();
+  render();
+}
+
+function resetRefSelection_() {
+  const ctx = window._refsPanelCtx;
+  if (!ctx) return;
+  const slot = getSlot(ctx.day, ctx.half, ctx.idx);
+  if (!slot) return;
+  pushUndoSnapshot('сброс выбора референсов');
+  slot.selectedRefs = [];
+  saveLocal();
+  renderRefsPanelBody_();
+  render();
+}
+
+// Добавить новый URL в библиотеку шаблона (action=addRef в Apps Script).
+async function addRefToLibrary_() {
+  const ctx = window._refsPanelCtx;
+  if (!ctx) return;
+  const inp = document.getElementById('refs-add-input');
+  const errEl = document.getElementById('refs-add-error');
+  const btn = document.getElementById('refs-add-btn');
+  const url = String(inp.value || '').trim();
+  if (errEl) errEl.textContent = '';
+  if (!url) return;
+  if (!/^https?:\/\//i.test(url)) {
+    if (errEl) errEl.textContent = 'Ссылка должна начинаться с http:// или https://';
+    return;
+  }
+  const existing = getTemplateRefs_(ctx.templateName);
+  if (existing.indexOf(url) >= 0) {
+    if (errEl) errEl.textContent = 'Эта ссылка уже есть у шаблона';
+    return;
+  }
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  try {
+    const r = await fetch(LIBRARY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'addRef', templateName: ctx.templateName, url: url })
+    });
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || 'Сервер отклонил запрос');
+    // Локально добавляем в LIBRARY и в selectedRefs слота (чтобы новый реф сразу был выбран).
+    const next = existing.slice();
+    next.push(url);
+    setTemplateRefsLocal_(ctx.templateName, next);
+    const slot = getSlot(ctx.day, ctx.half, ctx.idx);
+    if (slot && Array.isArray(slot.selectedRefs) && slot.selectedRefs.length > 0) {
+      slot.selectedRefs.push(url);
+    }
+    if (inp) inp.value = '';
+    saveLocal();
+    toast('Референс сохранён в библиотеку');
+    renderRefsPanelBody_();
+    render();
+  } catch(e) {
+    if (errEl) errEl.textContent = 'Не удалось сохранить: ' + e.message;
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Добавить'; }
+  }
+}
+
+// Удалить реф из библиотеки шаблона (для всех смен сразу) + из selectedRefs текущего слота.
+async function removeRefFromLibrary_(url) {
+  const ctx = window._refsPanelCtx;
+  if (!ctx) return;
+  if (!confirm('Удалить эту ссылку из библиотеки шаблона? Она пропадёт из всех смен, где использовался этот шаблон.')) return;
+  try {
+    const r = await fetch(LIBRARY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'removeRef', templateName: ctx.templateName, url: url })
+    });
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || 'Сервер отклонил запрос');
+    const next = getTemplateRefs_(ctx.templateName).filter(u => u !== url);
+    setTemplateRefsLocal_(ctx.templateName, next);
+    // Подчищаем из selectedRefs всех слотов
+    if (state.schedule) {
+      state.schedule.forEach(d => {
+        ['am','pm'].forEach(h => {
+          if (Array.isArray(d[h])) d[h].forEach(s => {
+            if (s && Array.isArray(s.selectedRefs)) s.selectedRefs = s.selectedRefs.filter(u => u !== url);
+          });
+        });
+        // И в много-МК структурах
+        ['amMulti','pmMulti'].forEach(mk => {
+          const m = d[mk];
+          if (!m) return;
+          ['chainA','chainB','stations'].forEach(sub => {
+            if (Array.isArray(m[sub])) m[sub].forEach(s => {
+              if (s && Array.isArray(s.selectedRefs)) s.selectedRefs = s.selectedRefs.filter(u => u !== url);
+            });
+          });
+        });
+      });
+    }
+    saveLocal();
+    toast('Удалено из библиотеки');
+    renderRefsPanelBody_();
+    render();
+  } catch(e) {
+    toast('Ошибка: ' + e.message);
   }
 }
 
