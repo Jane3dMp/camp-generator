@@ -300,6 +300,47 @@
   let publishedMeta = null;
   let LIBRARY = [];
 
+  // Кэш серверных превью: запрашиваем у Apps Script og:image / Pinterest oembed для ссылок,
+  // у которых нет прямой картинки (страницы pinterest.com, pin.it, chatgpt.com и т.п.).
+  // Сервер сам кэширует на 24 часа, мы — на всю сессию страницы.
+  const refPreviewCache = {};
+  const refPreviewInFlight = {};
+  function fetchServerPreview(url) {
+    if (refPreviewCache[url] !== undefined) return Promise.resolve(refPreviewCache[url]);
+    if (refPreviewInFlight[url]) return refPreviewInFlight[url];
+    const p = fetch(LIBRARY_URL + '?action=previewUrl&url=' + encodeURIComponent(url))
+      .then(r => r.json())
+      .then(data => {
+        const thumb = (data && data.ok && data.preview && data.preview.thumbnail) ? data.preview.thumbnail : '';
+        refPreviewCache[url] = thumb;
+        delete refPreviewInFlight[url];
+        return thumb;
+      })
+      .catch(() => { refPreviewCache[url] = ''; delete refPreviewInFlight[url]; return ''; });
+    refPreviewInFlight[url] = p;
+    return p;
+  }
+  // Запустить фоновую подгрузку для всех <a data-ref-url> в документе.
+  function hydrateAllRefPreviews() {
+    document.querySelectorAll('a[data-ref-url]').forEach(a => {
+      const url = a.getAttribute('data-ref-url');
+      if (!url) return;
+      fetchServerPreview(url).then(thumb => {
+        if (!thumb || !a.isConnected) return;
+        // Заменяем содержимое ссылки на <img>
+        const img = document.createElement('img');
+        img.className = 'vslot-refs-img';
+        img.src = thumb;
+        img.alt = '';
+        img.onerror = () => { a.style.display = 'none'; };
+        a.innerHTML = '';
+        a.appendChild(img);
+        a.removeAttribute('style');
+        a.removeAttribute('data-ref-url');
+      });
+    });
+  }
+
   function getQueryParam(name) {
     const m = new RegExp('[?&]' + name + '=([^&#]*)').exec(window.location.search);
     return m ? decodeURIComponent(m[1]) : '';
@@ -724,6 +765,7 @@
       html += `</div></div>`;
     });
     document.getElementById('view-content').innerHTML = html;
+    hydrateAllRefPreviews();
   }
 
   function renderRefsForSlot(refs) {
@@ -737,12 +779,16 @@
       const ytId = extractYouTubeId(url);
       if (ytId) previewSrc = 'https://img.youtube.com/vi/' + ytId + '/hqdefault.jpg';
       else if (/\.(jpg|jpeg|png|webp|gif|svg|avif)(\?|$)/i.test(url)) previewSrc = url;
+      // Если прямого превью нет — проверяем кэш (если страница уже была спрошена у сервера ранее).
+      else if (refPreviewCache[url]) previewSrc = refPreviewCache[url];
+
       if (previewSrc) {
         html += `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" title="${escapeHtml(host)}">
           <img class="vslot-refs-img" src="${escapeHtml(previewSrc)}" alt="" onerror="this.style.display='none'">
         </a>`;
       } else {
-        html += `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" style="padding:5px 10px;font-size:11px;background:rgba(254,214,52,0.18);border-color:rgba(254,214,52,0.5)">${icon} ${escapeHtml(host)}</a>`;
+        // Ссылка-плейсхолдер с пометкой data-ref-url — её подхватит hydrateAllRefPreviews().
+        html += `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" data-ref-url="${escapeHtml(url)}" style="padding:5px 10px;font-size:11px;background:rgba(254,214,52,0.18);border-color:rgba(254,214,52,0.5)" title="${escapeHtml(host)}">${icon} ${escapeHtml(host)}</a>`;
       }
     });
     html += '</div>';
@@ -870,6 +916,7 @@
       html += `</div></div>`;
     });
     document.getElementById('view-content').innerHTML = html;
+    hydrateAllRefPreviews();
   }
 </script>
 </body>

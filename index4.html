@@ -2625,6 +2625,61 @@ function setTemplateRefsLocal_(templateName, refsArr) {
   });
 }
 
+// Кэш серверных превью (action=previewUrl). Apps Script парсит og:image / Pinterest oembed
+// и возвращает прямую ссылку на картинку. Кэш живёт всю сессию, чтобы не дёргать сервер
+// при каждом перерендере. Сервер сам кэширует ответы на 24 часа.
+// Значения: строка-URL картинки, '' если сервер не смог, undefined если ещё не запрашивали.
+window._refPreviewCache = window._refPreviewCache || {};
+// «В работе» — Promise, чтобы не дёргать сервер дважды за тем же URL пока ждём ответа.
+window._refPreviewInFlight = window._refPreviewInFlight || {};
+
+// Запросить превью у сервера. Возвращает Promise со ссылкой на картинку или ''.
+function fetchServerPreview_(url) {
+  if (window._refPreviewCache[url] !== undefined) return Promise.resolve(window._refPreviewCache[url]);
+  if (window._refPreviewInFlight[url]) return window._refPreviewInFlight[url];
+  const p = fetch(LIBRARY_URL + '?action=previewUrl&url=' + encodeURIComponent(url))
+    .then(r => r.json())
+    .then(data => {
+      const thumb = (data && data.ok && data.preview && data.preview.thumbnail) ? data.preview.thumbnail : '';
+      window._refPreviewCache[url] = thumb;
+      delete window._refPreviewInFlight[url];
+      return thumb;
+    })
+    .catch(() => {
+      window._refPreviewCache[url] = '';
+      delete window._refPreviewInFlight[url];
+      return '';
+    });
+  window._refPreviewInFlight[url] = p;
+  return p;
+}
+
+// Запустить фоновую подгрузку превью для DOM-элемента карточки рефа.
+// После ответа от сервера подставит <img> внутрь .refs-card-noimg (или на view4 — внутрь
+// контейнера с data-ref-pending="<url>"). Если сервер вернул пусто — оставит как есть.
+function hydrateRefPreview_(url, containerEl) {
+  if (!containerEl) return;
+  fetchServerPreview_(url).then(thumb => {
+    if (!thumb || !containerEl.isConnected) return;
+    // Заменяем плейсхолдер на картинку с тем же layout
+    const img = document.createElement('img');
+    img.className = 'refs-card-img';
+    img.src = thumb;
+    img.alt = '';
+    img.onerror = () => { containerEl.classList.add('no-img'); };
+    // Очищаем placeholder и кладём img
+    const placeholder = containerEl.querySelector('.refs-card-noimg');
+    if (placeholder) {
+      placeholder.replaceWith(img);
+      containerEl.classList.remove('no-img');
+    } else {
+      // на view4 — просто заменим внутренний контент
+      const oldImg = containerEl.querySelector('.vslot-refs-img-placeholder');
+      if (oldImg) oldImg.replaceWith(img);
+    }
+  });
+}
+
 // Превью URL: возвращает {previewSrc, kind} для рендера карточки реф'а.
 function refPreviewInfo_(url) {
   let host = '';
@@ -2680,11 +2735,23 @@ function renderRefsPanelBody_() {
       const isChecked = useAll || (selected && selected.indexOf(url) >= 0);
       const escUrl = escapeHtml(url);
       const escUrlJs = escapeJs(url);
-      const previewHtml = info.previewSrc
-        ? `<img class="refs-card-img" src="${escapeHtml(info.previewSrc)}" alt="" onerror="this.parentNode.classList.add('no-img')">`
-        : `<div class="refs-card-noimg">🔗 ${escapeHtml(info.host || 'ссылка')}</div>`;
+      // Если прямого превью нет — пробуем кэш серверного og:image. Если и его нет — placeholder
+      // и в дальнейшем запустим фоновую загрузку.
+      let previewHtml;
+      if (info.previewSrc) {
+        previewHtml = `<img class="refs-card-img" src="${escapeHtml(info.previewSrc)}" alt="" onerror="this.parentNode.classList.add('no-img')">`;
+      } else {
+        const cached = window._refPreviewCache[url];
+        if (cached) {
+          previewHtml = `<img class="refs-card-img" src="${escapeHtml(cached)}" alt="" onerror="this.parentNode.classList.add('no-img')">`;
+        } else {
+          previewHtml = `<div class="refs-card-noimg">🔗 ${escapeHtml(info.host || 'ссылка')}</div>`;
+        }
+      }
+      // Атрибут data-ref-url пометит карточки, которым нужна подгрузка превью с сервера.
+      const needsHydrate = !info.previewSrc && !window._refPreviewCache[url];
       return `
-        <div class="refs-card ${isChecked ? 'checked' : ''}">
+        <div class="refs-card ${isChecked ? 'checked' : ''}" ${needsHydrate ? `data-ref-url="${escUrl}"` : ''}>
           <label class="refs-card-check">
             <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleRefSelection_('${escUrlJs}', this.checked)">
           </label>
@@ -2720,7 +2787,13 @@ function renderRefsPanelBody_() {
       </div>
     </div>
   `;
-  setTimeout(() => { const inp = document.getElementById('refs-add-input'); if (inp) inp.focus(); }, 60);
+  setTimeout(() => {
+    const inp = document.getElementById('refs-add-input'); if (inp) inp.focus();
+    // Запускаем фоновую подгрузку превью у карточек без прямого изображения
+    document.querySelectorAll('.refs-card[data-ref-url]').forEach(card => {
+      hydrateRefPreview_(card.getAttribute('data-ref-url'), card);
+    });
+  }, 60);
 }
 
 // Переключить выбор реф'а для слота. Если включается реф — добавляем в selectedRefs.
