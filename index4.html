@@ -531,6 +531,11 @@
   /* Во 2-м круге плашки чуть приглушены, чтобы было видно «это автоматическое отражение» */
   .parallel2-mirror .trip-plate { background: linear-gradient(135deg, rgba(254,214,52,0.32), rgba(254,214,52,0.14)); }
 
+  /* === «3 МК + выезд 2»: цепочка сверху, плашка выезда снизу === */
+  .seq3trip-wrap { display: flex; flex-direction: column; gap: 12px; padding: 12px 14px 16px; background: var(--paper); }
+  .seq3trip-wrap .seq-col { background: var(--paper-warm); padding: 8px 10px 10px; border-radius: 4px; border: 1px solid rgba(21,22,23,0.12); }
+  .seq3trip-wrap .trip2-trip { padding: 0; }
+
   /* === Режим «много МК»: seq3 (цепочки) и rot4 (станции + ротация) === */
   .multi-wrap { padding: 12px 14px 16px; background: var(--paper); }
   /* seq3: две колонки-цепочки */
@@ -634,9 +639,10 @@
   }
   /* Кластер из 2 карточек (trip2) — в один столбик внутри своей колонки */
   .troops-row-2 { grid-template-columns: 1fr !important; }
-  /* Внутри колонок утро/вечер выездные раскладки тесные — складываем в столбик */
+  /* Внутри колонок утро/вечер выездные раскладки тесные — складываем в столбик.
+     Но parallel2 (плитки одного круга) всегда в 2 колонки — visual cue «обмен между парами». */
   .day-halves .trip2-row,
-  .day-halves .parallel-row { grid-template-columns: 1fr; }
+  .day-halves .single-parallel-row { grid-template-columns: 1fr; }
   /* Много-МК внутри колонок: цепочки seq3 — по 3 в строку, но если узко — авто-уменьшение */
   .day-halves .seq-col-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .day-halves .stations-row { grid-template-columns: repeat(2, 1fr); }
@@ -1481,13 +1487,14 @@ function parallel2Times(half) {
 
 // Список режимов для одной половины дня — кнопки переключателя.
 const HALF_MODES = [
-  { key: 'normal',    label: 'Обычный' },
-  { key: 'seq3',      label: '3 МК подряд' },
-  { key: 'rot4',      label: 'Ротация 4' },
-  { key: 'trip2',     label: 'Выезд 2 + кластер' },
-  { key: 'trip4',     label: 'Выезд 4' },
-  { key: 'parallel',  label: 'Параллельные выезды' },
-  { key: 'parallel2', label: 'Выезды 2 круга' }
+  { key: 'normal',     label: 'Обычный' },
+  { key: 'seq3',       label: '3 МК подряд' },
+  { key: 'seq3trip',   label: '3 МК + выезд 2' },
+  { key: 'rot4',       label: 'Ротация 4' },
+  { key: 'trip2',      label: 'Выезд 2 + кластер' },
+  { key: 'trip4',      label: 'Выезд 4' },
+  { key: 'parallel',   label: 'Параллельные выезды' },
+  { key: 'parallel2',  label: 'Выезды 2 круга' }
 ];
 function halfModeLabel(mode) {
   const t = HALF_MODES.find(x => x.key === mode);
@@ -1713,6 +1720,7 @@ function renderHalf(dayIdx, half) {
     : mode === 'parallel' ? ' · параллельные выезды'
     : mode === 'parallel2' ? ' · 2 круга с обменом'
     : mode === 'seq3' ? ' · 3 МК подряд (с 10:00)'
+    : mode === 'seq3trip' ? ' · 3 МК для пары + выезд для другой'
     : mode === 'rot4' ? ' · ротация 4 станций (с 9:30)'
     : '';
   const titleEl = document.createElement('div');
@@ -1757,7 +1765,7 @@ function renderHalf(dayIdx, half) {
   } else if (mode === 'parallel') {
     // Две плашки рядом: группа A (1-2) → выезд из слота 0, группа B (3-4) → выезд из слота 2.
     const grid = document.createElement('div');
-    grid.className = 'parallel-row';
+    grid.className = 'parallel-row single-parallel-row';
     grid.appendChild(renderTripPlate(dayIdx, half, 0, arr[0], 'отряды 1, 2'));
     grid.appendChild(renderTripPlate(dayIdx, half, 2, arr[2], 'отряды 3, 4'));
     wrap.appendChild(grid);
@@ -1800,6 +1808,8 @@ function renderHalf(dayIdx, half) {
     wrap.appendChild(grid);
   } else if (mode === 'seq3' || mode === 'rot4') {
     wrap.appendChild(renderMultiHalf(dayIdx, half, mode));
+  } else if (mode === 'seq3trip') {
+    wrap.appendChild(renderSeq3TripHalf(dayIdx, half));
   } else {
     // Обычный режим — 4 карточки
     const rowEl = document.createElement('div');
@@ -1949,6 +1959,72 @@ function renderMultiHalf(dayIdx, half, mode) {
 }
 
 // Карточка одного слота в режиме «много МК». half — составной путь (am#chainA / pm#stations).
+// Режим «3 МК + выезд 2»: одна пара отрядов проходит 3 МК подряд (цепочка как в seq3),
+// другая пара одной плашкой едет на выезд. Переключатель «↔ поменять группы» меняет, какая
+// пара учится, а какая едет — данные при этом сохраняются (цепочка остаётся как была).
+function renderSeq3TripHalf(dayIdx, half) {
+  const d = state.schedule[dayIdx];
+  const multi = d[half + 'Multi'];
+  const sg = multi.studyGroup; // 'A' = учится 1-2, 'B' = учится 3-4
+  const studyLabel = sg === 'A' ? 'Отряды 1, 2 — 3 МК подряд' : 'Отряды 3, 4 — 3 МК подряд';
+  const studyTcls  = sg === 'A' ? 't1' : 't3';
+  const tripLabel  = sg === 'A' ? 'отряды 3, 4 · выезд'      : 'отряды 1, 2 · выезд';
+  // Слот выезда: am[2] если учится A, am[0] если учится B
+  const tripIdx    = sg === 'A' ? 2 : 0;
+  const tripSlot   = d[half][tripIdx];
+  // Времена цепочки: с 10:00 (как seq3); выезд на весь блок (TIME_AM/TIME_PM)
+  const times = multiStepTimes(half, 'seq3');
+
+  const wrap = document.createElement('div');
+  wrap.className = 'multi-wrap seq3trip-wrap';
+
+  // Заголовок-цепочки + 3 карточки в строку
+  const studyBlock = document.createElement('div');
+  studyBlock.className = 'seq-col';
+  studyBlock.innerHTML = `<div class="seq-col-head ${studyTcls}">${studyLabel}</div>`;
+  const cards = document.createElement('div');
+  cards.className = 'seq-col-cards';
+  multi.chainA.forEach((slot, i) => {
+    cards.appendChild(renderMultiCard(dayIdx, half + '#chainA', i, slot, times[i], (i+1) + '-й МК'));
+  });
+  studyBlock.appendChild(cards);
+  wrap.appendChild(studyBlock);
+
+  // Большая плашка выезда другой пары
+  const tripBlock = document.createElement('div');
+  tripBlock.className = 'trip2-trip';
+  tripBlock.appendChild(renderTripPlate(dayIdx, half, tripIdx, tripSlot, tripLabel));
+  wrap.appendChild(tripBlock);
+
+  // Кнопка обмена ролей
+  const tools = document.createElement('div');
+  tools.className = 'row-tools no-print';
+  tools.innerHTML = `<button class="btn btn-sm btn-ghost" onclick="swapSeq3TripGroups(${dayIdx},'${half}')" title="Поменять: пара, которая учится → пойдёт на выезд. Пара, которая ехала → останется на 3 МК.">↔ поменять группы</button>`;
+  wrap.appendChild(tools);
+
+  return wrap;
+}
+
+// Переключает, какая пара учится, а какая едет, в режиме seq3trip.
+// При свопе: данные цепочки (chainA) остаются на месте — это и логично, потому что обычно ты
+// сначала ставишь МК для пары, а потом понимаешь «нет, это будет вторая пара». Слот выезда
+// тоже остаётся в своём am[0]/am[2] — просто меняется, какой из них активен.
+function swapSeq3TripGroups(day, half) {
+  const d = state.schedule[day];
+  const multi = d[half + 'Multi'];
+  if (!multi || multi.mode !== 'seq3trip') return;
+  pushUndoSnapshot('поменять группы (3 МК + выезд)');
+  const wasA = multi.studyGroup === 'A';
+  multi.studyGroup = wasA ? 'B' : 'A';
+  const arr = d[half];
+  // Меняем isTrip на правильный ведущий слот выезда
+  arr[0].isTrip = (multi.studyGroup === 'B');
+  arr[2].isTrip = (multi.studyGroup === 'A');
+  arr[1].isTrip = false; arr[3].isTrip = false;
+  render();
+  toast(multi.studyGroup === 'A' ? 'Теперь учатся 1-2, едут 3-4' : 'Теперь учатся 3-4, едут 1-2');
+}
+
 function renderMultiCard(dayIdx, half, idx, slot, timeLabel, posLabel) {
   const el = document.createElement('div');
   el.className = 'multi-card' + (slot.locked ? ' locked' : '');
@@ -2131,6 +2207,20 @@ function setHalfType(day, half, mode) {
     if (!d[multiKey] || typeof d[multiKey] !== 'object') d[multiKey] = emptyMulti(mode);
     d[multiKey].mode = mode;
     arr.forEach(s => { s.isTrip = false; });
+  } else if (mode === 'seq3trip') {
+    // 3 МК подряд для одной пары + выезд для другой.
+    // chainA в multi хранит цепочку учащейся пары. studyGroup = 'A' значит учится 1-2 (am[0],am[1]
+    // — кластер, не используются как карточки; выезд для 3-4 в am[2]). 'B' — учится 3-4 (chainA — их),
+    // выезд для 1-2 в am[0].
+    if (!d[multiKey] || typeof d[multiKey] !== 'object') d[multiKey] = emptyMulti(mode);
+    d[multiKey].mode = mode;
+    if (d[multiKey].studyGroup !== 'A' && d[multiKey].studyGroup !== 'B') d[multiKey].studyGroup = 'A';
+    const sg = d[multiKey].studyGroup;
+    // Проставляем isTrip только на ведущий слот едущей пары
+    arr[0].isTrip = (sg === 'B');  // если учится B (3-4), то едет 1-2 — выезд в am[0]
+    arr[1].isTrip = false;
+    arr[2].isTrip = (sg === 'A');  // если учится A (1-2), то едет 3-4 — выезд в am[2]
+    arr[3].isTrip = false;
   } else if (mode === 'trip4') {
     arr[0].isTrip = true;
     arr[1].isTrip = false; arr[2].isTrip = false; arr[3].isTrip = false;
@@ -3198,7 +3288,7 @@ function _normalizeStateShape() {
     'trip2_am':      ['trip2','normal'],    'trip2_pm':      ['normal','trip2'],    'trip2_full':    ['trip2','trip2'],
     'parallel_am':   ['parallel','normal'], 'parallel_pm':   ['normal','parallel'], 'parallel_full': ['parallel','parallel']
   };
-  const HALF_KEYS = ['normal','seq3','rot4','trip2','trip4','parallel','parallel2'];
+  const HALF_KEYS = ['normal','seq3','seq3trip','rot4','trip2','trip4','parallel','parallel2'];
 
   state.schedule.forEach(d => {
     // Миграция: если есть старый day.type — разворачиваем в amType/pmType.
@@ -3221,7 +3311,7 @@ function _normalizeStateShape() {
     ['am','pm'].forEach(half => {
       const mode = d[half + 'Type'];
       const key = half + 'Multi';
-      if (mode === 'seq3' || mode === 'rot4') {
+      if (mode === 'seq3' || mode === 'rot4' || mode === 'seq3trip') {
         if (!d[key] || typeof d[key] !== 'object') d[key] = emptyMulti(mode);
         d[key].mode = mode;
         const fix = (arr, len) => {
@@ -3233,6 +3323,10 @@ function _normalizeStateShape() {
         d[key].chainA = fix(d[key].chainA, 3);
         d[key].chainB = fix(d[key].chainB, 3);
         d[key].stations = fix(d[key].stations, 4);
+        // Для seq3trip: studyGroup определяет, какая пара учится ('A' = 1-2, 'B' = 3-4)
+        if (mode === 'seq3trip' && d[key].studyGroup !== 'A' && d[key].studyGroup !== 'B') {
+          d[key].studyGroup = 'A';
+        }
       }
     });
   });

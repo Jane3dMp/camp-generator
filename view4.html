@@ -426,6 +426,16 @@
           });
           return;
         }
+        if (mode === 'seq3trip') {
+          const multi = d[half + 'Multi'];
+          if (!multi) return;
+          (multi.chainA || []).forEach(s => { if (s) tryAdd(String(s.teacher || '').trim()); });
+          // Слот выезда: am[2] если учится A, am[0] если учится B
+          const tripIdx = (multi.studyGroup === 'B') ? 0 : 2;
+          const tripSlot = (d[half] || [])[tripIdx];
+          if (tripSlot) tryAdd(String(tripSlot.teacher || '').trim());
+          return;
+        }
         const arr = d[half];
         if (!Array.isArray(arr)) return;
         // Только активные слоты по типу дня — чтобы «призраки» из мусорных
@@ -585,6 +595,39 @@
                 troopsLabel: 'станция ' + (st+1) + ' · все 4 отряда по кругу', troop: 1, isTrip: false,
                 refs: getActiveRefsForSlot(s)
               });
+            });
+          }
+          return;
+        }
+        // Режим «3 МК + выезд 2» — учится одна пара (chainA), едет другая.
+        if (mode === 'seq3trip') {
+          const multi = d[half + 'Multi'];
+          if (!multi) return;
+          const sg = multi.studyGroup || 'A';
+          const studyLabel = (sg === 'A') ? 'отряды 1, 2' : 'отряды 3, 4';
+          const studyTroop = (sg === 'A') ? 1 : 3;
+          const tripLabel  = (sg === 'A') ? 'отряды 3, 4 (выезд)' : 'отряды 1, 2 (выезд)';
+          const tripTroop  = (sg === 'A') ? 3 : 1;
+          const tripIdx    = (sg === 'A') ? 2 : 0;
+          const times = multiStepTimes4(half, 'seq3');
+          const tripTime = half === 'am' ? TIME_AM : TIME_PM;
+          (multi.chainA || []).forEach((s, i) => {
+            if (!s || !s.template || normalizeName(s.teacher) !== target) return;
+            slots.push({
+              time: times[i] || '', template: s.template, theme: s.theme || '',
+              comment: s.comment || '', room: s.room || '—',
+              troopsLabel: studyLabel, troop: studyTroop, isTrip: false,
+              refs: getActiveRefsForSlot(s)
+            });
+          });
+          const arr = d[half] || [];
+          const ts = arr[tripIdx];
+          if (ts && ts.template && normalizeName(ts.teacher) === target) {
+            slots.push({
+              time: tripTime, template: ts.template, theme: ts.theme || '',
+              comment: ts.comment || '', room: ts.room || '—',
+              troopsLabel: tripLabel, troop: tripTroop, isTrip: true,
+              refs: getActiveRefsForSlot(ts)
             });
           }
           return;
@@ -751,6 +794,33 @@
           } else {
             (multi.stations || []).forEach((s, st) => { body += card(s, 'станция ' + (st+1), 'по кругу все 4'); });
           }
+          return body ? h + body : '';
+        }
+        // «3 МК + выезд 2»: одна пара учится (цепочка), другая едет
+        if (mode === 'seq3trip') {
+          const multi = d[half + 'Multi'];
+          if (!multi) return '';
+          const sg = multi.studyGroup || 'A';
+          const studyLabel = (sg === 'A') ? 'отряды 1, 2' : 'отряды 3, 4';
+          const tripLabel  = (sg === 'A') ? 'отряды 3, 4 (выезд)' : 'отряды 1, 2 (выезд)';
+          const tripIdx    = (sg === 'A') ? 2 : 0;
+          const times = multiStepTimes4(half, 'seq3');
+          let h = `<div class="vmeal"><span>${label} · 3 МК + выезд 2</span><span class="vmeal-time">${time}</span></div>`;
+          const card = (s, when, who, trip) => {
+            if (!s || !s.template) return '';
+            const tripBadge = trip ? '<span class="vslot-trip-badge">🚌 выезд</span>' : '';
+            return `<div class="vslot${trip?' is-trip':''}"><div class="vslot-row">
+                <div class="vslot-time">${escapeHtml(when)}</div>
+                <div>
+                  <div class="vslot-name">${tripBadge}${escapeHtml(s.template)}</div>
+                  ${s.theme ? `<div class="vslot-theme">«${escapeHtml(s.theme)}»</div>` : ''}
+                  <div class="vslot-meta">${escapeHtml(who)} · ${escapeHtml(s.teacher || '—')} · ${escapeHtml(s.room || '—')}</div>
+                </div></div></div>`;
+          };
+          let body = '';
+          (multi.chainA || []).forEach((s, i) => { body += card(s, times[i] || '', studyLabel, false); });
+          const ts = (d[half] || [])[tripIdx];
+          body += card(ts, time, tripLabel, true);
           return body ? h + body : '';
         }
         const arr = d[half];

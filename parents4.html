@@ -599,12 +599,23 @@
     }
   }
   // Все слоты половины «много МК» (для сбора активностей у родителей).
+  // Для seq3trip также добавляем слот выезда из am[0]/am[2] в зависимости от studyGroup.
   function multiSlots(d, half) {
     const multi = d[half + 'Multi'];
     if (!multi) return [];
     const out = [];
     ['chainA','chainB','stations'].forEach(sub => { (multi[sub] || []).forEach(s => out.push(s)); });
+    if (multi.mode === 'seq3trip') {
+      const tripIdx = (multi.studyGroup === 'B') ? 0 : 2;
+      const tripSlot = (d[half] || [])[tripIdx];
+      if (tripSlot) out.push(tripSlot);
+    }
     return out;
+  }
+
+  // Какие половины используют «много МК» структуру вместо обычного am[]/pm[].
+  function isMultiMode(mode) {
+    return mode === 'seq3' || mode === 'rot4' || mode === 'seq3trip';
   }
 
   // Индексы активных слотов половины дня по типу дня (мусорные слоты выездов — мимо).
@@ -651,7 +662,7 @@
       const collectUnique = (half) => {
         const mode = halfModeP(d, half);
         let pool;
-        if (mode === 'seq3' || mode === 'rot4') {
+        if (isMultiMode(mode)) {
           pool = multiSlots(d, half);
         } else {
           const arr = d[half];
@@ -770,7 +781,7 @@
       if (!d) return;
       ['am','pm'].forEach(half => {
         const mode = halfModeP(d, half);
-        if (mode === 'seq3' || mode === 'rot4') {
+        if (isMultiMode(mode)) {
           multiSlots(d, half).forEach(collect);
         } else if (Array.isArray(d[half])) {
           activeSlotIndices4(d, half).forEach(i => collect(d[half][i]));
