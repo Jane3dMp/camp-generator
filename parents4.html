@@ -774,8 +774,12 @@
       if (!slot || !slot.template) return;
       const tpl = String(slot.template).trim();
       if (!tplData[tpl]) tplData[tpl] = { urls: new Set(), hasUndefined: false };
-      if (Array.isArray(slot.parentSelectedRefs)) slot.parentSelectedRefs.forEach(u => tplData[tpl].urls.add(u));
-      else tplData[tpl].hasUndefined = true;
+      // Пустой массив тоже считаем «нет явного выбора» — иначе fallback на getParentsRefs не сработает.
+      if (Array.isArray(slot.parentSelectedRefs) && slot.parentSelectedRefs.length > 0) {
+        slot.parentSelectedRefs.forEach(u => tplData[tpl].urls.add(u));
+      } else {
+        tplData[tpl].hasUndefined = true;
+      }
     };
     publishedState.schedule.forEach(d => {
       if (!d) return;

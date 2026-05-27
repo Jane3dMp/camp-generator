@@ -461,11 +461,14 @@
 
   function onTeacherChange() { renderForCurrentTeacher(); }
 
-  // Активные рефы слота: slot.selectedRefs (явный выбор админа), иначе все рефы шаблона
-  // из libraryRefs снимка / из LIBRARY.
+  // Активные рефы слота:
+  // - slot.selectedRefs — массив, НЕПУСТОЙ → явный выбор админа (использовать именно эти).
+  // - slot.selectedRefs — пустой массив (или нет) → использовать все рефы шаблона (из libraryRefs/LIBRARY).
+  // ВАЖНО: пустой [] считается «по умолчанию», а не «нет ни одного». Иначе ни один слот никогда
+  // не покажет рефы, потому что defaultSlot() инициализирует selectedRefs пустым массивом.
   function getActiveRefsForSlot(slot) {
     if (!slot || !slot.template) return [];
-    if (Array.isArray(slot.selectedRefs)) return slot.selectedRefs.slice();
+    if (Array.isArray(slot.selectedRefs) && slot.selectedRefs.length > 0) return slot.selectedRefs.slice();
     // Дефолт — все рефы шаблона. Сначала из снимка (libraryRefs), потом из библиотеки.
     const tpl = String(slot.template).trim();
     const snapRefs = publishedState.libraryRefs && publishedState.libraryRefs[tpl];
