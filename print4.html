@@ -88,6 +88,182 @@
   .actions button:hover { background: var(--yellow); color: var(--ink); border-color: var(--yellow); }
   .actions .btn-primary { background: var(--yellow); color: var(--ink); border-color: var(--yellow); font-weight: 700; }
 
+  /* Переключатель вида (для вожатых / для админа) */
+  .view-switch {
+    display: inline-flex; gap: 0;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 4px; padding: 2px;
+  }
+  .view-switch button {
+    background: transparent; color: var(--white); border: none;
+    padding: 6px 14px; font-family: Inter; font-size: 11px; letter-spacing: 0.08em;
+    text-transform: uppercase; cursor: pointer; border-radius: 3px;
+  }
+  .view-switch button:hover { background: rgba(255,255,255,0.1); }
+  .view-switch button.active {
+    background: var(--yellow); color: var(--ink); font-weight: 700;
+  }
+
+  /* Переключатель отрядов */
+  .troop-switch {
+    display: inline-flex; gap: 0;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 4px; padding: 2px;
+  }
+  .troop-switch button {
+    background: transparent; color: var(--white); border: none;
+    padding: 6px 11px; font-family: Inter; font-size: 11px; letter-spacing: 0.06em;
+    cursor: pointer; border-radius: 3px;
+    font-weight: 500;
+  }
+  .troop-switch button:hover { background: rgba(255,255,255,0.1); }
+  .troop-switch button.active {
+    color: var(--ink); font-weight: 700;
+  }
+  .troop-switch button.t1-btn.active { background: var(--troop-1); }
+  .troop-switch button.t2-btn.active { background: var(--troop-2); }
+  .troop-switch button.t3-btn.active { background: var(--troop-3); }
+  .troop-switch button.t4-btn.active { background: var(--troop-4); }
+  .troop-switch button[data-troop="all"].active { background: var(--yellow); }
+
+  /* Большая шапка отряда — когда отфильтровали один отряд, видно крупно «ОТРЯД 1» */
+  .troop-header {
+    background: var(--ink); color: var(--white);
+    padding: 18px 24px; margin: -28px -28px 18px;
+    border-radius: 0;
+    display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap;
+  }
+  .troop-header.t1 { background: var(--troop-1); color: var(--white); }
+  .troop-header.t2 { background: var(--troop-2); color: var(--white); }
+  .troop-header.t3 { background: var(--troop-3); color: var(--white); }
+  .troop-header.t4 { background: var(--troop-4); color: var(--white); }
+  .troop-header .troop-num {
+    font-family: Caveat, cursive; font-weight: 600; font-size: 38px; line-height: 1;
+  }
+  .troop-header .troop-meta {
+    font-family: Inter; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase;
+    opacity: 0.9;
+  }
+
+  /* === АДМИНСКИЙ ВИД: педагоги × дни, выезды === */
+  .admin-section { margin-top: 0; }
+  .admin-section + .admin-section { margin-top: 28px; }
+  .admin-title {
+    font-family: Inter; font-weight: 700; font-size: 12px;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: rgba(21,22,23,0.6);
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 6px; margin-bottom: 14px;
+    display: flex; align-items: baseline; gap: 10px;
+  }
+  .admin-title span.count {
+    font-size: 11px; font-weight: 500; opacity: 0.65;
+    letter-spacing: 0.04em; text-transform: none;
+  }
+  table.admin-grid {
+    width: 100%; border-collapse: collapse; table-layout: fixed;
+  }
+  table.admin-grid th, table.admin-grid td {
+    border: 1px solid rgba(21,22,23,0.18);
+    padding: 7px 9px; vertical-align: top;
+    font-size: 0.85em; line-height: 1.35;
+  }
+  table.admin-grid thead th {
+    background: var(--ink); color: var(--white);
+    font-family: Inter; font-weight: 700; font-size: 0.85em;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 8px 9px;
+  }
+  table.admin-grid thead th .day-sub {
+    display: block; font-size: 0.85em; font-weight: 500;
+    opacity: 0.7; letter-spacing: 0.04em; text-transform: none; margin-top: 2px;
+  }
+  table.admin-grid td.teacher-name {
+    background: var(--paper-warm);
+    font-family: Inter; font-weight: 600;
+    width: 150px; font-size: 0.92em;
+  }
+  table.admin-grid td.teacher-name .role {
+    display: block; font-weight: 400; font-size: 0.82em;
+    color: rgba(21,22,23,0.6); margin-top: 2px;
+  }
+  /* Бейдж загрузки за смену */
+  table.admin-grid td.teacher-name .load {
+    display: inline-block; background: var(--yellow);
+    padding: 1px 6px; border-radius: 2px;
+    font-size: 0.78em; font-weight: 700; color: var(--ink);
+    margin-top: 4px;
+  }
+  table.admin-grid td.day-cell { background: var(--white); font-size: 0.82em; }
+  table.admin-grid td.day-cell.empty {
+    background: rgba(21,22,23,0.04);
+    color: rgba(21,22,23,0.3);
+    font-family: Geologica; font-style: italic; text-align: center;
+  }
+
+  /* Внутри ячейки педагог × день: одно занятие = одна строка */
+  .adm-item {
+    margin-bottom: 5px; padding-bottom: 4px;
+    border-bottom: 1px dotted rgba(21,22,23,0.18);
+  }
+  .adm-item:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+  .adm-item-time {
+    display: inline-block; background: rgba(254,214,52,0.25);
+    color: var(--yellow-deep); padding: 1px 5px; border-radius: 2px;
+    font-weight: 600; font-size: 0.85em; white-space: nowrap;
+  }
+  .adm-item-half {
+    display: inline-block; font-size: 0.78em; opacity: 0.6;
+    text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;
+    margin-right: 4px;
+  }
+  .adm-item-name { font-weight: 500; }
+  .adm-item-meta { font-size: 0.85em; color: rgba(21,22,23,0.65); }
+  .adm-trip-tag {
+    display: inline-block; background: var(--ink); color: var(--white);
+    padding: 1px 5px; border-radius: 2px;
+    font-size: 0.72em; letter-spacing: 0.06em; text-transform: uppercase;
+    margin-right: 3px;
+  }
+
+  /* Сводка выездов */
+  table.trips-grid {
+    width: 100%; border-collapse: collapse; table-layout: fixed;
+  }
+  table.trips-grid th, table.trips-grid td {
+    border: 1px solid rgba(21,22,23,0.18);
+    padding: 8px 10px; font-size: 0.88em;
+    vertical-align: top; line-height: 1.4;
+  }
+  table.trips-grid thead th {
+    background: var(--yellow); color: var(--ink);
+    font-family: Inter; font-weight: 700; font-size: 0.85em;
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  table.trips-grid td.trip-day {
+    background: rgba(254,214,52,0.18); font-weight: 600;
+    width: 130px;
+  }
+  table.trips-grid td.trip-day .trip-day-sub {
+    display: block; font-size: 0.85em; font-weight: 400; opacity: 0.7;
+    margin-top: 2px;
+  }
+  table.trips-grid td.trip-half {
+    background: rgba(254,214,52,0.08); width: 100px;
+    font-family: Inter; font-size: 0.85em;
+    letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600;
+  }
+  table.trips-grid td.trip-content {
+    background: var(--yellow); color: var(--ink);
+  }
+  table.trips-grid td.trip-content .trip-name { font-weight: 700; font-size: 1.05em; }
+  table.trips-grid td.trip-content .trip-meta { font-size: 0.85em; margin-top: 3px; opacity: 0.85; }
+  table.trips-grid .trips-empty {
+    text-align: center; color: rgba(21,22,23,0.4);
+    font-family: Geologica; font-style: italic;
+    padding: 18px;
+  }
+
   /* ── СЕТКА ── */
   .week-wrap {
     background: var(--white);
@@ -219,6 +395,12 @@
       page-break-inside: avoid;
     }
     .week-wrap:last-child { page-break-after: auto; }
+    /* В режиме «печать всех по очереди» каждый отряд — на свой набор страниц */
+    .troop-print-block { page-break-after: always; }
+    .troop-print-block:last-child { page-break-after: auto; }
+    .troop-print-block .week-wrap:last-child { page-break-after: auto; }
+    /* Большая шапка отряда не должна обрываться от первой таблицы */
+    .troop-header { page-break-after: avoid; }
     .week-head { margin-bottom: 8pt; }
     .week-title { font-size: 14pt; }
     .week-title em { font-size: 16pt; }
@@ -259,8 +441,20 @@
         <h1 class="title" id="view-title">Смена</h1>
         <div class="subhead" id="view-subhead"></div>
       </div>
+      <div class="view-switch" id="view-switch" style="display:none">
+        <button data-view="troops" class="active" onclick="switchView('troops')">👦 Для вожатых</button>
+        <button data-view="admin" onclick="switchView('admin')">🗂 Для админа</button>
+      </div>
+      <div class="troop-switch" id="troop-switch" style="display:none">
+        <button data-troop="all" class="active" onclick="switchTroop('all')">Все</button>
+        <button data-troop="1" class="t1-btn" onclick="switchTroop('1')">Отряд 1</button>
+        <button data-troop="2" class="t2-btn" onclick="switchTroop('2')">Отряд 2</button>
+        <button data-troop="3" class="t3-btn" onclick="switchTroop('3')">Отряд 3</button>
+        <button data-troop="4" class="t4-btn" onclick="switchTroop('4')">Отряд 4</button>
+      </div>
       <div class="actions">
-        <button onclick="window.print()" class="btn-primary">🖨 Печать</button>
+        <button onclick="window.print()" class="btn-primary" id="print-btn">🖨 Печать</button>
+        <button onclick="printAllTroops()" id="print-all-btn" style="display:none" title="Распечатать по одному листу на каждый отряд — для раздачи вожатым">🖨 Печать по отрядам</button>
         <button onclick="goBack()">← в просмотр</button>
       </div>
     </div>
@@ -396,7 +590,7 @@
       publishedState = JSON.parse(publishedMeta.stateJson || '{}');
       normalizeState();
       renderHeader();
-      renderAllWeeks();
+      renderCurrentView();
     } catch(e) {
       document.getElementById('weeks-container').innerHTML = '<div class="week-wrap" style="color:#c0392b"><strong>Не удалось загрузить:</strong> ' + escapeHtml(e.message || e) + '</div>';
     }
@@ -422,24 +616,105 @@
     const last = new Date(start); last.setDate(last.getDate() + totalDays - 1);
     const range = start.getDate() + ' ' + MONTHS[start.getMonth()] + ' — ' + last.getDate() + ' ' + MONTHS[last.getMonth()];
     document.getElementById('view-subhead').textContent = range + ' · 4 отряда · ' + totalDays + ' дней';
+    document.getElementById('view-switch').style.display = '';
+    document.getElementById('troop-switch').style.display = '';
+    // Кнопка «печать всех по очереди» только в вожатском виде
+    document.getElementById('print-all-btn').style.display = (currentView === 'troops') ? '' : 'none';
   }
 
-  // ── РЕНДЕР НЕДЕЛЬ ──
+  // ── ПЕРЕКЛЮЧЕНИЕ ВИДА ──
+  let currentView = 'troops'; // 'troops' (по отрядам, для вожатых) | 'admin' (по педагогам + выезды)
+  let currentTroop = 'all';   // 'all' | '1' | '2' | '3' | '4' — фильтр в вожатском виде
+  function switchView(v) {
+    currentView = v;
+    document.querySelectorAll('.view-switch button').forEach(b => {
+      b.classList.toggle('active', b.dataset.view === v);
+    });
+    // Фильтр отрядов виден только в troops-режиме
+    document.getElementById('troop-switch').style.display = (v === 'troops') ? '' : 'none';
+    document.getElementById('print-all-btn').style.display = (v === 'troops') ? '' : 'none';
+    renderCurrentView();
+  }
+  window.switchView = switchView;
+
+  function switchTroop(t) {
+    currentTroop = String(t);
+    document.querySelectorAll('.troop-switch button').forEach(b => {
+      b.classList.toggle('active', b.dataset.troop === currentTroop);
+    });
+    renderCurrentView();
+  }
+  window.switchTroop = switchTroop;
+
+  // «Печать всех по очереди» — для админа: один лист на каждый отряд.
+  // Делаем спецрежим renderTroop = 'print-all', который рендерит все 4 отряда с разрывом
+  // страниц между ними. После печати возвращаемся к текущему виду.
+  let printAllMode = false;
+  function printAllTroops() {
+    if (currentView !== 'troops') return;
+    printAllMode = true;
+    renderCurrentView();
+    // Дождёмся, пока DOM обновится, и запустим печать
+    setTimeout(() => {
+      window.print();
+      // После закрытия диалога печати возвращаемся к нормальному виду
+      printAllMode = false;
+      renderCurrentView();
+    }, 100);
+  }
+  window.printAllTroops = printAllTroops;
+
+  function renderCurrentView() {
+    if (currentView === 'admin') renderAdminView();
+    else renderAllWeeks();
+  }
+
+  // ── РЕНДЕР: ВОЖАТСКИЙ ВИД (по отрядам × дни) ──
   function renderAllWeeks() {
     const container = document.getElementById('weeks-container');
     const total = Math.min(publishedState.schedule.length, NUM_DAYS);
+
+    // Если печатаем все отряды по очереди — каждый отряд отдельным блоком с разрывом страницы
+    if (printAllMode) {
+      let html = '';
+      for (let t = 1; t <= NUM_TROOPS; t++) {
+        html += '<div class="troop-print-block">';
+        html += renderTroopHeader(t);
+        for (let w = 0; w < 2; w++) {
+          const startIdx = w * 5;
+          const endIdx = Math.min(startIdx + 5, total);
+          if (startIdx >= total) break;
+          html += renderWeek(w + 1, startIdx, endIdx, String(t));
+        }
+        html += '</div>';
+      }
+      container.innerHTML = html;
+      return;
+    }
+
+    // Обычный режим — учитываем currentTroop
     let html = '';
-    // Неделя 1: дни 0-4, Неделя 2: дни 5-9
+    if (currentTroop !== 'all') html += renderTroopHeader(parseInt(currentTroop, 10));
     for (let w = 0; w < 2; w++) {
       const startIdx = w * 5;
       const endIdx = Math.min(startIdx + 5, total);
       if (startIdx >= total) break;
-      html += renderWeek(w + 1, startIdx, endIdx);
+      html += renderWeek(w + 1, startIdx, endIdx, currentTroop);
     }
     container.innerHTML = html || '<div class="week-wrap"><em>Нет дней для печати.</em></div>';
   }
 
-  function renderWeek(weekNum, startIdx, endIdx) {
+  function renderTroopHeader(troop) {
+    return `<div class="week-wrap" style="padding-bottom:0;margin-bottom:0">
+      <div class="troop-header t${troop}">
+        <span class="troop-num">Отряд ${troop}</span>
+        <span class="troop-meta">расписание для вожатого · смена «${escapeHtml(publishedState.theme || '')}»</span>
+      </div>
+    </div>`;
+  }
+
+  function renderWeek(weekNum, startIdx, endIdx, troopFilter) {
+    troopFilter = troopFilter || 'all';
     const theme = publishedState.theme || '';
     const startDate = dateForDay(publishedState, startIdx);
     const endDate = dateForDay(publishedState, endIdx - 1);
@@ -454,12 +729,10 @@
     }
     theadHtml += '</tr>';
 
-    // Тело: 8 строк = 4 отряда × 2 половины дня.
-    // Сначала все отряды утром (1, 2, 3, 4 — до обеда), потом — после обеда.
-    // Группировка важна: вожатый смотрит свою строку «отряд 1 · утро» и видит весь день,
-    // потом строка «отряд 1 · вечер» сразу под ней.
+    // Тело: 8 строк = 4 отряда × 2 половины дня, либо 2 строки если выбран один отряд.
     const rows = [];
     for (let troop = 1; troop <= NUM_TROOPS; troop++) {
+      if (troopFilter !== 'all' && String(troop) !== String(troopFilter)) continue;
       rows.push({ troop, half: 'am', label: 'Отряд ' + troop + '<br>до обеда', time: '9:30–13:30' });
       rows.push({ troop, half: 'pm', label: 'Отряд ' + troop + '<br>после обеда', time: '14:00–17:30' });
     }
@@ -634,6 +907,325 @@
       ${theme}
       ${metaHtml}
     </div>`;
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // АДМИНСКИЙ ВИД: педагоги × дни + сводка выездов
+  // ─────────────────────────────────────────────────────────────
+  // Собирает «оригинальные» занятия — без дублей-копий, которые возникают в
+  // seq3 (тот же chain[0] показывается двум отрядам) или rot4 (одна станция —
+  // 4 отрядам). Каждое занятие появляется ровно один раз с пометкой времени.
+  // teacher → день → массив { half, time, template, room, theme, isTrip, troopsLabel }
+  function collectTeacherActivities() {
+    const byTeacher = {}; // { teacherKey: { name: '...', byDay: { idx: [act, act] } } }
+    const KURATOR_KEYS = ['куратор', 'кураторы', 'админ', 'админ детали', 'администратор', 'вожатый', 'вожатые', 'admin'];
+
+    function teacherKey(name) {
+      return String(name || '').trim().toLowerCase().replace(/\s+/g, ' ').replace(/ё/g, 'е');
+    }
+    function isKurator(name) {
+      const k = teacherKey(name);
+      if (!k) return true; // пустое имя — тоже отдельно (вероятно куратор по умолчанию)
+      return KURATOR_KEYS.some(x => k === x || k.startsWith(x + ' ') || k.startsWith(x + ','));
+    }
+
+    function add(slot, dayIdx, half, opts) {
+      if (!slot || !slot.template) return;
+      const tname = String(slot.teacher || '').trim() || '(не указан)';
+      const key = teacherKey(tname);
+      if (!byTeacher[key]) {
+        byTeacher[key] = { name: tname, isKurator: isKurator(tname), byDay: {}, totalCount: 0 };
+      }
+      const arr = byTeacher[key].byDay[dayIdx] || (byTeacher[key].byDay[dayIdx] = []);
+      arr.push(Object.assign({
+        half, template: slot.template, room: slot.room || '', theme: slot.theme || '',
+        isTrip: !!slot.isTrip
+      }, opts || {}));
+      byTeacher[key].totalCount++;
+    }
+
+    publishedState.schedule.forEach((d, dayIdx) => {
+      ['am','pm'].forEach(half => {
+        const mode = halfMode4(d, half);
+        const arr = Array.isArray(d[half]) ? d[half] : [];
+        const blockTime = half === 'am' ? TIME_AM : TIME_PM;
+
+        if (mode === 'normal') {
+          arr.forEach((s, i) => {
+            if (!s || !s.template) return;
+            add(s, dayIdx, half, { time: '', troopsLabel: 'отр. ' + (i+1) });
+          });
+        }
+        else if (mode === 'rot4') {
+          const multi = d[half + 'Multi'];
+          const stations = (multi && multi.stations) || [];
+          const times = multiStepTimes(half, 'rot4');
+          stations.forEach((s, st) => {
+            if (!s || !s.template) return;
+            // Каждая станция в rot4 — это одно занятие педагога, проходят все 4 отряда по очереди
+            add(s, dayIdx, half, {
+              time: times[0].split('–')[0] + '–' + times[3].split('–')[1],
+              troopsLabel: 'все 4 отряда (ротация)'
+            });
+          });
+        }
+        else if (mode === 'seq3') {
+          const multi = d[half + 'Multi'];
+          const times = multiStepTimes(half, 'seq3');
+          [['chainA', '1, 2'], ['chainB', '3, 4']].forEach(([sub, pair]) => {
+            const chain = (multi && multi[sub]) || [];
+            // chain[0] и chain[1] — каждый идёт 2 раза (отряд A → отряд B), один педагог — два слота
+            if (chain[0] && chain[0].template) {
+              add(chain[0], dayIdx, half, { time: times[0] + ' и ' + times[1], troopsLabel: 'отряды ' + pair + ' (2 раза)' });
+            }
+            if (chain[1] && chain[1].template) {
+              add(chain[1], dayIdx, half, { time: times[0] + ' и ' + times[1], troopsLabel: 'отряды ' + pair + ' (2 раза)' });
+            }
+            if (chain[2] && chain[2].template) {
+              add(chain[2], dayIdx, half, { time: times[2], troopsLabel: 'отряды ' + pair });
+            }
+          });
+        }
+        else if (mode === 'seq3trip') {
+          const multi = d[half + 'Multi'];
+          if (!multi) return;
+          const sg = multi.studyGroup || 'A';
+          const studyPair = sg === 'A' ? '1, 2' : '3, 4';
+          const tripPair  = sg === 'A' ? '3, 4' : '1, 2';
+          const times = multiStepTimes(half, 'seq3');
+          (multi.chainA || []).forEach((s, i) => {
+            if (s && s.template) add(s, dayIdx, half, { time: times[i], troopsLabel: 'отряды ' + studyPair });
+          });
+          const tripIdx = sg === 'A' ? 2 : 0;
+          const ts = arr[tripIdx];
+          if (ts && ts.template) {
+            add(ts, dayIdx, half, { time: blockTime, troopsLabel: 'отряды ' + tripPair + ' (выезд)' });
+          }
+        }
+        else if (mode === 'trip4') {
+          const s = arr[0];
+          if (s && s.template) add(s, dayIdx, half, { time: blockTime, troopsLabel: 'все 4 отряда (выезд)' });
+        }
+        else if (mode === 'trip2') {
+          // отряды 1, 2 — обычные слоты; отряды 3-4 — выезд из am[2]
+          if (arr[0] && arr[0].template) add(arr[0], dayIdx, half, { time: '', troopsLabel: 'отр. 1' });
+          if (arr[1] && arr[1].template) add(arr[1], dayIdx, half, { time: '', troopsLabel: 'отр. 2' });
+          if (arr[2] && arr[2].template) add(arr[2], dayIdx, half, { time: blockTime, troopsLabel: 'отряды 3, 4 (выезд)' });
+        }
+        else if (mode === 'parallel') {
+          if (arr[0] && arr[0].template) add(arr[0], dayIdx, half, { time: blockTime, troopsLabel: 'отряды 1, 2 (выезд)' });
+          if (arr[2] && arr[2].template) add(arr[2], dayIdx, half, { time: blockTime, troopsLabel: 'отряды 3, 4 (выезд)' });
+        }
+        else if (mode === 'parallel2') {
+          // Каждый выезд проходит дважды: сначала с одной парой, потом со второй.
+          const [t1, t2] = parallel2Times(half);
+          if (arr[0] && arr[0].template) {
+            add(arr[0], dayIdx, half, { time: t1 + ' и ' + t2, troopsLabel: '1, 2 → 3, 4 (2 круга, выезд)' });
+          }
+          if (arr[2] && arr[2].template) {
+            add(arr[2], dayIdx, half, { time: t1 + ' и ' + t2, troopsLabel: '3, 4 → 1, 2 (2 круга, выезд)' });
+          }
+        }
+      });
+    });
+    return byTeacher;
+  }
+
+  function renderAdminView() {
+    const container = document.getElementById('weeks-container');
+    const teachers = collectTeacherActivities();
+    const total = Math.min(publishedState.schedule.length, NUM_DAYS);
+    let html = '';
+
+    // Делим педагогов: «основные» (не кураторы) и «организационные роли» (кураторы, админ, вожатые).
+    const main = [], roles = [];
+    Object.keys(teachers).sort((a, b) => teachers[a].name.localeCompare(teachers[b].name, 'ru'))
+      .forEach(k => (teachers[k].isKurator ? roles : main).push(teachers[k]));
+
+    // По неделям. На каждой — отдельная таблица «педагог × 5 дней».
+    for (let w = 0; w < 2; w++) {
+      const startIdx = w * 5;
+      const endIdx = Math.min(startIdx + 5, total);
+      if (startIdx >= total) break;
+      html += renderAdminWeek(w + 1, startIdx, endIdx, main, roles);
+    }
+
+    // Внизу — сводка выездов на всю смену
+    html += renderTripsSummary();
+
+    container.innerHTML = html || '<div class="week-wrap"><em>Нет данных для админского вида.</em></div>';
+  }
+
+  function renderAdminWeek(weekNum, startIdx, endIdx, mainTeachers, roleTeachers) {
+    const theme = publishedState.theme || '';
+    const startDate = dateForDay(publishedState, startIdx);
+    const endDate = dateForDay(publishedState, endIdx - 1);
+    const dateRange = startDate.getDate() + ' ' + MONTHS[startDate.getMonth()] + ' – ' +
+                      endDate.getDate() + ' ' + MONTHS[endDate.getMonth()];
+
+    // Только педагоги, у которых есть хоть одно занятие на этой неделе
+    const filterWithActivity = (list) => list.filter(t => {
+      for (let i = startIdx; i < endIdx; i++) {
+        if (t.byDay[i] && t.byDay[i].length > 0) return true;
+      }
+      return false;
+    });
+    const main = filterWithActivity(mainTeachers);
+    const roles = filterWithActivity(roleTeachers);
+
+    // Шапка таблицы
+    let thead = '<tr><th>Педагог</th>';
+    for (let i = startIdx; i < endIdx; i++) {
+      const dt = dateForDay(publishedState, i);
+      thead += `<th>День ${i+1}<span class="day-sub">${dt.getDate()} ${MONTHS[dt.getMonth()]} · ${WEEKDAYS_SHORT[dt.getDay()].toUpperCase()}</span></th>`;
+    }
+    thead += '</tr>';
+
+    function renderTeacherRow(t) {
+      // Считаем загрузку на эту неделю
+      let weekCount = 0;
+      for (let i = startIdx; i < endIdx; i++) {
+        if (t.byDay[i]) weekCount += t.byDay[i].length;
+      }
+      const role = t.isKurator ? '<span class="role">оргроль</span>' : '';
+      const loadBadge = weekCount > 0 ? `<span class="load">${weekCount} зан.</span>` : '';
+      let row = `<tr><td class="teacher-name">${escapeHtml(t.name)}${role}${loadBadge}</td>`;
+      for (let i = startIdx; i < endIdx; i++) {
+        const acts = t.byDay[i] || [];
+        if (acts.length === 0) {
+          row += '<td class="day-cell empty">—</td>';
+        } else {
+          // Сортируем am до pm
+          const sorted = acts.slice().sort((a, b) => (a.half === 'am' ? -1 : 1));
+          let cellHtml = '';
+          sorted.forEach(a => {
+            const halfLabel = a.half === 'am' ? 'утр' : 'днм';
+            const timeHtml = a.time ? `<span class="adm-item-time">${escapeHtml(a.time)}</span> ` : `<span class="adm-item-half">${halfLabel}</span>`;
+            const tripTag = a.isTrip ? '<span class="adm-trip-tag">🚌</span>' : '';
+            cellHtml += `<div class="adm-item">
+              ${timeHtml}${tripTag}<span class="adm-item-name">${escapeHtml(a.template)}</span>
+              <div class="adm-item-meta">${escapeHtml(a.troopsLabel || '')}${a.room ? ' · каб. ' + escapeHtml(a.room) : ''}</div>
+            </div>`;
+          });
+          row += '<td class="day-cell">' + cellHtml + '</td>';
+        }
+      }
+      row += '</tr>';
+      return row;
+    }
+
+    let mainHtml = '';
+    main.forEach(t => mainHtml += renderTeacherRow(t));
+    let rolesHtml = '';
+    roles.forEach(t => rolesHtml += renderTeacherRow(t));
+
+    return `
+      <div class="week-wrap">
+        <div class="week-head">
+          <span class="week-title">Неделя <em>${weekNum}</em></span>
+          <span class="week-sub">${dateRange}${theme ? ' · смена «' + escapeHtml(theme) + '»' : ''} · вид для админа</span>
+        </div>
+        ${main.length > 0 ? `
+          <div class="admin-section">
+            <div class="admin-title">Педагоги <span class="count">${main.length} ${pluralRu(main.length, 'человек','человека','человек')}</span></div>
+            <table class="admin-grid">
+              <thead>${thead}</thead>
+              <tbody>${mainHtml}</tbody>
+            </table>
+          </div>` : ''}
+        ${roles.length > 0 ? `
+          <div class="admin-section">
+            <div class="admin-title">Организационные роли <span class="count">кураторы, админ, вожатые</span></div>
+            <table class="admin-grid">
+              <thead>${thead}</thead>
+              <tbody>${rolesHtml}</tbody>
+            </table>
+          </div>` : ''}
+      </div>
+    `;
+  }
+
+  function renderTripsSummary() {
+    // Сводка выездов: проходим по всем дням и всем половинам, собираем выезды.
+    const trips = []; // { dayIdx, half, name, teacher, room, theme, troopsLabel }
+    publishedState.schedule.forEach((d, dayIdx) => {
+      ['am','pm'].forEach(half => {
+        const mode = halfMode4(d, half);
+        const arr = Array.isArray(d[half]) ? d[half] : [];
+        if (mode === 'trip4') {
+          const s = arr[0];
+          if (s && s.template) trips.push({ dayIdx, half, slot: s, troopsLabel: 'все 4 отряда' });
+        } else if (mode === 'trip2') {
+          const s = arr[2];
+          if (s && s.template) trips.push({ dayIdx, half, slot: s, troopsLabel: 'отряды 3, 4' });
+        } else if (mode === 'parallel') {
+          if (arr[0] && arr[0].template) trips.push({ dayIdx, half, slot: arr[0], troopsLabel: 'отряды 1, 2' });
+          if (arr[2] && arr[2].template) trips.push({ dayIdx, half, slot: arr[2], troopsLabel: 'отряды 3, 4' });
+        } else if (mode === 'parallel2') {
+          if (arr[0] && arr[0].template) trips.push({ dayIdx, half, slot: arr[0], troopsLabel: 'выезд А (2 круга)' });
+          if (arr[2] && arr[2].template) trips.push({ dayIdx, half, slot: arr[2], troopsLabel: 'выезд Б (2 круга)' });
+        } else if (mode === 'seq3trip') {
+          const multi = d[half + 'Multi'];
+          if (!multi) return;
+          const sg = multi.studyGroup || 'A';
+          const tripIdx = sg === 'A' ? 2 : 0;
+          const tripPair = sg === 'A' ? 'отряды 3, 4' : 'отряды 1, 2';
+          const s = arr[tripIdx];
+          if (s && s.template) trips.push({ dayIdx, half, slot: s, troopsLabel: tripPair });
+        } else if (mode === 'normal') {
+          // обычный режим — если у конкретного слота isTrip=true (вручную помечен)
+          arr.forEach((s, i) => {
+            if (s && s.template && s.isTrip) trips.push({ dayIdx, half, slot: s, troopsLabel: 'отр. ' + (i+1) });
+          });
+        }
+      });
+    });
+
+    let rowsHtml = '';
+    if (trips.length === 0) {
+      rowsHtml = '<tr><td colspan="3" class="trips-empty">Выездов в смене нет.</td></tr>';
+    } else {
+      trips.forEach(t => {
+        const dt = dateForDay(publishedState, t.dayIdx);
+        const dateLabel = (t.dayIdx + 1) + ' день';
+        const dateSub = dt.getDate() + ' ' + MONTHS[dt.getMonth()] + ' · ' + WEEKDAYS_SHORT[dt.getDay()].toUpperCase();
+        const halfLabel = t.half === 'am' ? 'до обеда<br>9:30–13:30' : 'после обеда<br>14:00–17:30';
+        const slot = t.slot;
+        const meta = [];
+        meta.push(t.troopsLabel);
+        if (slot.teacher) meta.push(escapeHtml(slot.teacher));
+        if (slot.room) meta.push('место: ' + escapeHtml(slot.room));
+        rowsHtml += `<tr>
+          <td class="trip-day">${dateLabel}<span class="trip-day-sub">${dateSub}</span></td>
+          <td class="trip-half">${halfLabel}</td>
+          <td class="trip-content">
+            <div class="trip-name">🚌 ${escapeHtml(slot.template)}</div>
+            ${slot.theme ? `<div class="trip-meta" style="font-style:italic">«${escapeHtml(slot.theme)}»</div>` : ''}
+            <div class="trip-meta">${meta.join(' · ')}</div>
+          </td>
+        </tr>`;
+      });
+    }
+
+    return `
+      <div class="week-wrap">
+        <div class="week-head">
+          <span class="week-title">Выезды <em>смены</em></span>
+          <span class="week-sub">для оформления договорённостей с площадками и транспортом</span>
+        </div>
+        <table class="trips-grid">
+          <thead><tr><th style="width:130px">Когда</th><th style="width:100px">Блок</th><th>Куда и с кем</th></tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function pluralRu(n, one, few, many) {
+    const mod10 = n % 10, mod100 = n % 100;
+    if (mod10 === 1 && mod100 !== 11) return one;
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few;
+    return many;
   }
 
   // ── РЕГУЛЯТОР ШРИФТА ──
