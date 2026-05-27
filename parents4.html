@@ -571,6 +571,45 @@
   // Для каждого дня: блок «утро» и «вечер». В каждом — уникальные активности
   // (дедупликация по template+theme), потому что разным отрядам часто ставят
   // одно и то же или разное. Выезды — карточкой с бейджем. Без отрядов/педагогов.
+  // Режим половины дня по типу (синхронно с index4/view4).
+  function halfModeP(type, half) {
+    const isAM = half === 'am';
+    switch (type) {
+      case 'seq3_am':       return isAM ? 'seq3' : 'normal';
+      case 'seq3_pm':       return isAM ? 'normal' : 'seq3';
+      case 'seq3_full':     return 'seq3';
+      case 'rot4_am':       return isAM ? 'rot4' : 'normal';
+      case 'rot4_pm':       return isAM ? 'normal' : 'rot4';
+      case 'rot4_full':     return 'rot4';
+      case 'trip4_am':      return isAM ? 'trip4' : 'normal';
+      case 'trip4_pm':      return isAM ? 'normal' : 'trip4';
+      case 'trip2_am':      return isAM ? 'trip2' : 'normal';
+      case 'trip2_pm':      return isAM ? 'normal' : 'trip2';
+      case 'trip2_full':    return 'trip2';
+      case 'parallel_am':   return isAM ? 'parallel' : 'normal';
+      case 'parallel_pm':   return isAM ? 'normal' : 'parallel';
+      case 'parallel_full': return 'parallel';
+      default:              return 'normal';
+    }
+  }
+  // Все слоты половины «много МК» (для сбора активностей у родителей).
+  function multiSlots(d, half) {
+    const multi = d[half + 'Multi'];
+    if (!multi) return [];
+    const out = [];
+    ['chainA','chainB','stations'].forEach(sub => { (multi[sub] || []).forEach(s => out.push(s)); });
+    return out;
+  }
+
+  // Индексы активных слотов половины дня по типу дня (мусорные слоты выездов — мимо).
+  function activeSlotIndices4(type, half) {
+    const mode = halfModeP(type, half);
+    if (mode === 'trip4')    return [0];
+    if (mode === 'trip2')    return [0, 1, 2];
+    if (mode === 'parallel') return [0, 2];
+    return [0, 1, 2, 3];
+  }
+
   function renderSchedule() {
     if (!publishedState || !Array.isArray(publishedState.schedule) || publishedState.schedule.length === 0) {
       document.getElementById('view-content').innerHTML = '<div class="view-loading">Программа ещё не заполнена.</div>';
@@ -604,11 +643,19 @@
 
       // Собирает уникальные активности блока (am/pm) с дедупликацией по template+theme.
       const collectUnique = (half) => {
-        const arr = d[half];
-        if (!Array.isArray(arr)) return [];
+        const mode = halfModeP(d.type || 'normal', half);
+        let pool;
+        if (mode === 'seq3' || mode === 'rot4') {
+          pool = multiSlots(d, half);
+        } else {
+          const arr = d[half];
+          if (!Array.isArray(arr)) return [];
+          const activeIdx = activeSlotIndices4(d.type || 'normal', half);
+          pool = activeIdx.map(i => arr[i]);
+        }
         const seen = new Set();
         const out = [];
-        arr.forEach(s => {
+        pool.forEach(s => {
           if (!s || !s.template) return;
           const key = normalizeName(s.template) + '|' + (s.theme || '');
           if (seen.has(key)) return;
@@ -715,7 +762,14 @@
     };
     publishedState.schedule.forEach(d => {
       if (!d) return;
-      ['am','pm'].forEach(half => { if (Array.isArray(d[half])) d[half].forEach(collect); });
+      ['am','pm'].forEach(half => {
+        const mode = halfModeP(d.type || 'normal', half);
+        if (mode === 'seq3' || mode === 'rot4') {
+          multiSlots(d, half).forEach(collect);
+        } else if (Array.isArray(d[half])) {
+          activeSlotIndices4(d.type || 'normal', half).forEach(i => collect(d[half][i]));
+        }
+      });
     });
 
     const templates = Object.keys(tplData);

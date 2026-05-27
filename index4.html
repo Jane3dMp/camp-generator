@@ -370,6 +370,150 @@
     border-right: 1px solid var(--ink);
   }
 
+  /* Переключатель типов дня */
+  .day-type-switch {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    border-top: 1px solid var(--ink);
+    border-bottom: 1px solid var(--ink);
+    background: var(--paper-deep);
+  }
+  .day-type-btn {
+    background: transparent;
+    border: none;
+    border-right: 1px solid rgba(21,22,23,0.18);
+    color: rgba(21,22,23,0.6);
+    padding: 7px 12px;
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.12s ease;
+    flex: 1 1 auto;
+    white-space: nowrap;
+    text-align: center;
+  }
+  .day-type-btn:hover { color: var(--ink); background: var(--yellow); }
+  .day-type-btn.active { background: var(--yellow); color: var(--ink); font-weight: 700; }
+
+  /* Раскладки выездов */
+  .trip-row { padding: 12px 14px 16px; background: var(--paper); }
+  .trip2-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 12px 14px 16px;
+    background: var(--paper);
+  }
+  .trip2-cluster-label, .trip2-cluster .troops-row { /* контейнер кластера */ }
+  .trip2-cluster-label {
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 9px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgba(21,22,23,0.5);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .trip2-cluster .troops-row { padding: 0; gap: 8px; }
+  .parallel-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 12px 14px 16px;
+    background: var(--paper);
+  }
+
+  /* === Режим «много МК»: seq3 (цепочки) и rot4 (станции + ротация) === */
+  .multi-wrap { padding: 12px 14px 16px; background: var(--paper); }
+  /* seq3: две колонки-цепочки */
+  .seq-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .seq-col { display: flex; flex-direction: column; gap: 8px; }
+  .seq-col-head {
+    font-family: Inter, system-ui, sans-serif; font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; font-weight: 700; color: var(--ink);
+    padding: 4px 8px; border-radius: 3px; background: var(--paper-deep);
+  }
+  .seq-col-head.t1 { background: var(--troop-1); color: var(--white); }
+  .seq-col-head.t3 { background: var(--troop-3); color: var(--white); }
+  /* rot4: ряд станций */
+  .stations-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+  /* Карточка слота много-МК */
+  .multi-card {
+    background: var(--paper-warm); border: 1px solid rgba(21,22,23,0.2);
+    border-top: 3px solid var(--yellow-deep); padding: 8px 10px 10px; position: relative;
+    border-radius: 0 0 3px 3px;
+  }
+  .multi-card.locked { border-color: var(--yellow-deep); background: rgba(254,214,52,0.16); }
+  .multi-card-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; gap: 6px; }
+  .multi-card-pos {
+    font-family: Inter, sans-serif; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
+    font-weight: 700; color: rgba(21,22,23,0.55);
+  }
+  .multi-card-time {
+    font-family: Geologica, serif; font-style: italic; font-size: 12px; color: var(--yellow-deep); font-weight: 600;
+  }
+  /* Таблица ротации */
+  .rot-table { margin-top: 4px; }
+  .rot-table-title {
+    font-family: Inter, sans-serif; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: rgba(21,22,23,0.55); font-weight: 700; margin-bottom: 8px;
+  }
+  .rot-grid { width: 100%; border-collapse: collapse; font-family: Inter, sans-serif; }
+  .rot-grid th, .rot-grid td {
+    border: 1px solid rgba(21,22,23,0.15); padding: 5px 6px; text-align: center; font-size: 11px; vertical-align: middle;
+  }
+  .rot-grid th { background: var(--paper-deep); font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .rot-grid th.t1 { background: var(--troop-1); color: var(--white); }
+  .rot-grid th.t2 { background: var(--troop-2); color: var(--white); }
+  .rot-grid th.t3 { background: var(--troop-3); color: var(--white); }
+  .rot-grid th.t4 { background: var(--troop-4); color: var(--white); }
+  .rot-grid .rot-time { font-family: Geologica, serif; font-style: italic; color: var(--yellow-deep); font-weight: 600; white-space: nowrap; }
+  .rot-cell { display: block; font-weight: 700; font-size: 10px; }
+  .rot-cell-name { display: block; font-size: 10px; color: rgba(21,22,23,0.7); line-height: 1.2; margin-top: 2px; }
+
+  /* === Режим «много МК»: seq3 (цепочки) и rot4 (станции + ротация) === END */
+  /* Большая плашка выезда */
+  .trip-plate {
+    background: linear-gradient(135deg, rgba(254,214,52,0.55), rgba(254,214,52,0.22));
+    border: 2px solid var(--yellow-deep);
+    padding: 14px 16px 12px;
+    position: relative;
+    border-radius: 4px;
+    min-height: 130px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .trip-plate.locked { background: rgba(254,214,52,0.7); }
+  .trip-plate-label {
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink);
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .trip-plate-name {
+    font-family: Geologica, system-ui, sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.2;
+    margin-bottom: 4px;
+    color: var(--ink);
+  }
+  .trip-plate-theme {
+    font-family: Caveat, cursive;
+    font-size: 18px;
+    color: var(--terra-deep);
+    font-weight: 600;
+    line-height: 1.1;
+    margin-bottom: 4px;
+  }
+
   /* Ряд из 4 отрядов */
   .troops-row {
     display: grid;
@@ -382,6 +526,14 @@
   .day-halves .troops-row {
     grid-template-columns: repeat(2, 1fr);
   }
+  /* Кластер из 2 карточек (trip2) — в один столбик внутри своей колонки */
+  .troops-row-2 { grid-template-columns: 1fr !important; }
+  /* Внутри колонок утро/вечер выездные раскладки тесные — складываем в столбик */
+  .day-halves .trip2-row,
+  .day-halves .parallel-row { grid-template-columns: 1fr; }
+  /* Много-МК внутри колонок: цепочки в один столбик, станции 2×2 */
+  .day-halves .seq-cols { grid-template-columns: 1fr; }
+  .day-halves .stations-row { grid-template-columns: repeat(2, 1fr); }
 
   /* Карточка одного отряда */
   .troop-card {
@@ -818,11 +970,16 @@
     .day-halves > div:first-child { border-right: none; border-bottom: 1px solid var(--ink); }
     .day-halves .troops-row { grid-template-columns: repeat(2, 1fr); }
     .config-panel { grid-template-columns: 1fr 1fr; }
+    .day-type-btn { font-size: 9px; padding: 6px 8px; letter-spacing: 0.04em; }
   }
   @media (max-width: 640px) {
     .troops-row { grid-template-columns: 1fr; }
     .day-halves .troops-row { grid-template-columns: 1fr; }
+    .trip2-row, .parallel-row { grid-template-columns: 1fr; }
     .day-head { grid-template-columns: 1fr; gap: 8px; }
+    /* Переключатель типов — горизонтальная прокрутка вместо переноса */
+    .day-type-switch { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .day-type-btn { flex: 0 0 auto; }
   }
 
   @media print {
@@ -1153,9 +1310,75 @@ function isTripFormat(fmt) {
 
 function emptyDay() {
   return {
+    type: 'normal',  // тип дня: см. DAY_TYPES — управляет раскладкой (выезды/параллельные/много МК)
     am: Array.from({length: NUM_TROOPS}, () => defaultSlot()),
     pm: Array.from({length: NUM_TROOPS}, () => defaultSlot())
+    // amMulti / pmMulti — добавляются по необходимости (режим нескольких МК):
+    //   { mode:'seq3'|'rot4', chainA:[slot×3], chainB:[slot×3], stations:[slot×4] }
   };
+}
+
+// Создаёт пустую структуру «много МК» для половины дня.
+function emptyMulti(mode) {
+  return {
+    mode: mode,                                                   // 'seq3' | 'rot4'
+    chainA: Array.from({length: 3}, () => defaultSlot()),         // цепочка пары 1-2 (для seq3)
+    chainB: Array.from({length: 3}, () => defaultSlot()),         // цепочка пары 3-4 (для seq3)
+    stations: Array.from({length: 4}, () => defaultSlot())        // станции (для rot4)
+  };
+}
+
+// Времена шагов внутри половины с несколькими МК.
+// seq3: 3 занятия с 10:00, по 70 мин до 13:30 (после обеда — с 14:30, по 70 мин).
+// rot4: 4 станции с 9:30, по 60 мин до 13:30 (после обеда — с 14:00, по 60 мин... но half=pm
+//        начинается в 14:00 — там 4×~52 мин до 17:30; оставим равные доли).
+function multiStepTimes(half, mode) {
+  // Возвращает массив строк «9:30–10:30».
+  const fmt = (mins) => {
+    const h = Math.floor(mins / 60), m = mins % 60;
+    return h + ':' + String(m).padStart(2, '0');
+  };
+  let startMin, endMin, n;
+  if (half === 'am') {
+    if (mode === 'seq3') { startMin = 10*60; endMin = 13*60+30; n = 3; }      // 10:00–13:30
+    else                 { startMin = 9*60+30; endMin = 13*60+30; n = 4; }    // 9:30–13:30
+  } else {
+    if (mode === 'seq3') { startMin = 14*60+30; endMin = 17*60+30; n = 3; }   // 14:30–17:30
+    else                 { startMin = 14*60; endMin = 17*60+30; n = 4; }      // 14:00–17:30
+  }
+  const step = Math.round((endMin - startMin) / n);
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const a = startMin + i*step;
+    const b = (i === n-1) ? endMin : startMin + (i+1)*step;
+    out.push(fmt(a) + '–' + fmt(b));
+  }
+  return out;
+}
+
+// Типы дня. Данные всегда плоские (am[4]/pm[4]) ИЛИ amMulti/pmMulti для режимов с несколькими МК.
+// type меняет раскладку и группировку.
+// Группа A = отряды 1,2 (индексы 0,1); группа B = отряды 3,4 (индексы 2,3).
+const DAY_TYPES = [
+  { key: 'normal',        label: 'Обычный' },
+  { key: 'seq3_am',       label: '3 МК до обеда' },
+  { key: 'seq3_pm',       label: '3 МК после' },
+  { key: 'seq3_full',     label: '3 МК × 2' },
+  { key: 'rot4_am',       label: 'Ротация 4 до обеда' },
+  { key: 'rot4_pm',       label: 'Ротация 4 после' },
+  { key: 'rot4_full',     label: 'Ротация 4 × 2' },
+  { key: 'trip2_am',      label: 'Выезд 2 до обеда' },
+  { key: 'trip2_pm',      label: 'Выезд 2 после' },
+  { key: 'trip2_full',    label: 'Выезд 2 × 2' },
+  { key: 'trip4_am',      label: 'Выезд 4 до обеда' },
+  { key: 'trip4_pm',      label: 'Выезд 4 после' },
+  { key: 'parallel_am',   label: 'Парал. до обеда' },
+  { key: 'parallel_pm',   label: 'Парал. после' },
+  { key: 'parallel_full', label: 'Парал. × 2' }
+];
+function dayTypeLabel(key) {
+  const t = DAY_TYPES.find(x => x.key === key);
+  return t ? t.label : 'Обычный';
 }
 
 let state = {
@@ -1311,6 +1534,10 @@ function renderDay(day, idx) {
   const dayContextLabel = idx === 0 ? 'старт смены, знакомство' :
                           idx === NUM_DAYS - 1 ? 'финал смены' : 'учебный день';
 
+  const dayTypeBtns = DAY_TYPES.map(t =>
+    `<button class="day-type-btn ${day.type === t.key ? 'active' : ''}" onclick="setDayType(${idx},'${t.key}')">${t.label}</button>`
+  ).join('');
+
   card.innerHTML = `
     <div class="day-head">
       <div class="day-num-big">
@@ -1326,6 +1553,7 @@ function renderDay(day, idx) {
         <button class="btn btn-sm" onclick="clearDay(${idx})" title="Очистить весь день">🧹 день</button>
       </div>
     </div>
+    <div class="day-type-switch no-print">${dayTypeBtns}</div>
     <div class="day-body" id="day-body-${idx}"></div>
   `;
   const body = card.querySelector(`#day-body-${idx}`);
@@ -1355,34 +1583,236 @@ function renderHalf(dayIdx, half) {
   const isAM = half === 'am';
   const time = isAM ? TIME_AM : TIME_PM;
   const arr = state.schedule[dayIdx][half];
+  const day = state.schedule[dayIdx];
+  const mode = halfMode(day.type, half);
 
   const wrap = document.createElement('div');
 
+  const modeHint = mode === 'trip4' ? ' · выезд всех 4'
+    : mode === 'trip2' ? ' · выезд 2 + кластер'
+    : mode === 'parallel' ? ' · параллельные выезды'
+    : mode === 'seq3' ? ' · 3 МК подряд (с 10:00)'
+    : mode === 'rot4' ? ' · ротация 4 станций (с 9:30)'
+    : '';
   const titleEl = document.createElement('div');
   titleEl.className = 'half-title';
   titleEl.innerHTML = `
-    <span>${isAM ? 'Утро · занятия / выезды' : 'Вечер · занятия / выезды'}
+    <span>${isAM ? 'До обеда' : 'После обеда'}${modeHint}
       <button class="regen-half-btn no-print" onclick="clearHalf(${dayIdx},'${half}')" title="Очистить все 4 отряда в этом блоке">очистить блок</button>
     </span>
     <span class="time-pill">${time}</span>
   `;
   wrap.appendChild(titleEl);
 
-  const rowEl = document.createElement('div');
-  rowEl.className = 'troops-row';
-  arr.forEach((slot, tIdx) => rowEl.appendChild(renderTroopCard(dayIdx, half, tIdx, slot)));
-  wrap.appendChild(rowEl);
+  if (mode === 'trip4') {
+    // Одна большая плашка — все 4 отряда вместе на выезде. Ведущий слот — индекс 0.
+    const big = document.createElement('div');
+    big.className = 'trip-row';
+    big.appendChild(renderTripPlate(dayIdx, half, 0, arr[0], 'все 4 отряда'));
+    wrap.appendChild(big);
+  } else if (mode === 'trip2') {
+    // Группа B (отряды 3-4, индекс 2) на выезде одной плашкой; группа A (1-2) в кластере 2 карточками.
+    const grid = document.createElement('div');
+    grid.className = 'trip2-row';
+    const clusterWrap = document.createElement('div');
+    clusterWrap.className = 'trip2-cluster';
+    clusterWrap.innerHTML = `<div class="trip2-cluster-label">В кластере · отряды 1, 2</div>`;
+    const clusterCards = document.createElement('div');
+    clusterCards.className = 'troops-row troops-row-2';
+    clusterCards.appendChild(renderTroopCard(dayIdx, half, 0, arr[0]));
+    clusterCards.appendChild(renderTroopCard(dayIdx, half, 1, arr[1]));
+    clusterWrap.appendChild(clusterCards);
+    grid.appendChild(clusterWrap);
+    const tripWrap = document.createElement('div');
+    tripWrap.className = 'trip2-trip';
+    tripWrap.appendChild(renderTripPlate(dayIdx, half, 2, arr[2], 'отряды 3, 4'));
+    grid.appendChild(tripWrap);
+    wrap.appendChild(grid);
+    // Кнопка «поменять группы»: меняет местами пары (1,2) ↔ (3,4) в этой половине.
+    const swapTools = document.createElement('div');
+    swapTools.className = 'row-tools no-print';
+    swapTools.innerHTML = `<button class="btn btn-sm btn-ghost" onclick="swapHalfGroups(${dayIdx},'${half}')" title="Поменять местами: кто в кластере, а кто на выезде">↔ поменять группы</button>`;
+    wrap.appendChild(swapTools);
+  } else if (mode === 'parallel') {
+    // Две плашки рядом: группа A (1-2) → выезд из слота 0, группа B (3-4) → выезд из слота 2.
+    const grid = document.createElement('div');
+    grid.className = 'parallel-row';
+    grid.appendChild(renderTripPlate(dayIdx, half, 0, arr[0], 'отряды 1, 2'));
+    grid.appendChild(renderTripPlate(dayIdx, half, 2, arr[2], 'отряды 3, 4'));
+    wrap.appendChild(grid);
+  } else if (mode === 'seq3' || mode === 'rot4') {
+    wrap.appendChild(renderMultiHalf(dayIdx, half, mode));
+  } else {
+    // Обычный режим — 4 карточки
+    const rowEl = document.createElement('div');
+    rowEl.className = 'troops-row';
+    arr.forEach((slot, tIdx) => rowEl.appendChild(renderTroopCard(dayIdx, half, tIdx, slot)));
+    wrap.appendChild(rowEl);
+  }
 
-  // Инструменты ряда: применить один МК всем отрядам
-  const tools = document.createElement('div');
-  tools.className = 'row-tools no-print';
-  tools.innerHTML = `
-    <button class="btn btn-sm btn-ghost" onclick="applyToAllTroops(${dayIdx},'${half}')" title="Выбрать один МК/выезд и поставить его всем 4 отрядам в этом блоке">↦ один МК на всех 4</button>
-    <button class="btn btn-sm btn-ghost" onclick="genHalf(${dayIdx},'${half}')" title="Подобрать через ИИ для всех незакреплённых отрядов в этом блоке">⚡ сгенерировать блок</button>
-  `;
-  wrap.appendChild(tools);
+  // Инструменты ряда (только для обычного режима — для выездов они не нужны)
+  if (mode === 'normal') {
+    const tools = document.createElement('div');
+    tools.className = 'row-tools no-print';
+    tools.innerHTML = `
+      <button class="btn btn-sm btn-ghost" onclick="applyToAllTroops(${dayIdx},'${half}')" title="Выбрать один МК/выезд и поставить его всем 4 отрядам в этом блоке">↦ один МК на всех 4</button>
+      <button class="btn btn-sm btn-ghost" onclick="genHalf(${dayIdx},'${half}')" title="Подобрать через ИИ для всех незакреплённых отрядов в этом блоке">⚡ сгенерировать блок</button>
+    `;
+    wrap.appendChild(tools);
+  }
 
   return wrap;
+}
+
+// Возвращает режим раскладки конкретной половины дня по типу дня.
+// 'normal' | 'trip4' | 'trip2' | 'parallel'
+function halfMode(type, half) {
+  const isAM = half === 'am';
+  switch (type) {
+    case 'seq3_am':       return isAM ? 'seq3' : 'normal';
+    case 'seq3_pm':       return isAM ? 'normal' : 'seq3';
+    case 'seq3_full':     return 'seq3';
+    case 'rot4_am':       return isAM ? 'rot4' : 'normal';
+    case 'rot4_pm':       return isAM ? 'normal' : 'rot4';
+    case 'rot4_full':     return 'rot4';
+    case 'trip4_am':      return isAM ? 'trip4' : 'normal';
+    case 'trip4_pm':      return isAM ? 'normal' : 'trip4';
+    case 'trip2_am':      return isAM ? 'trip2' : 'normal';
+    case 'trip2_pm':      return isAM ? 'normal' : 'trip2';
+    case 'trip2_full':    return 'trip2';
+    case 'parallel_am':   return isAM ? 'parallel' : 'normal';
+    case 'parallel_pm':   return isAM ? 'normal' : 'parallel';
+    case 'parallel_full': return 'parallel';
+    default:              return 'normal';
+  }
+}
+
+// Большая плашка выезда. troopsLabel — кто едет («все 4 отряда», «отряды 3, 4»).
+// Слот помечается isTrip автоматически (это выезд). Действия — как у обычной карточки.
+function renderTripPlate(dayIdx, half, tIdx, slot, troopsLabel) {
+  const el = document.createElement('div');
+  el.className = 'trip-plate' + (slot.locked ? ' locked' : '');
+  el.dataset.day = dayIdx;
+  el.dataset.half = half;
+  el.dataset.troop = tIdx;
+
+  const tpl = slot.template || slot.name || '';
+  const theme = slot.theme || '';
+  const themeHtml = (!state.workWithoutThemes && theme) ? `<div class="trip-plate-theme">«${escapeHtml(theme)}»</div>` : '';
+  const commentHtml = slot.comment ? `<div class="troop-comment">💬 ${escapeHtml(slot.comment)}</div>` : '';
+
+  el.innerHTML = `
+    <div class="trip-plate-label">🚌 Выезд · ${escapeHtml(troopsLabel)}</div>
+    ${slot.direction ? `<span class="direction-tag ${dirClass(slot.direction)}">${escapeHtml(slot.direction)}</span>` : ''}
+    <div class="trip-plate-name">${tpl ? escapeHtml(tpl) : '<em style="opacity:0.4">выезд не выбран</em>'}</div>
+    ${themeHtml}
+    ${commentHtml}
+    <div class="troop-meta">
+      ${slot.teacher ? `<span class="pill">${escapeHtml(slot.teacher)}</span>` : ''}
+      ${slot.room ? `<span class="pill">${escapeHtml(slot.room)}</span>` : ''}
+    </div>
+    <div class="troop-actions">
+      <button class="icon-btn ${slot.locked?'locked-btn':''}" onclick="event.stopPropagation();toggleLock(${dayIdx},'${half}',${tIdx})" title="${slot.locked?'Открепить':'Закрепить'}">${slot.locked?'✓':'○'}</button>
+      <button class="icon-btn" onclick="event.stopPropagation();openTemplatePicker(${dayIdx},'${half}',${tIdx})" title="Выбрать выезд из библиотеки">🧱</button>
+      <button class="icon-btn" onclick="event.stopPropagation();openVariants(${dayIdx},'${half}',${tIdx})" title="Подобрать варианты через ИИ">🔄</button>
+      <button class="icon-btn" onclick="event.stopPropagation();generateThemeForSlot(${dayIdx},'${half}',${tIdx})" title="Подобрать тему">✨</button>
+      <button class="icon-btn ${slot.comment ? 'has-comment' : ''}" onclick="event.stopPropagation();openCommentEditor(${dayIdx},'${half}',${tIdx})" title="${slot.comment ? 'Комментарий: ' + escapeHtml(slot.comment) : 'Добавить комментарий'}">💬</button>
+      <button class="icon-btn" onclick="event.stopPropagation();editSlot(${dayIdx},'${half}',${tIdx})" title="Редактировать вручную">✏</button>
+      <button class="icon-btn" onclick="event.stopPropagation();clearSlot(${dayIdx},'${half}',${tIdx})" title="Очистить">🗑</button>
+    </div>
+  `;
+  return el;
+}
+
+// Рендер половины дня в режиме «много МК»: seq3 (3 МК парами) или rot4 (4 станции с ротацией).
+function renderMultiHalf(dayIdx, half, mode) {
+  const d = state.schedule[dayIdx];
+  const multi = d[half + 'Multi'];
+  const times = multiStepTimes(half, mode);
+  const wrap = document.createElement('div');
+  wrap.className = 'multi-wrap';
+
+  if (mode === 'seq3') {
+    // Две цепочки по 3 занятия: пара 1-2 (chainA) и пара 3-4 (chainB). Каждое занятие — со временем шага.
+    const grid = document.createElement('div');
+    grid.className = 'seq-cols';
+    [['chainA', 'Отряды 1, 2', 't1'], ['chainB', 'Отряды 3, 4', 't3']].forEach(([sub, label, tcls]) => {
+      const col = document.createElement('div');
+      col.className = 'seq-col';
+      col.innerHTML = `<div class="seq-col-head ${tcls}">${label}</div>`;
+      multi[sub].forEach((slot, i) => {
+        col.appendChild(renderMultiCard(dayIdx, half + '#' + sub, i, slot, times[i], (i+1) + '-й МК'));
+      });
+      grid.appendChild(col);
+    });
+    wrap.appendChild(grid);
+  } else {
+    // rot4: 4 станции. Карточки станций + табличка ротации (кто где на каждом шаге).
+    const stationsWrap = document.createElement('div');
+    stationsWrap.className = 'stations-row';
+    multi.stations.forEach((slot, i) => {
+      stationsWrap.appendChild(renderMultiCard(dayIdx, half + '#stations', i, slot, null, 'Станция ' + (i+1)));
+    });
+    wrap.appendChild(stationsWrap);
+
+    // Табличка ротации: строка на шаг, столбец на отряд. Отряд t на шаге k → станция (t+k) % 4.
+    const rot = document.createElement('div');
+    rot.className = 'rot-table';
+    let html = `<div class="rot-table-title">Ротация по кругу — кто на какой станции:</div>
+      <table class="rot-grid"><thead><tr><th>время</th>
+        <th class="t1">Отр.1</th><th class="t2">Отр.2</th><th class="t3">Отр.3</th><th class="t4">Отр.4</th>
+      </tr></thead><tbody>`;
+    for (let k = 0; k < 4; k++) {
+      html += `<tr><td class="rot-time">${times[k]}</td>`;
+      for (let t = 0; t < 4; t++) {
+        const stIdx = (t + k) % 4;
+        const st = multi.stations[stIdx];
+        const name = st.template || st.name || '—';
+        html += `<td><span class="rot-cell">Ст.${stIdx+1}</span><span class="rot-cell-name">${escapeHtml(name)}</span></td>`;
+      }
+      html += `</tr>`;
+    }
+    html += `</tbody></table>`;
+    rot.innerHTML = html;
+    wrap.appendChild(rot);
+  }
+  return wrap;
+}
+
+// Карточка одного слота в режиме «много МК». half — составной путь (am#chainA / pm#stations).
+function renderMultiCard(dayIdx, half, idx, slot, timeLabel, posLabel) {
+  const el = document.createElement('div');
+  el.className = 'multi-card' + (slot.locked ? ' locked' : '');
+  const tpl = slot.template || slot.name || '';
+  const theme = slot.theme || '';
+  const themeHtml = (!state.workWithoutThemes && theme) ? `<div class="troop-theme">«${escapeHtml(theme)}»</div>` : '';
+  const commentHtml = slot.comment ? `<div class="troop-comment">💬 ${escapeHtml(slot.comment)}</div>` : '';
+  const timeHtml = timeLabel ? `<span class="multi-card-time">${escapeHtml(timeLabel)}</span>` : '';
+
+  el.innerHTML = `
+    <div class="multi-card-head">
+      <span class="multi-card-pos">${escapeHtml(posLabel)}</span>
+      ${timeHtml}
+    </div>
+    ${slot.direction ? `<span class="direction-tag ${dirClass(slot.direction)}">${escapeHtml(slot.direction)}</span>` : ''}
+    <div class="troop-name">${tpl ? escapeHtml(tpl) : '<em style="opacity:0.4">пусто</em>'}</div>
+    ${themeHtml}
+    ${commentHtml}
+    <div class="troop-meta">
+      ${slot.teacher ? `<span class="pill">${escapeHtml(slot.teacher)}</span>` : ''}
+      ${slot.room ? `<span class="pill">${escapeHtml(slot.room)}</span>` : ''}
+    </div>
+    <div class="troop-actions">
+      <button class="icon-btn ${slot.locked?'locked-btn':''}" onclick="event.stopPropagation();toggleLock(${dayIdx},'${half}',${idx})" title="${slot.locked?'Открепить':'Закрепить'}">${slot.locked?'✓':'○'}</button>
+      <button class="icon-btn" onclick="event.stopPropagation();openTemplatePicker(${dayIdx},'${half}',${idx})" title="Выбрать МК из библиотеки">🧱</button>
+      <button class="icon-btn" onclick="event.stopPropagation();openVariants(${dayIdx},'${half}',${idx})" title="Подобрать варианты через ИИ">🔄</button>
+      <button class="icon-btn" onclick="event.stopPropagation();generateThemeForSlot(${dayIdx},'${half}',${idx})" title="Подобрать тему">✨</button>
+      <button class="icon-btn ${slot.comment ? 'has-comment' : ''}" onclick="event.stopPropagation();openCommentEditor(${dayIdx},'${half}',${idx})" title="${slot.comment ? 'Комментарий: ' + escapeHtml(slot.comment) : 'Добавить комментарий'}">💬</button>
+      <button class="icon-btn" onclick="event.stopPropagation();editSlot(${dayIdx},'${half}',${idx})" title="Редактировать вручную">✏</button>
+      <button class="icon-btn" onclick="event.stopPropagation();clearSlot(${dayIdx},'${half}',${idx})" title="Очистить">🗑</button>
+    </div>
+  `;
+  return el;
 }
 
 function renderTroopCard(dayIdx, half, tIdx, slot) {
@@ -1458,7 +1888,20 @@ function updateStats() {
 // ============================================================
 // ДЕЙСТВИЯ НАД СЛОТАМИ
 // ============================================================
-function getSlot(day, half, idx) { return state.schedule[day][half][idx]; }
+// Адрес слота: обычный half = 'am'|'pm' → state.schedule[day][half].
+// Составной half для «много МК»: 'am#chainA' | 'am#chainB' | 'am#stations' (и pm)
+//   → state.schedule[day].amMulti.chainA и т.п.
+function slotArr(day, half) {
+  const d = state.schedule[day];
+  if (half.indexOf('#') >= 0) {
+    const [h, sub] = half.split('#');
+    const multi = d[h + 'Multi'];
+    if (multi && Array.isArray(multi[sub])) return multi[sub];
+    return [];
+  }
+  return d[half];
+}
+function getSlot(day, half, idx) { const a = slotArr(day, half); return a[idx]; }
 
 function toggleLock(day, half, idx) {
   const s = getSlot(day, half, idx);
@@ -1472,7 +1915,7 @@ function clearSlot(day, half, idx) {
   if (s.locked) { toast('Слот закреплён — открепи сначала'); return; }
   if (!s.template && !s.name) return;
   pushUndoSnapshot('очистка слота');
-  state.schedule[day][half][idx] = defaultSlot();
+  slotArr(day, half)[idx] = defaultSlot();
   render();
   toast('Очищено');
 }
@@ -1497,6 +1940,61 @@ function clearDay(day) {
   ['am','pm'].forEach(h => d[h].forEach((s, i) => { if (!s.locked) d[h][i] = defaultSlot(); }));
   render();
   toast('День очищен');
+}
+
+// Меняет тип дня. При переключении на выездной режим помечает ведущие слоты как выезд
+// (isTrip=true), при возврате к normal — снимает isTrip со всех слотов половины.
+// Данные не теряются: слоты остаются на местах, меняется только их роль и раскладка.
+function setDayType(day, type) {
+  const d = state.schedule[day];
+  if (!d) return;
+  if (d.type === type) return;
+  if (!DAY_TYPES.find(t => t.key === type)) return;
+  pushUndoSnapshot('тип дня → ' + dayTypeLabel(type));
+  d.type = type;
+
+  // Проставляем/снимаем isTrip и создаём структуры «много МК» по новому режиму.
+  ['am','pm'].forEach(half => {
+    const mode = halfMode(type, half);
+    const arr = d[half];
+    const multiKey = half + 'Multi';
+    if (mode === 'seq3' || mode === 'rot4') {
+      // Создаём структуру, если её ещё нет; сохраняем при переключении seq3↔rot4.
+      if (!d[multiKey] || typeof d[multiKey] !== 'object') d[multiKey] = emptyMulti(mode);
+      d[multiKey].mode = mode;
+      arr.forEach(s => { s.isTrip = false; });
+    } else if (mode === 'trip4') {
+      arr[0].isTrip = true;
+      arr[1].isTrip = false; arr[2].isTrip = false; arr[3].isTrip = false;
+    } else if (mode === 'trip2') {
+      arr[0].isTrip = false; arr[1].isTrip = false;
+      arr[2].isTrip = true; arr[3].isTrip = false;
+    } else if (mode === 'parallel') {
+      arr[0].isTrip = true; arr[1].isTrip = false;
+      arr[2].isTrip = true; arr[3].isTrip = false;
+    } else {
+      arr.forEach(s => { s.isTrip = isTripFormat(s.format); });
+    }
+  });
+
+  render();
+  toast('День ' + (day+1) + ': ' + dayTypeLabel(type));
+}
+
+// Меняет местами группы в половине дня для trip2: пара (1,2) ↔ (3,4).
+// Кто был в кластере — едет, кто ехал — в кластер.
+function swapHalfGroups(day, half) {
+  const arr = state.schedule[day][half];
+  if (!arr) return;
+  pushUndoSnapshot('поменять группы');
+  const tmp0 = arr[0], tmp1 = arr[1];
+  arr[0] = arr[2]; arr[1] = arr[3];
+  arr[2] = tmp0;   arr[3] = tmp1;
+  // После свопа: слот 2 — выезд (группа на выезде), 0,1 — кластер
+  arr[0].isTrip = false; arr[1].isTrip = false;
+  arr[2].isTrip = true;  arr[3].isTrip = false;
+  render();
+  toast('Группы поменялись местами');
 }
 
 function unlockAll() {
@@ -1714,7 +2212,7 @@ function confirmTemplate(day, half, idx, optionIdx, templateName, applyAll) {
   if (applyAll) {
     state.schedule[day][half].forEach((s, i) => { if (!s.locked) state.schedule[day][half][i] = slotFromTemplate(templateName, optionIdx); });
   } else {
-    state.schedule[day][half][idx] = fresh;
+    slotArr(day, half)[idx] = fresh;
   }
   closeModal();
   render();
@@ -1755,7 +2253,7 @@ function _applyTemplateAndTheme(day, half, idx, optionIdx, templateName, themeTe
   if (applyAll) {
     state.schedule[day][half].forEach((s, i) => { if (!s.locked) state.schedule[day][half][i] = build(); });
   } else {
-    state.schedule[day][half][idx] = build();
+    slotArr(day, half)[idx] = build();
   }
   closeModal();
   render();
@@ -2105,11 +2603,30 @@ function _normalizeStateShape() {
   while (state.schedule.length < NUM_DAYS) state.schedule.push(emptyDay());
   if (state.schedule.length > NUM_DAYS) state.schedule = state.schedule.slice(0, NUM_DAYS);
   state.schedule.forEach(d => {
+    if (!d.type || !DAY_TYPES.find(t => t.key === d.type)) d.type = 'normal';
     ['am','pm'].forEach(h => {
       if (!Array.isArray(d[h])) d[h] = [];
       while (d[h].length < NUM_TROOPS) d[h].push(defaultSlot());
       if (d[h].length > NUM_TROOPS) d[h] = d[h].slice(0, NUM_TROOPS);
       d[h] = d[h].map(s => Object.assign(defaultSlot(), s || {}));
+    });
+    // Нормализуем структуры «много МК», если они есть или нужны по типу дня.
+    ['am','pm'].forEach(half => {
+      const mode = halfMode(d.type, half);
+      const key = half + 'Multi';
+      if (mode === 'seq3' || mode === 'rot4') {
+        if (!d[key] || typeof d[key] !== 'object') d[key] = emptyMulti(mode);
+        d[key].mode = mode;
+        const fix = (arr, len) => {
+          if (!Array.isArray(arr)) arr = [];
+          while (arr.length < len) arr.push(defaultSlot());
+          if (arr.length > len) arr = arr.slice(0, len);
+          return arr.map(s => Object.assign(defaultSlot(), s || {}));
+        };
+        d[key].chainA = fix(d[key].chainA, 3);
+        d[key].chainB = fix(d[key].chainB, 3);
+        d[key].stations = fix(d[key].stations, 4);
+      }
     });
   });
   if (typeof state.workWithoutThemes !== 'boolean') state.workWithoutThemes = false;
@@ -2276,13 +2793,13 @@ async function genVariantsForSlot(day, half, idx, n) {
 
   const candidatesList = candidates.map(c => `• "${c.template}" — направление: ${c.direction}; педагог: ${c.teacher}${c.examples ? '; примеры тем: ' + c.examples : ''}`).join('\n');
 
-  const sameBlock = state.schedule[day][half].filter((_, i) => i !== idx).map(s => s.template).filter(Boolean);
+  const sameBlock = slotArr(day, half).filter((_, i) => i !== idx).map(s => s.template).filter(Boolean);
 
   const prompt = `Тема смены: «${state.theme}». Возраст: ${state.ages}. Якоря: ${state.anchors}.
 
 Нужны ${n} вариантов для:
 — День ${day+1} из ${NUM_DAYS} (${WEEKDAYS[date.getDay()]}, ${date.getDate()} ${MONTHS[date.getMonth()]}). Контекст: ${dayContextLabel_(day)}
-— Блок: ${half === 'am' ? 'утро' : 'вечер'}, отряд ${idx+1}
+— Блок: ${half.split('#')[0]==='am' ? 'утро' : 'вечер'}, ${half.indexOf('#')>=0?'слот':'отряд'} ${idx+1}
 — Тип слота: ${slot.isTrip ? 'ВЫЕЗД' : 'обычный МК / уличная активность'}
 — Сейчас стоит: «${slot.template || slot.name || '(пусто)'}» — нужна замена
 — Параллельно у других отрядов в этом блоке: ${sameBlock.join('; ') || '(пусто)'}
@@ -2314,7 +2831,7 @@ ${candidatesList}
 async function openVariants(day, half, idx) {
   const slot = getSlot(day, half, idx);
   if (slot.locked) { toast('Закреплено — открепи'); return; }
-  document.getElementById('modal-title').innerHTML = `Варианты <em>день ${day+1}, ${half==='am'?'утро':'вечер'}, отряд ${idx+1}</em>`;
+  document.getElementById('modal-title').innerHTML = `Варианты <em>день ${day+1}, ${half.split('#')[0]==='am'?'до обеда':'после обеда'}</em>`;
   document.getElementById('modal-body').innerHTML = '<div class="modal-loading">Claude подбирает варианты…</div>';
   openModal();
   try {
@@ -2344,7 +2861,7 @@ function applyVariant(day, half, idx, vIdx) {
   if (!v) { toast('Вариант пуст'); return; }
   pushUndoSnapshot('применение варианта');
   const fresh = Object.assign({}, v); delete fresh._rationale;
-  state.schedule[day][half][idx] = fresh;
+  slotArr(day, half)[idx] = fresh;
   closeModal();
   render();
   toast('Применено');
@@ -2355,7 +2872,10 @@ function applyVariant(day, half, idx, vIdx) {
 let _inBatch = false;
 async function genHalf(day, half) {
   if (!_inBatch) { syncConfig(); pushUndoSnapshot('генерация блока'); }
-  const targets = state.schedule[day][half].map((s, i) => ({s, i})).filter(({s}) => !s.locked);
+  // Активные слоты по типу дня — мусорные слоты выездных раскладок не трогаем.
+  const mode = halfMode(state.schedule[day].type || 'normal', half);
+  const activeIdx = mode === 'trip4' ? [0] : mode === 'trip2' ? [0,1,2] : mode === 'parallel' ? [0,2] : [0,1,2,3];
+  const targets = activeIdx.map(i => ({ s: state.schedule[day][half][i], i })).filter(({s}) => !s.locked);
   if (targets.length === 0) { toast('Все отряды закреплены'); return; }
   if (!_inBatch) toast('Генерация блока…');
   const date = dateForDay(day);
@@ -2382,7 +2902,7 @@ async function genHalf(day, half) {
       const candidatesList = candidates.map(c => `• "${c.template}" — ${c.direction}; педагог: ${c.teacher}`).join('\n');
       const sameBlock = state.schedule[day][half].filter((_, j) => j !== i).map(s => s.template).filter(Boolean);
       const prompt = `Тема смены: «${state.theme}». Возраст: ${state.ages}.
-День ${day+1} из ${NUM_DAYS}, ${half==='am'?'утро':'вечер'}, отряд ${i+1}. ${slot.isTrip ? 'Это ВЫЕЗД.' : 'Обычный МК.'}
+День ${day+1} из ${NUM_DAYS}, ${half.split('#')[0]==='am'?'утро':'вечер'}. ${slot.isTrip ? 'Это ВЫЕЗД.' : 'Обычный МК.'}
 Параллельно у других отрядов: ${sameBlock.join('; ') || '(пусто)'}
 Уже в смене: ${used.slice(0,15).join('; ')}
 
@@ -2467,7 +2987,7 @@ function findScheduleConflicts() {
           const date = dateForDay(i);
           conflicts.push({
             dayNum: i+1, dayDate: date.getDate() + ' ' + MONTHS[date.getMonth()],
-            halfLabel: half === 'am' ? 'утро' : 'вечер',
+            halfLabel: half === 'am' ? 'до обеда' : 'после обеда',
             teacher, slots
           });
         }
@@ -2517,9 +3037,9 @@ function exportTSV() {
     const dt = `${date.getDate()}.${String(date.getMonth()+1).padStart(2,'0')}`;
     // Завтрак
     lines.push([dt, 'Завтрак', BREAKFAST.time, 'все', '', '', '', '', ''].join('\t'));
-    d.am.forEach((s, t) => lines.push([dt, 'Утро', TIME_AM, 'Отряд ' + (t+1), s.name||'', s.theme||'', s.teacher||'', s.room||'', s.direction||''].join('\t')));
+    d.am.forEach((s, t) => lines.push([dt, 'До обеда', TIME_AM, 'Отряд ' + (t+1), s.name||'', s.theme||'', s.teacher||'', s.room||'', s.direction||''].join('\t')));
     lines.push([dt, 'Обед', LUNCH.time, 'все', '', '', '', '', ''].join('\t'));
-    d.pm.forEach((s, t) => lines.push([dt, 'Вечер', TIME_PM, 'Отряд ' + (t+1), s.name||'', s.theme||'', s.teacher||'', s.room||'', s.direction||''].join('\t')));
+    d.pm.forEach((s, t) => lines.push([dt, 'После обеда', TIME_PM, 'Отряд ' + (t+1), s.name||'', s.theme||'', s.teacher||'', s.room||'', s.direction||''].join('\t')));
     lines.push('');
   });
   navigator.clipboard.writeText(lines.join('\n'));
@@ -2593,12 +3113,16 @@ function generateShortId4_() {
 function computeScheduleFingerprint4_(stateObj) {
   try {
     const slotFp = (s) => s ? [s.template||'', s.teacher||'', s.theme||'', s.room||'', s.isTrip?'T':'M'].join('|') : '';
+    const multiFp = (m) => m ? [m.mode, (m.chainA||[]).map(slotFp).join('~'), (m.chainB||[]).map(slotFp).join('~'), (m.stations||[]).map(slotFp).join('~')].join('||') : '';
     const fp = {
       theme: stateObj.theme || '',
       startDate: stateObj.startDate || '',
       schedule: (stateObj.schedule || []).map(d => ({
+        type: d.type || 'normal',
         am: (d.am || []).map(slotFp),
-        pm: (d.pm || []).map(slotFp)
+        pm: (d.pm || []).map(slotFp),
+        amMulti: multiFp(d.amMulti),
+        pmMulti: multiFp(d.pmMulti)
       }))
     };
     return JSON.stringify(fp);
