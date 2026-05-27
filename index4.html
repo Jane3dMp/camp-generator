@@ -166,6 +166,23 @@
   .btn:hover { background: var(--ink); color: var(--paper); }
   .btn-primary { background: var(--yellow); color: var(--ink); border-color: var(--ink); font-weight: 600; }
   .btn-primary:hover { background: var(--yellow-deep); border-color: var(--ink); color: var(--ink); }
+
+  /* Форма создания шаблона */
+  .ct-form { display: flex; flex-direction: column; gap: 4px; }
+  .ct-hint { font-family: Inter, sans-serif; font-size: 12px; color: rgba(21,22,23,0.6); margin-bottom: 10px; line-height: 1.4; }
+  .ct-label { font-family: Inter, sans-serif; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: rgba(21,22,23,0.7); margin: 8px 0 3px; }
+  .ct-input {
+    width: 100%; box-sizing: border-box; padding: 8px 10px;
+    border: 1px solid rgba(21,22,23,0.25); border-radius: 4px;
+    font-family: Inter, sans-serif; font-size: 14px; background: var(--paper);
+  }
+  .ct-input:focus { outline: none; border-color: var(--yellow-deep); }
+  textarea.ct-input { resize: vertical; }
+  .ct-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .ct-radios { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 3px 0 2px; }
+  .ct-radio { font-family: Inter, sans-serif; font-size: 13px; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+  .ct-error { color: var(--event); font-family: Inter, sans-serif; font-size: 13px; font-weight: 600; min-height: 18px; margin-top: 8px; }
+  @media (max-width: 640px) { .ct-row { grid-template-columns: 1fr; } }
   .btn-ghost { border: 1px dashed rgba(21,22,23,0.4); }
   .btn[disabled] { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
   .btn-sm { padding: 4px 8px; font-size: 10px; letter-spacing: 0.08em; }
@@ -2085,6 +2102,7 @@ function renderTplPickerShell_() {
                placeholder="🔍 поиск по названию, теме или педагогу..."
                value="${escapeHtml(st.searchQuery || '')}" oninput="onTplPickerSearchInput(this.value)">
         <span class="tpl-picker-count" id="tpl-picker-count"></span>
+        <button type="button" class="btn btn-sm" style="white-space:nowrap;margin-left:8px" onclick="openCreateTemplateForm_()" title="Создать новый шаблон и сохранить его в библиотеку (Google Sheets)">+ создать шаблон</button>
       </div>
       <div class="tpl-picker-tabs" style="margin-bottom:6px"><span style="font-family:Inter,sans-serif;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(21,22,23,0.5);align-self:center;margin-right:4px;font-weight:600">формат:</span>${fmtTabs}</div>
       <div class="tpl-picker-tabs" id="tpl-picker-tabs">${dirTabsHtml}</div>
@@ -2175,6 +2193,157 @@ function renderTemplatePickerList_() {
   document.getElementById('tpl-picker-list').innerHTML = html;
   const cnt = document.getElementById('tpl-picker-count');
   if (cnt) cnt.textContent = filtered.length === total ? `всего: ${total}` : `найдено: ${filtered.length} из ${total}`;
+}
+
+// ============================================================
+// СОЗДАНИЕ НОВОГО ШАБЛОНА (сохраняется в библиотеку через Apps Script addCustomTemplate)
+// ============================================================
+function openCreateTemplateForm_() {
+  // Справочники из текущей библиотеки — для подсказок (datalist).
+  const uniq = (arr) => Array.from(new Set(arr.filter(Boolean))).sort();
+  const directions = uniq(LIBRARY.map(a => a.d));
+  const teachers   = uniq(LIBRARY.map(a => a.t));
+  const rooms       = uniq(LIBRARY.map(a => a.c));
+  const formats    = uniq(LIBRARY.map(a => a.format));
+  // Если в библиотеке вдруг пусто — даём базовые форматы.
+  const fmtOptions = (formats.length ? formats : ['МК','выезд','уличная','выходной']);
+
+  // Запомним контекст слота, чтобы после создания сразу подставить шаблон в ячейку.
+  const st = window._tplPickerState || {};
+  window._createTplCtx = { day: st.day, half: st.half, idx: st.idx, applyAll: !!st.applyAll };
+
+  const dl = (id, arr) => `<datalist id="${id}">${arr.map(v => `<option value="${escapeHtml(v)}"></option>`).join('')}</datalist>`;
+  const fmtRadios = fmtOptions.map((f, i) =>
+    `<label class="ct-radio"><input type="radio" name="ct-format" value="${escapeHtml(f)}" ${i===0?'checked':''}> ${escapeHtml(f)}</label>`
+  ).join('');
+
+  document.getElementById('modal-title').innerHTML = `Новый <em>шаблон занятия</em>`;
+  document.getElementById('modal-body').innerHTML = `
+    <div class="ct-form">
+      <div class="ct-hint">Шаблон сохранится в общую библиотеку (Google Sheets) и появится во всех админках. Поля со <span style="color:var(--event)">*</span> обязательны.</div>
+
+      <label class="ct-label">Название занятия <span style="color:var(--event)">*</span></label>
+      <input type="text" id="ct-template" class="ct-input" placeholder="например: мк по витражной росписи" autocomplete="off">
+
+      <div class="ct-row">
+        <div>
+          <label class="ct-label">Педагог <span style="color:var(--event)">*</span></label>
+          <input type="text" id="ct-teacher" class="ct-input" list="ct-teachers" placeholder="Фамилия Имя" autocomplete="off">
+          ${dl('ct-teachers', teachers)}
+        </div>
+        <div>
+          <label class="ct-label">Направление <span style="color:var(--event)">*</span></label>
+          <input type="text" id="ct-direction" class="ct-input" list="ct-directions" placeholder="напр. Творчество" autocomplete="off">
+          ${dl('ct-directions', directions)}
+        </div>
+      </div>
+
+      <div class="ct-row">
+        <div>
+          <label class="ct-label">Кабинет / локация <span style="color:var(--event)">*</span></label>
+          <input type="text" id="ct-location" class="ct-input" list="ct-rooms" placeholder="напр. 3 или «парк»" autocomplete="off">
+          ${dl('ct-rooms', rooms)}
+        </div>
+        <div>
+          <label class="ct-label">Длительность (мин)</label>
+          <input type="number" id="ct-duration" class="ct-input" value="60" min="15" step="5">
+        </div>
+      </div>
+
+      <label class="ct-label">Формат <span style="color:var(--event)">*</span></label>
+      <div class="ct-radios">${fmtRadios}</div>
+
+      <div class="ct-row">
+        <div>
+          <label class="ct-label">Возраст</label>
+          <input type="text" id="ct-age" class="ct-input" value="6–11 лет" autocomplete="off">
+        </div>
+        <div></div>
+      </div>
+
+      <label class="ct-label">Примеры тем (через запятую)</label>
+      <input type="text" id="ct-examples" class="ct-input" placeholder="космос, подводный мир, динозавры" autocomplete="off">
+
+      <label class="ct-label">Описание (необязательно)</label>
+      <textarea id="ct-description" class="ct-input" rows="2" placeholder="что дети делают и что забирают с собой"></textarea>
+
+      <div id="ct-error" class="ct-error"></div>
+
+      <div class="modal-actions">
+        <button class="btn" onclick="renderTplPickerShell_()">← назад к списку</button>
+        <button class="btn btn-primary" id="ct-save-btn" onclick="submitCreateTemplate_()">Создать и сохранить</button>
+      </div>
+    </div>
+  `;
+  openModal();
+  setTimeout(() => { const inp = document.getElementById('ct-template'); if (inp) inp.focus(); }, 60);
+}
+
+async function submitCreateTemplate_() {
+  const val = (id) => String((document.getElementById(id) || {}).value || '').trim();
+  const errEl = document.getElementById('ct-error');
+  const setErr = (m) => { if (errEl) errEl.textContent = m; };
+  setErr('');
+
+  const fmtRadio = document.querySelector('input[name="ct-format"]:checked');
+  const row = {
+    template:    val('ct-template'),
+    teacher:     val('ct-teacher'),
+    direction:   val('ct-direction'),
+    location:    val('ct-location'),
+    format:      fmtRadio ? fmtRadio.value : '',
+    age:         val('ct-age') || '6–11 лет',
+    duration:    parseInt(val('ct-duration'), 10) || 60,
+    examples:    val('ct-examples'),
+    description: val('ct-description')
+  };
+
+  // Клиентская валидация (сервер тоже проверит)
+  if (!row.template)  { setErr('Укажи название занятия'); return; }
+  if (!row.teacher)   { setErr('Укажи педагога'); return; }
+  if (!row.direction) { setErr('Укажи направление'); return; }
+  if (!row.location)  { setErr('Укажи кабинет / локацию'); return; }
+  if (!row.format)    { setErr('Выбери формат'); return; }
+
+  // Проверка дубля локально (сервер тоже проверяет по «шаблон + педагог»)
+  const norm = (s) => String(s||'').toLowerCase().replace(/ё/g,'е').replace(/\s+/g,' ').trim();
+  const dup = LIBRARY.some(a => norm(a.template) === norm(row.template) && norm(a.t) === norm(row.teacher));
+  if (dup) { setErr('Такой шаблон с этим педагогом уже есть в библиотеке'); return; }
+
+  const btn = document.getElementById('ct-save-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Сохраняю…'; }
+
+  try {
+    const r = await fetch(LIBRARY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'addCustomTemplate', row })
+    });
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || 'Сервер отклонил запрос');
+
+    // Добавляем в локальную библиотеку сразу — без перезагрузки.
+    const created = data.result || row;
+    LIBRARY.push(convertLibraryItem({
+      template: created.template, teacher: created.teacher, direction: created.direction,
+      location: created.location, format: created.format, age: created.age,
+      duration: created.duration, examples: created.examples, description: created.description,
+      refsCount: 0, refs: []
+    }));
+
+    toast('Шаблон создан и сохранён ✓');
+
+    // Если форму открыли из ячейки — сразу подставим новый шаблон туда.
+    const ctx = window._createTplCtx;
+    if (ctx && typeof ctx.day === 'number') {
+      applyTemplate(ctx.day, ctx.half, ctx.idx, created.template, !!ctx.applyAll);
+    } else {
+      closeModal();
+    }
+  } catch(e) {
+    setErr('Не удалось сохранить: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Создать и сохранить'; }
+  }
 }
 
 // Строит свежий слот из шаблона. Если шаблон ведут несколько педагогов — берёт первого.
