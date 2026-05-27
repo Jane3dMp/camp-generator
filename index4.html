@@ -360,6 +360,16 @@
   }
   .half-title .regen-half-btn:hover { background: var(--ink); color: var(--paper); border-style: solid; }
 
+  /* Утро и вечер — две колонки слева-направо */
+  .day-halves {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+  }
+  .day-halves > div:first-child {
+    border-right: 1px solid var(--ink);
+  }
+
   /* Ряд из 4 отрядов */
   .troops-row {
     display: grid;
@@ -367,6 +377,10 @@
     gap: 8px;
     padding: 12px 14px 16px;
     background: var(--paper);
+  }
+  /* Внутри колонки половины дня 4 карточки не влезут в ряд — ставим 2×2 */
+  .day-halves .troops-row {
+    grid-template-columns: repeat(2, 1fr);
   }
 
   /* Карточка одного отряда */
@@ -799,11 +813,15 @@
   .toast.show { opacity: 1; transform: translateY(0); }
 
   @media (max-width: 1100px) {
-    .troops-row { grid-template-columns: 1fr 1fr; }
+    /* Узковато для двух колонок рядом — складываем утро/вечер в столбик */
+    .day-halves { grid-template-columns: 1fr; }
+    .day-halves > div:first-child { border-right: none; border-bottom: 1px solid var(--ink); }
+    .day-halves .troops-row { grid-template-columns: repeat(2, 1fr); }
     .config-panel { grid-template-columns: 1fr 1fr; }
   }
   @media (max-width: 640px) {
     .troops-row { grid-template-columns: 1fr; }
+    .day-halves .troops-row { grid-template-columns: 1fr; }
     .day-head { grid-template-columns: 1fr; gap: 8px; }
   }
 
@@ -1312,17 +1330,12 @@ function renderDay(day, idx) {
   `;
   const body = card.querySelector(`#day-body-${idx}`);
 
-  // Завтрак (общий)
-  body.appendChild(renderMeal(BREAKFAST));
-
-  // Утро
-  body.appendChild(renderHalf(idx, 'am'));
-
-  // Обед (общий)
-  body.appendChild(renderMeal(LUNCH));
-
-  // Вечер
-  body.appendChild(renderHalf(idx, 'pm'));
+  // Утро и вечер — две колонки слева-направо
+  const halves = document.createElement('div');
+  halves.className = 'day-halves';
+  halves.appendChild(renderHalf(idx, 'am'));
+  halves.appendChild(renderHalf(idx, 'pm'));
+  body.appendChild(halves);
 
   return card;
 }
