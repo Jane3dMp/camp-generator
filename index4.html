@@ -768,6 +768,11 @@
     flex-wrap: wrap;
   }
   .troop-card:hover .troop-actions, .troop-card.locked .troop-actions { opacity: 1; }
+  /* На больших плашках выездов и карточках режима «много МК» кнопки видны всегда —
+     там карточки крупные, а скученности как в 4 узких troop-card нет. */
+  .multi-card .troop-actions, .trip-plate .troop-actions { opacity: 0.55; }
+  .multi-card:hover .troop-actions, .multi-card.locked .troop-actions,
+  .trip-plate:hover .troop-actions, .trip-plate.locked .troop-actions { opacity: 1; }
   .icon-btn {
     background: transparent;
     border: 1px solid rgba(21,22,23,0.25);
