@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Программа смены · Прознание + Coddy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --yellow:      #FED634;
+    --yellow-deep: #C9A800;
+    --ink:         #151617;
+    --paper:       #F5F5F0;
+    --paper-warm:  #FFFBEC;
+    --white:       #FFFFFF;
+    --moss:        #6F8754;
+    --terra:       #C77E5E;
+    --terra-deep:  #9A4B30;
+    --dir-it:        #41BEEA;
+    --dir-creative:  #FED634;
+    --dir-soft:      #8FA370;
+    --dir-active:    #FF8A3D;
+    --dir-event:     #FF5C1D;
+    --paper-deep:    #ECEAE0;
+    --accent:        #FED634;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); font-family: Inter, system-ui, -apple-system, sans-serif; color: var(--ink); line-height: 1.5; }
+
+  #app { max-width: 920px; margin: 0 auto; padding: 24px 18px 80px; }
+  .view-header { text-align: center; margin-bottom: 24px; }
+  .view-eyebrow { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(21,22,23,0.55); font-weight: 600; margin-bottom: 4px; }
+  .view-header h1 { font-family: Geologica, sans-serif; font-size: 26px; font-weight: 700; margin: 0; line-height: 1.15; }
+  .view-header h1 em { font-family: Caveat, cursive; font-style: normal; font-weight: 600; background: var(--yellow); padding: 0 6px; border-radius: 4px; }
+  .view-subhead { font-family: Geologica, serif; font-style: italic; font-size: 13px; color: rgba(21,22,23,0.65); margin-top: 4px; }
+  .view-loading, .view-error { text-align: center; padding: 40px 20px; font-family: Geologica, serif; font-style: italic; color: rgba(21,22,23,0.55); }
+  .view-error { color: var(--terra-deep); }
+
+  .vday { background: var(--white); border: 1px solid var(--ink); margin-bottom: 12px; overflow: hidden; }
+  .vday-head { background: var(--ink); color: var(--paper); padding: 10px 14px; display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 6px; }
+  .vday-num { font-family: Geologica, sans-serif; font-size: 16px; font-weight: 700; color: var(--yellow); }
+  .vday-meta { font-family: Caveat, cursive; font-size: 16px; color: var(--white); font-weight: 600; }
+  .vday-body { padding: 10px 14px; }
+  .vday-rest { font-family: Geologica, serif; font-style: italic; color: rgba(21,22,23,0.4); font-size: 13px; padding: 6px 0; }
+  .vday-trip { background: var(--yellow); padding: 8px 12px; border-radius: 4px; font-size: 13px; font-weight: 500; margin-bottom: 8px; }
+
+  /* Блок утро/вечер: заголовок времени + сетка карточек активностей */
+  .vblock { padding: 10px 0; border-bottom: 1px dotted rgba(21,22,23,0.12); }
+  .vblock:last-child { border-bottom: none; }
+  .vblock-time { font-size: 12px; font-weight: 600; color: var(--ink); margin-bottom: 10px; letter-spacing: 0.02em; }
+  .vblock-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .vcard { background: #faf8f1; border: 1px solid rgba(21,22,23,0.08); border-radius: 4px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+  .vcard.is-trip { background: rgba(254,214,52,0.18); border-color: rgba(254,214,52,0.6); }
+  .vcard-name { font-family: Geologica, sans-serif; font-size: 14px; font-weight: 500; line-height: 1.3; }
+  .vcard-theme { font-family: Caveat, cursive; font-size: 16px; color: var(--yellow-deep); font-weight: 600; line-height: 1.1; }
+  .vcard-trip-badge { display: inline-block; background: var(--yellow); color: var(--ink); font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 2px; text-transform: uppercase; letter-spacing: 0.05em; align-self: flex-start; }
+  .direction-tag { display: inline-block; font-family: Inter, system-ui, sans-serif; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; padding: 2px 6px; border-radius: 3px; margin-bottom: 4px; font-weight: 600; color: var(--ink); align-self: flex-start; }
+  .dir-IT { background: var(--dir-it); color: var(--ink); }
+  .dir-Творчество { background: var(--dir-creative); color: var(--ink); }
+  .dir-Soft { background: var(--dir-soft); color: var(--white); }
+  .dir-Активность { background: var(--dir-active); color: var(--white); }
+  .dir-Игры { background: var(--yellow); color: var(--ink); }
+  .dir-Событие { background: var(--dir-event); color: var(--white); }
+  .dir-Прочее { background: var(--paper-deep); color: rgba(21,22,23,0.6); }
+
+  .view-published-at { font-family: Geologica, serif; font-style: italic; font-size: 11px; color: rgba(21,22,23,0.5); text-align: center; margin-top: 14px; }
+
+  /* === СЕКЦИИ === */
+  .section { margin-bottom: 28px; }
+  .section-eyebrow { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(21,22,23,0.55); font-weight: 600; margin-bottom: 8px; }
+  .section-h2 { font-family: Geologica, sans-serif; font-size: 22px; font-weight: 700; margin: 0 0 14px; line-height: 1.2; }
+  .section-h2 em { font-family: Caveat, cursive; font-style: normal; font-weight: 600; background: var(--yellow); padding: 0 8px; border-radius: 4px; margin-left: 4px; }
+  .section-lead { font-size: 14px; line-height: 1.55; color: var(--ink); margin: 0 0 14px; }
+  .fact-tags { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0 4px; }
+  .fact-tag { font-family: Inter, sans-serif; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; padding: 6px 10px; border-radius: 3px; background: var(--yellow); color: var(--ink); }
+  .fact-tag.dark { background: var(--ink); color: var(--paper); }
+  .fact-tag.outline { background: var(--paper); border: 1px solid var(--ink); }
+
+  /* Режим дня */
+  .schedule-card { background: var(--white); border: 1px solid var(--ink); border-radius: 6px; padding: 4px 0; margin-bottom: 10px; }
+  .schedule-row { display: grid; grid-template-columns: 110px 1fr; gap: 14px; padding: 12px 18px; border-bottom: 1px solid rgba(21,22,23,0.08); align-items: baseline; }
+  .schedule-row:last-child { border-bottom: none; }
+  .schedule-time { font-family: Inter, sans-serif; font-size: 13px; font-weight: 700; color: var(--ink); white-space: nowrap; }
+  .schedule-text { font-size: 13px; color: var(--ink); line-height: 1.45; }
+  .schedule-foot { font-size: 12px; color: rgba(21,22,23,0.55); font-style: italic; font-family: Geologica, serif; margin-top: 6px; }
+
+  /* Что сделают дети */
+  .wtm-direction { margin-bottom: 22px; }
+  .wtm-direction:last-child { margin-bottom: 0; }
+  .wtm-dir-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid rgba(21,22,23,0.10); }
+  .wtm-strip { display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden; padding-bottom: 4px; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+  .wtm-strip::-webkit-scrollbar { height: 6px; }
+  .wtm-strip::-webkit-scrollbar-thumb { background: rgba(21,22,23,0.2); border-radius: 3px; }
+  .wtm-thumb { flex: 0 0 100px; width: 100px; height: 100px; border-radius: 4px; overflow: hidden; background: rgba(21,22,23,0.05); border: 1px solid rgba(21,22,23,0.10); display: block; text-decoration: none; color: var(--ink); position: relative; }
+  .wtm-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .wtm-thumb-loading, .wtm-thumb-failed { display: flex; align-items: center; justify-content: center; font-size: 20px; color: rgba(21,22,23,0.4); }
+  .wtm-thumb:hover { box-shadow: 0 4px 14px rgba(21,22,23,0.15); }
+  .wtm-dir-tag { font-family: Inter, sans-serif; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 8px; border-radius: 3px; font-weight: 700; color: var(--ink); }
+
+  /* Стоимость */
+  .price-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-top: 10px; }
+  .price-card { background: var(--paper); border: 1px solid rgba(21,22,23,0.12); border-radius: 6px; padding: 18px 20px; display: flex; flex-direction: column; gap: 4px; }
+  .price-card.active { background: var(--accent); border-color: var(--accent); }
+  .price-card.active .price-deadline { color: rgba(21,22,23,0.85); }
+  .price-amount { font-family: Geologica, sans-serif; font-size: 28px; font-weight: 700; color: var(--ink); line-height: 1; }
+  .price-deadline { font-family: Geologica, serif; font-style: italic; font-size: 13px; color: rgba(21,22,23,0.65); line-height: 1.35; }
+  .price-tag { display: inline-block; align-self: flex-start; font-family: Inter, sans-serif; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700; background: var(--ink); color: var(--paper); padding: 3px 7px; border-radius: 3px; margin-bottom: 6px; }
+
+  /* Viber */
+  .viber-btn { display: inline-flex; align-items: center; gap: 8px; margin-top: 14px; padding: 10px 18px; background: #7360f2; color: #fff; text-decoration: none; font-family: Geologica, sans-serif; font-weight: 600; font-size: 14px; border-radius: 6px; transition: background 0.15s; }
+  .viber-btn:hover { background: #5d4be0; }
+
+  /* Контакты */
+  .contact-card { background: var(--ink); color: var(--paper); border-radius: 6px; padding: 22px 24px; margin-top: 10px; }
+  .contact-card h3 { font-family: Geologica, sans-serif; font-size: 22px; font-weight: 700; margin: 0 0 6px; color: var(--paper); }
+  .contact-card .contact-lead { font-size: 13px; line-height: 1.5; color: rgba(245,245,240,0.75); margin-bottom: 16px; }
+  .contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 24px; }
+  .contact-block-eyebrow { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(245,245,240,0.55); font-weight: 600; margin-bottom: 4px; }
+  .contact-block-value { font-size: 14px; line-height: 1.45; color: var(--paper); }
+  .contact-block-value a { color: var(--yellow); text-decoration: none; }
+  .contact-block-value a:hover { text-decoration: underline; }
+
+  .program-note { background: var(--paper-warm); border-left: 3px solid var(--yellow-deep); padding: 12px 16px; margin-top: 16px; font-size: 12px; line-height: 1.5; color: var(--ink); border-radius: 0 3px 3px 0; }
+  .program-note strong { font-weight: 700; }
+
+  /* === МОБИЛЬНАЯ === */
+  @media (max-width: 720px) {
+    #app { padding: 18px 14px 60px; }
+    .view-header h1 { font-size: 24px; }
+    .contact-grid { grid-template-columns: 1fr; gap: 14px; }
+    .vblock-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 560px) {
+    #app { padding: 14px 10px 70px; }
+    .view-header { margin-bottom: 18px; }
+    .view-header h1 { font-size: 22px; }
+    .view-eyebrow { font-size: 10px; letter-spacing: 0.18em; }
+    .view-subhead { font-size: 12px; }
+    .section-h2 { font-size: 19px; }
+    .section-lead { font-size: 13px; }
+    .vday-head { padding: 10px 12px; }
+    .vday-num { font-size: 15px; }
+    .vday-meta { font-size: 15px; }
+    .vday-body { padding: 10px 12px; }
+    .vblock-grid { grid-template-columns: 1fr; }
+    .vcard-name { font-size: 15px; }
+    .vcard-theme { font-size: 18px; }
+    .schedule-row { grid-template-columns: 90px 1fr; gap: 10px; padding: 10px 14px; }
+    .schedule-time { font-size: 12px; }
+    .schedule-text { font-size: 13px; }
+    .contact-card { padding: 18px 18px; }
+    .contact-card h3 { font-size: 19px; }
+    .contact-grid { grid-template-columns: 1fr; gap: 12px; }
+    .price-grid { grid-template-columns: 1fr; gap: 10px; }
+    .price-amount { font-size: 24px; }
+  }
+  @media (max-width: 380px) {
+    .view-header h1 { font-size: 20px; }
+    .vday-head { flex-direction: column; align-items: flex-start; gap: 4px; }
+    .schedule-row { grid-template-columns: 1fr; gap: 2px; padding: 10px 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="view-header">
+    <div class="view-eyebrow">Прознание · Coddy · летняя смена</div>
+    <h1 id="view-title">Программа <em>смены</em></h1>
+    <div class="view-subhead" id="view-subhead"></div>
+  </div>
+
+  <!-- О СМЕНЕ -->
+  <div class="section" id="section-about" style="display:none">
+    <div class="section-eyebrow">О смене</div>
+    <h2 class="section-h2">Что это за <em>смена</em></h2>
+    <p class="section-lead" id="about-description"></p>
+    <div class="fact-tags" id="about-facts"></div>
+  </div>
+
+  <!-- РЕЖИМ ДНЯ -->
+  <div class="section">
+    <div class="section-eyebrow">Один день из смены</div>
+    <h2 class="section-h2">Как устроен <em>обычный день</em></h2>
+    <p class="section-lead">Это не вся программа — это один из обычных дней. Смена состоит из десяти таких дней с разной начинкой, плюс выезды и финальная ярмарка.</p>
+    <div class="schedule-card" id="daily-schedule-card"></div>
+    <div class="schedule-foot" id="daily-schedule-foot"></div>
+  </div>
+
+  <!-- ПРОГРАММА ПО ДНЯМ -->
+  <div class="section">
+    <div class="section-eyebrow">Программа по дням</div>
+    <h2 class="section-h2">Что будет <em>на каждом дне</em></h2>
+    <p class="section-lead">Расписание активностей по дням. Программа может меняться в пределах своей категории — погода, болезнь педагога, форс-мажор. Темы и общая структура остаются.</p>
+    <div id="view-content"><div class="view-loading">Загружаю расписание…</div></div>
+    <div class="view-published-at" id="view-published-at"></div>
+  </div>
+
+  <!-- ЧТО СДЕЛАЮТ ДЕТИ -->
+  <div class="section" id="section-what-they-make" style="display:none">
+    <div class="section-eyebrow">Чем будем заниматься</div>
+    <h2 class="section-h2">Что <em>будут делать</em> дети</h2>
+    <p class="section-lead">Это образцы, на которые мы будем ориентироваться, работая с детьми. Финальный результат может отличаться — но направление такое.</p>
+    <div id="what-they-make-content"></div>
+  </div>
+
+  <!-- СТОИМОСТЬ -->
+  <div class="section" id="section-price" style="display:none">
+    <div class="section-eyebrow">Сколько стоит</div>
+    <h2 class="section-h2">Стоимость <em>смены</em></h2>
+    <p class="section-lead" id="price-sub"></p>
+    <div class="price-grid" id="price-grid"></div>
+  </div>
+
+  <!-- КОНТАКТЫ -->
+  <div class="section">
+    <div class="section-eyebrow">Запись и вопросы</div>
+    <h2 class="section-h2">Записать <em>ребёнка</em></h2>
+    <div class="contact-card">
+      <h3>Свяжитесь с нами</h3>
+      <div class="contact-lead">Позвоните или напишите в Viber — менеджер ответит на все вопросы и расскажет про даты ближайшей смены.</div>
+      <div class="contact-grid" id="contact-grid"></div>
+      <div id="viber-buttons-container" style="display:none"></div>
+    </div>
+    <div class="program-note" id="program-note" style="display:none"></div>
+  </div>
+</div>
+
+<script>
+  /**
+   * parents4.html — публичная страница для родителей (смена на 4 отряда).
+   * Модель: день = { am:[slot×4], pm:[slot×4] }.
+   * Вариант А: программа сводится по дням, показываем уникальные активности
+   * каждого блока (дедупликация по названию+тема), без привязки к отрядам,
+   * без педагогов/кабинетов. Выезды — жёлтой карточкой.
+   * Секции «о смене / режим / стоимость / контакты» и родительский контент —
+   * как в parents.html (тот же Apps Script, те же actions).
+   */
+  const LIBRARY_URL = 'https://script.google.com/macros/s/AKfycbxb6EEzzl-FguxjpIO5YthGLj-QXh7puCD_DO4HL4wVPziHL1pEtVeuo3uNEi2i2yXq/exec';
+  const MONTHS = ['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
+  const WEEKDAYS = ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
+  const TIME_AM = '9:30 – 13:30';
+  const TIME_PM = '14:00 – 17:30';
+
+  let publishedState = null;
+  let publishedMeta = null;
+  let LIBRARY = [];
+  let DETAILS = {};
+  let CONTENT = {};
+
+  const DEFAULTS = {
+    eyebrow: 'Прознание · Coddy · летняя смена',
+    showAbout: true,
+    aboutEyebrow: 'О смене',
+    aboutTitle: 'Что это за {смена}',
+    aboutDescription: '',
+    showDailySchedule: true,
+    dailyScheduleEyebrow: 'Один день из смены',
+    dailyScheduleTitle: 'Как устроен {обычный день}',
+    dailyScheduleLead: 'Это не вся программа — это один из обычных дней. Смена состоит из десяти таких дней с разной начинкой, плюс выезды и финальная ярмарка.',
+    dailyScheduleRows: [
+      { time: '7:30–9:00',  text: 'приём детей' },
+      { time: '9:00–9:30',  text: 'завтрак' },
+      { time: '9:30–13:30', text: 'мастер-классы по отрядам, улица, выезды' },
+      { time: '13:30–14:00', text: 'обед' },
+      { time: '14:00–17:30', text: 'мастер-классы по отрядам, улица, выезды' },
+      { time: '17:30–18:00', text: 'полдник, встреча с родителями' }
+    ],
+    dailyScheduleFoot: 'Питание: завтрак, обед, полдник.',
+    showProgram: true,
+    programEyebrow: 'Программа по дням',
+    programTitle: 'Что будет {на каждом дне}',
+    programLead: 'Расписание активностей по дням. Программа может меняться в пределах своей категории — погода, болезнь педагога, форс-мажор. Темы и общая структура остаются.',
+    showContacts: true,
+    contactsEyebrow: 'Запись и вопросы',
+    contactsTitle: 'Записать {ребёнка}',
+    contactsHeader: 'Свяжитесь с нами',
+    contactsLead: 'Позвоните или напишите в Viber — менеджер ответит на все вопросы и расскажет про даты ближайшей смены.',
+    contactsPhoneSub: 'Телефоны / Viber',
+    contactsPhone1: '+375 44 586 50 93',
+    contactsPhone2: '+375 29 315 15 83',
+    contactsAddress: 'Могилёв, переулок Пожарный, 19',
+    contactsInstagram: 'https://www.instagram.com/proznanie_weekend/',
+    contactsTime: '7:30–17:30',
+    showProgramNote: true,
+    programNote: 'Программа фиксирована на 80%. При непредвиденных обстоятельствах — погоде, болезни педагога, форс-мажоре — клуб заменяет активность на равноценную из той же категории. Темы и общая структура смены остаются.'
+  };
+
+  function buildContent(publishedParents) {
+    const out = JSON.parse(JSON.stringify(DEFAULTS));
+    if (DETAILS && Object.keys(DETAILS).length > 0) {
+      if (DETAILS['Адрес']) out.contactsAddress = DETAILS['Адрес'];
+      if (DETAILS['Время']) out.contactsTime = DETAILS['Время'];
+      if (DETAILS['Телефон_1']) out.contactsPhone1 = DETAILS['Телефон_1'];
+      if (DETAILS['Телефон_2']) out.contactsPhone2 = DETAILS['Телефон_2'];
+      if (DETAILS['Телефон_подпись']) out.contactsPhoneSub = DETAILS['Телефон_подпись'];
+      if (DETAILS['Instagram']) out.contactsInstagram = DETAILS['Instagram'];
+      const detailRows = [];
+      for (let i = 1; i <= 20; i++) {
+        const v = DETAILS['Режим_строка_' + i];
+        if (!v) continue;
+        const m = String(v).trim().match(/^(.+?)\s+[·—-]\s+(.+)$/);
+        if (m) detailRows.push({ time: m[1].trim(), text: m[2].trim() });
+        else detailRows.push({ time: '', text: String(v).trim() });
+      }
+      if (detailRows.length > 0) out.dailyScheduleRows = detailRows;
+      if (DETAILS['Режим_подпись']) out.dailyScheduleFoot = DETAILS['Режим_подпись'];
+      if (DETAILS['Программа_фиксирована']) out.programNote = DETAILS['Программа_фиксирована'];
+    }
+    if (publishedParents && typeof publishedParents === 'object') {
+      Object.keys(publishedParents).forEach(k => {
+        const v = publishedParents[k];
+        if (v === undefined || v === null) return;
+        if (typeof v === 'string' && v.trim() === '') return;
+        if (Array.isArray(v) && v.length === 0) return;
+        out[k] = v;
+      });
+    }
+    return out;
+  }
+
+  function getQueryParam(name) {
+    const m = new RegExp('[?&]' + name + '=([^&#]*)').exec(window.location.search);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function normalizeName(s) { if (!s) return ''; return String(s).toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim(); }
+
+  function dateForDay(state, dayIdx) {
+    const start = new Date(state.startDate + 'T00:00:00');
+    let d = new Date(start);
+    let workDays = 0;
+    while (workDays < dayIdx + 1) {
+      if (d.getDay() !== 0 && d.getDay() !== 6) workDays++;
+      if (workDays < dayIdx + 1) d.setDate(d.getDate() + 1);
+      else break;
+    }
+    return d;
+  }
+
+  function dirClass(dir) {
+    if (!dir) return 'dir-Прочее';
+    if (dir.includes('IT')) return 'dir-IT';
+    if (dir.includes('Творч')) return 'dir-Творчество';
+    if (dir.includes('Soft')) return 'dir-Soft';
+    if (dir.includes('Активн')) return 'dir-Активность';
+    if (dir.includes('Игр')) return 'dir-Игры';
+    if (dir.includes('Событ')) return 'dir-Событие';
+    return 'dir-Прочее';
+  }
+  function dirShort(dir) {
+    if (!dir) return 'прочее';
+    if (dir.includes('IT')) return 'IT';
+    if (dir.includes('Творч')) return 'творчество';
+    if (dir.includes('Soft')) return 'soft / нейро';
+    if (dir.includes('Активн')) return 'спорт';
+    if (dir.includes('Игр')) return 'игры';
+    if (dir.includes('Событ')) return 'событие';
+    return 'прочее';
+  }
+  function getSlotDirection(slot) {
+    if (!slot) return '';
+    if (slot.direction) return slot.direction;
+    const tpl = normalizeName(slot.template || slot.name);
+    if (!tpl) return '';
+    const lib = LIBRARY.find(a => normalizeName(a.template || a.name) === tpl);
+    return lib && lib.direction ? lib.direction : '';
+  }
+
+  async function loadAll(id) {
+    document.getElementById('view-content').innerHTML = '<div class="view-loading">Загружаю программу…</div>';
+    try {
+      const [pubResp, libResp, detResp, parResp] = await Promise.all([
+        fetch(LIBRARY_URL + '?action=getPublished&id=' + encodeURIComponent(id)).then(r => r.json()),
+        fetch(LIBRARY_URL + '?action=library').then(r => r.json()).catch(() => ({ ok: false })),
+        fetch(LIBRARY_URL + '?action=details').then(r => r.json()).catch(() => ({ ok: false })),
+        fetch(LIBRARY_URL + '?action=getParentsContent&id=' + encodeURIComponent(id)).then(r => r.json()).catch(() => ({ ok: false }))
+      ]);
+      if (!pubResp.ok) throw new Error(pubResp.error || 'Не удалось загрузить публикацию');
+      LIBRARY = (libResp && libResp.ok && libResp.activities) ? libResp.activities : [];
+      DETAILS = (detResp && detResp.ok && detResp.details) ? detResp.details : {};
+      const publishedParents = (parResp && parResp.ok && parResp.parentsContent && parResp.parentsContent.parentsContent)
+        ? parResp.parentsContent.parentsContent : null;
+      CONTENT = buildContent(publishedParents);
+
+      const pub = pubResp.publication;
+      if (!pub) throw new Error('Программа с этим id не найдена. Возможно, ссылка устарела.');
+      if (!pub.id) throw new Error('Сервер вернул некорректную программу.');
+      publishedMeta = { id: pub.id, name: pub.name || '', theme: pub.theme || '', publishedAt: pub.publishedAt || '' };
+      try { publishedState = JSON.parse(pub.stateJson || '{}'); }
+      catch(e) { throw new Error('Не удалось разобрать программу: ' + e.message); }
+      if (!Array.isArray(publishedState.schedule) || publishedState.schedule.length === 0
+          || !publishedState.schedule[0] || !Array.isArray(publishedState.schedule[0].am)) {
+        throw new Error('Это не похоже на смену на 4 отряда. Используй parents.html для 6-отрядных смен.');
+      }
+      onPublishedLoaded();
+    } catch(e) {
+      document.getElementById('view-content').innerHTML = '<div class="view-error">Ошибка: ' + escapeHtml(e.message) + '</div>';
+    }
+  }
+
+  function onPublishedLoaded() {
+    const theme = publishedState.theme || '';
+    if (theme) document.getElementById('view-title').innerHTML = '<em>' + escapeHtml(theme) + '</em>';
+    let subhead = publishedMeta.name || theme || '';
+    try {
+      if (publishedState.startDate && Array.isArray(publishedState.schedule) && publishedState.schedule.length > 0) {
+        const first = dateForDay(publishedState, 0);
+        const last = dateForDay(publishedState, publishedState.schedule.length - 1);
+        const sameMonth = first.getMonth() === last.getMonth();
+        const range = sameMonth
+          ? first.getDate() + '–' + last.getDate() + ' ' + MONTHS[last.getMonth()] + ' ' + last.getFullYear()
+          : first.getDate() + ' ' + MONTHS[first.getMonth()] + ' – ' + last.getDate() + ' ' + MONTHS[last.getMonth()] + ' ' + last.getFullYear();
+        subhead = range + (subhead && subhead !== theme ? ' · ' + subhead : '');
+      }
+    } catch(e) {}
+    document.getElementById('view-subhead').textContent = subhead;
+    if (publishedMeta.publishedAt) {
+      const d = new Date(publishedMeta.publishedAt);
+      document.getElementById('view-published-at').textContent =
+        'Программа обновлена ' + d.toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    }
+    renderHeader();
+    renderAboutSection();
+    renderDailySchedule();
+    renderProgramHeaders();
+    renderContacts();
+    renderPrices();
+    renderSchedule();
+    renderWhatTheyMake();
+  }
+
+  function renderTitleWithEm(template) {
+    if (!template) return '';
+    const m = String(template).match(/^(.*?)\{([^}]+)\}(.*)$/);
+    if (!m) return escapeHtml(template);
+    return escapeHtml(m[1]) + '<em>' + escapeHtml(m[2]) + '</em>' + escapeHtml(m[3]);
+  }
+  function renderHeader() {
+    const eyebrowEl = document.querySelector('.view-eyebrow');
+    if (eyebrowEl && CONTENT.eyebrow) eyebrowEl.textContent = CONTENT.eyebrow;
+  }
+
+  function renderAboutSection() {
+    const ct = publishedState.campType;
+    const desc = (CONTENT.aboutDescription && CONTENT.aboutDescription.trim()) ||
+                 (ct && ct.description) || publishedState.anchors || '';
+    if (!desc || !CONTENT.showAbout) { document.getElementById('section-about').style.display = 'none'; return; }
+    document.getElementById('section-about').style.display = '';
+    const sectionEl = document.getElementById('section-about');
+    const eyebrow = sectionEl.querySelector('.section-eyebrow');
+    const h2 = sectionEl.querySelector('.section-h2');
+    if (eyebrow) eyebrow.textContent = CONTENT.aboutEyebrow || '';
+    if (h2) h2.innerHTML = renderTitleWithEm(CONTENT.aboutTitle || '');
+    document.getElementById('about-description').textContent = desc;
+    const facts = [];
+    if (Array.isArray(publishedState.schedule)) {
+      const n = publishedState.schedule.length;
+      const lastDigit = n % 10, lastTwo = n % 100;
+      let word = 'дней';
+      if (lastTwo < 11 || lastTwo > 14) { if (lastDigit === 1) word = 'день'; else if (lastDigit >= 2 && lastDigit <= 4) word = 'дня'; }
+      facts.push({ text: n + ' ' + word, cls: 'fact-tag' });
+    }
+    if (publishedState.ages) facts.push({ text: publishedState.ages, cls: 'fact-tag' });
+    if (ct && ct.type) facts.push({ text: ct.type, cls: 'fact-tag dark' });
+    facts.push({ text: 'Могилёв', cls: 'fact-tag outline' });
+    document.getElementById('about-facts').innerHTML = facts.map(f => `<span class="${f.cls}">${escapeHtml(f.text)}</span>`).join('');
+  }
+
+  function renderDailySchedule() {
+    const sectionEl = document.querySelector('.section .schedule-card')
+      ? document.querySelector('.section .schedule-card').closest('.section') : null;
+    if (!CONTENT.showDailySchedule) { if (sectionEl) sectionEl.style.display = 'none'; return; }
+    if (sectionEl) sectionEl.style.display = '';
+    if (sectionEl) {
+      const eyebrow = sectionEl.querySelector('.section-eyebrow');
+      const h2 = sectionEl.querySelector('.section-h2');
+      const lead = sectionEl.querySelector('.section-lead');
+      if (eyebrow) eyebrow.textContent = CONTENT.dailyScheduleEyebrow || '';
+      if (h2) h2.innerHTML = renderTitleWithEm(CONTENT.dailyScheduleTitle || '');
+      if (lead) lead.textContent = CONTENT.dailyScheduleLead || '';
+    }
+    const rows = Array.isArray(CONTENT.dailyScheduleRows) ? CONTENT.dailyScheduleRows : [];
+    document.getElementById('daily-schedule-card').innerHTML = rows.map(r =>
+      `<div class="schedule-row"><div class="schedule-time">${escapeHtml(r.time || '')}</div><div class="schedule-text">${escapeHtml(r.text || '')}</div></div>`
+    ).join('');
+    document.getElementById('daily-schedule-foot').textContent = CONTENT.dailyScheduleFoot || '';
+  }
+
+  function renderProgramHeaders() {
+    const viewContent = document.getElementById('view-content');
+    const sectionEl = viewContent ? viewContent.closest('.section') : null;
+    if (!sectionEl) return;
+    if (!CONTENT.showProgram) { sectionEl.style.display = 'none'; return; }
+    sectionEl.style.display = '';
+    const eyebrow = sectionEl.querySelector('.section-eyebrow');
+    const h2 = sectionEl.querySelector('.section-h2');
+    const lead = sectionEl.querySelector('.section-lead');
+    if (eyebrow) eyebrow.textContent = CONTENT.programEyebrow || '';
+    if (h2) h2.innerHTML = renderTitleWithEm(CONTENT.programTitle || '');
+    if (lead) lead.textContent = CONTENT.programLead || '';
+  }
+
+  function renderContacts() {
+    const contactCard = document.querySelector('.contact-card');
+    const sectionEl = contactCard ? contactCard.closest('.section') : null;
+    if (!CONTENT.showContacts) { if (sectionEl) sectionEl.style.display = 'none'; return; }
+    if (sectionEl) sectionEl.style.display = '';
+    if (sectionEl) {
+      const eyebrow = sectionEl.querySelector('.section-eyebrow');
+      const h2 = sectionEl.querySelector('.section-h2');
+      if (eyebrow) eyebrow.textContent = CONTENT.contactsEyebrow || '';
+      if (h2) h2.innerHTML = renderTitleWithEm(CONTENT.contactsTitle || '');
+    }
+    if (contactCard) {
+      const h3 = contactCard.querySelector('h3');
+      const lead = contactCard.querySelector('.contact-lead');
+      if (h3) h3.textContent = CONTENT.contactsHeader || '';
+      if (lead) lead.textContent = CONTENT.contactsLead || '';
+    }
+    const phone1 = CONTENT.contactsPhone1 || '';
+    const phone2 = CONTENT.contactsPhone2 || '';
+    const phoneSub = CONTENT.contactsPhoneSub || 'Телефоны';
+    const address = CONTENT.contactsAddress || '';
+    const instagram = CONTENT.contactsInstagram || '';
+    const time = CONTENT.contactsTime || '';
+    const telLink = (phone) => 'tel:' + String(phone).replace(/[^\d+]/g, '');
+    let igHandle = instagram;
+    const igMatch = String(instagram).match(/instagram\.com\/([^\/\?]+)/);
+    if (igMatch) igHandle = '@' + igMatch[1];
+    const addressHtml = escapeHtml(address).replace(/,\s*/, ',<br>');
+    let phonesHtml = '';
+    if (phone1) phonesHtml += `<a href="${escapeHtml(telLink(phone1))}">${escapeHtml(phone1)}</a>`;
+    if (phone2) phonesHtml += (phone1 ? '<br>' : '') + `<a href="${escapeHtml(telLink(phone2))}">${escapeHtml(phone2)}</a>`;
+    const blocks = [];
+    if (phonesHtml) blocks.push(`<div><div class="contact-block-eyebrow">${escapeHtml(phoneSub)}</div><div class="contact-block-value">${phonesHtml}</div></div>`);
+    if (address) blocks.push(`<div><div class="contact-block-eyebrow">Адрес</div><div class="contact-block-value">${addressHtml}</div></div>`);
+    if (instagram) blocks.push(`<div><div class="contact-block-eyebrow">Instagram</div><div class="contact-block-value"><a href="${escapeHtml(instagram)}" target="_blank" rel="noopener">${escapeHtml(igHandle)}</a></div></div>`);
+    if (time) blocks.push(`<div><div class="contact-block-eyebrow">Время работы</div><div class="contact-block-value">${escapeHtml(time)}</div></div>`);
+    document.getElementById('contact-grid').innerHTML = blocks.join('');
+    const viberContainer = document.getElementById('viber-buttons-container');
+    if (viberContainer) {
+      const viberPhone = phone1 || phone2;
+      if (viberPhone) {
+        const numberOnly = String(viberPhone).replace(/[^\d+]/g, '').replace(/^\+/, '');
+        viberContainer.innerHTML = `<a href="viber://chat?number=%2B${escapeHtml(numberOnly)}" class="viber-btn"><span style="font-size:18px">💬</span><span>Написать в Viber</span></a>`;
+        viberContainer.style.display = '';
+      } else { viberContainer.style.display = 'none'; }
+    }
+    const noteText = CONTENT.programNote || '';
+    if (!CONTENT.showProgramNote || !noteText) {
+      document.getElementById('program-note').style.display = 'none';
+    } else {
+      const dotIdx = noteText.indexOf('.');
+      if (dotIdx > 0) {
+        const head = noteText.slice(0, dotIdx + 1);
+        const tail = noteText.slice(dotIdx + 1);
+        document.getElementById('program-note').innerHTML = '<strong>' + escapeHtml(head) + '</strong>' + escapeHtml(tail);
+      } else { document.getElementById('program-note').textContent = noteText; }
+      document.getElementById('program-note').style.display = '';
+    }
+  }
+
+  // === РАСПИСАНИЕ ПО ДНЯМ (вариант А) ===
+  // Для каждого дня: блок «утро» и «вечер». В каждом — уникальные активности
+  // (дедупликация по template+theme), потому что разным отрядам часто ставят
+  // одно и то же или разное. Выезды — карточкой с бейджем. Без отрядов/педагогов.
+  function renderSchedule() {
+    if (!publishedState || !Array.isArray(publishedState.schedule) || publishedState.schedule.length === 0) {
+      document.getElementById('view-content').innerHTML = '<div class="view-loading">Программа ещё не заполнена.</div>';
+      return;
+    }
+    let html = '';
+    publishedState.schedule.forEach((d, idx) => {
+      if (!d) return;
+      const dt = dateForDay(publishedState, idx);
+      const dateStr = dt.getDate() + ' ' + MONTHS[dt.getMonth()];
+      const weekday = WEEKDAYS[dt.getDay()];
+      html += `<div class="vday">
+        <div class="vday-head">
+          <div class="vday-num">День ${idx + 1} · ${escapeHtml(dateStr)}</div>
+          <div class="vday-meta">${escapeHtml(weekday)}</div>
+        </div>
+        <div class="vday-body">`;
+
+      const renderCard = (s) => {
+        const dir = getSlotDirection(s);
+        const dirCls = dirClass(dir);
+        const dirLabel = dirShort(dir);
+        const tripBadge = s.isTrip ? '<span class="vcard-trip-badge">🚌 выезд</span>' : '';
+        return `
+          <div class="vcard${s.isTrip ? ' is-trip' : ''}">
+            ${s.isTrip ? tripBadge : (dir ? `<span class="direction-tag ${dirCls}">${escapeHtml(dirLabel)}</span>` : '')}
+            <div class="vcard-name">${escapeHtml(s.template)}</div>
+            ${s.theme ? `<div class="vcard-theme">«${escapeHtml(s.theme)}»</div>` : ''}
+          </div>`;
+      };
+
+      // Собирает уникальные активности блока (am/pm) с дедупликацией по template+theme.
+      const collectUnique = (half) => {
+        const arr = d[half];
+        if (!Array.isArray(arr)) return [];
+        const seen = new Set();
+        const out = [];
+        arr.forEach(s => {
+          if (!s || !s.template) return;
+          const key = normalizeName(s.template) + '|' + (s.theme || '');
+          if (seen.has(key)) return;
+          seen.add(key);
+          out.push(s);
+        });
+        return out;
+      };
+
+      const renderBlock = (timeLabel, slots) => {
+        const cards = slots.map(renderCard).join('');
+        if (!cards) return '';
+        return `<div class="vblock"><div class="vblock-time">${escapeHtml(timeLabel)}</div><div class="vblock-grid">${cards}</div></div>`;
+      };
+
+      const amSlots = collectUnique('am');
+      const pmSlots = collectUnique('pm');
+      let body = '';
+      body += renderBlock(TIME_AM, amSlots);
+      body += renderBlock(TIME_PM, pmSlots);
+      html += body || `<div class="vday-rest">— программа дня уточняется —</div>`;
+      html += `</div></div>`;
+    });
+    document.getElementById('view-content').innerHTML = html;
+  }
+
+  // === СТОИМОСТЬ ===
+  function renderPrices() {
+    const sectionEl = document.getElementById('section-price');
+    if (!sectionEl) return;
+    const rawPrices = [
+      { key: 'Цена_ранняя',  raw: DETAILS['Цена_ранняя']  || '' },
+      { key: 'Цена_средняя', raw: DETAILS['Цена_средняя'] || '' },
+      { key: 'Цена_поздняя', raw: DETAILS['Цена_поздняя'] || '' }
+    ];
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const prices = [];
+    rawPrices.forEach(p => {
+      if (!p.raw) return;
+      const parsed = parsePriceLine_(p.raw);
+      if (!parsed) return;
+      if (parsed.deadline && parsed.deadline < today) return;
+      prices.push(parsed);
+    });
+    if (prices.length === 0) { sectionEl.style.display = 'none'; return; }
+    prices.sort((a, b) => {
+      if (!a.deadline && !b.deadline) return 0;
+      if (!a.deadline) return 1;
+      if (!b.deadline) return -1;
+      return a.deadline.getTime() - b.deadline.getTime();
+    });
+    if (prices.length > 0) prices[0].active = true;
+    sectionEl.style.display = '';
+    const subEl = document.getElementById('price-sub');
+    if (subEl) subEl.textContent = DETAILS['Цена_подпись'] || 'Стоимость зависит от того, когда вы оплатите смену.';
+    document.getElementById('price-grid').innerHTML = prices.map(p => {
+      const tagHtml = p.active ? `<span class="price-tag">Сейчас</span>` : '';
+      return `<div class="price-card ${p.active ? 'active' : ''}">${tagHtml}<div class="price-amount">${escapeHtml(p.amount)}</div><div class="price-deadline">${escapeHtml(p.deadlineText)}</div></div>`;
+    }).join('');
+  }
+
+  function parsePriceLine_(line) {
+    if (!line) return null;
+    const s = String(line).trim();
+    const m = s.match(/^(.+?)\s+[—–-]\s+(.+)$/);
+    let amount, deadlineText;
+    if (m) { amount = m[1].trim(); deadlineText = m[2].trim(); }
+    else { amount = s; deadlineText = ''; }
+    return { amount, deadlineText, deadline: parseRussianDate_(deadlineText), active: false };
+  }
+  function parseRussianDate_(s) {
+    if (!s) return null;
+    const months = { 'январ':0,'феврал':1,'март':2,'апрел':3,'мая':4,'май':4,'июн':5,'июл':6,'август':7,'сентябр':8,'октябр':9,'ноябр':10,'декабр':11 };
+    const now = new Date(); const currentYear = now.getFullYear();
+    const ru = s.match(/(\d{1,2})\s+([а-яё]+)(?:\s+(\d{4}))?/i);
+    if (ru) {
+      const day = parseInt(ru[1], 10);
+      const monthKey = ru[2].toLowerCase();
+      let monthNum = -1;
+      Object.keys(months).forEach(k => { if (monthKey.startsWith(k)) monthNum = months[k]; });
+      if (monthNum >= 0) { const year = ru[3] ? parseInt(ru[3], 10) : currentYear; const d = new Date(year, monthNum, day); d.setHours(0,0,0,0); return d; }
+    }
+    const num = s.match(/(\d{1,2})\.(\d{1,2})(?:\.(\d{4}|\d{2}))?/);
+    if (num) {
+      const day = parseInt(num[1], 10); const month = parseInt(num[2], 10) - 1;
+      let year = currentYear; if (num[3]) { year = parseInt(num[3], 10); if (year < 100) year += 2000; }
+      const d = new Date(year, month, day); d.setHours(0,0,0,0); return d;
+    }
+    return null;
+  }
+
+  // === ЧТО СДЕЛАЮТ ДЕТИ ===
+  // Собираем parentSelectedRefs из всех слотов (am/pm × 4 отряда). undefined → fallback
+  // на getParentsRefs (все родительские рефы шаблона). Группируем по направлениям.
+  async function renderWhatTheyMake() {
+    if (!publishedState || !Array.isArray(publishedState.schedule)) return;
+    const tplData = {};
+    const collect = (slot) => {
+      if (!slot || !slot.template) return;
+      const tpl = String(slot.template).trim();
+      if (!tplData[tpl]) tplData[tpl] = { urls: new Set(), hasUndefined: false };
+      if (Array.isArray(slot.parentSelectedRefs)) slot.parentSelectedRefs.forEach(u => tplData[tpl].urls.add(u));
+      else tplData[tpl].hasUndefined = true;
+    };
+    publishedState.schedule.forEach(d => {
+      if (!d) return;
+      ['am','pm'].forEach(half => { if (Array.isArray(d[half])) d[half].forEach(collect); });
+    });
+
+    const templates = Object.keys(tplData);
+    if (templates.length === 0) return;
+
+    const tplsToFetch = templates.filter(tpl => tplData[tpl].hasUndefined);
+    let fetchResults = [];
+    if (tplsToFetch.length > 0) {
+      try {
+        fetchResults = await Promise.all(tplsToFetch.map(tpl =>
+          fetch(LIBRARY_URL + '?action=getParentsRefs&template=' + encodeURIComponent(tpl))
+            .then(r => r.json())
+            .then(data => ({ tpl, refs: (data && data.ok) ? (data.refs || []) : [] }))
+            .catch(() => ({ tpl, refs: [] }))
+        ));
+      } catch(e) {}
+    }
+    fetchResults.forEach(({ tpl, refs }) => { refs.forEach(u => tplData[tpl].urls.add(u)); });
+
+    const byDir = {};
+    templates.forEach(tpl => {
+      const refs = Array.from(tplData[tpl].urls);
+      if (refs.length === 0) return;
+      const lib = LIBRARY.find(a => normalizeName(a.template || '') === normalizeName(tpl));
+      const dir = (lib && lib.direction) ? lib.direction : 'Прочее';
+      if (!byDir[dir]) byDir[dir] = [];
+      byDir[dir].push({ template: tpl, refs });
+    });
+
+    const dirNames = Object.keys(byDir);
+    if (dirNames.length === 0) return;
+
+    const dirOrder = ['Творчество', 'IT', 'Soft skills / нейро', 'Активность / спорт', 'Игры / квесты', 'Событие', 'Прочее'];
+    dirNames.sort((a, b) => {
+      const ia = dirOrder.findIndex(d => a.startsWith(d.split(' ')[0]) || a.includes(d));
+      const ib = dirOrder.findIndex(d => b.startsWith(d.split(' ')[0]) || b.includes(d));
+      return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib);
+    });
+
+    const needProxy = [];
+    let html = '';
+    let thumbCounter = 0;
+    dirNames.forEach(dirName => {
+      const tpls = byDir[dirName];
+      const dirCls = dirClass(dirName);
+      const dirLabel = dirShort(dirName);
+      html += `<div class="wtm-direction">
+        <div class="wtm-dir-header"><span class="wtm-dir-tag direction-tag ${dirCls}">${escapeHtml(dirLabel)}</span></div>
+        <div class="wtm-strip">`;
+      tpls.forEach(({ refs }) => {
+        refs.forEach(url => {
+          const thumbId = 'wtm-thumb-' + (thumbCounter++);
+          let previewSrc = null;
+          const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+          if (ytMatch) previewSrc = 'https://img.youtube.com/vi/' + ytMatch[1] + '/hqdefault.jpg';
+          else if (/\.(jpg|jpeg|png|webp|gif|svg|avif)(\?|$)/i.test(url)) previewSrc = url;
+          else needProxy.push({ url, thumbId });
+          if (previewSrc) {
+            html += `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="wtm-thumb" id="${thumbId}">
+              <img src="${escapeHtml(previewSrc)}" alt="" loading="lazy"
+                   onerror="this.parentElement.classList.add('wtm-thumb-failed');this.remove();this.parentElement.textContent='🖼';"></a>`;
+          } else {
+            html += `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="wtm-thumb wtm-thumb-loading" id="${thumbId}">⏳</a>`;
+          }
+        });
+      });
+      html += `</div></div>`;
+    });
+
+    document.getElementById('what-they-make-content').innerHTML = html;
+    document.getElementById('section-what-they-make').style.display = '';
+    needProxy.forEach(item => loadWtmPreview(item.url, item.thumbId));
+  }
+
+  async function loadWtmPreview(url, thumbId) {
+    try {
+      const r = await fetch(LIBRARY_URL + '?action=previewUrl&url=' + encodeURIComponent(url));
+      const data = await r.json();
+      const el = document.getElementById(thumbId);
+      if (!el) return;
+      if (data && data.ok && data.preview && data.preview.thumbnail) {
+        el.classList.remove('wtm-thumb-loading');
+        el.innerHTML = `<img src="${escapeHtml(data.preview.thumbnail)}" alt="" loading="lazy"
+                              onerror="this.parentElement.classList.add('wtm-thumb-failed');this.remove();this.parentElement.textContent='🖼';">`;
+      } else {
+        el.classList.remove('wtm-thumb-loading'); el.classList.add('wtm-thumb-failed'); el.textContent = '🔗';
+      }
+    } catch(e) {
+      const el = document.getElementById(thumbId);
+      if (el) { el.classList.remove('wtm-thumb-loading'); el.classList.add('wtm-thumb-failed'); el.textContent = '🔗'; }
+    }
+  }
+
+  // === СТАРТ ===
+  function bootstrap() {
+    const id = getQueryParam('id');
+    if (!id) {
+      document.getElementById('view-content').innerHTML =
+        '<div class="view-error">Ссылка недействительна — нет параметра id. Спросите свежую ссылку у организаторов.</div>';
+      return;
+    }
+    loadAll(id);
+  }
+  bootstrap();
+</script>
+</body>
+</html>
