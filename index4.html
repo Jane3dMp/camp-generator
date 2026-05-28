@@ -1334,6 +1334,7 @@
       </div>
       <button class="btn btn-primary" id="troops-import-btn" onclick="importTroopsChildren()">⬇ Импортировать и разбить</button>
       <button class="btn" onclick="reshuffleTroops()" title="Переразложить незакреплённых по возрасту">🔀 Переразбить</button>
+      <button class="btn" onclick="checkTroopsActuality()" id="troops-check-btn" title="Сравнить список с актуальным составом в Альфе">🔍 Проверить актуальность</button>
       <button class="btn" onclick="saveTroopsManual()" title="Сохранить распределение в таблицу">💾 Сохранить</button>
     </div>
     <div class="troops-statusbar">
@@ -1341,6 +1342,7 @@
       <span>Смена: <code id="troops-season-id">—</code></span>
       <span id="troops-counts"></span>
     </div>
+    <div id="troops-check-result" style="display:none;margin-bottom:14px"></div>
     <div id="troops-board" class="kid-board"></div>
     <p class="troops-hint">Перетащи карточку между колонками. 🔒 закрепляет ребёнка — при «Переразбить» закреплённые не двигаются. Дата рождения определяет, в какой отряд попадёт ребёнок (1 — младшие, 4 — старшие).</p>
   </div>
@@ -4780,6 +4782,103 @@ function renderTroopsBoard() {
   const placed = _troopsKids.length - counts[0];
   document.getElementById('troops-counts').textContent =
     'распределено: ' + placed + '/' + _troopsKids.length;
+}
+
+// =============================================================
+// ПРОВЕРКА АКТУАЛЬНОСТИ: сравнение с Альфой (выбывшие / новые)
+// =============================================================
+async function checkTroopsActuality() {
+  const sid = troopsSeasonId_();
+  if (!sid) { toast('Сначала опубликуй смену'); return; }
+  const box = document.getElementById('troops-check-result');
+  const btn = document.getElementById('troops-check-btn');
+  const oldLabel = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳ Проверяю Альфу…';
+  box.style.display = 'block';
+  box.innerHTML = '<div style="padding:14px;font-family:Inter,sans-serif;font-size:13px;color:rgba(21,22,23,0.6)">Сравниваю список с актуальным составом в Альфе…</div>';
+  try {
+    const r = await fetch(LIBRARY_URL + '?action=checkChildrenActuality&seasonId=' + encodeURIComponent(sid) + '&_t=' + Date.now());
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'Ошибка проверки');
+    renderCheckResult_(j.result);
+  } catch (e) {
+    box.innerHTML = '<div style="padding:14px;font-family:Inter,sans-serif;font-size:13px;color:#c0392b">Ошибка: ' + escapeHtml(e.message) + '</div>';
+  } finally {
+    btn.disabled = false; btn.textContent = oldLabel;
+  }
+}
+
+function renderCheckResult_(res) {
+  const box = document.getElementById('troops-check-result');
+  const left = res.left || [];
+  const added = res.added || [];
+  window._troopsCheckedGroups = res.groupsChecked || [];
+
+  if (res.inSync || (left.length === 0 && added.length === 0)) {
+    box.innerHTML = '<div style="padding:12px 16px;background:#EAF6E3;border:1px solid #9Fca7e;border-radius:6px;font-family:Inter,sans-serif;font-size:13px;color:#3B6D11">✓ Состав актуален — расхождений с Альфой нет.' +
+      (res.groupsChecked && res.groupsChecked.length ? ' <span style="opacity:0.7">(проверены группы: ' + res.groupsChecked.join(', ') + ')</span>' : '') +
+      ' <button class="btn btn-sm btn-ghost" onclick="document.getElementById(\'troops-check-result\').style.display=\'none\'" style="margin-left:8px">скрыть</button></div>';
+    return;
+  }
+
+  let html = '<div style="padding:14px 16px;background:#FFF6E5;border:1px solid #E8C95A;border-radius:6px;font-family:Inter,sans-serif">';
+  html += '<div style="font-weight:700;font-size:13px;margin-bottom:10px">Найдены расхождения с Альфой' +
+    (res.groupsChecked && res.groupsChecked.length ? ' <span style="font-weight:400;opacity:0.7">(группы: ' + res.groupsChecked.join(', ') + ')</span>' : '') + '</div>';
+
+  if (left.length > 0) {
+    const ids = left.map(function(c){ return c.crmId; });
+    window._troopsLeftIds = ids;
+    html += '<div style="margin-bottom:12px">';
+    html += '<div style="font-size:12px;font-weight:600;color:#c0392b;margin-bottom:5px">Выбыли из Альфы (' + left.length + ') — больше не едут:</div>';
+    html += '<div style="font-size:13px;line-height:1.6;margin-bottom:8px">' +
+      left.map(function(c){ return '• ' + escapeHtml(c.name); }).join('<br>') + '</div>';
+    html += '<button class="btn btn-sm" onclick="removeLeftChildren_()" style="border-color:#c0392b;color:#c0392b">🗑 Убрать выбывших (' + left.length + ')</button>';
+    html += '</div>';
+  }
+
+  if (added.length > 0) {
+    html += '<div style="margin-bottom:6px">';
+    html += '<div style="font-size:12px;font-weight:600;color:#185FA5;margin-bottom:5px">Новые в Альфе (' + added.length + ') — ещё не в списке:</div>';
+    html += '<div style="font-size:13px;line-height:1.6;margin-bottom:8px">' +
+      added.map(function(c){ return '• ' + escapeHtml(c.name) + (c.age!==''&&c.age!=null ? ' (' + c.age + ')' : ''); }).join('<br>') + '</div>';
+    html += '<button class="btn btn-sm" onclick="addNewChildren_()" style="border-color:#185FA5;color:#185FA5">⬇ Добавить новых и разбить</button>';
+    html += '</div>';
+  }
+
+  html += '<div style="margin-top:8px"><button class="btn btn-sm btn-ghost" onclick="document.getElementById(\'troops-check-result\').style.display=\'none\'">скрыть</button></div>';
+  html += '</div>';
+  box.innerHTML = html;
+}
+
+// Убрать выбывших: удаляет их из листа «Дети» и перечитывает доску.
+async function removeLeftChildren_() {
+  const ids = window._troopsLeftIds || [];
+  if (!ids.length) return;
+  if (!confirm('Убрать ' + ids.length + ' выбывших из списка отрядов? Они исчезнут из смены.')) return;
+  const sid = troopsSeasonId_();
+  troopsSetStatus_(false);
+  try {
+    const r = await fetch(LIBRARY_URL, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'removeChildren', seasonId: sid, crmIds: ids })
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'Ошибка');
+    await loadTroopsChildren();
+    troopsSetStatus_(true);
+    document.getElementById('troops-check-result').style.display = 'none';
+    toast('Убрано выбывших: ' + (j.result.removed || ids.length));
+  } catch (e) { toast('Ошибка: ' + e.message); troopsSetStatus_(true); }
+}
+
+// Добавить новых: подставляет проверенные группы в поле и запускает импорт+разбивку.
+async function addNewChildren_() {
+  document.getElementById('troops-check-result').style.display = 'none';
+  if (window._troopsCheckedGroups && window._troopsCheckedGroups.length) {
+    const inp = document.getElementById('troops-group-input');
+    if (inp && !inp.value.trim()) inp.value = window._troopsCheckedGroups.join(', ');
+  }
+  await importTroopsChildren();
 }
 
 init();
