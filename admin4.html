@@ -192,6 +192,11 @@
   /* Внутри жёлтой ячейки бейдж становится тёмный для контраста */
   td.cell.trip .badge-troops { background: var(--ink); color: var(--white); }
   /* Порядок прихода отрядов в ротации */
+  .item-comment {
+    font-size: 0.82em; color: #8a6d00; background: rgba(254,214,52,0.22);
+    border-radius: 3px; padding: 2px 7px; margin-top: 3px; line-height: 1.35;
+    display: block;
+  }
   .item-order {
     font-family: Inter; font-size: 0.78em; font-weight: 600;
     color: var(--ink); background: rgba(21,22,23,0.06);
@@ -1107,6 +1112,7 @@
     if (s.teacher) meta.push(escapeHtml(s.teacher));
     if (s.room) meta.push(escapeHtml(s.room));
     const metaHtml = meta.length ? `<div class="item-meta">${meta.join(' · ')}</div>` : '';
+    const commentHtml = s.comment ? `<div class="item-comment">💬 ${escapeHtml(s.comment)}</div>` : '';
     // Референсы: иконка + клик по карточке открывает попап
     const refs = getSlotRefs(s);
     let refAttr = '', refIcon = '';
@@ -1119,6 +1125,7 @@
       <div class="item-line">${timeHtml}${tripTag}<span class="item-name">${escapeHtml(s.template)}</span>${refIcon}</div>
       ${theme}
       ${metaHtml}
+      ${commentHtml}
     </div>`;
   }
 
@@ -1297,6 +1304,7 @@
     if (s.teacher) meta.push(escapeHtml(s.teacher));
     if (s.room) meta.push(escapeHtml(s.room));
     const metaHtml = meta.length ? `<div class="item-meta">${badge}${meta.join(' · ')}</div>` : (badge ? `<div class="item-meta">${badge}</div>` : '');
+    const commentHtml = s.comment ? `<div class="item-comment">💬 ${escapeHtml(s.comment)}</div>` : '';
     const refs = getSlotRefs(s);
     let refAttr = '', refIcon = '';
     if (refs.length > 0) {
@@ -1309,6 +1317,7 @@
       ${theme}
       ${orderHtml}
       ${metaHtml}
+      ${commentHtml}
     </div>`;
   }
 
