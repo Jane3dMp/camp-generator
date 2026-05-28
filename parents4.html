@@ -55,6 +55,13 @@
   .vcard.is-trip { background: rgba(254,214,52,0.18); border-color: rgba(254,214,52,0.6); }
   .vcard-name { font-family: Geologica, sans-serif; font-size: 14px; font-weight: 500; line-height: 1.3; }
   .vcard-theme { font-family: Caveat, cursive; font-size: 16px; color: var(--yellow-deep); font-weight: 600; line-height: 1.1; }
+  .vcard-troops {
+    display: inline-block; margin-top: 7px;
+    font-family: Inter, sans-serif; font-size: 11px; font-weight: 600;
+    letter-spacing: 0.04em; color: rgba(21,22,23,0.7);
+    background: rgba(21,22,23,0.07); padding: 2px 8px; border-radius: 3px;
+  }
+  .vcard.is-trip .vcard-troops { background: rgba(21,22,23,0.12); }
   .vcard-trip-badge { display: inline-block; background: var(--yellow); color: var(--ink); font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 2px; text-transform: uppercase; letter-spacing: 0.05em; align-self: flex-start; }
   .direction-tag { display: inline-block; font-family: Inter, system-ui, sans-serif; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; padding: 2px 6px; border-radius: 3px; margin-bottom: 4px; font-weight: 600; color: var(--ink); align-self: flex-start; }
   .dir-IT { background: var(--dir-it); color: var(--ink); }
@@ -598,6 +605,15 @@
       default:              return 'normal';
     }
   }
+  // Человеческая метка отрядов из набора номеров: «все отряды», «отряды 1, 2», «отряд 3».
+  function troopsLabelFromSet(troopsSet) {
+    const nums = Array.from(troopsSet).sort((a, b) => a - b);
+    if (nums.length === 0) return '';
+    if (nums.length === 4) return 'все отряды';
+    if (nums.length === 1) return 'отряд ' + nums[0];
+    return 'отряды ' + nums.join(', ');
+  }
+
   // Все слоты половины «много МК» (для сбора активностей у родителей).
   // Для seq3trip также добавляем слот выезда из am[0]/am[2] в зависимости от studyGroup.
   function multiSlots(d, half) {
@@ -650,34 +666,78 @@
         const dirCls = dirClass(dir);
         const dirLabel = dirShort(dir);
         const tripBadge = s.isTrip ? '<span class="vcard-trip-badge">🚌 выезд</span>' : '';
+        const troopsHtml = s._troopsLabel ? `<div class="vcard-troops">${escapeHtml(s._troopsLabel)}</div>` : '';
         return `
           <div class="vcard${s.isTrip ? ' is-trip' : ''}">
             ${s.isTrip ? tripBadge : (dir ? `<span class="direction-tag ${dirCls}">${escapeHtml(dirLabel)}</span>` : '')}
             <div class="vcard-name">${escapeHtml(s.template)}</div>
             ${s.theme ? `<div class="vcard-theme">«${escapeHtml(s.theme)}»</div>` : ''}
+            ${troopsHtml}
           </div>`;
       };
 
-      // Собирает уникальные активности блока (am/pm) с дедупликацией по template+theme.
+      // Собирает активности блока с пометкой отрядов. Дедуплицирует по template+theme,
+      // но при совпадении ОБЪЕДИНЯЕТ метки отрядов (например, «Ярмарка» у 1-2 и 3-4 → «все отряды»).
       const collectUnique = (half) => {
         const mode = halfModeP(d, half);
-        let pool;
-        if (isMultiMode(mode)) {
-          pool = multiSlots(d, half);
-        } else {
-          const arr = d[half];
-          if (!Array.isArray(arr)) return [];
-          const activeIdx = activeSlotIndices4(d, half);
-          pool = activeIdx.map(i => arr[i]);
+        // Собираем пары {slot, troops:[номера отрядов]} по режиму
+        const tagged = []; // { slot, troops: Set|null (null = все отряды) }
+        const arr = Array.isArray(d[half]) ? d[half] : [];
+        const multi = d[half + 'Multi'];
+
+        function push(slot, troops) {
+          if (!slot || !slot.template) return;
+          tagged.push({ slot, troops });
         }
-        const seen = new Set();
+
+        if (mode === 'rot4') {
+          // Все 4 отряда проходят все станции
+          (multi && multi.stations || []).forEach(s => push(s, [1,2,3,4]));
+        } else if (mode === 'seq3') {
+          (multi && multi.chainA || []).forEach((s, i) => push(s, [1,2]));
+          (multi && multi.chainB || []).forEach((s, i) => push(s, [3,4]));
+        } else if (mode === 'seq3trip') {
+          const sg = (multi && multi.studyGroup) || 'A';
+          const studyPair = sg === 'A' ? [1,2] : [3,4];
+          const tripPair = sg === 'A' ? [3,4] : [1,2];
+          (multi && multi.chainA || []).forEach(s => push(s, studyPair));
+          const tripIdx = sg === 'A' ? 2 : 0;
+          push(arr[tripIdx], tripPair);
+        } else if (mode === 'trip4') {
+          push(arr[0], [1,2,3,4]);
+        } else if (mode === 'trip2') {
+          push(arr[0], [1]);
+          push(arr[1], [2]);
+          push(arr[2], [3,4]);
+        } else if (mode === 'parallel') {
+          push(arr[0], [1,2]);
+          push(arr[2], [3,4]);
+        } else if (mode === 'parallel2') {
+          // Оба выезда проходят обе пары (по очереди) → фактически все отряды
+          push(arr[0], [1,2,3,4]);
+          push(arr[2], [1,2,3,4]);
+        } else {
+          // normal: каждый слот — свой отряд
+          arr.forEach((s, i) => push(s, [i+1]));
+        }
+
+        // Дедупликация по template+theme с объединением отрядов
+        const map = new Map(); // key → { slot, troops:Set }
+        tagged.forEach(({ slot, troops }) => {
+          if (!slot || !slot.template) return;
+          const key = normalizeName(slot.template) + '|' + (slot.theme || '');
+          if (!map.has(key)) {
+            map.set(key, { slot, troops: new Set(troops) });
+          } else {
+            troops.forEach(t => map.get(key).troops.add(t));
+          }
+        });
+
         const out = [];
-        pool.forEach(s => {
-          if (!s || !s.template) return;
-          const key = normalizeName(s.template) + '|' + (s.theme || '');
-          if (seen.has(key)) return;
-          seen.add(key);
-          out.push(s);
+        map.forEach(({ slot, troops }) => {
+          const copy = Object.assign({}, slot);
+          copy._troopsLabel = troopsLabelFromSet(troops);
+          out.push(copy);
         });
         return out;
       };
