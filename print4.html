@@ -361,11 +361,60 @@
     size: A4 landscape;
     margin: 8mm 8mm 8mm 8mm;
   }
+
+  /* ── Карточка с рефами: кликабельна, иконка 🖼 ── */
+  .item.has-refs { cursor: pointer; border-radius: 4px; transition: background 0.12s; }
+  .item.has-refs:hover { background: rgba(254,214,52,0.15); }
+  .item-ref-icon { font-size: 0.85em; margin-left: 4px; opacity: 0.7; }
+
+  /* ── ПОПАП РЕФЕРЕНСОВ ── */
+  .refs-popup {
+    display: none; position: fixed; inset: 0; z-index: 500;
+    background: rgba(21,22,23,0.6);
+    align-items: center; justify-content: center; padding: 20px;
+  }
+  .refs-popup.open { display: flex; }
+  .refs-popup-box {
+    background: var(--white); border-radius: 10px; max-width: 720px; width: 100%;
+    max-height: 85vh; display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: 0 12px 50px rgba(0,0,0,0.4);
+  }
+  .refs-popup-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px; border-bottom: 1px solid rgba(21,22,23,0.1);
+  }
+  .refs-popup-title { font-family: Geologica, sans-serif; font-weight: 600; font-size: 17px; }
+  .refs-popup-close {
+    background: transparent; border: none; font-size: 20px; cursor: pointer;
+    color: rgba(21,22,23,0.5); line-height: 1; padding: 4px 8px;
+  }
+  .refs-popup-close:hover { color: var(--ink); }
+  .refs-popup-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px; padding: 18px 20px; overflow-y: auto;
+  }
+  .refs-popup-item {
+    display: block; aspect-ratio: 4/3; border-radius: 6px; overflow: hidden;
+    background: #f0f0f0; border: 1px solid rgba(21,22,23,0.1);
+  }
+  .refs-popup-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .refs-popup-item.no-preview { display: none; }
+  .refs-popup-hint {
+    padding: 12px 20px; font-size: 12px; color: rgba(21,22,23,0.55);
+    border-top: 1px solid rgba(21,22,23,0.1); font-style: italic;
+  }
+  @media (max-width: 700px) {
+    .refs-popup { padding: 0; }
+    .refs-popup-box { max-height: 100vh; height: 100%; border-radius: 0; max-width: 100%; }
+    .refs-popup-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+  }
   @media print {
     body { background: var(--white); font-size: 9.5pt; }
     .top-bar, .font-control { display: none !important; }
     /* docs-links внутри top-bar и так скроется, но на всякий случай */
     .docs-links { display: none !important; }
+    .refs-popup { display: none !important; }
+    .item-ref-icon { display: none !important; }
     /* Печатаем всегда табличный (десктоп) вид, даже если экран узкий */
     .mobile-view { display: none !important; }
     .desktop-view { display: block !important; }
@@ -530,6 +579,17 @@
   <button onclick="resetFontSize()" title="Сбросить" style="margin-left:4px">↻</button>
 </div>
 
+<div class="refs-popup" id="refs-popup" onclick="if(event.target===this)closeRefsPopup()">
+  <div class="refs-popup-box">
+    <div class="refs-popup-head">
+      <span class="refs-popup-title" id="refs-popup-title">Референсы</span>
+      <button class="refs-popup-close" onclick="closeRefsPopup()" title="Закрыть">✕</button>
+    </div>
+    <div class="refs-popup-grid" id="refs-popup-grid"></div>
+    <div class="refs-popup-hint">Это образцы-ориентиры. Нажми на картинку, чтобы открыть источник.</div>
+  </div>
+</div>
+
 <script>
 (function() {
   'use strict';
@@ -577,6 +637,92 @@
     d.setDate(d.getDate() + idx);
     return d;
   }
+
+  function normalizeName(s) {
+    return String(s || '').trim().toLowerCase().replace(/\s+/g, ' ').replace(/ё/g, 'е');
+  }
+
+  // ── РЕФЕРЕНСЫ СЛОТА (как у педагога) ──
+  // Явный выбор slot.selectedRefs, иначе все рефы шаблона из снимка libraryRefs.
+  function getSlotRefs(slot) {
+    if (!slot || !slot.template) return [];
+    if (Array.isArray(slot.selectedRefs) && slot.selectedRefs.length > 0) {
+      return slot.selectedRefs.slice();
+    }
+    const snap = (publishedState.libraryRefs && typeof publishedState.libraryRefs === 'object') ? publishedState.libraryRefs : {};
+    let refs = snap[slot.template];
+    if (!Array.isArray(refs)) {
+      const norm = normalizeName(slot.template);
+      const key = Object.keys(snap).find(k => normalizeName(k) === norm);
+      if (key) refs = snap[key];
+    }
+    return Array.isArray(refs) ? refs.slice() : [];
+  }
+
+  // ── СЕРВЕРНОЕ ПРЕВЬЮ (для ссылок без прямой картинки) ──
+  const refPreviewCache = {};
+  const refPreviewInFlight = {};
+  function fetchServerPreview(url) {
+    if (refPreviewCache[url] !== undefined) return Promise.resolve(refPreviewCache[url]);
+    if (refPreviewInFlight[url]) return refPreviewInFlight[url];
+    const p = fetch(LIBRARY_URL + '?action=previewUrl&url=' + encodeURIComponent(url))
+      .then(r => r.json())
+      .then(data => {
+        const thumb = (data && data.ok && data.preview && data.preview.thumbnail) ? data.preview.thumbnail : '';
+        refPreviewCache[url] = thumb; delete refPreviewInFlight[url]; return thumb;
+      })
+      .catch(() => { refPreviewCache[url] = ''; delete refPreviewInFlight[url]; return ''; });
+    refPreviewInFlight[url] = p;
+    return p;
+  }
+  function directThumb(url) {
+    const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+    if (yt) return 'https://img.youtube.com/vi/' + yt[1] + '/hqdefault.jpg';
+    if (/\.(jpg|jpeg|png|webp|gif|svg|avif)(\?|$)/i.test(url)) return url;
+    return null;
+  }
+
+  // ── ПОПАП С РЕФЕРЕНСАМИ ──
+  // Глобальный реестр рефов по id (чтобы из onclick доставать список).
+  const _refStore = {};
+  let _refStoreSeq = 0;
+  function registerRefs(refs) {
+    const id = 'r' + (_refStoreSeq++);
+    _refStore[id] = refs;
+    return id;
+  }
+  function openRefsPopup(storeId, title) {
+    const refs = _refStore[storeId] || [];
+    const overlay = document.getElementById('refs-popup');
+    const grid = document.getElementById('refs-popup-grid');
+    const titleEl = document.getElementById('refs-popup-title');
+    titleEl.textContent = title || 'Референсы';
+    grid.innerHTML = '';
+    refs.forEach(url => {
+      const a = document.createElement('a');
+      a.href = url; a.target = '_blank'; a.rel = 'noopener';
+      a.className = 'refs-popup-item';
+      const img = document.createElement('img');
+      img.alt = '';
+      const direct = directThumb(url);
+      if (direct) {
+        img.src = direct;
+      } else {
+        // placeholder + подгрузка og:image
+        img.src = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="120"><rect width="160" height="120" fill="%23eee"/><text x="80" y="64" font-size="11" text-anchor="middle" fill="%23999">загрузка…</text></svg>');
+        fetchServerPreview(url).then(thumb => { if (thumb) img.src = thumb; else a.classList.add('no-preview'); });
+      }
+      img.onerror = () => { a.classList.add('no-preview'); };
+      a.appendChild(img);
+      grid.appendChild(a);
+    });
+    overlay.classList.add('open');
+  }
+  function closeRefsPopup() {
+    document.getElementById('refs-popup').classList.remove('open');
+  }
+  window.openRefsPopup = openRefsPopup;
+  window.closeRefsPopup = closeRefsPopup;
 
   // ── РЕЖИМ ПОЛОВИНЫ ДНЯ ──
   function halfMode4(dOrType, half) {
@@ -974,8 +1120,16 @@
     if (s.teacher) meta.push(escapeHtml(s.teacher));
     if (s.room) meta.push(escapeHtml(s.room));
     const metaHtml = meta.length ? `<div class="item-meta">${meta.join(' · ')}</div>` : '';
-    return `<div class="item">
-      <div class="item-line">${timeHtml}${tripTag}<span class="item-name">${escapeHtml(s.template)}</span></div>
+    // Референсы: иконка + клик по карточке открывает попап
+    const refs = getSlotRefs(s);
+    let refAttr = '', refIcon = '';
+    if (refs.length > 0) {
+      const sid = registerRefs(refs);
+      refAttr = ` class="item has-refs" onclick="openRefsPopup('${sid}', ${JSON.stringify(s.template).replace(/"/g,'&quot;')})" title="Посмотреть референсы"`;
+      refIcon = '<span class="item-ref-icon" title="Есть референсы">🖼</span>';
+    }
+    return `<div${refAttr || ' class="item"'}>
+      <div class="item-line">${timeHtml}${tripTag}<span class="item-name">${escapeHtml(s.template)}</span>${refIcon}</div>
       ${theme}
       ${metaHtml}
     </div>`;
@@ -1151,14 +1305,20 @@
     const badge = it.badge ? `<span class="badge-troops">${escapeHtml(it.badge)}</span>` : '';
     const timeHtml = time ? `<span class="item-time">${escapeHtml(time)}</span>` : '';
     const theme = s.theme ? `<div class="item-theme">«${escapeHtml(s.theme)}»</div>` : '';
-    // Строка порядка прихода отрядов (только для ротации)
     const orderHtml = it.orderLabel ? `<div class="item-order">${escapeHtml(it.orderLabel)}</div>` : '';
     const meta = [];
     if (s.teacher) meta.push(escapeHtml(s.teacher));
     if (s.room) meta.push(escapeHtml(s.room));
     const metaHtml = meta.length ? `<div class="item-meta">${badge}${meta.join(' · ')}</div>` : (badge ? `<div class="item-meta">${badge}</div>` : '');
-    return `<div class="item">
-      <div class="item-line">${timeHtml}${tripTag}<span class="item-name">${escapeHtml(s.template)}</span></div>
+    const refs = getSlotRefs(s);
+    let refAttr = '', refIcon = '';
+    if (refs.length > 0) {
+      const sid = registerRefs(refs);
+      refAttr = ` class="item has-refs" onclick="openRefsPopup('${sid}', ${JSON.stringify(s.template).replace(/"/g,'&quot;')})" title="Посмотреть референсы"`;
+      refIcon = '<span class="item-ref-icon" title="Есть референсы">🖼</span>';
+    }
+    return `<div${refAttr || ' class="item"'}>
+      <div class="item-line">${timeHtml}${tripTag}<span class="item-name">${escapeHtml(s.template)}</span>${refIcon}</div>
       ${theme}
       ${orderHtml}
       ${metaHtml}
