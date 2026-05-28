@@ -164,6 +164,28 @@
     opacity: 0.9;
   }
 
+  /* Список детей отряда (состав) */
+  .troop-children { margin: 0 0 18px; }
+  .troop-children-title {
+    font-family: Inter; font-size: 12px; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink); opacity: 0.75; margin: 0 0 8px;
+  }
+  .troop-children-table {
+    width: 100%; border-collapse: collapse; font-family: Inter; font-size: 13px;
+  }
+  .troop-children-table th {
+    text-align: left; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
+    color: rgba(21,22,23,0.5); font-weight: 600; padding: 4px 8px;
+    border-bottom: 1.5px solid rgba(21,22,23,0.2);
+  }
+  .troop-children-table td {
+    padding: 5px 8px; border-bottom: 1px solid rgba(21,22,23,0.08); vertical-align: baseline;
+  }
+  .troop-children-table .tc-num { width: 32px; color: rgba(21,22,23,0.45); text-align: right; }
+  .troop-children-table .tc-fio { font-weight: 500; }
+  .troop-children-table .tc-yo { width: 56px; color: rgba(21,22,23,0.55); white-space: nowrap; }
+  .troop-children-table .tc-phone { width: 160px; color: rgba(21,22,23,0.7); white-space: nowrap; }
+
   /* === АДМИНСКИЙ ВИД: «дни × блоки», компактная таблица === */
   table.print-grid.admin-compact td, table.print-grid.admin-compact th {
     padding: 6px 8px; font-size: 0.86em;
@@ -450,6 +472,12 @@
     .troop-print-block .week-wrap:last-child { page-break-after: auto; }
     /* Большая шапка отряда не должна обрываться от первой таблицы */
     .troop-header { page-break-after: avoid; }
+    /* Список детей отряда — читаемо на бумаге, не разрывать */
+    .troop-children { page-break-inside: avoid; margin-bottom: 12pt; }
+    .troop-children-title { font-size: 10pt; margin-bottom: 5pt; }
+    .troop-children-table { font-size: 11pt; }
+    .troop-children-table th { font-size: 8pt; padding: 3pt 6pt; }
+    .troop-children-table td { padding: 3pt 6pt; }
     .week-head { margin-bottom: 8pt; }
     .week-title { font-size: 14pt; }
     .week-title em { font-size: 16pt; }
@@ -825,6 +853,7 @@
   let publishedState = null;
   let publishedMeta = null;
   let publishedId = '';
+  let troopsChildren = [];   // [{crmId, name, age, troop, parentName, parentPhone}]
 
   async function init() {
     publishedId = (new URLSearchParams(location.search).get('id') || '').trim();
@@ -839,6 +868,13 @@
       publishedMeta = data.publication;
       publishedState = JSON.parse(publishedMeta.stateJson || '{}');
       normalizeState();
+      // Подтягиваем список детей смены (для списков отрядов). Не критично — если упадёт,
+      // расписание всё равно покажется, просто без списков детей.
+      try {
+        const rc = await fetch(LIBRARY_URL + '?action=getChildren&seasonId=' + encodeURIComponent(publishedId));
+        const dc = await rc.json();
+        if (dc.ok && Array.isArray(dc.children)) troopsChildren = dc.children;
+      } catch(_) { troopsChildren = []; }
       renderHeader();
       renderCurrentView();
     } catch(e) {
@@ -962,7 +998,47 @@
         <span class="troop-num">Отряд ${troop}</span>
         <span class="troop-meta">расписание для куратора · смена «${escapeHtml(publishedState.theme || '')}»</span>
       </div>
+      ${renderTroopChildren(troop)}
     </div>`;
+  }
+
+  // Список детей отряда — для куратора. Сортировка по возрасту (младшие выше),
+  // нумерованный список с возрастом и телефоном родителя. Если детей нет — ничего не выводим.
+  function renderTroopChildren(troop) {
+    const kids = troopsChildren
+      .filter(k => Number(k.troop) === Number(troop))
+      .sort((a, b) => dobSortKey4_(b.dob) - dobSortKey4_(a.dob));
+    if (kids.length === 0) return '';
+    let rows = kids.map((k, i) => {
+      const age = (k.age === '' || k.age == null) ? '' : k.age + ' л';
+      const phone = k.parentPhone ? escapeHtml(k.parentPhone) : '';
+      return `<tr>
+        <td class="tc-num">${i + 1}</td>
+        <td class="tc-fio">${escapeHtml(k.name)}</td>
+        <td class="tc-yo">${age}</td>
+        <td class="tc-phone">${phone}</td>
+      </tr>`;
+    }).join('');
+    return `<div class="troop-children">
+      <div class="troop-children-title">Состав отряда — ${kids.length} ${pluralKids_(kids.length)}</div>
+      <table class="troop-children-table">
+        <thead><tr><th class="tc-num">№</th><th class="tc-fio">Ф. И. О.</th><th class="tc-yo">возраст</th><th class="tc-phone">телефон родителя</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  }
+
+  function pluralKids_(n) {
+    const m10 = n % 10, m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return 'ребёнок';
+    if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return 'ребёнка';
+    return 'детей';
+  }
+
+  function dobSortKey4_(dob) {
+    const m = String(dob || '').trim().match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+    if (!m) return 0;
+    return new Date(+m[3], +m[2] - 1, +m[1]).getTime();
   }
 
   function renderWeek(weekNum, startIdx, endIdx, troopFilter) {
