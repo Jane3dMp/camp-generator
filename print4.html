@@ -186,6 +186,25 @@
   .troop-children-table .tc-yo { width: 56px; color: rgba(21,22,23,0.55); white-space: nowrap; }
   .troop-children-table .tc-phone { width: 160px; color: rgba(21,22,23,0.7); white-space: nowrap; }
 
+  /* Попап «Состав отрядов» */
+  .roster-popup .refs-popup-box { max-width: 560px; }
+  #roster-popup-body { padding: 4px 0; }
+  .roster-section { margin-bottom: 18px; border-left: 4px solid rgba(21,22,23,0.15); padding-left: 12px; }
+  .roster-section:last-child { margin-bottom: 0; }
+  .roster-section.roster-t1 { border-left-color: var(--troop-1); }
+  .roster-section.roster-t2 { border-left-color: var(--troop-2); }
+  .roster-section.roster-t3 { border-left-color: var(--troop-3); }
+  .roster-section.roster-t4 { border-left-color: var(--troop-4); }
+  .roster-section-title {
+    font-family: Inter; font-weight: 700; font-size: 14px; margin-bottom: 8px;
+    display: flex; align-items: baseline; gap: 8px;
+  }
+  .roster-section-title span { font-weight: 400; font-size: 12px; color: rgba(21,22,23,0.5); }
+  .roster-table { font-size: 14px; }
+  .roster-table .tc-phone { width: auto; }
+  .roster-phone { color: var(--troop-3); text-decoration: none; border-bottom: 1px dotted; }
+  .roster-empty { font-family: Inter; font-size: 13px; color: rgba(21,22,23,0.5); padding: 8px 0; }
+
   /* === АДМИНСКИЙ ВИД: «дни × блоки», компактная таблица === */
   table.print-grid.admin-compact td, table.print-grid.admin-compact th {
     padding: 6px 8px; font-size: 0.86em;
@@ -606,6 +625,7 @@
       <span class="docs-label">📚 Материалы для кураторов:</span>
       <a class="doc-btn" href="1.pdf" target="_blank" rel="noopener">📄 Дворовые игры</a>
       <a class="doc-btn" href="2.pdf" target="_blank" rel="noopener">📄 Игры на бумаге</a>
+      <button class="doc-btn" id="roster-btn" onclick="openRosterPopup()">👦 Состав отрядов</button>
     </div>
   </div>
 
@@ -620,6 +640,16 @@
   <div class="size" id="size-display">100%</div>
   <button onclick="changeFontSize(1)" title="Больше">+</button>
   <button onclick="resetFontSize()" title="Сбросить" style="margin-left:4px">↻</button>
+</div>
+
+<div class="refs-popup roster-popup" id="roster-popup" onclick="if(event.target===this)closeRosterPopup()">
+  <div class="refs-popup-box">
+    <div class="refs-popup-head">
+      <span class="refs-popup-title" id="roster-popup-title">Состав отрядов</span>
+      <button class="refs-popup-close" onclick="closeRosterPopup()" title="Закрыть">✕</button>
+    </div>
+    <div id="roster-popup-body"></div>
+  </div>
 </div>
 
 <div class="refs-popup" id="refs-popup" onclick="if(event.target===this)closeRefsPopup()">
@@ -777,6 +807,56 @@
   }
   window.openRefsPopup = openRefsPopup;
   window.closeRefsPopup = closeRefsPopup;
+
+  // ── ПОПАП «СОСТАВ ОТРЯДОВ» (для мобильной версии и быстрого просмотра) ──
+  // Показывает состав текущего выбранного отряда, либо всех отрядов по секциям,
+  // если выбрано «Все». Берёт детей из troopsChildren.
+  function rosterListHTML_(troop) {
+    const kids = troopsChildren
+      .filter(k => Number(k.troop) === Number(troop))
+      .sort((a, b) => dobSortKey4_(b.dob) - dobSortKey4_(a.dob));
+    if (kids.length === 0) return '<div class="roster-empty">В этом отряде пока нет детей.</div>';
+    const rows = kids.map((k, i) => {
+      const age = (k.age === '' || k.age == null) ? '' : k.age + ' л';
+      const phone = k.parentPhone
+        ? '<a class="roster-phone" href="tel:' + escapeHtml(String(k.parentPhone).replace(/[^\d+]/g,'')) + '">' + escapeHtml(k.parentPhone) + '</a>'
+        : '';
+      return '<tr><td class="tc-num">' + (i + 1) + '</td><td class="tc-fio">' + escapeHtml(k.name) +
+        '</td><td class="tc-yo">' + age + '</td><td class="tc-phone">' + phone + '</td></tr>';
+    }).join('');
+    return '<table class="troop-children-table roster-table">' +
+      '<thead><tr><th class="tc-num">№</th><th class="tc-fio">Ф. И. О.</th><th class="tc-yo">возр.</th><th class="tc-phone">телефон</th></tr></thead>' +
+      '<tbody>' + rows + '</tbody></table>';
+  }
+
+  function openRosterPopup() {
+    const body = document.getElementById('roster-popup-body');
+    const title = document.getElementById('roster-popup-title');
+    if (!troopsChildren || troopsChildren.length === 0) {
+      title.textContent = 'Состав отрядов';
+      body.innerHTML = '<div class="roster-empty">Список детей не загружен.</div>';
+    } else if (currentTroop !== 'all') {
+      title.textContent = 'Состав · Отряд ' + currentTroop;
+      body.innerHTML = '<div class="roster-section roster-t' + currentTroop + '">' +
+        rosterListHTML_(parseInt(currentTroop, 10)) + '</div>';
+    } else {
+      title.textContent = 'Состав отрядов';
+      let html = '';
+      for (let t = 1; t <= NUM_TROOPS; t++) {
+        const n = troopsChildren.filter(k => Number(k.troop) === t).length;
+        html += '<div class="roster-section roster-t' + t + '">' +
+          '<div class="roster-section-title">Отряд ' + t + ' <span>' + n + ' ' + pluralKids_(n) + '</span></div>' +
+          rosterListHTML_(t) + '</div>';
+      }
+      body.innerHTML = html;
+    }
+    document.getElementById('roster-popup').classList.add('open');
+  }
+  function closeRosterPopup() {
+    document.getElementById('roster-popup').classList.remove('open');
+  }
+  window.openRosterPopup = openRosterPopup;
+  window.closeRosterPopup = closeRosterPopup;
 
   // ── ПОПАП КОММЕНТАРИЯ (комментарии бывают длинными) ──
   const _commentStore = {};
