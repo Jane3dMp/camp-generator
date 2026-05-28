@@ -492,8 +492,10 @@
     .title { font-size: 26px; }
     .view-switch, .troop-switch { flex-wrap: wrap; }
     .view-switch button, .troop-switch button { padding: 7px 10px; font-size: 11px; }
-    /* На телефоне печать недоступна — прячем кнопки печати/просмотра и регулятор шрифта */
-    .actions { display: none !important; }
+    /* На телефоне печатная версия не нужна — прячем ссылку на неё, но оставляем «Состав».
+       Регулятор шрифта тоже прячем. */
+    .actions #nav-to-troops { display: none !important; }
+    .actions { margin-top: 4px; }
     .font-control { display: none !important; }
 
     .m-day {
