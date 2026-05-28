@@ -768,11 +768,11 @@
                 slots.push({ time: times[0] || '', template: s0.template, theme: s0.theme || '',
                   comment: s0.comment || '', room: s0.room || '—',
                   troopsLabel: 'отряд ' + tropA, troop: tropA, isTrip: false,
-                  refs: getActiveRefsForSlot(s0), scored: !!s0.scored });
+                  refs: getActiveRefsForSlot(s0), scored: !!s0.scored, mkKey: idx+'_'+half+'_'+sub+'_0_t'+tropA });
                 slots.push({ time: times[1] || '', template: s0.template, theme: s0.theme || '',
                   comment: s0.comment || '', room: s0.room || '—',
                   troopsLabel: 'отряд ' + tropB, troop: tropB, isTrip: false,
-                  refs: getActiveRefsForSlot(s0), scored: !!s0.scored });
+                  refs: getActiveRefsForSlot(s0), scored: !!s0.scored, mkKey: idx+'_'+half+'_'+sub+'_0_t'+tropB });
               }
               // chainA[1]: второй МК пары — отряд B в шаге 0, отряд A в шаге 1 (противофаза)
               const s1 = chain[1];
@@ -780,11 +780,11 @@
                 slots.push({ time: times[0] || '', template: s1.template, theme: s1.theme || '',
                   comment: s1.comment || '', room: s1.room || '—',
                   troopsLabel: 'отряд ' + tropB, troop: tropB, isTrip: false,
-                  refs: getActiveRefsForSlot(s1), scored: !!s1.scored });
+                  refs: getActiveRefsForSlot(s1), scored: !!s1.scored, mkKey: idx+'_'+half+'_'+sub+'_1_t'+tropB });
                 slots.push({ time: times[1] || '', template: s1.template, theme: s1.theme || '',
                   comment: s1.comment || '', room: s1.room || '—',
                   troopsLabel: 'отряд ' + tropA, troop: tropA, isTrip: false,
-                  refs: getActiveRefsForSlot(s1), scored: !!s1.scored });
+                  refs: getActiveRefsForSlot(s1), scored: !!s1.scored, mkKey: idx+'_'+half+'_'+sub+'_1_t'+tropA });
               }
               // chainA[2]: общее занятие на оба отряда пары — одна строка
               const s2 = chain[2];
@@ -792,7 +792,7 @@
                 slots.push({ time: times[2] || '', template: s2.template, theme: s2.theme || '',
                   comment: s2.comment || '', room: s2.room || '—',
                   troopsLabel: 'отряды ' + tropA + ', ' + tropB, troop: tropA, isTrip: false,
-                  refs: getActiveRefsForSlot(s2), scored: !!s2.scored });
+                  refs: getActiveRefsForSlot(s2), scored: !!s2.scored, mkKey: idx+'_'+half+'_'+sub+'_2_tAB' });
               }
             });
           } else {
@@ -809,7 +809,7 @@
                   comment: s.comment || '', room: s.room || '—',
                   troopsLabel: 'станция ' + (st+1) + ' · отряд ' + (troopIdx+1),
                   troop: troopIdx + 1, isTrip: false,
-                  refs: getActiveRefsForSlot(s), scored: !!s.scored
+                  refs: getActiveRefsForSlot(s), scored: !!s.scored, mkKey: idx+'_'+half+'_stations_'+st+'_t'+(troopIdx+1)
                 });
               }
             });
@@ -835,27 +835,27 @@
           if (s0 && s0.template && normalizeName(s0.teacher) === target) {
             slots.push({ time: times[0] || '', template: s0.template, theme: s0.theme || '',
               comment: s0.comment || '', room: s0.room || '—',
-              troopsLabel: 'отряд ' + tropA, troop: tropA, isTrip: false, refs: getActiveRefsForSlot(s0), scored: !!s0.scored });
+              troopsLabel: 'отряд ' + tropA, troop: tropA, isTrip: false, refs: getActiveRefsForSlot(s0), scored: !!s0.scored, mkKey: idx+'_'+half+'_chainA_0_t'+tropA });
             slots.push({ time: times[1] || '', template: s0.template, theme: s0.theme || '',
               comment: s0.comment || '', room: s0.room || '—',
-              troopsLabel: 'отряд ' + tropB, troop: tropB, isTrip: false, refs: getActiveRefsForSlot(s0), scored: !!s0.scored });
+              troopsLabel: 'отряд ' + tropB, troop: tropB, isTrip: false, refs: getActiveRefsForSlot(s0), scored: !!s0.scored, mkKey: idx+'_'+half+'_chainA_0_t'+tropB });
           }
           // chainA[1] — МК B: 10:00 → отряд B, 11:10 → отряд A (противофаза)
           const s1 = chain[1];
           if (s1 && s1.template && normalizeName(s1.teacher) === target) {
             slots.push({ time: times[0] || '', template: s1.template, theme: s1.theme || '',
               comment: s1.comment || '', room: s1.room || '—',
-              troopsLabel: 'отряд ' + tropB, troop: tropB, isTrip: false, refs: getActiveRefsForSlot(s1), scored: !!s1.scored });
+              troopsLabel: 'отряд ' + tropB, troop: tropB, isTrip: false, refs: getActiveRefsForSlot(s1), scored: !!s1.scored, mkKey: idx+'_'+half+'_chainA_1_t'+tropB });
             slots.push({ time: times[1] || '', template: s1.template, theme: s1.theme || '',
               comment: s1.comment || '', room: s1.room || '—',
-              troopsLabel: 'отряд ' + tropA, troop: tropA, isTrip: false, refs: getActiveRefsForSlot(s1), scored: !!s1.scored });
+              troopsLabel: 'отряд ' + tropA, troop: tropA, isTrip: false, refs: getActiveRefsForSlot(s1), scored: !!s1.scored, mkKey: idx+'_'+half+'_chainA_1_t'+tropA });
           }
           // chainA[2] — общий третий слот: оба отряда пары в 12:20 (с кураторами, в разных кабинетах)
           const s2 = chain[2];
           if (s2 && s2.template && normalizeName(s2.teacher) === target) {
             slots.push({ time: times[2] || '', template: s2.template, theme: s2.theme || '',
               comment: s2.comment || '', room: s2.room || '—',
-              troopsLabel: 'отряды ' + tropA + ', ' + tropB, troop: tropA, isTrip: false, refs: getActiveRefsForSlot(s2), scored: !!s2.scored });
+              troopsLabel: 'отряды ' + tropA + ', ' + tropB, troop: tropA, isTrip: false, refs: getActiveRefsForSlot(s2), scored: !!s2.scored, mkKey: idx+'_'+half+'_chainA_2_tAB' });
           }
           // Выезд другой пары
           const arr = d[half] || [];
@@ -887,7 +887,8 @@
             troopsLabel: a.troopsLabel,
             troop: a.idx + 1,
             isTrip: a.isTrip || !!s.isTrip,
-            refs: getActiveRefsForSlot(s), scored: !!s.scored
+            refs: getActiveRefsForSlot(s), scored: !!s.scored,
+            mkKey: (a.isTrip || s.isTrip) ? '' : (idx+'_'+half+'_'+a.idx+'_t'+(a.idx+1))
           });
         });
       });
@@ -910,16 +911,16 @@
 
   function renderSlotInner(s) {
     const tripBadge = s.isTrip ? '<span class="vslot-trip-badge">🚌 выезд</span>' : '';
-    const scoredBadge = s.scored ? '<span class="vslot-scored-badge">📊 оценочный</span>' : '';
+    const scoredBadge = (s.scored && s.mkKey) ? '<span class="vslot-scored-badge">📊 оценочный</span>' : '';
     let scoredBtn = '';
-    if (s.scored) {
+    if (s.scored && s.mkKey) {
       const id = getQueryParam('id');
       const t = document.getElementById('teacher-pick') ? document.getElementById('teacher-pick').value : '';
-      const url = 'scores4.html?id=' + encodeURIComponent(id) + (t ? '&teacher=' + encodeURIComponent(t) : '');
+      const url = 'scores4.html?id=' + encodeURIComponent(id) + (t ? '&teacher=' + encodeURIComponent(t) : '') + '&mk=' + encodeURIComponent(s.mkKey);
       scoredBtn = `<a class="vslot-scored-btn" href="${url}" target="_blank" rel="noopener">📊 Проставить баллы</a>`;
     }
     return `
-      <div class="vslot${s.isTrip ? ' is-trip' : ''}${s.scored ? ' is-scored' : ''}">
+      <div class="vslot${s.isTrip ? ' is-trip' : ''}${(s.scored && s.mkKey) ? ' is-scored' : ''}">
         <div class="vslot-row">
           <div class="vslot-time">${escapeHtml(s.time)}</div>
           <div>

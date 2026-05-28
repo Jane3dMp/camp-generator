@@ -45,6 +45,8 @@
 
   main{max-width:780px;margin:0 auto;padding:18px 20px 80px}
   .hint{color:var(--muted);font-size:14px;padding:30px 10px;text-align:center}
+  .hint a, .filter-bar a{color:var(--green-deep);font-weight:600}
+  .filter-bar{background:#f3f7ee;border:1px solid var(--green);border-radius:10px;padding:9px 14px;margin-bottom:16px;font-size:14px;color:var(--ink)}
   .err{color:#c0392b;padding:20px;text-align:center}
 
   /* ── DAY GROUP ── */
@@ -447,15 +449,32 @@
     return { filled, total };
   }
 
+  function buildAllUrl(){
+    const id = getQueryParam('id');
+    const t = document.getElementById('teacher-pick') ? document.getElementById('teacher-pick').value : '';
+    return 'scores4.html?id='+encodeURIComponent(id)+(t?'&teacher='+encodeURIComponent(t):'');
+  }
+
   function renderTeacher(teacherName){
-    const days = buildScoredMksForTeacher(teacherName);
+    let days = buildScoredMksForTeacher(teacherName);
+    // Если в URL указан конкретный МК (mk=...), показываем только его — переход «Проставить баллы» с view4.
+    const onlyMk = getQueryParam('mk');
+    if (onlyMk) {
+      days = days.map(d => ({ ...d, mks: d.mks.filter(m => m.mkKey === onlyMk) }))
+                 .filter(d => d.mks.length > 0);
+    }
     const totalMk = days.reduce((s,d)=>s+d.mks.length,0);
     if(totalMk===0){
-      document.getElementById('content').innerHTML =
-        '<div class="hint">У тебя пока нет МК, отмеченных как оценочные.<br>Их отмечает администратор в сетке кнопкой 📊.</div>';
+      const msg = onlyMk
+        ? 'Этот МК не найден среди твоих оценочных. Возможно, ссылка устарела.<br><a href="'+escapeHtml(buildAllUrl())+'">Показать все мои МК →</a>'
+        : 'У тебя пока нет МК, отмеченных как оценочные.<br>Их отмечает администратор в сетке кнопкой 📊.';
+      document.getElementById('content').innerHTML = '<div class="hint">'+msg+'</div>';
       return;
     }
     let html = '';
+    if (onlyMk) {
+      html += '<div class="filter-bar">Показан один МК. <a href="'+escapeHtml(buildAllUrl())+'">Показать все мои МК →</a></div>';
+    }
     days.forEach(day=>{
       html += '<div class="day-group"><div class="day-head">День '+(day.idx+1)+' · '+day.dateStr+', '+day.weekday+'</div>';
       day.mks.forEach(mk=>{
