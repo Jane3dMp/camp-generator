@@ -235,7 +235,7 @@
       <option value="__all__">— выбери себя —</option>
     </select>
     <button class="view-refresh" onclick="reloadFromServer()" title="Обновить — взять последнюю опубликованную версию">↻</button>
-    <button class="view-refresh" onclick="openPrintVersion()" title="Открыть краткую версию для печати (для вожатых и админа)">📄 печать</button>
+    <button class="view-refresh" onclick="openPrintVersion()" title="Открыть краткую версию для печати (для кураторов и админа)">📄 печать</button>
   </div>
 
   <div id="view-content">
@@ -517,6 +517,7 @@
   // не покажет рефы, потому что defaultSlot() инициализирует selectedRefs пустым массивом.
   function getActiveRefsForSlot(slot) {
     if (!slot || !slot.template) return [];
+    if (slot.refsNone) return []; // педагог явно отключил рефы в этом слоте
     if (Array.isArray(slot.selectedRefs) && slot.selectedRefs.length > 0) return slot.selectedRefs.slice();
     // Дефолт — все рефы шаблона. Сначала из снимка (libraryRefs), потом из библиотеки.
     const tpl = String(slot.template).trim();

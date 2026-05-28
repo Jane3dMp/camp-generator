@@ -2823,7 +2823,7 @@ function renderRefsPanelBody_() {
   }, 60);
 }
 
-// Рендер одной секции рефов. audience: 'teacher' (педагоги/вожатые) или 'parent' (родители).
+// Рендер одной секции рефов. audience: 'teacher' (педагоги/кураторы) или 'parent' (родители).
 function renderRefsSection_(audience, slot, ctx) {
   const isParent = audience === 'parent';
   const allRefs = isParent ? getTemplateParentRefs_(ctx.templateName) : getTemplateRefs_(ctx.templateName);
@@ -2835,7 +2835,7 @@ function renderRefsSection_(audience, slot, ctx) {
 
   const titleHtml = isParent
     ? `<div class="refs-section-title">👨‍👩‍👧 Для родителей <span class="refs-section-hint">— показываются на странице родителей в разделе «Что сделают дети». Сюда — красивые финальные работы.</span></div>`
-    : `<div class="refs-section-title">🎒 Для педагогов и вожатых <span class="refs-section-hint">— рабочие образцы «как делать». Видны педагогу и вожатому.</span></div>`;
+    : `<div class="refs-section-title">🎒 Для педагогов и кураторов <span class="refs-section-hint">— рабочие образцы «как делать». Видны педагогу и куратору.</span></div>`;
 
   const toggleFn = isParent ? 'toggleParentRefSelection_' : 'toggleRefSelection_';
   const removeFn = isParent ? 'removeParentRefFromLibrary_' : 'removeRefFromLibrary_';
@@ -4144,7 +4144,7 @@ function getParents4BaseUrl_() {
   const base = here.replace(/index4\.html$/, '').replace(/\/$/, '/');
   return (base || './') + 'parents4.html';
 }
-// Базовый URL страницы для печати (вожатые и админ — компактная сетка).
+// Базовый URL страницы для печати (кураторы и админ — компактная сетка).
 function getPrint4BaseUrl_() {
   const here = location.href.split('?')[0].split('#')[0];
   const base = here.replace(/index4\.html$/, '').replace(/\/$/, '/');
@@ -4225,7 +4225,7 @@ async function openPublishPanel() {
           <button class="btn btn-sm" onclick="copyText4('${escapeJs(parentsUrl)}', this)">📋</button>
           <a class="btn btn-sm" href="${escapeHtml(parentsUrl)}" target="_blank" rel="noopener" style="text-decoration:none">↗</a>
         </div>
-        <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(21,22,23,0.5);margin:10px 0 3px;font-weight:600">📄 для вожатых (по отрядам + игры):</div>
+        <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(21,22,23,0.5);margin:10px 0 3px;font-weight:600">📄 для кураторов (по отрядам + игры):</div>
         <div style="display:flex;gap:6px;align-items:center">
           <input type="text" readonly value="${escapeHtml(printUrl)}" onclick="this.select()" style="flex:1;font-family:Inter,sans-serif;font-size:12px;border:1px solid var(--ink);background:var(--white);padding:6px 10px;color:var(--ink);outline:none">
           <button class="btn btn-sm" onclick="copyText4('${escapeJs(printUrl)}', this)">📋</button>

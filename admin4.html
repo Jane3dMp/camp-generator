@@ -95,7 +95,7 @@
   }
   .nav-to-troops:hover { background: var(--yellow); color: var(--ink); border-color: var(--yellow); }
 
-  /* Блок ссылок на PDF-материалы для вожатых */
+  /* Блок ссылок на PDF-материалы для кураторов */
   .docs-links {
     max-width: 1600px; margin: 12px auto 0; padding-top: 12px;
     border-top: 1px solid rgba(255,255,255,0.15);
@@ -114,7 +114,7 @@
   }
   .doc-btn:hover { background: var(--yellow); color: var(--ink); border-color: var(--yellow); }
 
-  /* Переключатель вида (для вожатых / для админа) */
+  /* Переключатель вида (для кураторов / для админа) */
   .view-switch {
     display: inline-flex; gap: 0;
     background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.3);
@@ -194,8 +194,20 @@
   /* Порядок прихода отрядов в ротации */
   .item-comment {
     font-size: 0.82em; color: #8a6d00; background: rgba(254,214,52,0.22);
-    border-radius: 3px; padding: 2px 7px; margin-top: 3px; line-height: 1.35;
-    display: block;
+    border-radius: 3px; padding: 3px 7px; margin-top: 3px; line-height: 1.35;
+    display: block; cursor: pointer;
+  }
+  .item-comment:hover { background: rgba(254,214,52,0.4); }
+  .item-comment-full { display: none; }
+  .item-comment-short { display: inline; }
+  .item-comment-more {
+    font-size: 0.85em; opacity: 0.7; text-decoration: underline; margin-left: 2px;
+    white-space: nowrap;
+  }
+  .comment-popup .refs-popup-box { max-width: 560px; }
+  .comment-popup-text {
+    padding: 20px; font-size: 15px; line-height: 1.6; color: var(--ink);
+    white-space: pre-wrap; overflow-y: auto;
   }
   .item-order {
     font-family: Inter; font-size: 0.78em; font-weight: 600;
@@ -421,6 +433,9 @@
     .refs-popup-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
   }
   @media print {
+    .item-comment { cursor: default; }
+    .item-comment-short { display: none !important; }
+    .item-comment-full { display: inline !important; }
     body { background: var(--white); font-size: 9.5pt; }
     .top-bar, .font-control { display: none !important; }
     /* docs-links внутри top-bar и так скроется, но на всякий случай */
@@ -555,8 +570,7 @@
         <div class="subhead" id="view-subhead"></div>
       </div>
       <div class="actions">
-        <button onclick="window.print()" class="btn-primary" id="print-btn">🖨 Печать</button>
-        <a class="nav-to-troops" id="nav-to-troops" href="#" target="_blank" rel="noopener">👦 Версия для вожатых →</a>
+        <a class="nav-to-troops" id="nav-to-troops" href="#" target="_blank" rel="noopener">👦 Версия для кураторов →</a>
       </div>
     </div>
   </div>
@@ -582,6 +596,16 @@
     </div>
     <div class="refs-popup-grid" id="refs-popup-grid"></div>
     <div class="refs-popup-hint">Это образцы-ориентиры. Нажми на картинку, чтобы открыть источник.</div>
+  </div>
+</div>
+
+<div class="refs-popup comment-popup" id="comment-popup" onclick="if(event.target===this)closeCommentPopup()">
+  <div class="refs-popup-box">
+    <div class="refs-popup-head">
+      <span class="refs-popup-title" id="comment-popup-title">Комментарий</span>
+      <button class="refs-popup-close" onclick="closeCommentPopup()" title="Закрыть">✕</button>
+    </div>
+    <div class="comment-popup-text" id="comment-popup-text"></div>
   </div>
 </div>
 
@@ -720,6 +744,27 @@
   window.openRefsPopup = openRefsPopup;
   window.closeRefsPopup = closeRefsPopup;
 
+  // ── ПОПАП КОММЕНТАРИЯ (комментарии бывают длинными) ──
+  const _commentStore = {};
+  let _commentSeq = 0;
+  function registerComment(text) {
+    const id = 'c' + (_commentSeq++);
+    _commentStore[id] = text;
+    return id;
+  }
+  function openCommentPopup(storeId, title) {
+    const text = _commentStore[storeId] || '';
+    const overlay = document.getElementById('comment-popup');
+    document.getElementById('comment-popup-title').textContent = title || 'Комментарий';
+    document.getElementById('comment-popup-text').textContent = text;
+    overlay.classList.add('open');
+  }
+  function closeCommentPopup() {
+    document.getElementById('comment-popup').classList.remove('open');
+  }
+  window.openCommentPopup = openCommentPopup;
+  window.closeCommentPopup = closeCommentPopup;
+
   // ── РЕЖИМ ПОЛОВИНЫ ДНЯ ──
   function halfMode4(dOrType, half) {
     if (dOrType && typeof dOrType === 'object' && (dOrType.amType !== undefined || dOrType.pmType !== undefined)) {
@@ -815,7 +860,7 @@
     const last = new Date(start); last.setDate(last.getDate() + totalDays - 1);
     const range = start.getDate() + ' ' + MONTHS[start.getMonth()] + ' — ' + last.getDate() + ' ' + MONTHS[last.getMonth()];
     document.getElementById('view-subhead').textContent = range + ' · 4 отряда · ' + totalDays + ' дней · вид для админа';
-    // Ссылка на вожатскую версию (print4) с тем же id
+    // Ссылка на кураторскую версию (print4) с тем же id
     const nav = document.getElementById('nav-to-troops');
     if (nav && publishedId) nav.href = 'print4.html?id=' + encodeURIComponent(publishedId);
   }
@@ -882,7 +927,7 @@
     return renderAllWeeksHTML();
   }
 
-  // ── РЕНДЕР: ВОЖАТСКИЙ ВИД (по отрядам × дни) ──
+  // ── РЕНДЕР: Кураторский ВИД (по отрядам × дни) ──
   function renderAllWeeksHTML() {
     const total = Math.min(publishedState.schedule.length, NUM_DAYS);
     if (printAllMode) {
@@ -915,7 +960,7 @@
     return `<div class="week-wrap" style="padding-bottom:0;margin-bottom:0">
       <div class="troop-header t${troop}">
         <span class="troop-num">Отряд ${troop}</span>
-        <span class="troop-meta">расписание для вожатого · смена «${escapeHtml(publishedState.theme || '')}»</span>
+        <span class="troop-meta">расписание для куратора · смена «${escapeHtml(publishedState.theme || '')}»</span>
       </div>
     </div>`;
   }
@@ -1112,7 +1157,15 @@
     if (s.teacher) meta.push(escapeHtml(s.teacher));
     if (s.room) meta.push(escapeHtml(s.room));
     const metaHtml = meta.length ? `<div class="item-meta">${meta.join(' · ')}</div>` : '';
-    const commentHtml = s.comment ? `<div class="item-comment">💬 ${escapeHtml(s.comment)}</div>` : '';
+    const commentHtml = s.comment ? (function(){
+      var cid = registerComment(s.comment);
+      var short = s.comment.length > 40 ? escapeHtml(s.comment.slice(0,40)) + '…' : escapeHtml(s.comment);
+      var more = s.comment.length > 40 ? ' <span class="item-comment-more">развернуть</span>' : '';
+      return '<div class="item-comment" onclick="event.stopPropagation();openCommentPopup(\''+cid+'\', '+JSON.stringify(s.template).replace(/"/g,'&quot;')+')" title="Открыть комментарий полностью">'
+        + '<span class="item-comment-short">💬 '+short+more+'</span>'
+        + '<span class="item-comment-full">💬 '+escapeHtml(s.comment)+'</span>'
+        + '</div>';
+    })() : '';
     // Референсы: иконка + клик по карточке открывает попап
     const refs = getSlotRefs(s);
     let refAttr = '', refIcon = '';
@@ -1304,7 +1357,15 @@
     if (s.teacher) meta.push(escapeHtml(s.teacher));
     if (s.room) meta.push(escapeHtml(s.room));
     const metaHtml = meta.length ? `<div class="item-meta">${badge}${meta.join(' · ')}</div>` : (badge ? `<div class="item-meta">${badge}</div>` : '');
-    const commentHtml = s.comment ? `<div class="item-comment">💬 ${escapeHtml(s.comment)}</div>` : '';
+    const commentHtml = s.comment ? (function(){
+      var cid = registerComment(s.comment);
+      var short = s.comment.length > 40 ? escapeHtml(s.comment.slice(0,40)) + '…' : escapeHtml(s.comment);
+      var more = s.comment.length > 40 ? ' <span class="item-comment-more">развернуть</span>' : '';
+      return '<div class="item-comment" onclick="event.stopPropagation();openCommentPopup(\''+cid+'\', '+JSON.stringify(s.template).replace(/"/g,'&quot;')+')" title="Открыть комментарий полностью">'
+        + '<span class="item-comment-short">💬 '+short+more+'</span>'
+        + '<span class="item-comment-full">💬 '+escapeHtml(s.comment)+'</span>'
+        + '</div>';
+    })() : '';
     const refs = getSlotRefs(s);
     let refAttr = '', refIcon = '';
     if (refs.length > 0) {
@@ -1436,7 +1497,7 @@
     return html;
   }
 
-  // Вожатский мобильный: блок half, внутри — каждый отряд (или выбранный) со своими занятиями.
+  // Кураторский мобильный: блок half, внутри — каждый отряд (или выбранный) со своими занятиями.
   function renderMobileTroopHalf(d, half, halfLabel) {
     let blocks = '';
     const troopList = (currentTroop === 'all') ? [1,2,3,4] : [parseInt(currentTroop,10)];
