@@ -4241,10 +4241,12 @@ async function openPublishPanel() {
   const parents4Base = getParents4BaseUrl_();
   const print4Base = getPrint4BaseUrl_();
   const admin4Base = print4Base.replace(/print4\.html$/, 'admin4.html');
+  const payroll4Base = print4Base.replace(/print4\.html$/, 'payroll4.html');
   const viewUrl = currentId ? `${view4Base}?id=${currentId}` : '';
   const parentsUrl = currentId ? `${parents4Base}?id=${currentId}` : '';
   const printUrl = currentId ? `${print4Base}?id=${currentId}` : '';
   const adminUrl = currentId ? `${admin4Base}?id=${currentId}` : '';
+  const payrollUrl = currentId ? `${payroll4Base}?id=${currentId}` : '';
 
   document.getElementById('modal-title').innerHTML = `Публикация <em>(4 отряда)</em>`;
   document.getElementById('modal-body').innerHTML = `
@@ -4281,6 +4283,12 @@ async function openPublishPanel() {
           <input type="text" readonly value="${escapeHtml(adminUrl)}" onclick="this.select()" style="flex:1;font-family:Inter,sans-serif;font-size:12px;border:1px solid var(--ink);background:var(--white);padding:6px 10px;color:var(--ink);outline:none">
           <button class="btn btn-sm" onclick="copyText4('${escapeJs(adminUrl)}', this)">📋</button>
           <a class="btn btn-sm" href="${escapeHtml(adminUrl)}" target="_blank" rel="noopener" style="text-decoration:none">↗</a>
+        </div>
+        <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(21,22,23,0.5);margin:10px 0 3px;font-weight:600">📊 табель работы педагогов:</div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="text" readonly value="${escapeHtml(payrollUrl)}" onclick="this.select()" style="flex:1;font-family:Inter,sans-serif;font-size:12px;border:1px solid var(--ink);background:var(--white);padding:6px 10px;color:var(--ink);outline:none">
+          <button class="btn btn-sm" onclick="copyText4('${escapeJs(payrollUrl)}', this)">📋</button>
+          <a class="btn btn-sm" href="${escapeHtml(payrollUrl)}" target="_blank" rel="noopener" style="text-decoration:none">↗</a>
         </div>
       </div>
       <div style="margin-bottom:14px;padding:12px 14px;background:rgba(254,214,52,0.12);border-left:3px solid var(--yellow-deep);border-radius:4px;font-family:Inter,sans-serif;font-size:12px;line-height:1.45">

@@ -492,9 +492,10 @@
     .title { font-size: 26px; }
     .view-switch, .troop-switch { flex-wrap: wrap; }
     .view-switch button, .troop-switch button { padding: 7px 10px; font-size: 11px; }
-    /* На телефоне печатная версия не нужна — прячем ссылку на неё, но оставляем «Состав».
+    /* На телефоне печатная версия и табель не нужны — прячем ссылки, но оставляем «Состав».
        Регулятор шрифта тоже прячем. */
-    .actions #nav-to-troops { display: none !important; }
+    .actions #nav-to-troops,
+    .actions #nav-to-payroll { display: none !important; }
     .actions { margin-top: 4px; }
     .font-control { display: none !important; }
 
@@ -601,6 +602,7 @@
       </div>
       <div class="actions">
         <button class="nav-to-troops" id="roster-btn" onclick="openRosterPopup()" style="cursor:pointer">👦 Состав отрядов</button>
+        <a class="nav-to-troops" id="nav-to-payroll" href="#" target="_blank" rel="noopener">📊 Табель педагогов →</a>
         <a class="nav-to-troops" id="nav-to-troops" href="#" target="_blank" rel="noopener">👦 Версия для кураторов →</a>
       </div>
     </div>
@@ -969,6 +971,9 @@
     // Ссылка на кураторскую версию (print4) с тем же id
     const nav = document.getElementById('nav-to-troops');
     if (nav && publishedId) nav.href = 'print4.html?id=' + encodeURIComponent(publishedId);
+    // Ссылка на табель педагогов
+    const navP = document.getElementById('nav-to-payroll');
+    if (navP && publishedId) navP.href = 'payroll4.html?id=' + encodeURIComponent(publishedId);
   }
 
   // ── ПЕРЕКЛЮЧЕНИЕ ВИДА ──
