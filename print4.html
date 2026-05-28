@@ -775,14 +775,17 @@
       if (multi) {
         const sg = multi.studyGroup || 'A';
         const studyPair = sg === 'A' ? [1,2] : [3,4];
-        const tripPair  = sg === 'A' ? [3,4] : [1,2];
         const iAmStudying = studyPair.indexOf(troop) >= 0;
         if (iAmStudying) {
-          // 3 МК подряд для меня
+          // Учащаяся пара в ротации: первый отряд пары идёт МК A→B, второй B→A, третий общий.
           const chain = multi.chainA || [];
           const times = multiStepTimes(half, 'seq3');
-          chain.forEach((s, i) => {
-            if (s && s.template) items.push({ slot: s, time: times[i] });
+          const isFirstInPair = (troop === studyPair[0]);
+          // Последовательность слотов для этого отряда: первый — [0,1,2], второй — [1,0,2]
+          const seq = isFirstInPair ? [0, 1, 2] : [1, 0, 2];
+          seq.forEach((slotIdx, stepIdx) => {
+            const s = chain[slotIdx];
+            if (s && s.template) items.push({ slot: s, time: times[stepIdx] });
           });
         } else {
           // Выезд — слот am[2] если studyGroup='A', am[0] если 'B'
@@ -985,9 +988,12 @@
       const sg = multi.studyGroup || 'A';
       const isStudyRow = (isPairA && sg === 'A') || (!isPairA && sg === 'B');
       if (isStudyRow) {
+        // Учащаяся пара: 2 МК в ротации (×2) + общий третий слот
         const chain = multi.chainA || [];
         const times = multiStepTimes(half, 'seq3');
-        chain.forEach((s, i) => { if (s && s.template) items.push({ slot: s, time: times[i], trip: false, badge: pairBadge }); });
+        if (chain[0] && chain[0].template) items.push({ slot: chain[0], time: times[0] + ' и ' + times[1], trip: false, badge: pairBadge + ' (×2)' });
+        if (chain[1] && chain[1].template) items.push({ slot: chain[1], time: times[0] + ' и ' + times[1], trip: false, badge: pairBadge + ' (×2)' });
+        if (chain[2] && chain[2].template) items.push({ slot: chain[2], time: times[2], trip: false, badge: pairBadge });
       } else {
         const tripIdx = sg === 'A' ? 2 : 0;
         const s = arr[tripIdx];

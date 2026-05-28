@@ -692,22 +692,43 @@
           const multi = d[half + 'Multi'];
           if (!multi) return;
           const sg = multi.studyGroup || 'A';
-          const studyLabel = (sg === 'A') ? 'отряды 1, 2' : 'отряды 3, 4';
-          const studyTroop = (sg === 'A') ? 1 : 3;
+          // Учащаяся пара: отряды (tropA, tropB). Едущая пара — на выезде.
+          const tropA = (sg === 'A') ? 1 : 3;
+          const tropB = (sg === 'A') ? 2 : 4;
           const tripLabel  = (sg === 'A') ? 'отряды 3, 4 (выезд)' : 'отряды 1, 2 (выезд)';
           const tripTroop  = (sg === 'A') ? 3 : 1;
           const tripIdx    = (sg === 'A') ? 2 : 0;
           const times = multiStepTimes4(half, 'seq3');
           const tripTime = half === 'am' ? TIME_AM : TIME_PM;
-          (multi.chainA || []).forEach((s, i) => {
-            if (!s || !s.template || normalizeName(s.teacher) !== target) return;
-            slots.push({
-              time: times[i] || '', template: s.template, theme: s.theme || '',
-              comment: s.comment || '', room: s.room || '—',
-              troopsLabel: studyLabel, troop: studyTroop, isTrip: false,
-              refs: getActiveRefsForSlot(s)
-            });
-          });
+          const chain = multi.chainA || [];
+          // chainA[0] — МК A: 10:00 → отряд A, 11:10 → отряд B (две строки)
+          const s0 = chain[0];
+          if (s0 && s0.template && normalizeName(s0.teacher) === target) {
+            slots.push({ time: times[0] || '', template: s0.template, theme: s0.theme || '',
+              comment: s0.comment || '', room: s0.room || '—',
+              troopsLabel: 'отряд ' + tropA, troop: tropA, isTrip: false, refs: getActiveRefsForSlot(s0) });
+            slots.push({ time: times[1] || '', template: s0.template, theme: s0.theme || '',
+              comment: s0.comment || '', room: s0.room || '—',
+              troopsLabel: 'отряд ' + tropB, troop: tropB, isTrip: false, refs: getActiveRefsForSlot(s0) });
+          }
+          // chainA[1] — МК B: 10:00 → отряд B, 11:10 → отряд A (противофаза)
+          const s1 = chain[1];
+          if (s1 && s1.template && normalizeName(s1.teacher) === target) {
+            slots.push({ time: times[0] || '', template: s1.template, theme: s1.theme || '',
+              comment: s1.comment || '', room: s1.room || '—',
+              troopsLabel: 'отряд ' + tropB, troop: tropB, isTrip: false, refs: getActiveRefsForSlot(s1) });
+            slots.push({ time: times[1] || '', template: s1.template, theme: s1.theme || '',
+              comment: s1.comment || '', room: s1.room || '—',
+              troopsLabel: 'отряд ' + tropA, troop: tropA, isTrip: false, refs: getActiveRefsForSlot(s1) });
+          }
+          // chainA[2] — общий третий слот: оба отряда пары в 12:20 (с кураторами, в разных кабинетах)
+          const s2 = chain[2];
+          if (s2 && s2.template && normalizeName(s2.teacher) === target) {
+            slots.push({ time: times[2] || '', template: s2.template, theme: s2.theme || '',
+              comment: s2.comment || '', room: s2.room || '—',
+              troopsLabel: 'отряды ' + tropA + ', ' + tropB, troop: tropA, isTrip: false, refs: getActiveRefsForSlot(s2) });
+          }
+          // Выезд другой пары
           const arr = d[half] || [];
           const ts = arr[tripIdx];
           if (ts && ts.template && normalizeName(ts.teacher) === target) {
@@ -928,7 +949,20 @@
                 </div></div></div>`;
           };
           let body = '';
-          (multi.chainA || []).forEach((s, i) => { body += card(s, times[i] || '', studyLabel, false); });
+          const tropA = (sg === 'A') ? 1 : 3;
+          const tropB = (sg === 'A') ? 2 : 4;
+          const chain = multi.chainA || [];
+          if (chain[0]) {
+            body += card(chain[0], times[0] || '', 'отряд ' + tropA, false);
+            body += card(chain[0], times[1] || '', 'отряд ' + tropB, false);
+          }
+          if (chain[1]) {
+            body += card(chain[1], times[0] || '', 'отряд ' + tropB, false);
+            body += card(chain[1], times[1] || '', 'отряд ' + tropA, false);
+          }
+          if (chain[2]) {
+            body += card(chain[2], times[2] || '', 'отряды ' + tropA + ', ' + tropB, false);
+          }
           const ts = (d[half] || [])[tripIdx];
           body += card(ts, time, tripLabel, true);
           return body ? h + body : '';
