@@ -395,8 +395,9 @@
     .title { font-size: 26px; }
     .view-switch, .troop-switch { flex-wrap: wrap; }
     .view-switch button, .troop-switch button { padding: 7px 10px; font-size: 11px; }
-    .actions { width: 100%; }
-    .font-control { bottom: 10px; left: 10px; }
+    /* На телефоне печать недоступна — прячем кнопки печати/просмотра и регулятор шрифта */
+    .actions { display: none !important; }
+    .font-control { display: none !important; }
 
     .m-day {
       background: var(--white); margin: 0 0 16px; border-radius: 6px;
