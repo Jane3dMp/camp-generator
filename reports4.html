@@ -38,6 +38,20 @@
   .btn[disabled]{opacity:.5;cursor:default}
   .note{font-size:12px;color:var(--muted);max-width:720px;margin:8px auto 0}
 
+  /* настройка промта */
+  .prompt-toggle{background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:inherit;text-decoration:underline;padding:0}
+  .prompt-box{max-width:720px;margin:10px auto 0;border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:#fff;display:none}
+  .prompt-box.open{display:block}
+  .prompt-box label{display:block;font-size:12px;font-weight:600;color:var(--green-deep);margin:8px 0 4px}
+  .prompt-box textarea{width:100%;border:1.5px solid var(--line);border-radius:8px;padding:9px 11px;font-family:inherit;font-size:13px;line-height:1.5;resize:vertical}
+  .prompt-box .ph-hint{font-size:11px;color:var(--muted);margin:2px 0 0}
+  .prompt-box .prompt-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .prompt-box .prompt-actions button{padding:8px 13px;font-size:13px;border-radius:9px;cursor:pointer;font-family:inherit;font-weight:600}
+  .prompt-save{background:var(--green);color:#fff;border:none}
+  .prompt-save:hover{background:var(--green-deep)}
+  .prompt-reset{background:#fff;border:1px solid var(--line);color:var(--muted)}
+  .prompt-status{font-size:12px;color:var(--muted);align-self:center}
+
   main{max-width:720px;margin:0 auto;padding:18px 20px 80px}
   .hint{color:var(--muted);font-size:14px;padding:30px 10px;text-align:center}
   .err{color:#c0392b;padding:20px;text-align:center}
@@ -89,7 +103,20 @@
     </div>
     <div class="toolbar">
       <button class="btn" id="all-btn" onclick="generateAll()">✍️ Сформировать всем</button>
+      <button class="prompt-toggle" onclick="togglePrompt()">⚙️ Настройка промта</button>
       <span class="save-ind" id="all-status" style="font-size:13px;color:var(--muted)"></span>
+    </div>
+    <div class="prompt-box" id="prompt-box">
+      <label>Системная инструкция (тон, правила, структура письма)</label>
+      <textarea id="prompt-system" rows="7" placeholder="Загрузка…"></textarea>
+      <label>Вводная к данным (можно использовать {имя} и {тема})</label>
+      <textarea id="prompt-intro" rows="4" placeholder="Загрузка…"></textarea>
+      <div class="ph-hint">Плейсхолдеры: <code>{имя}</code> — имя ребёнка, <code>{тема}</code> — название смены. Дальше автоматически подставляются оценки ребёнка.</div>
+      <div class="prompt-actions">
+        <button class="prompt-save" onclick="savePrompt()">Сохранить</button>
+        <button class="prompt-reset" onclick="resetPrompt()">Вернуть стандартный</button>
+        <span class="prompt-status" id="prompt-status"></span>
+      </div>
     </div>
     <div class="note">Письмо строится из баллов педагогов с помощью ИИ. Проверяй текст перед отправкой родителям — это черновик, не финальная истина.</div>
   </header>
@@ -329,7 +356,57 @@
     await genOne(childId, childName);
   }
 
+  // ── НАСТРОЙКА ПРОМТА ──
+  let promptDefaults = { system:'', intro:'' };
+  let promptLoaded = false;
+
+  async function loadPrompt(){
+    if(promptLoaded) return;
+    try{
+      const id=getQueryParam('id');
+      const resp=await fetch(LIBRARY_URL+'?action=getReportPrompt').then(r=>r.json());
+      if(resp.ok && resp.prompt){
+        document.getElementById('prompt-system').value=resp.prompt.system||'';
+        document.getElementById('prompt-intro').value=resp.prompt.intro||'';
+        promptDefaults={ system:resp.prompt.defaultSystem||'', intro:resp.prompt.defaultIntro||'' };
+        promptLoaded=true;
+      }
+    }catch(e){ document.getElementById('prompt-status').textContent='Не удалось загрузить'; }
+  }
+
+  function togglePrompt(){
+    const box=document.getElementById('prompt-box');
+    box.classList.toggle('open');
+    if(box.classList.contains('open')) loadPrompt();
+  }
+
+  async function savePrompt(){
+    const st=document.getElementById('prompt-status');
+    const system=document.getElementById('prompt-system').value;
+    const intro=document.getElementById('prompt-intro').value;
+    st.textContent='Сохраняю…';
+    try{
+      const resp=await fetch(LIBRARY_URL,{
+        method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({ action:'saveReportPrompt', system:system, intro:intro })
+      }).then(r=>r.json());
+      if(!resp.ok) throw new Error(resp.error||'Ошибка');
+      st.textContent='✓ Сохранено. Новые письма будут по этому промту.';
+      // сбрасываем кэш — чтобы перегенерировать с новым промтом
+      for(const k in reportCache) delete reportCache[k];
+    }catch(e){ st.textContent='Ошибка: '+e.message; }
+  }
+
+  function resetPrompt(){
+    document.getElementById('prompt-system').value=promptDefaults.system||'';
+    document.getElementById('prompt-intro').value=promptDefaults.intro||'';
+    document.getElementById('prompt-status').textContent='Подставлен стандартный. Нажми «Сохранить», чтобы применить.';
+  }
+
   window.tryUnlock=tryUnlock;
+  window.togglePrompt=togglePrompt;
+  window.savePrompt=savePrompt;
+  window.resetPrompt=resetPrompt;
   window.genOne=genOne;
   window.generateAll=generateAll;
   window.closeRep=closeRep;
