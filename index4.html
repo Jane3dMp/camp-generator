@@ -4553,12 +4553,13 @@ const TROOPS4_META = [
 let _troopsKids = [];
 let _troopsSaveTimer = null;
 
+// seasonId для детей = publishId опубликованной смены.
+// ВАЖНО: эта функция НИКОГДА не генерит новый id и НИКОГДА не трогает localStorage —
+// иначе при открытии пустой/несохранённой смены она затирала бы рабочее расписание
+// (баг, из-за которого расписание «пропадало»). Если смена не опубликована — возвращает
+// пустую строку, а вызывающий код показывает предупреждение.
 function troopsSeasonId_() {
-  if (!state.publishId) {
-    state.publishId = generateShortId4_();
-    try { saveLocal(); } catch(_) {}
-  }
-  return state.publishId;
+  return state.publishId || '';
 }
 
 function switchScreen4(which) {
@@ -4571,7 +4572,17 @@ function switchScreen4(which) {
     troops.style.display = 'block';
     bSched.classList.remove('btn-primary');
     bTroops.classList.add('btn-primary');
-    document.getElementById('troops-season-id').textContent = troopsSeasonId_();
+    const sid = troopsSeasonId_();
+    document.getElementById('troops-season-id').textContent = sid || '— (смена не опубликована)';
+    if (!sid) {
+      // Смена ещё не опубликована — детей привязывать не к чему. Не трогаем localStorage,
+      // не генерим id, просто просим сначала опубликовать смену.
+      const board = document.getElementById('troops-board');
+      if (board) board.innerHTML = '<div style="padding:24px;font-family:Inter,sans-serif;font-size:14px;color:rgba(21,22,23,0.6);line-height:1.6">Чтобы импортировать детей, сначала <strong>опубликуй смену</strong> (кнопка «🌐 Опубликовать» на экране «Расписание»). Дети привязываются к ID опубликованной смены.<br><br>Так список детей и расписание всегда останутся вместе.</div>';
+      const counts = document.getElementById('troops-counts');
+      if (counts) counts.textContent = '';
+      return;
+    }
     loadTroopsChildren();
   } else {
     sched.style.display = 'block';
@@ -4598,6 +4609,7 @@ function dobSortKey4_(dob) {
 async function loadTroopsChildren() {
   const sid = troopsSeasonId_();
   const board = document.getElementById('troops-board');
+  if (!sid) { return; } // смена не опубликована — switchScreen4 уже показал подсказку
   board.innerHTML = '<div style="padding:20px;font-family:Inter,sans-serif;font-size:13px;color:rgba(21,22,23,0.5)">Загружаю детей…</div>';
   try {
     const r = await fetch(LIBRARY_URL + '?action=getChildren&seasonId=' + encodeURIComponent(sid));
@@ -4615,9 +4627,10 @@ async function loadTroopsChildren() {
 }
 
 async function importTroopsChildren() {
+  const sid = troopsSeasonId_();
+  if (!sid) { toast('Сначала опубликуй смену — дети привязываются к её ID'); return; }
   const raw = (document.getElementById('troops-group-input').value || '').trim();
   if (!raw) { toast('Введи id или названия групп'); return; }
-  const sid = troopsSeasonId_();
   const parts = raw.split(',').map(s => s.trim()).filter(Boolean);
   const ids = parts.filter(p => /^\d+$/.test(p)).map(Number);
   const names = parts.filter(p => !/^\d+$/.test(p));
@@ -4659,6 +4672,7 @@ async function importTroopsChildren() {
 
 async function reshuffleTroops() {
   const sid = troopsSeasonId_();
+  if (!sid) { toast('Сначала опубликуй смену'); return; }
   troopsSetStatus_(false);
   try {
     const r = await fetch(LIBRARY_URL, {
@@ -4675,6 +4689,7 @@ async function reshuffleTroops() {
 
 async function saveTroopsToServer_() {
   const sid = troopsSeasonId_();
+  if (!sid) throw new Error('Смена не опубликована');
   const assignments = {};
   _troopsKids.forEach(k => { assignments[k.crmId] = { troop: k.troop || '', locked: !!k.locked }; });
   const r = await fetch(LIBRARY_URL, {
