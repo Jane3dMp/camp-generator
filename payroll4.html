@@ -670,34 +670,19 @@
     return String(s || '').trim().replace(/\s+/g, ' ');
   }
 
-  // Возвращает Map<имя_педагога, {days: Set<dayKey>, lessons: count}>: где встречается в расписании.
+  // Возвращает { 'Имя педагога': {days: {dayKey: count}, total: N} } — где встречается в расписании.
   function scanScheduleTeachers() {
     const result = {};
     if (!publishedState || !Array.isArray(publishedState.schedule)) return result;
     const days = getShiftDays();
-    function add(name, dayKey) {
-      if (!isNamedTeacher(name)) return;
-      const norm = normalizeTeacherName(name);
-      if (!result[norm]) result[norm] = { days: {}, total: 0 };
-      result[norm].days[dayKey] = (result[norm].days[dayKey] || 0) + 1;
-      result[norm].total++;
-    }
     publishedState.schedule.forEach((d, i) => {
       if (!d || !days[i]) return;
       const dk = days[i].key;
-      ['am', 'pm'].forEach(half => {
-        const type = d[half + 'Type'] || 'normal';
-        const multi = d[half + 'Multi'];
-        // Та же логика, что в pullDayFromSchedule — НЕ дублировать multi.* и d[half].
-        if (type === 'rot4' && multi) {
-          (multi.stations || []).forEach(s => { if (s) add(s.teacher, dk); });
-        } else if ((type === 'seq3' || type === 'seq3trip') && multi) {
-          (multi.chainA || []).forEach(s => { if (s) add(s.teacher, dk); });
-          (multi.chainB || []).forEach(s => { if (s) add(s.teacher, dk); });
-        } else {
-          const arr = d[half];
-          if (Array.isArray(arr)) arr.forEach(slot => { if (slot) add(slot.teacher, dk); });
-        }
+      const dayCounts = countTeachersInDay_(d);
+      Object.keys(dayCounts).forEach(name => {
+        if (!result[name]) result[name] = { days: {}, total: 0 };
+        result[name].days[dk] = (result[name].days[dk] || 0) + dayCounts[name];
+        result[name].total += dayCounts[name];
       });
     });
     return result;
@@ -749,48 +734,64 @@
   window.closePullTeachersModal = closePullTeachersModal;
   window.confirmPullTeachers = confirmPullTeachers;
 
+  // ── ПОДСЧЁТ ЗАНЯТИЙ В РАСПИСАНИИ ──
+  // ЛОГИКА: «занятие» = одно проведённое занятие (педагог × группа отрядов).
+  // По режимам половины дня:
+  //   • normal — d[half] это 4 слота по отрядам. Каждый слот = 1 занятие (педагог × 1 отряд).
+  //     Если в normal один педагог стоит в нескольких слотах — он провёл столько занятий.
+  //   • rot4 — d[half+'Multi'].stations: 4 уникальные станции. Каждая станция = педагог,
+  //     через которого ПРОХОДЯТ все 4 отряда по очереди. Итого: 1 станция × 4 отряда = 4 занятия.
+  //   • seq3 — chainA для пары 1-2, chainB для пары 3-4. В каждой цепочке 3 МК:
+  //     [0] и [1] — ротация ВНУТРИ пары: педагог ведёт МК × 2 отряда пары = 2 занятия.
+  //     [2] — общий 3-й слот, оба отряда приходят к ОДНОМУ педагогу одновременно
+  //     (в разных кабинетах с кураторами) = 2 занятия (по одной группе на отряд).
+  //   • seq3trip — учащаяся пара (sg='A' = 1-2 или 'B' = 3-4) идёт по chainA или chainB
+  //     как в seq3 (там реально используется chainA для обеих пар). Другая пара на выезде.
+  //   • trip2/trip4/parallel/parallel2 — выезды, обычно ведут КУРАТОРЫ, в табель не идут.
+  //
+  // Возвращает объект { 'Имя педагога': число_занятий, ... }.
+  function countTeachersInDay_(d) {
+    const counts = {};
+    function add(name, times) {
+      if (!isNamedTeacher(name)) return;
+      const n = normalizeTeacherName(name);
+      counts[n] = (counts[n] || 0) + (times || 1);
+    }
+    if (!d) return counts;
+    ['am', 'pm'].forEach(half => {
+      const type = d[half + 'Type'] || 'normal';
+      const multi = d[half + 'Multi'];
+      if (type === 'rot4' && multi) {
+        // Каждая станция: педагог × 4 отряда
+        (multi.stations || []).forEach(s => { if (s) add(s.teacher, 4); });
+      } else if (type === 'seq3' && multi) {
+        // chainA (пара 1-2) и chainB (пара 3-4): МК [0],[1] — ротация × 2 отряда, [2] — общий × 2.
+        // То есть каждое из 3 МК в цепочке = 2 занятия (педагог × 2 отряда пары).
+        (multi.chainA || []).forEach(s => { if (s) add(s.teacher, 2); });
+        (multi.chainB || []).forEach(s => { if (s) add(s.teacher, 2); });
+      } else if (type === 'seq3trip' && multi) {
+        // Учащаяся пара (sg='A' = 1-2, sg='B' = 3-4) идёт по chainA по той же логике seq3.
+        // В этой версии данных используется только chainA — × 2 отряда пары.
+        (multi.chainA || []).forEach(s => { if (s) add(s.teacher, 2); });
+      } else {
+        // normal и плоские режимы: каждый слот = 1 занятие. Если педагог стоит в N слотах —
+        // он провёл N занятий за половину дня.
+        const arr = d[half];
+        if (Array.isArray(arr)) arr.forEach(s => { if (s) add(s.teacher, 1); });
+      }
+    });
+    return counts;
+  }
   // ── ПОДТЯНУТЬ ЗАНЯТИЯ ИЗ РАСПИСАНИЯ ЗА ДЕНЬ ──
-  // Считает кол-во занятий каждого педагога в этом дне, и для каждой ячейки без замка —
-  // подставляет это число (по ставке = 35 по умолчанию для 1ч-занятия, иначе оставляем существующую).
+  // Считает кол-во занятий каждого педагога по правилам countTeachersInDay_,
+  // подставляет это число в ячейку (ставка по умолчанию 35), не трогает закреплённые.
   async function pullDayFromSchedule(dayKey) {
     const days = getShiftDays();
     const dIdx = days.findIndex(d => d.key === dayKey);
     if (dIdx < 0) return;
     const d = publishedState.schedule[dIdx];
     if (!d) return;
-    // Считаем «занятия» для табеля. В расписании может быть один из режимов на половину дня:
-    //   • normal — d[half] это плоский массив по отрядам, НО каждый слот = отдельное занятие
-    //     (1 педагог × 1 отряд за раз). Считаем как есть.
-    //   • rot4 (Ротация 4) — d[half + 'Multi'].stations: 4 уникальные станции. КАЖДАЯ станция =
-    //     1 занятие педагога, через которое по очереди проходят все 4 отряда. Считаем 4 элемента.
-    //   • seq3 (3 МК подряд) — chainA + chainB по 3 МК в каждой = 6 занятий для пары отрядов.
-    //   • seq3trip — учащаяся пара идёт по chainA как в seq3 (3 МК у педагогов), другая пара на выезде.
-    //   • trip2/trip4/parallel/parallel2 — выезды; педагогов в табеле обычно нет (только кураторы).
-    // КРИТИЧНО: НЕ суммируем multi.* и d.am/d.pm в один день — это была бы двойная запись
-    // (rot4 хранит копии в d.am для рендера + станции в multi.stations).
-    const counts = {};
-    function add(name) {
-      if (!isNamedTeacher(name)) return;
-      const n = normalizeTeacherName(name);
-      counts[n] = (counts[n] || 0) + 1;
-    }
-    ['am','pm'].forEach(half => {
-      const type = d[half + 'Type'] || 'normal';
-      const multi = d[half + 'Multi'];
-      // Режимы с multi-структурой: считаем ТОЛЬКО multi.*, плоский d[half] игнорируем
-      if (type === 'rot4' && multi) {
-        (multi.stations || []).forEach(s => { if (s) add(s.teacher); });
-      } else if ((type === 'seq3' || type === 'seq3trip') && multi) {
-        (multi.chainA || []).forEach(s => { if (s) add(s.teacher); });
-        (multi.chainB || []).forEach(s => { if (s) add(s.teacher); });
-      } else {
-        // normal и прочие плоские режимы — считаем d[half] (4 слота по отрядам).
-        // ВАЖНО: для нормального дня каждый отряд имеет СВОЁ занятие, поэтому
-        // педагог может вести 1-4 занятия за половину дня, считаем каждое.
-        const arr = d[half];
-        if (Array.isArray(arr)) arr.forEach(s => { if (s) add(s.teacher); });
-      }
-    });
+    const counts = countTeachersInDay_(d);
     // Добавим педагогов из расписания, которых ещё нет в списке (на всякий случай)
     const newTeachers = Object.keys(counts).filter(n => payroll.teachers.indexOf(n) < 0);
     for (const n of newTeachers) {
