@@ -199,6 +199,8 @@
       <div class="subhead" id="subhead"></div>
     </div>
     <div class="actions">
+      <button onclick="clearCellsClick()" id="clear-cells-btn" title="Удалить все занятия и ставки. Список педагогов, питание и флаги выплат — останутся.">🧹 Очистить ячейки</button>
+      <button onclick="clearAllClick()" id="clear-all-btn" title="Удалить весь табель этой смены (включая педагогов и флаги выплат). Безвозвратно.">🗑 Удалить весь табель</button>
       <button onclick="exportToExcel()" id="export-btn">📥 Экспорт в Excel</button>
     </div>
   </div>
@@ -888,6 +890,42 @@
     toast('Скачано: ' + fname);
   }
   window.exportToExcel = exportToExcel;
+
+  // ── ОЧИСТКА ──
+  // «Очистить ячейки» — удаляет занятия/ставки/замки, но оставляет список педагогов,
+  // питание и флаги выплат. Самый частый сценарий: «пересчитать с нуля через Подтянуть».
+  async function clearCellsClick() {
+    if (!seasonId) return;
+    if (!confirm('Удалить ВСЕ занятия и ставки во всех ячейках?\n\n• Список педагогов — останется\n• Питание по дням — останется\n• Флаги «выплачено» — останутся\n\nЗамки игнорируются (закреплённые ячейки тоже очистятся).\n\nПродолжить?')) return;
+    setSaveStatus('saving');
+    try {
+      const r = await postAction('clearPayrollCells', { seasonId: seasonId });
+      payroll.cells = {};
+      render();
+      setSaveStatus('ok');
+      toast('Очищено ячеек: ' + (r.result.removed || 0));
+    } catch (e) { setSaveStatus('err', e.message); }
+  }
+  // «Удалить весь табель» — полная очистка: ячейки + педагоги + питание + флаги.
+  // Двойное подтверждение (пользователь должен ввести «удалить»), чтобы случайно не нажать.
+  async function clearAllClick() {
+    if (!seasonId) return;
+    const answer = prompt('УДАЛИТЬ ВЕСЬ ТАБЕЛЬ этой смены БЕЗВОЗВРАТНО?\n\nУдалится: список педагогов, все занятия и ставки, питание по дням, все галочки «выплачено».\n\nЧтобы подтвердить — введи слово «удалить» (без кавычек) и нажми OK.');
+    if (!answer || answer.trim().toLowerCase() !== 'удалить') {
+      if (answer !== null) toast('Отменено');
+      return;
+    }
+    setSaveStatus('saving');
+    try {
+      const r = await postAction('clearPayrollAll', { seasonId: seasonId });
+      payroll = { teachers: [], cells: {}, meals: {}, paidDays: {}, paidTeachers: {} };
+      render();
+      setSaveStatus('ok');
+      toast('Табель удалён, записей удалено: ' + (r.result.removed || 0));
+    } catch (e) { setSaveStatus('err', e.message); }
+  }
+  window.clearCellsClick = clearCellsClick;
+  window.clearAllClick = clearAllClick;
 
   init();
 </script>
