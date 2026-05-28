@@ -87,6 +87,13 @@
   }
   .actions button:hover { background: var(--yellow); color: var(--ink); border-color: var(--yellow); }
   .actions .btn-primary { background: var(--yellow); color: var(--ink); border-color: var(--yellow); font-weight: 700; }
+  .nav-to-troops {
+    background: transparent; color: var(--white); border: 1px solid rgba(255,255,255,0.3);
+    padding: 7px 14px; font-family: Inter; font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; cursor: pointer; border-radius: 3px; text-decoration: none;
+    display: inline-flex; align-items: center;
+  }
+  .nav-to-troops:hover { background: var(--yellow); color: var(--ink); border-color: var(--yellow); }
 
   /* Блок ссылок на PDF-материалы для вожатых */
   .docs-links {
@@ -538,26 +545,14 @@
   <div class="top-bar">
     <div class="top-bar-inner">
       <div>
-        <div class="brand">Прознание · Coddy · Расписание для вожатых · 4 отряда</div>
+        <div class="brand">Прознание · Coddy · Расписание для админа · 4 отряда</div>
         <h1 class="title" id="view-title">Смена</h1>
         <div class="subhead" id="view-subhead"></div>
       </div>
-      <div class="troop-switch" id="troop-switch" style="display:none">
-        <button data-troop="all" class="active" onclick="switchTroop('all')">Все</button>
-        <button data-troop="1" class="t1-btn" onclick="switchTroop('1')">Отряд 1</button>
-        <button data-troop="2" class="t2-btn" onclick="switchTroop('2')">Отряд 2</button>
-        <button data-troop="3" class="t3-btn" onclick="switchTroop('3')">Отряд 3</button>
-        <button data-troop="4" class="t4-btn" onclick="switchTroop('4')">Отряд 4</button>
-      </div>
       <div class="actions">
         <button onclick="window.print()" class="btn-primary" id="print-btn">🖨 Печать</button>
-        <button onclick="printAllTroops()" id="print-all-btn" style="display:none" title="Распечатать по одному листу на каждый отряд — для раздачи вожатым">🖨 Печать по отрядам</button>
+        <a class="nav-to-troops" id="nav-to-troops" href="#" target="_blank" rel="noopener">👦 Версия для вожатых →</a>
       </div>
-    </div>
-    <div class="docs-links" id="docs-links">
-      <span class="docs-label">📚 Материалы для вожатых:</span>
-      <a class="doc-btn" href="1.pdf" target="_blank" rel="noopener">📄 Дворовые игры</a>
-      <a class="doc-btn" href="2.pdf" target="_blank" rel="noopener">📄 Игры на бумаге</a>
     </div>
   </div>
 
@@ -809,24 +804,30 @@
 
   function renderHeader() {
     const t = publishedState.theme || publishedMeta.theme || '';
-    document.getElementById('view-title').innerHTML = t ? ('Смена <em>' + escapeHtml(t) + '</em>') : 'Расписание для вожатых';
+    document.getElementById('view-title').innerHTML = t ? ('Смена <em>' + escapeHtml(t) + '</em>') : 'Расписание для админа';
     const start = new Date(publishedState.startDate || new Date());
     const totalDays = Math.min(publishedState.schedule.length, NUM_DAYS);
     const last = new Date(start); last.setDate(last.getDate() + totalDays - 1);
     const range = start.getDate() + ' ' + MONTHS[start.getMonth()] + ' — ' + last.getDate() + ' ' + MONTHS[last.getMonth()];
-    document.getElementById('view-subhead').textContent = range + ' · 4 отряда · ' + totalDays + ' дней';
-    document.getElementById('troop-switch').style.display = '';
-    document.getElementById('print-all-btn').style.display = '';
-    const dl = document.getElementById('docs-links');
-    if (dl) dl.style.display = '';
+    document.getElementById('view-subhead').textContent = range + ' · 4 отряда · ' + totalDays + ' дней · вид для админа';
+    // Ссылка на вожатскую версию (print4) с тем же id
+    const nav = document.getElementById('nav-to-troops');
+    if (nav && publishedId) nav.href = 'print4.html?id=' + encodeURIComponent(publishedId);
   }
 
-  // ── ВИД: только вожатский (по отрядам) ──
-  let currentView = 'troops';
-  let currentTroop = 'all';   // 'all' | '1' | '2' | '3' | '4' — фильтр отрядов
+  // ── ПЕРЕКЛЮЧЕНИЕ ВИДА ──
+  let currentView = 'admin'; // admin4 всегда в админском виде
+  let currentTroop = 'all';
   function switchView(v) {
     currentView = v;
-    // (переключателя видов больше нет — print4 только вожатский)
+    document.querySelectorAll('.view-switch button').forEach(b => {
+      b.classList.toggle('active', b.dataset.view === v);
+    });
+    // Фильтр отрядов виден только в troops-режиме
+    document.getElementById('troop-switch').style.display = (v === 'troops') ? '' : 'none';
+    document.getElementById('print-all-btn').style.display = (v === 'troops') ? '' : 'none';
+    const dl = document.getElementById('docs-links');
+    if (dl) dl.style.display = (v === 'troops') ? '' : 'none';
     renderCurrentView();
   }
   window.switchView = switchView;

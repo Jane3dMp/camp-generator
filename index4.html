@@ -187,6 +187,11 @@
   /* === ПАНЕЛЬ РЕФЕРЕНСОВ === */
   .icon-btn.has-refs { background: rgba(254,214,52,0.5); border-color: var(--yellow-deep); }
   .refs-panel { display: flex; flex-direction: column; gap: 4px; }
+  .refs-section { display: flex; flex-direction: column; gap: 6px; }
+  .refs-section-title { font-weight: 600; font-size: 13px; letter-spacing: 0.04em; margin-bottom: 2px; }
+  .refs-section-hint { font-weight: 400; font-size: 11px; color: rgba(21,22,23,0.55); letter-spacing: 0; }
+  .refs-section-parent { background: rgba(200,121,216,0.06); border-radius: 8px; padding: 12px; }
+  .refs-divider { height: 1px; background: rgba(21,22,23,0.12); margin: 16px 0; }
   .refs-status {
     font-family: Inter, sans-serif; font-size: 12px; color: rgba(21,22,23,0.7);
     background: var(--paper-warm); border: 1px solid rgba(21,22,23,0.12);
@@ -1386,7 +1391,8 @@ function convertLibraryItem(item) {
     format: item.format || 'МК',
     description: item.description || '',
     refsCount: item.refsCount || 0,
-    refs: Array.isArray(item.refs) ? item.refs : []
+    refs: Array.isArray(item.refs) ? item.refs : [],
+    parentRefs: Array.isArray(item.parentRefs) ? item.parentRefs : []
   };
 }
 
@@ -1432,7 +1438,10 @@ function defaultSlot(opts={}) {
     isTrip: !!opts.isTrip,   // выезд (true) или обычный МК (false). Авто-определяется по format.
     locked: false,
     comment: opts.comment || '',
-    selectedRefs: Array.isArray(opts.selectedRefs) ? opts.selectedRefs : []
+    selectedRefs: Array.isArray(opts.selectedRefs) ? opts.selectedRefs : [],
+    refsNone: !!opts.refsNone,
+    parentSelectedRefs: Array.isArray(opts.parentSelectedRefs) ? opts.parentSelectedRefs : [],
+    parentRefsNone: !!opts.parentRefsNone
   };
 }
 // Считаем, является ли формат выездным
@@ -2681,6 +2690,22 @@ function setTemplateRefsLocal_(templateName, refsArr) {
   });
 }
 
+// === РОДИТЕЛЬСКИЕ РЕФЕРЕНСЫ (отдельная библиотека) ===
+function getTemplateParentRefs_(templateName) {
+  if (!templateName) return [];
+  const t = String(templateName).trim().toLowerCase();
+  const lib = LIBRARY.find(a => String(a.template || '').trim().toLowerCase() === t);
+  return (lib && Array.isArray(lib.parentRefs)) ? lib.parentRefs.slice() : [];
+}
+function setTemplateParentRefsLocal_(templateName, refsArr) {
+  const t = String(templateName).trim().toLowerCase();
+  LIBRARY.forEach(a => {
+    if (String(a.template || '').trim().toLowerCase() === t) {
+      a.parentRefs = refsArr.slice();
+    }
+  });
+}
+
 // Кэш серверных превью (action=previewUrl). Apps Script парсит og:image / Pinterest oembed
 // и возвращает прямую ссылку на картинку. Кэш живёт всю сессию, чтобы не дёргать сервер
 // при каждом перерендере. Сервер сам кэширует ответы на 24 часа.
@@ -2777,79 +2802,110 @@ function renderRefsPanelBody_() {
   if (!ctx) return;
   const slot = getSlot(ctx.day, ctx.half, ctx.idx);
   if (!slot) { closeModal(); return; }
-  const allRefs = getTemplateRefs_(ctx.templateName);
-  const selected = Array.isArray(slot.selectedRefs) ? slot.selectedRefs.slice() : null;
-  // По умолчанию: если selectedRefs пуст/null — слот использует ВСЕ рефы шаблона.
-  const useAll = !selected || selected.length === 0;
 
-  let cardsHtml = '';
-  if (allRefs.length === 0) {
-    cardsHtml = `<div class="refs-empty">У шаблона ещё нет сохранённых референсов. Добавь первый через поле ниже — он сохранится в библиотеку (Google Sheets) и появится у этого шаблона в любых сменах.</div>`;
-  } else {
-    cardsHtml = '<div class="refs-grid">' + allRefs.map(url => {
-      const info = refPreviewInfo_(url);
-      const isChecked = useAll || (selected && selected.indexOf(url) >= 0);
-      const escUrl = escapeHtml(url);
-      const escUrlJs = escapeJs(url);
-      // Если прямого превью нет — пробуем кэш серверного og:image. Если и его нет — placeholder
-      // и в дальнейшем запустим фоновую загрузку.
-      let previewHtml;
-      if (info.previewSrc) {
-        previewHtml = `<img class="refs-card-img" src="${escapeHtml(info.previewSrc)}" alt="" onerror="this.parentNode.classList.add('no-img')">`;
-      } else {
-        const cached = window._refPreviewCache[url];
-        if (cached) {
-          previewHtml = `<img class="refs-card-img" src="${escapeHtml(cached)}" alt="" onerror="this.parentNode.classList.add('no-img')">`;
-        } else {
-          previewHtml = `<div class="refs-card-noimg">🔗 ${escapeHtml(info.host || 'ссылка')}</div>`;
-        }
-      }
-      // Атрибут data-ref-url пометит карточки, которым нужна подгрузка превью с сервера.
-      const needsHydrate = !info.previewSrc && !window._refPreviewCache[url];
-      return `
-        <div class="refs-card ${isChecked ? 'checked' : ''}" ${needsHydrate ? `data-ref-url="${escUrl}"` : ''}>
-          <label class="refs-card-check">
-            <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleRefSelection_('${escUrlJs}', this.checked)">
-          </label>
-          <a class="refs-card-link" href="${escUrl}" target="_blank" rel="noopener" title="${escUrl}">
-            ${previewHtml}
-            <div class="refs-card-host">${escapeHtml(info.host || 'ссылка')}</div>
-          </a>
-          <button class="refs-card-remove" onclick="removeRefFromLibrary_('${escUrlJs}')" title="Удалить из библиотеки (для всех смен)">×</button>
-        </div>`;
-    }).join('') + '</div>';
-  }
-
-  const selectedCount = useAll ? allRefs.length : selected.length;
-  const statusHtml = allRefs.length === 0 ? '' :
-    useAll
-      ? `<div class="refs-status">Используются <strong>все ${allRefs.length}</strong> референсов шаблона. Сними галочки, чтобы оставить только нужные для этого занятия.</div>`
-      : `<div class="refs-status">Выбрано: <strong>${selectedCount}</strong> из ${allRefs.length}. ${selectedCount === 0 ? 'Без референсов.' : ''} <button class="btn btn-sm btn-ghost" onclick="resetRefSelection_()">использовать все</button></div>`;
+  const teacherSection = renderRefsSection_('teacher', slot, ctx);
+  const parentSection = renderRefsSection_('parent', slot, ctx);
 
   document.getElementById('modal-body').innerHTML = `
     <div class="refs-panel">
-      ${statusHtml}
-      ${cardsHtml}
-      <div class="refs-add-row">
-        <label class="ct-label" style="margin-top:14px">Добавить новый референс (URL картинки, Pinterest, YouTube или любая ссылка)</label>
-        <div style="display:flex;gap:8px">
-          <input type="text" id="refs-add-input" class="ct-input" placeholder="https://..." onkeydown="if(event.key==='Enter'){event.preventDefault();addRefToLibrary_();}" autocomplete="off">
-          <button class="btn btn-primary" id="refs-add-btn" onclick="addRefToLibrary_()">Добавить</button>
-        </div>
-        <div id="refs-add-error" class="ct-error"></div>
-      </div>
+      ${teacherSection}
+      <div class="refs-divider"></div>
+      ${parentSection}
       <div class="modal-actions">
         <button class="btn btn-primary" onclick="closeModal()">Готово</button>
       </div>
     </div>
   `;
   setTimeout(() => {
-    const inp = document.getElementById('refs-add-input'); if (inp) inp.focus();
-    // Запускаем фоновую подгрузку превью у карточек без прямого изображения
     document.querySelectorAll('.refs-card[data-ref-url]').forEach(card => {
       hydrateRefPreview_(card.getAttribute('data-ref-url'), card);
     });
   }, 60);
+}
+
+// Рендер одной секции рефов. audience: 'teacher' (педагоги/вожатые) или 'parent' (родители).
+function renderRefsSection_(audience, slot, ctx) {
+  const isParent = audience === 'parent';
+  const allRefs = isParent ? getTemplateParentRefs_(ctx.templateName) : getTemplateRefs_(ctx.templateName);
+  const selKey = isParent ? 'parentSelectedRefs' : 'selectedRefs';
+  const noneKey = isParent ? 'parentRefsNone' : 'refsNone';
+  const selected = Array.isArray(slot[selKey]) ? slot[selKey].slice() : null;
+  const isNone = !!slot[noneKey];
+  const useAll = !isNone && (!selected || selected.length === 0);
+
+  const titleHtml = isParent
+    ? `<div class="refs-section-title">👨‍👩‍👧 Для родителей <span class="refs-section-hint">— показываются на странице родителей в разделе «Что сделают дети». Сюда — красивые финальные работы.</span></div>`
+    : `<div class="refs-section-title">🎒 Для педагогов и вожатых <span class="refs-section-hint">— рабочие образцы «как делать». Видны педагогу и вожатому.</span></div>`;
+
+  const toggleFn = isParent ? 'toggleParentRefSelection_' : 'toggleRefSelection_';
+  const removeFn = isParent ? 'removeParentRefFromLibrary_' : 'removeRefFromLibrary_';
+  const resetFn = isParent ? 'resetParentRefSelection_' : 'resetRefSelection_';
+  const clearFn = isParent ? 'clearAllParentRefSelection_' : 'clearAllRefSelection_';
+  const addFn = isParent ? 'addParentRefToLibrary_' : 'addRefToLibrary_';
+  const inputId = isParent ? 'pref-add-input' : 'refs-add-input';
+  const btnId = isParent ? 'pref-add-btn' : 'refs-add-btn';
+  const errId = isParent ? 'pref-add-error' : 'refs-add-error';
+
+  let cardsHtml;
+  if (allRefs.length === 0) {
+    cardsHtml = `<div class="refs-empty">${isParent ? 'Нет родительских референсов. Добавь ссылку ниже — она появится у родителей.' : 'У шаблона ещё нет референсов. Добавь первый через поле ниже — сохранится в библиотеку для всех смен.'}</div>`;
+  } else {
+    cardsHtml = '<div class="refs-grid">' + allRefs.map(url => {
+      const info = refPreviewInfo_(url);
+      const isChecked = !isNone && (useAll || (selected && selected.indexOf(url) >= 0));
+      const escUrl = escapeHtml(url);
+      const escUrlJs = escapeJs(url);
+      let previewHtml;
+      if (info.previewSrc) {
+        previewHtml = `<img class="refs-card-img" src="${escapeHtml(info.previewSrc)}" alt="" onerror="this.parentNode.classList.add('no-img')">`;
+      } else {
+        const cached = window._refPreviewCache[url];
+        previewHtml = cached
+          ? `<img class="refs-card-img" src="${escapeHtml(cached)}" alt="" onerror="this.parentNode.classList.add('no-img')">`
+          : `<div class="refs-card-noimg">🔗 ${escapeHtml(info.host || 'ссылка')}</div>`;
+      }
+      const needsHydrate = !info.previewSrc && !window._refPreviewCache[url];
+      return `
+        <div class="refs-card ${isChecked ? 'checked' : ''}" ${needsHydrate ? `data-ref-url="${escUrl}"` : ''}>
+          <label class="refs-card-check">
+            <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="${toggleFn}('${escUrlJs}', this.checked)">
+          </label>
+          <a class="refs-card-link" href="${escUrl}" target="_blank" rel="noopener" title="${escUrl}">
+            ${previewHtml}
+            <div class="refs-card-host">${escapeHtml(info.host || 'ссылка')}</div>
+          </a>
+          <button class="refs-card-remove" onclick="${removeFn}('${escUrlJs}')" title="Удалить из библиотеки (для всех смен)">×</button>
+        </div>`;
+    }).join('') + '</div>';
+  }
+
+  const who = isParent ? 'родителям' : '';
+  const selectedCount = isNone ? 0 : (useAll ? allRefs.length : selected.length);
+  let statusHtml = '';
+  if (allRefs.length > 0) {
+    if (isNone) {
+      statusHtml = `<div class="refs-status">Отключены (0 из ${allRefs.length})${isParent ? ' — родителям ничего не покажется' : ''}. <button class="btn btn-sm btn-ghost" onclick="${resetFn}()">использовать все</button></div>`;
+    } else if (useAll) {
+      statusHtml = `<div class="refs-status">Используются <strong>все ${allRefs.length}</strong>${isParent ? ' (покажутся родителям)' : ''}. <button class="btn btn-sm btn-ghost" onclick="${clearFn}()">снять все выделения</button></div>`;
+    } else {
+      statusHtml = `<div class="refs-status">Выбрано: <strong>${selectedCount}</strong> из ${allRefs.length}${isParent ? ' покажется родителям' : ''}. <button class="btn btn-sm btn-ghost" onclick="${resetFn}()">использовать все</button> <button class="btn btn-sm btn-ghost" onclick="${clearFn}()">снять все</button></div>`;
+    }
+  }
+
+  return `
+    <div class="refs-section ${isParent ? 'refs-section-parent' : ''}">
+      ${titleHtml}
+      ${statusHtml}
+      ${cardsHtml}
+      <div class="refs-add-row">
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <input type="text" id="${inputId}" class="ct-input" placeholder="${isParent ? 'Добавить ссылку для родителей (https://...)' : 'Добавить референс (https://...)'}" onkeydown="if(event.key==='Enter'){event.preventDefault();${addFn}();}" autocomplete="off">
+          <button class="btn btn-primary" id="${btnId}" onclick="${addFn}()">Добавить</button>
+        </div>
+        <div id="${errId}" class="ct-error"></div>
+      </div>
+    </div>
+  `;
 }
 
 // Переключить выбор реф'а для слота. Если включается реф — добавляем в selectedRefs.
@@ -2863,16 +2919,28 @@ function toggleRefSelection_(url, checked) {
   pushUndoSnapshot('изменение референсов');
 
   const allRefs = getTemplateRefs_(ctx.templateName);
-  let cur = Array.isArray(slot.selectedRefs) ? slot.selectedRefs.slice() : null;
-  // Если slot.selectedRefs пуст (=использовать все), при первом клике инициализируем явно
-  if (!cur || cur.length === 0) cur = allRefs.slice();
+  let cur;
+  if (slot.refsNone) {
+    // Было «явно ноль» — начинаем с пустого набора
+    cur = [];
+  } else {
+    cur = Array.isArray(slot.selectedRefs) ? slot.selectedRefs.slice() : null;
+    if (!cur || cur.length === 0) cur = allRefs.slice(); // было «все»
+  }
+  slot.refsNone = false; // любое переключение снимает режим «ноль»
 
   if (checked) {
     if (cur.indexOf(url) < 0) cur.push(url);
   } else {
     cur = cur.filter(u => u !== url);
   }
-  slot.selectedRefs = cur;
+  // Если после снятия не осталось ни одного — это «явно ноль», помечаем
+  if (cur.length === 0) {
+    slot.refsNone = true;
+    slot.selectedRefs = [];
+  } else {
+    slot.selectedRefs = cur;
+  }
   saveLocal();
   renderRefsPanelBody_();
   render();
@@ -2885,6 +2953,21 @@ function resetRefSelection_() {
   if (!slot) return;
   pushUndoSnapshot('сброс выбора референсов');
   slot.selectedRefs = [];
+  slot.refsNone = false; // «использовать все»
+  saveLocal();
+  renderRefsPanelBody_();
+  render();
+}
+
+// Снять все галочки разом — «явно ноль референсов в этом слоте».
+function clearAllRefSelection_() {
+  const ctx = window._refsPanelCtx;
+  if (!ctx) return;
+  const slot = getSlot(ctx.day, ctx.half, ctx.idx);
+  if (!slot) return;
+  pushUndoSnapshot('снять все референсы');
+  slot.selectedRefs = [];
+  slot.refsNone = true;
   saveLocal();
   renderRefsPanelBody_();
   render();
@@ -2975,6 +3058,137 @@ async function removeRefFromLibrary_(url) {
     }
     saveLocal();
     toast('Удалено из библиотеки');
+    renderRefsPanelBody_();
+    render();
+  } catch(e) {
+    toast('Ошибка: ' + e.message);
+  }
+}
+
+// ════════════ РОДИТЕЛЬСКИЕ РЕФЕРЕНСЫ (parentSelectedRefs / parentRefsNone) ════════════
+function toggleParentRefSelection_(url, checked) {
+  const ctx = window._refsPanelCtx;
+  if (!ctx) return;
+  const slot = getSlot(ctx.day, ctx.half, ctx.idx);
+  if (!slot) return;
+  pushUndoSnapshot('изменение родительских референсов');
+  const allRefs = getTemplateParentRefs_(ctx.templateName);
+  let cur;
+  if (slot.parentRefsNone) cur = [];
+  else {
+    cur = Array.isArray(slot.parentSelectedRefs) ? slot.parentSelectedRefs.slice() : null;
+    if (!cur || cur.length === 0) cur = allRefs.slice();
+  }
+  slot.parentRefsNone = false;
+  if (checked) { if (cur.indexOf(url) < 0) cur.push(url); }
+  else { cur = cur.filter(u => u !== url); }
+  if (cur.length === 0) { slot.parentRefsNone = true; slot.parentSelectedRefs = []; }
+  else slot.parentSelectedRefs = cur;
+  saveLocal();
+  renderRefsPanelBody_();
+  render();
+}
+function resetParentRefSelection_() {
+  const ctx = window._refsPanelCtx;
+  if (!ctx) return;
+  const slot = getSlot(ctx.day, ctx.half, ctx.idx);
+  if (!slot) return;
+  pushUndoSnapshot('сброс родительских референсов');
+  slot.parentSelectedRefs = [];
+  slot.parentRefsNone = false;
+  saveLocal();
+  renderRefsPanelBody_();
+  render();
+}
+function clearAllParentRefSelection_() {
+  const ctx = window._refsPanelCtx;
+  if (!ctx) return;
+  const slot = getSlot(ctx.day, ctx.half, ctx.idx);
+  if (!slot) return;
+  pushUndoSnapshot('снять все родительские референсы');
+  slot.parentSelectedRefs = [];
+  slot.parentRefsNone = true;
+  saveLocal();
+  renderRefsPanelBody_();
+  render();
+}
+async function addParentRefToLibrary_() {
+  const ctx = window._refsPanelCtx;
+  if (!ctx) return;
+  const inp = document.getElementById('pref-add-input');
+  const errEl = document.getElementById('pref-add-error');
+  const btn = document.getElementById('pref-add-btn');
+  const url = String(inp.value || '').trim();
+  if (errEl) errEl.textContent = '';
+  if (!url) return;
+  if (!/^https?:\/\//i.test(url)) {
+    if (errEl) errEl.textContent = 'Ссылка должна начинаться с http:// или https://';
+    return;
+  }
+  const existing = getTemplateParentRefs_(ctx.templateName);
+  if (existing.indexOf(url) >= 0) {
+    if (errEl) errEl.textContent = 'Эта ссылка уже есть у родителей';
+    return;
+  }
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  try {
+    const r = await fetch(LIBRARY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'addParentsRef', templateName: ctx.templateName, url: url })
+    });
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || 'Сервер отклонил запрос');
+    const next = existing.slice(); next.push(url);
+    setTemplateParentRefsLocal_(ctx.templateName, next);
+    const slot = getSlot(ctx.day, ctx.half, ctx.idx);
+    if (slot && Array.isArray(slot.parentSelectedRefs) && slot.parentSelectedRefs.length > 0) {
+      slot.parentSelectedRefs.push(url);
+    }
+    if (inp) inp.value = '';
+    saveLocal();
+    toast('Родительский референс сохранён');
+    renderRefsPanelBody_();
+    render();
+  } catch(e) {
+    if (errEl) errEl.textContent = 'Не удалось сохранить: ' + e.message;
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Добавить'; }
+  }
+}
+async function removeParentRefFromLibrary_(url) {
+  const ctx = window._refsPanelCtx;
+  if (!ctx) return;
+  if (!confirm('Удалить эту ссылку из родительских референсов шаблона? Она пропадёт из всех смен.')) return;
+  try {
+    const r = await fetch(LIBRARY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'removeParentsRef', templateName: ctx.templateName, url: url })
+    });
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || 'Сервер отклонил запрос');
+    const next = getTemplateParentRefs_(ctx.templateName).filter(u => u !== url);
+    setTemplateParentRefsLocal_(ctx.templateName, next);
+    if (state.schedule) {
+      state.schedule.forEach(d => {
+        ['am','pm'].forEach(h => {
+          if (Array.isArray(d[h])) d[h].forEach(s => {
+            if (s && Array.isArray(s.parentSelectedRefs)) s.parentSelectedRefs = s.parentSelectedRefs.filter(u => u !== url);
+          });
+        });
+        ['amMulti','pmMulti'].forEach(mk => {
+          const m = d[mk]; if (!m) return;
+          ['chainA','chainB','stations'].forEach(sub => {
+            if (Array.isArray(m[sub])) m[sub].forEach(s => {
+              if (s && Array.isArray(s.parentSelectedRefs)) s.parentSelectedRefs = s.parentSelectedRefs.filter(u => u !== url);
+            });
+          });
+        });
+      });
+    }
+    saveLocal();
+    toast('Удалено из родительских');
     renderRefsPanelBody_();
     render();
   } catch(e) {
@@ -3981,9 +4195,11 @@ async function openPublishPanel() {
   const view4Base = getView4BaseUrl_();
   const parents4Base = getParents4BaseUrl_();
   const print4Base = getPrint4BaseUrl_();
+  const admin4Base = print4Base.replace(/print4\.html$/, 'admin4.html');
   const viewUrl = currentId ? `${view4Base}?id=${currentId}` : '';
   const parentsUrl = currentId ? `${parents4Base}?id=${currentId}` : '';
   const printUrl = currentId ? `${print4Base}?id=${currentId}` : '';
+  const adminUrl = currentId ? `${admin4Base}?id=${currentId}` : '';
 
   document.getElementById('modal-title').innerHTML = `Публикация <em>(4 отряда)</em>`;
   document.getElementById('modal-body').innerHTML = `
@@ -4009,11 +4225,17 @@ async function openPublishPanel() {
           <button class="btn btn-sm" onclick="copyText4('${escapeJs(parentsUrl)}', this)">📋</button>
           <a class="btn btn-sm" href="${escapeHtml(parentsUrl)}" target="_blank" rel="noopener" style="text-decoration:none">↗</a>
         </div>
-        <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(21,22,23,0.5);margin:10px 0 3px;font-weight:600">📄 для печати (вожатым и админу — компактная сетка):</div>
+        <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(21,22,23,0.5);margin:10px 0 3px;font-weight:600">📄 для вожатых (по отрядам + игры):</div>
         <div style="display:flex;gap:6px;align-items:center">
           <input type="text" readonly value="${escapeHtml(printUrl)}" onclick="this.select()" style="flex:1;font-family:Inter,sans-serif;font-size:12px;border:1px solid var(--ink);background:var(--white);padding:6px 10px;color:var(--ink);outline:none">
           <button class="btn btn-sm" onclick="copyText4('${escapeJs(printUrl)}', this)">📋</button>
           <a class="btn btn-sm" href="${escapeHtml(printUrl)}" target="_blank" rel="noopener" style="text-decoration:none">↗</a>
+        </div>
+        <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(21,22,23,0.5);margin:10px 0 3px;font-weight:600">🗂 для админа (дни × блоки + выезды):</div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="text" readonly value="${escapeHtml(adminUrl)}" onclick="this.select()" style="flex:1;font-family:Inter,sans-serif;font-size:12px;border:1px solid var(--ink);background:var(--white);padding:6px 10px;color:var(--ink);outline:none">
+          <button class="btn btn-sm" onclick="copyText4('${escapeJs(adminUrl)}', this)">📋</button>
+          <a class="btn btn-sm" href="${escapeHtml(adminUrl)}" target="_blank" rel="noopener" style="text-decoration:none">↗</a>
         </div>
       </div>
       <div style="margin-bottom:14px;padding:12px 14px;background:rgba(254,214,52,0.12);border-left:3px solid var(--yellow-deep);border-radius:4px;font-family:Inter,sans-serif;font-size:12px;line-height:1.45">
@@ -4206,9 +4428,11 @@ async function publishSmena4() {
   // Снимок: state + libraryRefs (дефолтные рефы шаблонов, чтобы view4 показывал картинки
   // когда у слота нет своих selectedRefs).
   const libraryRefs = {};
+  const parentLibraryRefs = {};
   LIBRARY.forEach(a => {
     const tpl = a.template || a.n;
     if (tpl && Array.isArray(a.refs) && a.refs.length > 0) libraryRefs[tpl] = a.refs.slice();
+    if (tpl && Array.isArray(a.parentRefs) && a.parentRefs.length > 0) parentLibraryRefs[tpl] = a.parentRefs.slice();
   });
   const stateForPublish = {
     theme: state.theme,
@@ -4221,7 +4445,8 @@ async function publishSmena4() {
     numTroops: NUM_TROOPS,
     publishId: state.publishId,
     publishedAt: new Date().toISOString(),
-    libraryRefs: libraryRefs
+    libraryRefs: libraryRefs,
+    parentLibraryRefs: parentLibraryRefs
   };
 
   const expectedFp = computeScheduleFingerprint4_(stateForPublish);
