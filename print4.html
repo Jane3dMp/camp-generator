@@ -88,6 +88,25 @@
   .actions button:hover { background: var(--yellow); color: var(--ink); border-color: var(--yellow); }
   .actions .btn-primary { background: var(--yellow); color: var(--ink); border-color: var(--yellow); font-weight: 700; }
 
+  /* Блок ссылок на PDF-материалы для вожатых */
+  .docs-links {
+    max-width: 1600px; margin: 12px auto 0; padding-top: 12px;
+    border-top: 1px solid rgba(255,255,255,0.15);
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .docs-label {
+    font-family: Inter; font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: rgba(255,255,255,0.6); font-weight: 600;
+  }
+  .doc-btn {
+    background: rgba(255,255,255,0.1); color: var(--white);
+    border: 1px solid rgba(255,255,255,0.3); border-radius: 4px;
+    padding: 7px 14px; font-family: Inter; font-size: 12px; font-weight: 600;
+    text-decoration: none; cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .doc-btn:hover { background: var(--yellow); color: var(--ink); border-color: var(--yellow); }
+
   /* Переключатель вида (для вожатых / для админа) */
   .view-switch {
     display: inline-flex; gap: 0;
@@ -345,6 +364,8 @@
   @media print {
     body { background: var(--white); font-size: 9.5pt; }
     .top-bar, .font-control { display: none !important; }
+    /* docs-links внутри top-bar и так скроется, но на всякий случай */
+    .docs-links { display: none !important; }
     /* Печатаем всегда табличный (десктоп) вид, даже если экран узкий */
     .mobile-view { display: none !important; }
     .desktop-view { display: block !important; }
@@ -488,6 +509,11 @@
         <button onclick="printAllTroops()" id="print-all-btn" style="display:none" title="Распечатать по одному листу на каждый отряд — для раздачи вожатым">🖨 Печать по отрядам</button>
         <button onclick="goBack()">← в просмотр</button>
       </div>
+    </div>
+    <div class="docs-links" id="docs-links">
+      <span class="docs-label">📚 Материалы для вожатых:</span>
+      <a class="doc-btn" href="1.pdf" target="_blank" rel="noopener">📄 Дворовые игры</a>
+      <a class="doc-btn" href="2.pdf" target="_blank" rel="noopener">📄 Игры на бумаге</a>
     </div>
   </div>
 
@@ -651,6 +677,9 @@
     document.getElementById('troop-switch').style.display = '';
     // Кнопка «печать всех по очереди» только в вожатском виде
     document.getElementById('print-all-btn').style.display = (currentView === 'troops') ? '' : 'none';
+    // Материалы для вожатых — только в вожатском виде
+    const dl = document.getElementById('docs-links');
+    if (dl) dl.style.display = (currentView === 'troops') ? '' : 'none';
   }
 
   // ── ПЕРЕКЛЮЧЕНИЕ ВИДА ──
@@ -664,6 +693,8 @@
     // Фильтр отрядов виден только в troops-режиме
     document.getElementById('troop-switch').style.display = (v === 'troops') ? '' : 'none';
     document.getElementById('print-all-btn').style.display = (v === 'troops') ? '' : 'none';
+    const dl = document.getElementById('docs-links');
+    if (dl) dl.style.display = (v === 'troops') ? '' : 'none';
     renderCurrentView();
   }
   window.switchView = switchView;
