@@ -1207,20 +1207,20 @@
   }
   #lock-logout-btn:hover { background: var(--ink); color: var(--paper); border-color: var(--ink); }
   @media print { #lockscreen, #lock-logout-btn { display: none !important; } }
-.troops-import-panel { display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; background:var(--cream,#FBF6E9); border:1px solid rgba(21,22,23,0.1); border-radius:6px; padding:14px 16px; margin-bottom:14px; }
+.troops-import-panel { display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; background:var(--paper-warm); border:1px solid rgba(21,22,23,0.1); border-radius:6px; padding:14px 16px; margin-bottom:14px; }
 .troops-statusbar { display:flex; gap:16px; align-items:center; margin-bottom:14px; font-family:Inter,sans-serif; font-size:12px; color:rgba(21,22,23,0.65); flex-wrap:wrap; }
-.troops-statusbar code { background:var(--white,#fff); padding:2px 6px; border-radius:2px; font-size:11px; border:1px solid rgba(21,22,23,0.15); }
-.troops-board { display:grid; grid-template-columns:1.1fr 1fr 1fr 1fr 1fr; gap:8px; align-items:start; }
-.troop-col { border-radius:8px; border:1px solid rgba(21,22,23,0.12); padding:8px; min-height:200px; }
-.troop-col-title { font-family:Inter,sans-serif; font-size:12px; font-weight:600; margin-bottom:8px; padding:0 2px; }
-.troop-card { background:var(--white,#fff); border:1px solid rgba(21,22,23,0.15); border-radius:5px; padding:6px 8px; margin-bottom:5px; cursor:grab; font-family:Inter,sans-serif; font-size:12px; display:flex; justify-content:space-between; align-items:center; gap:6px; }
-.troop-card:active { cursor:grabbing; }
-.troop-card .tc-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.troop-card .tc-age { color:rgba(21,22,23,0.45); }
-.troop-card .tc-lock { cursor:pointer; font-size:13px; flex-shrink:0; }
-.troop-col.drag-over { outline:2px dashed currentColor; outline-offset:-2px; }
+.troops-statusbar code { background:var(--white); padding:2px 6px; border-radius:2px; font-size:11px; border:1px solid rgba(21,22,23,0.15); }
+.kid-board { display:grid; grid-template-columns:1.1fr 1fr 1fr 1fr 1fr; gap:8px; align-items:start; }
+.kid-col { border-radius:8px; border:1px solid rgba(21,22,23,0.12); padding:8px; min-height:200px; }
+.kid-col-title { font-family:Inter,sans-serif; font-size:12px; font-weight:600; margin-bottom:8px; padding:0 2px; }
+.kid-card { background:var(--white); border:1px solid rgba(21,22,23,0.15); border-radius:5px; padding:6px 8px; margin-bottom:5px; cursor:grab; font-family:Inter,sans-serif; font-size:12px; display:flex; justify-content:space-between; align-items:center; gap:6px; }
+.kid-card:active { cursor:grabbing; }
+.kid-card .tc-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.kid-card .tc-age { color:rgba(21,22,23,0.45); }
+.kid-card .tc-lock { cursor:pointer; font-size:13px; flex-shrink:0; }
+.kid-col.drag-over { outline:2px dashed currentColor; outline-offset:-2px; }
 .troops-hint { font-family:Inter,sans-serif; font-size:12px; color:rgba(21,22,23,0.5); margin-top:14px; line-height:1.5; }
-@media (max-width:900px){ .troops-board{ grid-template-columns:1fr 1fr; } }
+@media (max-width:900px){ .kid-board{ grid-template-columns:1fr 1fr; } }
 </style>
 
 <div id="lockscreen">
@@ -1339,7 +1339,7 @@
       <span>Смена: <code id="troops-season-id">—</code></span>
       <span id="troops-counts"></span>
     </div>
-    <div id="troops-board" class="troops-board"></div>
+    <div id="troops-board" class="kid-board"></div>
     <p class="troops-hint">Перетащи карточку между колонками. 🔒 закрепляет ребёнка — при «Переразбить» закреплённые не двигаются. Дата рождения определяет, в какой отряд попадёт ребёнок (1 — младшие, 4 — старшие).</p>
   </div>
 </div>
@@ -4544,17 +4544,15 @@ async function unpublishSmena4() {
 // ЭКРАН «ДЕТИ И ОТРЯДЫ»
 // =============================================================
 const TROOPS4_META = [
-  { key: 0, name: 'Без отряда',       color: '#888780', bg: 'transparent' },
+  { key: 0, name: 'Без отряда',        color: '#888780', bg: 'transparent' },
   { key: 1, name: 'Отряд 1 · младшие', color: '#185FA5', bg: '#E6F1FB' },
   { key: 2, name: 'Отряд 2',           color: '#993C1D', bg: '#FAECE7' },
   { key: 3, name: 'Отряд 3',           color: '#3B6D11', bg: '#EAF3DE' },
   { key: 4, name: 'Отряд 4 · старшие', color: '#534AB7', bg: '#EEEDFE' }
 ];
-let _troopsKids = [];        // [{crmId, name, dob, age, gender, parentName, parentPhone, troop, locked}]
+let _troopsKids = [];
 let _troopsSaveTimer = null;
 
-// seasonId = publishId текущей смены. Если смены ещё нет — генерим временный id,
-// чтобы было к чему привязать детей. При публикации этот же id уйдёт в снимок.
 function troopsSeasonId_() {
   if (!state.publishId) {
     state.publishId = generateShortId4_();
@@ -4587,7 +4585,7 @@ function troopsSetStatus_(saved) {
   const s = document.getElementById('troops-save-status');
   if (!s) return;
   s.innerHTML = saved
-    ? '<span style="color:var(--moss,#8FA370)">●</span> сохранено'
+    ? '<span style="color:var(--moss)">●</span> сохранено'
     : '<span style="color:#C9A800">●</span> сохранение…';
 }
 
@@ -4597,7 +4595,6 @@ function dobSortKey4_(dob) {
   return new Date(+m[3], +m[2] - 1, +m[1]).getTime();
 }
 
-// Загрузка детей смены с сервера
 async function loadTroopsChildren() {
   const sid = troopsSeasonId_();
   const board = document.getElementById('troops-board');
@@ -4617,7 +4614,6 @@ async function loadTroopsChildren() {
   }
 }
 
-// Импорт из Альфы + сразу авторазбивка по возрасту (на сервере)
 async function importTroopsChildren() {
   const raw = (document.getElementById('troops-group-input').value || '').trim();
   if (!raw) { toast('Введи id или названия групп'); return; }
@@ -4631,7 +4627,6 @@ async function importTroopsChildren() {
   btn.disabled = true; btn.textContent = '⏳ Импорт из Альфы…';
   troopsSetStatus_(false);
   try {
-    // 1. импорт
     const r1 = await fetch(LIBRARY_URL, {
       method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ action: 'importChildren', seasonId: sid,
@@ -4639,7 +4634,6 @@ async function importTroopsChildren() {
     });
     const j1 = await r1.json();
     if (!j1.ok) throw new Error(j1.error || 'Ошибка импорта');
-    // 2. авторазбивка по возрасту (закреплённых не трогает)
     btn.textContent = '⏳ Разбиваю по возрасту…';
     const r2 = await fetch(LIBRARY_URL, {
       method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -4663,7 +4657,6 @@ async function importTroopsChildren() {
   }
 }
 
-// Переразбить незакреплённых по возрасту (серверный autoSplit)
 async function reshuffleTroops() {
   const sid = troopsSeasonId_();
   troopsSetStatus_(false);
@@ -4680,7 +4673,6 @@ async function reshuffleTroops() {
   } catch (e) { toast('Ошибка: ' + e.message); troopsSetStatus_(true); }
 }
 
-// Сборка assignments из текущего состояния и отправка на сервер
 async function saveTroopsToServer_() {
   const sid = troopsSeasonId_();
   const assignments = {};
@@ -4694,7 +4686,6 @@ async function saveTroopsToServer_() {
   return j.result;
 }
 
-// Автосохранение с debounce — чтобы не дёргать сервер на каждый чих
 function troopsAutoSave_() {
   troopsSetStatus_(false);
   if (_troopsSaveTimer) clearTimeout(_troopsSaveTimer);
@@ -4718,23 +4709,23 @@ function renderTroopsBoard() {
 
   TROOPS4_META.forEach(tr => {
     const col = document.createElement('div');
-    col.className = 'troop-col';
+    col.className = 'kid-col';
     col.style.background = tr.bg;
     col.style.color = tr.color;
     col.dataset.troop = tr.key;
 
     const list = _troopsKids.filter(k => (k.troop || 0) === tr.key)
-      .sort((a, b) => dobSortKey4_(b.dob) - dobSortKey4_(a.dob)); // младшие выше
+      .sort((a, b) => dobSortKey4_(b.dob) - dobSortKey4_(a.dob));
 
     const title = document.createElement('div');
-    title.className = 'troop-col-title';
+    title.className = 'kid-col-title';
     title.style.color = tr.color;
     title.innerHTML = escapeHtml(tr.name) + ' <span style="opacity:0.6">(' + list.length + ')</span>';
     col.appendChild(title);
 
     list.forEach(k => {
       const card = document.createElement('div');
-      card.className = 'troop-card';
+      card.className = 'kid-card';
       card.draggable = true;
       card.dataset.id = k.crmId;
       const ageStr = (k.age === '' || k.age == null) ? '' : ' <span class="tc-age">' + k.age + '</span>';
