@@ -115,6 +115,7 @@
       <div class="prompt-actions">
         <button class="prompt-save" onclick="savePrompt()">Сохранить</button>
         <button class="prompt-reset" onclick="resetPrompt()">Вернуть стандартный</button>
+        <button class="prompt-reset" onclick="regenPrompt()" style="border-color:var(--green);color:var(--green-deep)">✨ Пересобрать под смену</button>
         <span class="prompt-status" id="prompt-status"></span>
       </div>
     </div>
@@ -362,16 +363,27 @@
 
   async function loadPrompt(){
     if(promptLoaded) return;
+    const sysEl=document.getElementById('prompt-system');
+    const introEl=document.getElementById('prompt-intro');
+    const st=document.getElementById('prompt-status');
+    st.textContent='Загружаю…';
     try{
-      const id=getQueryParam('id');
       const resp=await fetch(LIBRARY_URL+'?action=getReportPrompt').then(r=>r.json());
       if(resp.ok && resp.prompt){
-        document.getElementById('prompt-system').value=resp.prompt.system||'';
-        document.getElementById('prompt-intro').value=resp.prompt.intro||'';
+        sysEl.value=resp.prompt.system||'';
+        introEl.value=resp.prompt.intro||'';
         promptDefaults={ system:resp.prompt.defaultSystem||'', intro:resp.prompt.defaultIntro||'' };
         promptLoaded=true;
+        st.textContent='';
+      } else {
+        // сервер ответил, но без промта — скорее всего не задеплоен роут
+        sysEl.placeholder=''; introEl.placeholder='';
+        st.textContent='Ошибка: '+(resp.error||'роут getReportPrompt не отвечает. Передеплой Apps Script (New version).');
       }
-    }catch(e){ document.getElementById('prompt-status').textContent='Не удалось загрузить'; }
+    }catch(e){
+      sysEl.placeholder=''; introEl.placeholder='';
+      st.textContent='Не удалось загрузить: '+e.message;
+    }
   }
 
   function togglePrompt(){
@@ -403,10 +415,78 @@
     document.getElementById('prompt-status').textContent='Подставлен стандартный. Нажми «Сохранить», чтобы применить.';
   }
 
+  // Уникальные оценочные МК с направлениями — для контекста перегенерации.
+  function collectMksWithDirections(){
+    const seen={}, list=[];
+    publishedState.schedule.forEach(d=>{
+      ['am','pm'].forEach(half=>{
+        const mode=halfMode4(d,half);
+        const pushSlot=s=>{ if(!s||!s.template||!s.scored) return; const n=s.template.trim(); if(seen[n]) return; seen[n]=true; list.push({name:n, direction:String(s.direction||'').trim()}); };
+        if(mode==='seq3'||mode==='rot4'){
+          const multi=d[half+'Multi']; if(!multi) return;
+          ['chainA','chainB','stations'].forEach(sub=>(multi[sub]||[]).forEach(pushSlot));
+          return;
+        }
+        if(mode==='seq3trip'){ const multi=d[half+'Multi']; if(multi)(multi.chainA||[]).forEach(pushSlot); return; }
+        const arr=d[half]; if(Array.isArray(arr)) arr.forEach(pushSlot);
+      });
+    });
+    return list;
+  }
+
+  let regenResult=null;
+  async function regenPrompt(){
+    const st=document.getElementById('prompt-status');
+    const mks=collectMksWithDirections();
+    st.textContent='ИИ пересобирает промт под смену… (15–25 сек)';
+    try{
+      const resp=await fetch(LIBRARY_URL,{
+        method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({
+          action:'regeneratePrompt',
+          theme:(publishedState.theme||''),
+          mks:mks,
+          currentSystem:document.getElementById('prompt-system').value,
+          currentIntro:document.getElementById('prompt-intro').value
+        })
+      }).then(r=>r.json());
+      if(!resp.ok) throw new Error(resp.error||'Ошибка');
+      regenResult=resp.result;
+      st.textContent='';
+      showRegenResult(resp.result);
+    }catch(e){ st.textContent='Ошибка: '+e.message; }
+  }
+
+  function showRegenResult(res){
+    document.getElementById('rep-title').textContent='Новый промт под смену';
+    const body=
+      '<p style="font-size:13px;color:var(--muted);margin:0 0 10px">Проверь и, если нравится — вставь в поля. Сохранять или нет — решаешь ты (кнопкой «Сохранить»).</p>'+
+      '<div style="font-size:12px;font-weight:600;color:var(--green-deep);margin-bottom:3px">Системная инструкция</div>'+
+      '<div class="rep-text" style="max-height:25vh">'+escapeHtml(res.system||'')+'</div>'+
+      '<div style="font-size:12px;font-weight:600;color:var(--green-deep);margin:10px 0 3px">Вводная</div>'+
+      '<div class="rep-text" style="max-height:18vh">'+escapeHtml(res.intro||'')+'</div>'+
+      '<div class="rep-actions">'+
+        '<button class="rep-copy" onclick="applyRegen()">↧ Вставить в поля</button>'+
+        '<button class="rep-regen" onclick="closeRep()">Отмена</button>'+
+      '</div>';
+    document.getElementById('rep-body').innerHTML=body;
+    document.getElementById('rep-overlay').classList.add('open');
+  }
+  function applyRegen(){
+    if(!regenResult) return;
+    if(regenResult.system) document.getElementById('prompt-system').value=regenResult.system;
+    if(regenResult.intro) document.getElementById('prompt-intro').value=regenResult.intro;
+    closeRep();
+    document.getElementById('prompt-status').textContent='Вставлено. Нажми «Сохранить», чтобы применить к письмам.';
+    const box=document.getElementById('prompt-box'); if(!box.classList.contains('open')) box.classList.add('open');
+  }
+
   window.tryUnlock=tryUnlock;
   window.togglePrompt=togglePrompt;
   window.savePrompt=savePrompt;
   window.resetPrompt=resetPrompt;
+  window.regenPrompt=regenPrompt;
+  window.applyRegen=applyRegen;
   window.genOne=genOne;
   window.generateAll=generateAll;
   window.closeRep=closeRep;
