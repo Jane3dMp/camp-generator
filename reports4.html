@@ -103,6 +103,7 @@
     </div>
     <div class="toolbar">
       <button class="btn" id="all-btn" onclick="generateAll()">✍️ Сформировать всем</button>
+      <button class="btn" id="export-btn" onclick="exportForPdf()" style="border-color:var(--yellow-deep);background:rgba(254,214,52,0.15);color:var(--ink)">📦 Скачать для PDF</button>
       <button class="prompt-toggle" onclick="togglePrompt()">⚙️ Настройка промта</button>
       <span class="save-ind" id="all-status" style="font-size:13px;color:var(--muted)"></span>
     </div>
@@ -481,6 +482,50 @@
     const box=document.getElementById('prompt-box'); if(!box.classList.contains('open')) box.classList.add('open');
   }
 
+  // ── ЭКСПОРТ ДЛЯ PDF ──
+  // Собирает JSON со всеми письмами + ФИО/отряд. Недостающие письма генерит сам.
+  async function exportForPdf(){
+    const kids=troopsChildren.filter(k=>childScoreCount(k.crmId)>0);
+    if(kids.length===0){ alert('Ни у одного ребёнка нет оценок — нечего экспортировать.'); return; }
+    const btn=document.getElementById('export-btn'), st=document.getElementById('all-status');
+    btn.disabled=true;
+    // догенерим недостающие письма
+    const missing=kids.filter(k=>!reportCache[k.crmId]);
+    if(missing.length>0){
+      let done=0;
+      for(const k of missing){
+        st.textContent='Готовлю письма для экспорта: '+(done+1)+' из '+missing.length+'… ('+k.name+')';
+        try{ await callGenerate(k.crmId, k.name); }catch(e){}
+        done++;
+      }
+    }
+    // собираем JSON
+    const letters=kids
+      .filter(k=>reportCache[k.crmId])
+      .map(k=>({
+        fio: k.name,
+        troop: Number(k.troop)||0,
+        age: (k.age===''||k.age==null)?'':k.age,
+        letter: reportCache[k.crmId]
+      }));
+    const payload={
+      season: publishedMeta.name||'',
+      theme: publishedState.theme||'',
+      generatedAt: new Date().toISOString(),
+      count: letters.length,
+      letters: letters
+    };
+    const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    const safe=(publishedState.theme||'смена').replace(/[^а-яёa-z0-9 _-]/gi,'').trim()||'смена';
+    a.href=url; a.download='письма_данные_'+safe+'.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    st.textContent='Готово: '+letters.length+' писем выгружено. Файл скачан — отправь его в чат, соберу PDF + конверты.';
+    btn.disabled=false;
+  }
+
   window.tryUnlock=tryUnlock;
   window.togglePrompt=togglePrompt;
   window.savePrompt=savePrompt;
@@ -489,6 +534,7 @@
   window.applyRegen=applyRegen;
   window.genOne=genOne;
   window.generateAll=generateAll;
+  window.exportForPdf=exportForPdf;
   window.closeRep=closeRep;
   window.copyRep=copyRep;
   window.regen=regen;
