@@ -165,6 +165,23 @@
   }
   /* Внутри жёлтой ячейки бейдж становится тёмный для контраста */
   td.cell.trip .badge-troops { background: var(--ink); color: var(--white); }
+  /* Порядок прихода отрядов в ротации */
+  .item-order {
+    font-family: Inter; font-size: 0.78em; font-weight: 600;
+    color: var(--ink); background: rgba(21,22,23,0.06);
+    padding: 1px 6px; border-radius: 2px; display: inline-block;
+    margin: 2px 0 1px; letter-spacing: 0.02em;
+  }
+  /* Ячейка «та же ротация» в строке пары 3-4 */
+  td.cell.rot-ditto {
+    background: rgba(21,22,23,0.04);
+    text-align: center; vertical-align: middle;
+  }
+  .rot-ditto-note {
+    font-family: Geologica; font-style: italic;
+    font-size: 0.9em; color: rgba(21,22,23,0.5);
+    line-height: 1.4;
+  }
   /* Сводка выездов */
   table.trips-grid {
     width: 100%; border-collapse: collapse; table-layout: fixed;
@@ -938,13 +955,20 @@
       if (s2 && s2.template) { add(s2, { badge: String(tB), trip: !!s2.isTrip }); if (s2.isTrip) cellIsTrip = true; }
     }
     else if (mode === 'rot4') {
-      // 4 МК (станции). Каждый показан 1 раз с временем своего шага и пометкой "(ротация)".
+      // Ротация общая для всех 4 отрядов. В строке пары 1-2 показываем полную картину:
+      // 4 станции, у каждой — название, тема, ПОРЯДОК прихода отрядов, педагог, кабинет.
+      // В строке пары 3-4 — пометка «та же ротация ↑», чтобы не было ложного дубля времён
+      // (иначе кажется, что одна станция в одно время у двух пар сразу).
+      if (!isPairA) {
+        return '<td class="cell rot-ditto"><div class="rot-ditto-note">↑ та же ротация<br>для всех 4 отрядов</div></td>';
+      }
       const multi = d[half + 'Multi'];
       const stations = (multi && multi.stations) || [];
-      const times = multiStepTimes(half, 'rot4');
+      // Для станции s порядок прихода отрядов: на шаге k там отряд (s-k+4)%4 +1
       stations.forEach((s, st) => {
         if (!s || !s.template) return;
-        items.push({ slot: s, time: times[st] || '', trip: false, badge: pairBadge + ' (ротация)' });
+        const order = [0,1,2,3].map(k => ((st - k) % 4 + 4) % 4 + 1).join(', ');
+        items.push({ slot: s, time: '', trip: false, badge: 'ст. ' + (st+1), orderLabel: 'порядок: отряды ' + order });
       });
     }
     else if (mode === 'seq3') {
@@ -1009,6 +1033,8 @@
     const badge = it.badge ? `<span class="badge-troops">${escapeHtml(it.badge)}</span>` : '';
     const timeHtml = time ? `<span class="item-time">${escapeHtml(time)}</span>` : '';
     const theme = s.theme ? `<div class="item-theme">«${escapeHtml(s.theme)}»</div>` : '';
+    // Строка порядка прихода отрядов (только для ротации)
+    const orderHtml = it.orderLabel ? `<div class="item-order">${escapeHtml(it.orderLabel)}</div>` : '';
     const meta = [];
     if (s.teacher) meta.push(escapeHtml(s.teacher));
     if (s.room) meta.push(escapeHtml(s.room));
@@ -1016,6 +1042,7 @@
     return `<div class="item">
       <div class="item-line">${timeHtml}${tripTag}<span class="item-name">${escapeHtml(s.template)}</span></div>
       ${theme}
+      ${orderHtml}
       ${metaHtml}
     </div>`;
   }
