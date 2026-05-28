@@ -39,6 +39,25 @@
   select{padding:9px 12px;font-size:15px;border:2px solid var(--line);border-radius:10px;font-family:inherit;background:#fff;max-width:100%}
   select:focus{outline:none;border-color:var(--yellow-deep)}
   .save-ind{font-size:13px;color:var(--muted);margin-left:auto}
+  .help-btn{padding:8px 12px;font-size:14px;border:2px solid var(--green);background:#f3f7ee;color:var(--green-deep);border-radius:10px;cursor:pointer;font-family:inherit;font-weight:600}
+  .help-btn:hover{background:#e8efe0}
+
+  /* ── МОДАЛКА ИНСТРУКЦИИ ── */
+  .help-overlay{position:fixed;inset:0;background:rgba(31,28,20,0.45);display:none;align-items:flex-start;justify-content:center;z-index:900;padding:24px 16px;overflow-y:auto}
+  .help-overlay.open{display:flex}
+  .help-modal{background:var(--paper);max-width:560px;width:100%;border-radius:16px;padding:24px 26px 28px;box-shadow:0 12px 40px rgba(0,0,0,0.25);margin:auto}
+  .help-modal h2{font-size:20px;margin-bottom:4px}
+  .help-modal .help-close{float:right;background:none;border:none;font-size:24px;cursor:pointer;color:var(--muted);line-height:1;margin:-4px -6px 0 0}
+  .help-modal h3{font-family:'Geologica';font-size:15px;color:var(--green-deep);margin:18px 0 6px}
+  .help-modal p{font-size:14px;margin:0 0 8px;line-height:1.55}
+  .help-modal ol{font-size:14px;margin:0 0 8px;padding-left:20px;line-height:1.6}
+  .help-modal ul{font-size:14px;margin:0 0 8px;padding-left:18px;line-height:1.6}
+  .help-modal li{margin-bottom:3px}
+  .help-modal .crit-name{font-weight:600;color:var(--ink)}
+  .help-modal .scale-row{display:flex;gap:8px;align-items:baseline;font-size:14px;margin-bottom:4px}
+  .help-modal .scale-val{flex:0 0 38px;font-weight:700;color:var(--green-deep)}
+  .help-modal .help-done{margin-top:20px;width:100%;padding:11px;font-size:15px;font-weight:600;background:var(--green);color:#fff;border:none;border-radius:11px;cursor:pointer;font-family:inherit}
+  .help-modal .help-done:hover{background:var(--green-deep)}
   .save-ind.ok{color:var(--green-deep)}
   .save-ind.saving{color:var(--yellow-deep)}
   .save-ind.err{color:#c0392b}
@@ -111,12 +130,47 @@
     <div class="topbar">
       <label for="teacher-pick">Педагог:</label>
       <select id="teacher-pick" onchange="onTeacherChange()"><option value="">—</option></select>
+      <button class="help-btn" onclick="openHelp()">❓ Инструкция</button>
       <span class="save-ind" id="save-ind"></span>
     </div>
   </header>
   <main id="content">
     <div class="hint">Выбери себя в списке выше — появятся твои МК для оценивания.</div>
   </main>
+</div>
+
+<div class="help-overlay" id="help-overlay" onclick="if(event.target===this)closeHelp()">
+  <div class="help-modal">
+    <button class="help-close" onclick="closeHelp()" title="Закрыть">×</button>
+    <h2>Как заполнять баллы</h2>
+    <p style="color:var(--muted)">Короткая памятка для педагога.</p>
+
+    <h3>Что делать</h3>
+    <ol>
+      <li>Выбери себя в списке «Педагог» вверху.</li>
+      <li>Появятся твои МК, отмеченные как оценочные — по дням, с точным временем и отрядом.</li>
+      <li>Под каждым МК — дети того отряда, который был у тебя на этом занятии.</li>
+      <li>Поставь каждому ребёнку три оценки. Заполняется на ходу — сохраняется автоматически (видно «● сохранено» вверху справа).</li>
+    </ol>
+    <p>Оценки можно ставить не за один присест: выставил часть — закрыл, вернулся позже, продолжил. Уже выставленное подгрузится.</p>
+
+    <h3>Что значат критерии</h3>
+    <p><span class="crit-name">Интерес</span> — насколько ребёнок вовлечён: горят ли глаза, задаёт вопросы, хочет попробовать сам, делает больше, чем просили.</p>
+    <p><span class="crit-name">Усердие</span> — насколько старается: аккуратность, доводит ли работу до конца, не бросает при трудностях, исправляет недочёты.</p>
+    <p><span class="crit-name">Потенциал</span> — способности в этом направлении: схватывает суть, придумывает своё, видит формы/логику/композицию — то, что можно развивать дальше.</p>
+    <p style="color:var(--muted);font-size:13px">Для коммуникативных МК критерии другие: <span class="crit-name">Лидерство</span> (инициатива, умеет организовать), <span class="crit-name">Команда</span> (слушает, договаривается, сотрудничает), <span class="crit-name">Конфликты</span> (спокойно решает разногласия, ищет компромисс).</p>
+
+    <h3>Что значат баллы</h3>
+    <div class="scale-row"><span class="scale-val">5</span><span>проявлено отлично, ярко</span></div>
+    <div class="scale-row"><span class="scale-val">4</span><span>проявлено хорошо</span></div>
+    <div class="scale-row"><span class="scale-val">3</span><span>проявлено средне, есть куда расти</span></div>
+    <div class="scale-row"><span class="scale-val">2</span><span>пока почти не проявляется</span></div>
+    <div class="scale-row"><span class="scale-val">–</span><span>был на занятии, но именно этот критерий оценить не удалось</span></div>
+    <div class="scale-row"><span class="scale-val">не&nbsp;был</span><span>ребёнка не было на этом занятии</span></div>
+    <p style="color:var(--muted);font-size:13px;margin-top:8px">Ставь честно — баллы помогают увидеть сильные стороны ребёнка и подсказать родителям, что развивать. Низкие оценки не «плохо»: это зона роста.</p>
+
+    <button class="help-done" onclick="closeHelp()">Понятно</button>
+  </div>
 </div>
 
 <script>
@@ -178,6 +232,7 @@
     }
   }
   document.getElementById('lock-input').addEventListener('keydown', e=>{ if(e.key==='Enter') tryUnlock(); });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeHelp(); });
   (function(){
     let tok=''; try{ tok = localStorage.getItem(LOCK_TOKEN_KEY)||''; }catch(e){}
     if (tok === LOCK_PASSWORD_HASH){ document.body.classList.add('unlocked'); bootstrap(); }
@@ -577,9 +632,14 @@
     }
   }
 
+  function openHelp(){ document.getElementById('help-overlay').classList.add('open'); }
+  function closeHelp(){ document.getElementById('help-overlay').classList.remove('open'); }
+
   window.tryUnlock = tryUnlock;
   window.onTeacherChange = onTeacherChange;
   window.onScoreChange = onScoreChange;
+  window.openHelp = openHelp;
+  window.closeHelp = closeHelp;
 </script>
 </body>
 </html>
