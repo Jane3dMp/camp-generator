@@ -58,6 +58,7 @@
   .mk-theme{font-family:'Caveat';font-size:17px;color:var(--green-deep);margin-top:1px}
   .mk-meta{font-size:13px;color:var(--muted);margin-top:3px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   .mk-troops{display:inline-block;font-size:12px;padding:2px 8px;border-radius:20px;background:#eee;color:#444}
+  .mk-time{font-size:13px;color:var(--ink);font-weight:600}
   .mk-progress{font-size:12px;color:var(--muted)}
   .mk-progress.done{color:var(--green-deep);font-weight:600}
 
@@ -124,6 +125,19 @@
   const MONTHS = ['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
   const WEEKDAYS = ['вс','пн','вт','ср','чт','пт','сб'];
   const NUM_TROOPS = 4;
+  const TIME_AM = '9:30 – 13:30';
+  const TIME_PM = '14:00 – 17:30';
+
+  // Времена шагов внутри половины с несколькими МК (синхронно с index4/view4).
+  function multiStepTimes4(half, mode){
+    const fmt = m => Math.floor(m/60)+':'+String(m%60).padStart(2,'0');
+    let s,e,n;
+    if(half==='am'){ if(mode==='seq3'){s=600;e=810;n=3;} else {s=570;e=810;n=4;} }
+    else           { if(mode==='seq3'){s=870;e=1050;n=3;} else {s=840;e=1050;n=4;} }
+    const step = Math.round((e-s)/n), out=[];
+    for(let i=0;i<n;i++){ const a=s+i*step, b=(i===n-1)?e:s+(i+1)*step; out.push(fmt(a)+'–'+fmt(b)); }
+    return out;
+  }
 
   // Критерии. value-ключи фиксированы (interest/diligence/potential),
   // подписи зависят от типа МК: обычный или коммуникативный.
@@ -233,9 +247,10 @@
   }
 
   // ── СБОР ОЦЕНОЧНЫХ МК ПЕДАГОГА ──
-  // Возвращает по дням: { idx, dateStr, weekday, mks:[{ mkKey, name, theme, troops:[1,2], comm }] }
-  // mkKey строится из адреса слота: dayIdx + half + путь. Один реальный МК = один mkKey,
-  // даже если в seq3 он идёт на два отряда (берём оба отряда в troops).
+  // Каждая карточка = ОДИН заход ОДНОГО отряда (или общий слот на пару) со своим временем.
+  // mkKey = dayIdx + half + путь_слота + '_t' + отряд (для общего seq3-слота — '_tAB').
+  // Так оценки ребёнка привязаны к точному заходу его отряда; пересечений нет.
+  // Возвращает по дням: { idx, dateStr, weekday, mks:[{ mkKey, name, theme, time, troops:[..], comm }] }
   function buildScoredMksForTeacher(teacherName){
     const target = normalizeName(teacherName);
     const out = [];
@@ -251,22 +266,41 @@
         if (mode==='seq3' || mode==='rot4'){
           const multi = d[half+'Multi'];
           if(!multi) return;
+          const times = multiStepTimes4(half, mode);
+
           if (mode==='seq3'){
+            // chainA → отряды 1,2; chainB → отряды 3,4
             [['chainA',[1,2]],['chainB',[3,4]]].forEach(([sub,troops])=>{
-              (multi[sub]||[]).forEach((s,i)=>{
-                if(!s||!s.template||!s.scored) return;
-                if(normalizeName(s.teacher)!==target) return;
-                mks.push({ mkKey: idx+'_'+half+'_'+sub+'_'+i, name:s.template, theme:s.theme||'',
-                           troops: troops.slice(), comm:isCommMk(s) });
-              });
+              const chain = multi[sub]||[];
+              const [tA,tB] = troops;
+              // chain[0] (МК A): times[0]→tA, times[1]→tB — две карточки
+              const s0 = chain[0];
+              if(s0 && s0.template && s0.scored && normalizeName(s0.teacher)===target){
+                mks.push({ mkKey:idx+'_'+half+'_'+sub+'_0_t'+tA, name:s0.template, theme:s0.theme||'', time:times[0]||'', troops:[tA], comm:isCommMk(s0) });
+                mks.push({ mkKey:idx+'_'+half+'_'+sub+'_0_t'+tB, name:s0.template, theme:s0.theme||'', time:times[1]||'', troops:[tB], comm:isCommMk(s0) });
+              }
+              // chain[1] (МК B): times[0]→tB, times[1]→tA (противофаза)
+              const s1 = chain[1];
+              if(s1 && s1.template && s1.scored && normalizeName(s1.teacher)===target){
+                mks.push({ mkKey:idx+'_'+half+'_'+sub+'_1_t'+tB, name:s1.template, theme:s1.theme||'', time:times[0]||'', troops:[tB], comm:isCommMk(s1) });
+                mks.push({ mkKey:idx+'_'+half+'_'+sub+'_1_t'+tA, name:s1.template, theme:s1.theme||'', time:times[1]||'', troops:[tA], comm:isCommMk(s1) });
+              }
+              // chain[2] (общий): times[2] → оба отряда одновременно — одна карточка
+              const s2 = chain[2];
+              if(s2 && s2.template && s2.scored && normalizeName(s2.teacher)===target){
+                mks.push({ mkKey:idx+'_'+half+'_'+sub+'_2_tAB', name:s2.template, theme:s2.theme||'', time:times[2]||'', troops:[tA,tB], comm:isCommMk(s2) });
+              }
             });
           } else {
-            // rot4: станция, через неё проходят все 4 отряда
+            // rot4: станция, 4 шага. На шаге k у станции st сидит отряд ((st-k)%4+4)%4.
             (multi.stations||[]).forEach((s,st)=>{
               if(!s||!s.template||!s.scored) return;
               if(normalizeName(s.teacher)!==target) return;
-              mks.push({ mkKey: idx+'_'+half+'_stations_'+st, name:s.template, theme:s.theme||'',
-                         troops:[1,2,3,4], comm:isCommMk(s) });
+              for(let k=0;k<4;k++){
+                const troopIdx = ((st-k)%4+4)%4;       // 0-based
+                const troop = troopIdx+1;
+                mks.push({ mkKey:idx+'_'+half+'_stations_'+st+'_t'+troop, name:s.template, theme:s.theme||'', time:times[k]||'', troops:[troop], comm:isCommMk(s) });
+              }
             });
           }
           return;
@@ -275,27 +309,35 @@
         if (mode==='seq3trip'){
           const multi = d[half+'Multi'];
           if(!multi) return;
+          const times = multiStepTimes4(half,'seq3');
           const sg = multi.studyGroup || 'A';
-          const troops = (sg==='A') ? [1,2] : [3,4];
-          (multi.chainA||[]).forEach((s,i)=>{
-            if(!s||!s.template||!s.scored) return;
-            if(normalizeName(s.teacher)!==target) return;
-            mks.push({ mkKey: idx+'_'+half+'_chainA_'+i, name:s.template, theme:s.theme||'',
-                       troops:troops.slice(), comm:isCommMk(s) });
-          });
+          const tA = (sg==='A')?1:3, tB = (sg==='A')?2:4;
+          const chain = multi.chainA||[];
+          const s0 = chain[0];
+          if(s0 && s0.template && s0.scored && normalizeName(s0.teacher)===target){
+            mks.push({ mkKey:idx+'_'+half+'_chainA_0_t'+tA, name:s0.template, theme:s0.theme||'', time:times[0]||'', troops:[tA], comm:isCommMk(s0) });
+            mks.push({ mkKey:idx+'_'+half+'_chainA_0_t'+tB, name:s0.template, theme:s0.theme||'', time:times[1]||'', troops:[tB], comm:isCommMk(s0) });
+          }
+          const s1 = chain[1];
+          if(s1 && s1.template && s1.scored && normalizeName(s1.teacher)===target){
+            mks.push({ mkKey:idx+'_'+half+'_chainA_1_t'+tB, name:s1.template, theme:s1.theme||'', time:times[0]||'', troops:[tB], comm:isCommMk(s1) });
+            mks.push({ mkKey:idx+'_'+half+'_chainA_1_t'+tA, name:s1.template, theme:s1.theme||'', time:times[1]||'', troops:[tA], comm:isCommMk(s1) });
+          }
+          const s2 = chain[2];
+          if(s2 && s2.template && s2.scored && normalizeName(s2.teacher)===target){
+            mks.push({ mkKey:idx+'_'+half+'_chainA_2_tAB', name:s2.template, theme:s2.theme||'', time:times[2]||'', troops:[tA,tB], comm:isCommMk(s2) });
+          }
           return;
         }
 
-        // normal / trip-режимы: плоский массив d[half]
+        // normal: плоский массив, idx i = отряд i+1, общее время половины
         const arr = d[half];
         if(!Array.isArray(arr)) return;
+        const time = half==='am' ? TIME_AM : TIME_PM;
         arr.forEach((s,i)=>{
           if(!s||!s.template||!s.scored) return;
           if(normalizeName(s.teacher)!==target) return;
-          // В normal idx i = отряд i+1. В выездных раскладках отряд определить сложнее —
-          // для оценочного МК берём отряд по позиции, как в обычном режиме.
-          mks.push({ mkKey: idx+'_'+half+'_'+i, name:s.template, theme:s.theme||'',
-                     troops:[i+1], comm:isCommMk(s) });
+          mks.push({ mkKey:idx+'_'+half+'_'+i+'_t'+(i+1), name:s.template, theme:s.theme||'', time:time, troops:[i+1], comm:isCommMk(s) });
         });
       });
 
@@ -420,12 +462,13 @@
         const kids = kidsForTroops(mk.troops);
         const labels = mk.comm ? CRIT_LABELS_COMM : CRIT_LABELS_DEFAULT;
         const prog = mkProgress(mk, kids);
-        const troopsTag = mk.troops.length===4 ? 'все 4 отряда' : ('отряд'+(mk.troops.length>1?'ы ':' ')+mk.troops.join(', '));
+        const troopsTag = mk.troops.length>1 ? ('отряды '+mk.troops.join(', ')) : ('отряд '+mk.troops[0]);
         const done = prog.filled===prog.total && prog.total>0;
         html += '<div class="mk" data-mk="'+escapeHtml(mk.mkKey)+'">';
         html += '<div class="mk-head"><div class="mk-title">'+escapeHtml(mk.name)+'</div>'+
                 (mk.theme?'<div class="mk-theme">«'+escapeHtml(mk.theme)+'»</div>':'')+
-                '<div class="mk-meta"><span class="mk-troops">'+troopsTag+'</span>'+
+                '<div class="mk-meta">'+(mk.time?'<span class="mk-time">🕐 '+escapeHtml(mk.time)+'</span>':'')+
+                '<span class="mk-troops">'+troopsTag+'</span>'+
                 '<span class="mk-progress'+(done?' done':'')+'">'+prog.filled+' / '+prog.total+' оценок</span></div></div>';
         if(kids.length===0){
           html += '<div class="kid"><span class="kid-name" style="color:var(--muted)">В отрядах этого МК пока нет детей. Проверь состав в админке.</span></div>';
