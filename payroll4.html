@@ -686,16 +686,17 @@
       if (!d || !days[i]) return;
       const dk = days[i].key;
       ['am', 'pm'].forEach(half => {
-        const arr = d[half];
-        if (Array.isArray(arr)) {
-          arr.forEach(slot => { if (slot) add(slot.teacher, dk); });
-        }
-        // multi-структуры (rot4, seq3)
+        const type = d[half + 'Type'] || 'normal';
         const multi = d[half + 'Multi'];
-        if (multi) {
-          ['chainA','chainB','stations'].forEach(sub => {
-            (multi[sub] || []).forEach(s => { if (s) add(s.teacher, dk); });
-          });
+        // Та же логика, что в pullDayFromSchedule — НЕ дублировать multi.* и d[half].
+        if (type === 'rot4' && multi) {
+          (multi.stations || []).forEach(s => { if (s) add(s.teacher, dk); });
+        } else if ((type === 'seq3' || type === 'seq3trip') && multi) {
+          (multi.chainA || []).forEach(s => { if (s) add(s.teacher, dk); });
+          (multi.chainB || []).forEach(s => { if (s) add(s.teacher, dk); });
+        } else {
+          const arr = d[half];
+          if (Array.isArray(arr)) arr.forEach(slot => { if (slot) add(slot.teacher, dk); });
         }
       });
     });
@@ -757,9 +758,16 @@
     if (dIdx < 0) return;
     const d = publishedState.schedule[dIdx];
     if (!d) return;
-    // Счёт занятий и длительности (для ставки) — упрощённо: 1 слот = 1 занятие, ставка 35.
-    // Если у тебя другая логика длительности — поправим. Пока:
-    //   обычное занятие в расписании = 1 занятие × 35.
+    // Считаем «занятия» для табеля. В расписании может быть один из режимов на половину дня:
+    //   • normal — d[half] это плоский массив по отрядам, НО каждый слот = отдельное занятие
+    //     (1 педагог × 1 отряд за раз). Считаем как есть.
+    //   • rot4 (Ротация 4) — d[half + 'Multi'].stations: 4 уникальные станции. КАЖДАЯ станция =
+    //     1 занятие педагога, через которое по очереди проходят все 4 отряда. Считаем 4 элемента.
+    //   • seq3 (3 МК подряд) — chainA + chainB по 3 МК в каждой = 6 занятий для пары отрядов.
+    //   • seq3trip — учащаяся пара идёт по chainA как в seq3 (3 МК у педагогов), другая пара на выезде.
+    //   • trip2/trip4/parallel/parallel2 — выезды; педагогов в табеле обычно нет (только кураторы).
+    // КРИТИЧНО: НЕ суммируем multi.* и d.am/d.pm в один день — это была бы двойная запись
+    // (rot4 хранит копии в d.am для рендера + станции в multi.stations).
     const counts = {};
     function add(name) {
       if (!isNamedTeacher(name)) return;
@@ -767,13 +775,20 @@
       counts[n] = (counts[n] || 0) + 1;
     }
     ['am','pm'].forEach(half => {
-      const arr = d[half];
-      if (Array.isArray(arr)) arr.forEach(s => { if (s) add(s.teacher); });
+      const type = d[half + 'Type'] || 'normal';
       const multi = d[half + 'Multi'];
-      if (multi) {
-        ['chainA','chainB','stations'].forEach(sub => {
-          (multi[sub] || []).forEach(s => { if (s) add(s.teacher); });
-        });
+      // Режимы с multi-структурой: считаем ТОЛЬКО multi.*, плоский d[half] игнорируем
+      if (type === 'rot4' && multi) {
+        (multi.stations || []).forEach(s => { if (s) add(s.teacher); });
+      } else if ((type === 'seq3' || type === 'seq3trip') && multi) {
+        (multi.chainA || []).forEach(s => { if (s) add(s.teacher); });
+        (multi.chainB || []).forEach(s => { if (s) add(s.teacher); });
+      } else {
+        // normal и прочие плоские режимы — считаем d[half] (4 слота по отрядам).
+        // ВАЖНО: для нормального дня каждый отряд имеет СВОЁ занятие, поэтому
+        // педагог может вести 1-4 занятия за половину дня, считаем каждое.
+        const arr = d[half];
+        if (Array.isArray(arr)) arr.forEach(s => { if (s) add(s.teacher); });
       }
     });
     // Добавим педагогов из расписания, которых ещё нет в списке (на всякий случай)
