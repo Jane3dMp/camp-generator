@@ -205,6 +205,55 @@
     .vslot-refs-img { width: 80px; height: 80px; }
     .vday-head { flex-direction: column; align-items: flex-start; gap: 4px; }
   }
+
+  /* ── ПОПАП «СОСТАВ ОТРЯДОВ» (педагог) ── */
+  .roster-popup {
+    display: none; position: fixed; inset: 0; z-index: 1000;
+    background: rgba(21,22,23,0.55); padding: 20px;
+    align-items: flex-start; justify-content: center; overflow-y: auto;
+  }
+  .roster-popup.open { display: flex; }
+  .roster-popup-box {
+    background: var(--white); border-radius: 10px; max-width: 920px; width: 100%;
+    margin: auto; padding: 22px; box-shadow: 0 18px 60px rgba(0,0,0,0.3);
+  }
+  .roster-popup-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .roster-popup-title { font-family: Inter, sans-serif; font-weight: 700; font-size: 18px; }
+  .roster-popup-close {
+    background: none; border: none; font-size: 22px; cursor: pointer; color: rgba(21,22,23,0.5);
+    line-height: 1; padding: 0 4px;
+  }
+  .roster-popup-close:hover { color: var(--ink); }
+  .roster-popup-empty { font-family: Inter, sans-serif; color: rgba(21,22,23,0.5); padding: 12px 0; }
+  .roster-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;
+  }
+  .roster-tile { border: 1px solid rgba(21,22,23,0.12); border-radius: 8px; padding: 12px 14px; border-top: 4px solid var(--ink); }
+  .roster-tile.roster-t1 { border-top-color: var(--troop-1); }
+  .roster-tile.roster-t2 { border-top-color: var(--troop-2); }
+  .roster-tile.roster-t3 { border-top-color: var(--troop-3); }
+  .roster-tile.roster-t4 { border-top-color: var(--troop-4); }
+  .roster-tile-head {
+    font-family: Inter, sans-serif; font-weight: 700; font-size: 14px; margin-bottom: 8px;
+    display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  }
+  .roster-tile-head .rc-count { font-weight: 400; font-size: 12px; color: rgba(21,22,23,0.5); }
+  .roster-tile-list {
+    list-style: none; margin: 0; padding: 0; font-family: Inter, sans-serif; font-size: 13.5px;
+  }
+  .roster-tile-list li {
+    padding: 4px 0; border-bottom: 1px solid rgba(21,22,23,0.06);
+    display: flex; align-items: baseline; gap: 8px;
+  }
+  .roster-tile-list li:last-child { border-bottom: none; }
+  .roster-tile-list .rc-num { color: rgba(21,22,23,0.4); min-width: 18px; text-align: right; font-size: 12px; }
+  .roster-tile-list .rc-age { margin-left: auto; color: rgba(21,22,23,0.5); font-size: 12px; white-space: nowrap; }
+  .roster-tile-list .rc-empty { color: rgba(21,22,23,0.4); font-style: italic; }
+  @media (max-width: 640px) {
+    .roster-grid { grid-template-columns: 1fr; }
+    .roster-popup { padding: 10px; }
+    .roster-popup-box { padding: 16px; }
+  }
 </style>
 </head>
 <body>
@@ -235,6 +284,7 @@
       <option value="__all__">— выбери себя —</option>
     </select>
     <button class="view-refresh" onclick="reloadFromServer()" title="Обновить — взять последнюю опубликованную версию">↻</button>
+    <button class="view-refresh" onclick="openRosterPopup()" title="Показать состав всех отрядов">👦 состав</button>
     <button class="view-refresh" onclick="openPrintVersion()" title="Открыть краткую версию для печати (для кураторов и админа)">📄 печать</button>
   </div>
 
@@ -243,6 +293,17 @@
   </div>
 
   <div class="view-published-at" id="view-published-at"></div>
+
+  <div class="roster-popup" id="roster-popup" onclick="if(event.target===this)closeRosterPopup()">
+    <div class="roster-popup-box">
+      <div class="roster-popup-head">
+        <span class="roster-popup-title">Состав отрядов</span>
+        <button class="roster-popup-close" onclick="closeRosterPopup()" title="Закрыть">✕</button>
+      </div>
+      <div class="roster-grid" id="roster-grid"></div>
+      <div class="roster-popup-empty" id="roster-popup-empty" style="display:none">Список детей не загружен.</div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -252,6 +313,7 @@
   const MONTHS = ['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
   const WEEKDAYS = ['вс','пн','вт','ср','чт','пт','сб'];
   const NUM_TROOPS = 4;
+  let troopsChildren = [];   // [{crmId, name, age, troop, ...}] — для попапа «состав»
   const TIME_AM = '9:30 – 13:30';
   const TIME_PM = '14:00 – 17:30';
   const BREAKFAST = { name: 'Завтрак', time: '9:00 – 9:30' };
@@ -400,6 +462,56 @@
   }
   window.openPrintVersion = openPrintVersion;
 
+  // ── ПОПАП «СОСТАВ ОТРЯДОВ» (для педагога) ──
+  // Все 4 отряда плиткой, только ФИО и возраст (без телефонов).
+  function dobSortKey4_(dob) {
+    const m = String(dob || '').trim().match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+    if (!m) return 0;
+    return new Date(+m[3], +m[2] - 1, +m[1]).getTime();
+  }
+  function pluralKids_(n) {
+    const m10 = n % 10, m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return 'ребёнок';
+    if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return 'ребёнка';
+    return 'детей';
+  }
+  function openRosterPopup() {
+    const grid = document.getElementById('roster-grid');
+    const empty = document.getElementById('roster-popup-empty');
+    if (!troopsChildren || troopsChildren.length === 0) {
+      grid.innerHTML = '';
+      empty.style.display = '';
+    } else {
+      empty.style.display = 'none';
+      let html = '';
+      for (let t = 1; t <= NUM_TROOPS; t++) {
+        const kids = troopsChildren
+          .filter(k => Number(k.troop) === t)
+          .sort((a, b) => dobSortKey4_(b.dob) - dobSortKey4_(a.dob));
+        const labels = ['младшие', '', '', 'старшие'];
+        const sub = labels[t - 1] ? ' · ' + labels[t - 1] : '';
+        let items = kids.length
+          ? kids.map((k, i) => {
+              const age = (k.age === '' || k.age == null) ? '' : '<span class="rc-age">' + k.age + '</span>';
+              return '<li><span class="rc-num">' + (i + 1) + '</span>' + escapeHtml(k.name) + age + '</li>';
+            }).join('')
+          : '<li class="rc-empty">пусто</li>';
+        html += '<div class="roster-tile roster-t' + t + '">' +
+          '<div class="roster-tile-head">Отряд ' + t + sub +
+            ' <span class="rc-count">' + kids.length + ' ' + pluralKids_(kids.length) + '</span></div>' +
+          '<ol class="roster-tile-list">' + items + '</ol>' +
+          '</div>';
+      }
+      grid.innerHTML = html;
+    }
+    document.getElementById('roster-popup').classList.add('open');
+  }
+  function closeRosterPopup() {
+    document.getElementById('roster-popup').classList.remove('open');
+  }
+  window.openRosterPopup = openRosterPopup;
+  window.closeRosterPopup = closeRosterPopup;
+
   async function loadAll(id) {
     document.getElementById('view-content').innerHTML = '<div class="view-loading">Загружаю расписание…</div>';
     try {
@@ -409,6 +521,11 @@
       ]);
       if (!pubResp.ok) throw new Error(pubResp.error || 'Не удалось загрузить публикацию');
       LIBRARY = (libResp && libResp.ok && libResp.activities) ? libResp.activities : [];
+      // Подтягиваем состав отрядов (для попапа «состав»). Не критично для расписания.
+      fetch(LIBRARY_URL + '?action=getChildren&seasonId=' + encodeURIComponent(id))
+        .then(r => r.json())
+        .then(d => { if (d && d.ok && Array.isArray(d.children)) troopsChildren = d.children; })
+        .catch(() => {});
       const pub = pubResp.publication;
       if (!pub) throw new Error('Публикация с этим id не найдена. Возможно, ссылка устарела.');
       if (!pub.id) throw new Error('Сервер вернул некорректную публикацию (нет id).');
