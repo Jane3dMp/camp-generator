@@ -1218,6 +1218,8 @@
 .kid-card .tc-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .kid-card .tc-age { color:rgba(21,22,23,0.45); }
 .kid-card .tc-lock { cursor:pointer; font-size:13px; flex-shrink:0; }
+.kid-card.is-locked { background:#FFF6D8; border-color:#E8C200; box-shadow:inset 3px 0 0 #E8C200; }
+.kid-card.is-locked .tc-name { font-weight:600; }
 .kid-col.drag-over { outline:2px dashed currentColor; outline-offset:-2px; }
 .troops-hint { font-family:Inter,sans-serif; font-size:12px; color:rgba(21,22,23,0.5); margin-top:14px; line-height:1.5; }
 @media (max-width:900px){ .kid-board{ grid-template-columns:1fr 1fr; } }
@@ -4740,14 +4742,14 @@ function renderTroopsBoard() {
 
     list.forEach(k => {
       const card = document.createElement('div');
-      card.className = 'kid-card';
+      card.className = 'kid-card' + (k.locked ? ' is-locked' : '');
       card.draggable = true;
       card.dataset.id = k.crmId;
       const ageStr = (k.age === '' || k.age == null) ? '' : ' <span class="tc-age">' + k.age + '</span>';
       card.innerHTML =
         '<span class="tc-name" title="' + escapeHtml(k.name) + (k.parentPhone ? ' · ' + escapeHtml(k.parentPhone) : '') + '">' +
         escapeHtml(k.name) + ageStr + '</span>' +
-        '<span class="tc-lock" title="Закрепить">' + (k.locked ? '🔒' : '🔓') + '</span>';
+        '<span class="tc-lock" title="' + (k.locked ? 'Закреплён — нажми, чтобы открепить' : 'Нажми, чтобы закрепить') + '">' + (k.locked ? '🔒' : '🔓') + '</span>';
       card.querySelector('.tc-lock').onclick = (e) => {
         e.stopPropagation();
         k.locked = !k.locked;
