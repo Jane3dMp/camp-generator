@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Паспорт ребёнка · Прознание</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@400;500;600;700&family=Inter:wght@400;500;600&family=Caveat:wght@600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --yellow:#FED634; --yellow-deep:#C9A800; --ink:#1f1c14; --paper:#fffdf6;
+    --t1:#41BEEA; --t2:#FF8A3D; --t3:#8FA370; --t4:#C879D8;
+    --line:#e9e3cf; --muted:#8a8470; --green:#8FA370; --green-deep:#6f8052;
+    --terra:#C1694F;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Inter',system-ui,sans-serif;font-size:16px;line-height:1.5}
+  h1,h2,h3{font-family:'Geologica',sans-serif;margin:0}
+  em{font-family:'Caveat',cursive;font-style:normal;font-size:1.15em;color:var(--green-deep)}
+
+  #lockscreen{position:fixed;inset:0;background:var(--paper);display:flex;align-items:center;justify-content:center;z-index:1000;padding:24px}
+  body.unlocked #lockscreen{display:none}
+  body:not(.unlocked) #app{display:none}
+  .lock-card{max-width:340px;width:100%;text-align:center}
+  .lock-card h1{font-size:24px;margin-bottom:6px}
+  .lock-card p{color:var(--muted);font-size:14px;margin:0 0 18px}
+  .lock-card input{width:100%;padding:12px 14px;font-size:16px;border:2px solid var(--line);border-radius:12px;margin-bottom:10px;font-family:inherit}
+  .lock-card input:focus{outline:none;border-color:var(--yellow-deep)}
+  .lock-card button{width:100%;padding:12px;font-size:16px;font-weight:600;background:var(--yellow);border:none;border-radius:12px;cursor:pointer;font-family:inherit;color:var(--ink)}
+  .lock-err{color:#c0392b;font-size:13px;min-height:18px;margin-top:4px}
+
+  .topbar{max-width:760px;margin:0 auto;padding:14px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+  .topbar label{font-size:13px;color:var(--muted)}
+  select{padding:8px 11px;font-size:14px;border:2px solid var(--line);border-radius:10px;font-family:inherit;background:#fff;max-width:100%}
+  select:focus{outline:none;border-color:var(--yellow-deep)}
+  .mode-switch{margin-left:auto;display:flex;border:2px solid var(--green);border-radius:10px;overflow:hidden}
+  .mode-switch button{padding:7px 12px;font-size:13px;border:none;background:#fff;color:var(--green-deep);cursor:pointer;font-family:inherit;font-weight:600}
+  .mode-switch button.active{background:var(--green);color:#fff}
+
+  main{max-width:760px;margin:0 auto;padding:22px 20px 80px}
+  .hint{color:var(--muted);font-size:14px;padding:36px 10px;text-align:center}
+  .err{color:#c0392b;padding:20px;text-align:center}
+
+  /* шапка паспорта */
+  .pass-head{text-align:center;padding:10px 0 22px;border-bottom:2px solid var(--line);margin-bottom:24px}
+  .pass-kicker{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--terra);font-weight:600}
+  .pass-name{font-family:'Geologica';font-size:30px;font-weight:700;color:#5A3A28;margin:6px 0 2px}
+  .pass-meta{font-size:14px;color:var(--muted)}
+  .pass-theme{font-family:'Caveat';font-size:19px;color:var(--green-deep);margin-top:4px}
+
+  .section{margin-bottom:28px}
+  .section-title{font-family:'Geologica';font-size:15px;font-weight:600;color:var(--green-deep);margin-bottom:12px;display:flex;align-items:center;gap:7px}
+
+  /* radar */
+  .radar-wrap{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:20px}
+  .radar-legend{font-size:13px;color:var(--ink)}
+  .radar-legend .lg{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .radar-legend .dot{width:10px;height:10px;border-radius:50%;background:var(--terra);flex:0 0 auto}
+  .radar-legend .val{font-weight:600;color:var(--green-deep);margin-left:4px}
+
+  /* бейджи направлений */
+  .badges{display:flex;gap:10px;flex-wrap:wrap}
+  .badge{padding:8px 14px;border-radius:24px;font-size:14px;font-weight:600;background:#f3f7ee;border:1.5px solid var(--green);color:var(--green-deep)}
+  .badge .b-val{opacity:.7;font-weight:500;margin-left:4px}
+
+  /* карта занятий */
+  .mk-list{display:flex;flex-direction:column;gap:8px}
+  .mk-item{border:1px solid var(--line);border-radius:10px;padding:10px 13px;background:#fff}
+  .mk-item .mk-n{font-weight:600;font-size:14px}
+  .mk-item .mk-dir{font-size:12px;color:var(--muted);margin-left:6px}
+  .mk-crits{display:flex;gap:14px;margin-top:5px;flex-wrap:wrap;font-size:13px;color:var(--ink)}
+  .mk-crits .c{color:var(--muted)}
+  .mk-crits .c b{color:var(--green-deep);font-weight:600}
+
+  /* зона роста */
+  .growth{background:#F4E8D6;border-left:3px solid var(--terra);border-radius:0 8px 8px 0;padding:12px 16px;font-size:14px;line-height:1.55;color:#6B4A32}
+
+  /* письмо */
+  .letter-box{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;white-space:pre-wrap;font-size:15px;line-height:1.65;color:#4A3A2E;font-family:'Lora','Geologica',serif}
+  .gen-letter-btn{padding:9px 15px;font-size:14px;border:2px solid var(--green);background:#f3f7ee;color:var(--green-deep);border-radius:10px;cursor:pointer;font-family:inherit;font-weight:600}
+  .gen-letter-btn:hover{background:#e8efe0}
+  .letter-loading{color:var(--muted);font-size:14px;padding:14px}
+
+  .parent-only{display:none}
+  body.mode-parent .internal-only{display:none}
+  body.mode-parent .parent-only{display:block}
+</style>
+</head>
+<body class="mode-internal">
+
+<div id="lockscreen">
+  <div class="lock-card">
+    <h1>Паспорт ребёнка</h1>
+    <p>Введи пароль клуба</p>
+    <input type="password" id="lock-input" placeholder="Пароль" autocomplete="current-password">
+    <button onclick="tryUnlock()">Войти</button>
+    <div class="lock-err" id="lock-err"></div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <label for="child-pick">Ребёнок:</label>
+    <select id="child-pick" onchange="onChildChange()"><option value="">—</option></select>
+    <div class="mode-switch">
+      <button id="mode-int" class="active" onclick="setMode('internal')">Внутренний</button>
+      <button id="mode-par" onclick="setMode('parent')">Для родителей</button>
+    </div>
+  </div>
+  <main id="content"><div class="hint">Загружаю смену…</div></main>
+</div>
+
+<script>
+  const LIBRARY_URL = 'https://script.google.com/macros/s/AKfycbxb6EEzzl-FguxjpIO5YthGLj-QXh7puCD_DO4HL4wVPziHL1pEtVeuo3uNEi2i2yXq/exec';
+  const LOCK_PASSWORD_HASH = '45e5a3f82cc81679d006c8d2f6e3cce87c89ec2059fe13a2d79438f0368b226a';
+  const LOCK_TOKEN_KEY = 'camp4_lock_token';
+
+  const MONTHS = ['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
+  const NUM_TROOPS = 4;
+  const CRIT_KEYS = ['interest','diligence','potential'];
+  const CRIT_RU = { interest:'Интерес', diligence:'Усердие', potential:'Потенциал' };
+  const CRIT_RU_COMM = { interest:'Лидерство', diligence:'Команда', potential:'Конфликты' };
+
+  let publishedState=null, publishedMeta={id:'',name:'',theme:''};
+  let troopsChildren=[], scoresMap={}, allMks=[];
+  let currentMode='internal';
+  const letterCache={};
+
+  // ── LOCK ──
+  async function sha256Hex(str){
+    const buf=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+  async function tryUnlock(){
+    const inp=document.getElementById('lock-input'), err=document.getElementById('lock-err');
+    const hex=await sha256Hex(inp.value);
+    if(hex===LOCK_PASSWORD_HASH){ try{localStorage.setItem(LOCK_TOKEN_KEY,hex);}catch(e){} document.body.classList.add('unlocked'); bootstrap(); }
+    else { err.textContent='Неверный пароль'; inp.value=''; inp.focus(); }
+  }
+  document.getElementById('lock-input').addEventListener('keydown',e=>{ if(e.key==='Enter') tryUnlock(); });
+  (function(){ let tok=''; try{tok=localStorage.getItem(LOCK_TOKEN_KEY)||'';}catch(e){}
+    if(tok===LOCK_PASSWORD_HASH){ document.body.classList.add('unlocked'); bootstrap(); }
+    else document.getElementById('lock-input').focus();
+  })();
+
+  // ── UTILS ──
+  function getQueryParam(n){ const m=new RegExp('[?&]'+n+'=([^&#]*)').exec(window.location.search); return m?decodeURIComponent(m[1]):''; }
+  function escapeHtml(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+  function normalizeName(s){ if(!s) return ''; return String(s).toLowerCase().replace(/ё/g,'е').replace(/\s+/g,' ').trim(); }
+  function halfMode4(d,half){ if(d&&typeof d==='object'&&(d.amType!==undefined||d.pmType!==undefined)) return d[half+'Type']||'normal'; return 'normal'; }
+  function isCommMk(s){ const t=normalizeName((s&&(s.template||s.name))||''),dir=normalizeName((s&&s.direction)||''); return t.includes('коммуникат')||t.includes('командн')||t.includes('тренинг')||dir.includes('soft')||dir.includes('нейро'); }
+
+  // нормализация направления для группировки на диаграмме
+  function dirGroup(s){
+    const dir=normalizeName((s&&s.direction)||'');
+    const t=normalizeName((s&&(s.template||s.name))||'');
+    if(isCommMk(s)) return 'Коммуникация';
+    if(dir.includes('it')||t.includes('програм')||t.includes('roblox')||t.includes('minecraft')||t.includes('робот')||t.includes('код')) return 'IT';
+    if(dir.includes('творч')||t.includes('лепк')||t.includes('рисов')||t.includes('арт')||t.includes('глин')) return 'Творчество';
+    if(dir.includes('актив')||dir.includes('спорт')) return 'Активность';
+    if(s&&s.direction) return String(s.direction).trim();
+    return 'Прочее';
+  }
+
+  // Все оценочные МК (по всем педагогам) с направлением и comm
+  function buildAllScoredMks(){
+    const out=[];
+    publishedState.schedule.forEach((d,idx)=>{
+      ['am','pm'].forEach(half=>{
+        const mode=halfMode4(d,half);
+        const add=(s,mkKey,troops)=>{ if(!s||!s.template||!s.scored) return; out.push({mkKey,name:s.template,comm:isCommMk(s),dir:dirGroup(s),troops}); };
+        if(mode==='seq3'||mode==='rot4'){
+          const multi=d[half+'Multi']; if(!multi) return;
+          if(mode==='seq3'){
+            [['chainA',[1,2]],['chainB',[3,4]]].forEach(([sub,tr])=>{
+              const ch=multi[sub]||[]; const [tA,tB]=tr;
+              if(ch[0]){ add(ch[0],idx+'_'+half+'_'+sub+'_0_t'+tA,[tA]); add(ch[0],idx+'_'+half+'_'+sub+'_0_t'+tB,[tB]); }
+              if(ch[1]){ add(ch[1],idx+'_'+half+'_'+sub+'_1_t'+tB,[tB]); add(ch[1],idx+'_'+half+'_'+sub+'_1_t'+tA,[tA]); }
+              if(ch[2]){ add(ch[2],idx+'_'+half+'_'+sub+'_2_tAB',[tA,tB]); }
+            });
+          } else {
+            (multi.stations||[]).forEach((s,st)=>{ for(let k=0;k<4;k++){ const ti=((st-k)%4+4)%4; add(s,idx+'_'+half+'_stations_'+st+'_t'+(ti+1),[ti+1]); } });
+          }
+          return;
+        }
+        if(mode==='seq3trip'){
+          const multi=d[half+'Multi']; if(!multi) return;
+          const sg=multi.studyGroup||'A'; const tA=(sg==='A')?1:3,tB=(sg==='A')?2:4; const ch=multi.chainA||[];
+          if(ch[0]){ add(ch[0],idx+'_'+half+'_chainA_0_t'+tA,[tA]); add(ch[0],idx+'_'+half+'_chainA_0_t'+tB,[tB]); }
+          if(ch[1]){ add(ch[1],idx+'_'+half+'_chainA_1_t'+tB,[tB]); add(ch[1],idx+'_'+half+'_chainA_1_t'+tA,[tA]); }
+          if(ch[2]){ add(ch[2],idx+'_'+half+'_chainA_2_tAB',[tA,tB]); }
+          return;
+        }
+        const arr=d[half]; if(!Array.isArray(arr)) return;
+        arr.forEach((s,i)=>{ if(s&&!s.isTrip) add(s,idx+'_'+half+'_'+i+'_t'+(i+1),[i+1]); });
+      });
+    });
+    return out;
+  }
+
+  // Оценки ребёнка по МК: { mkName: { dir, comm, crits:{interest:5,...} } } — только числовые (2-5)
+  function childMkScores(childId){
+    const byMk={};
+    allMks.forEach(mk=>{
+      CRIT_KEYS.forEach(cr=>{
+        const v=scoresMap[mk.mkKey+'|'+childId+'|'+cr];
+        if(v==null||v===''||v==='x'||v==='-') return;
+        const num=Number(v); if(!num) return;
+        if(!byMk[mk.name]) byMk[mk.name]={dir:mk.dir,comm:mk.comm,crits:{}};
+        byMk[mk.name].crits[cr]=num;
+      });
+    });
+    return byMk;
+  }
+
+  // Средние по направлениям: { 'IT':4.5, 'Творчество':4.0, ... }
+  function dirAverages(byMk){
+    const acc={}; // dir -> {sum,n}
+    Object.values(byMk).forEach(mk=>{
+      Object.values(mk.crits).forEach(v=>{
+        if(!acc[mk.dir]) acc[mk.dir]={sum:0,n:0};
+        acc[mk.dir].sum+=v; acc[mk.dir].n++;
+      });
+    });
+    const out={};
+    Object.keys(acc).forEach(d=>{ out[d]=acc[d].n?(acc[d].sum/acc[d].n):0; });
+    return out;
+  }
+
+  // ── РАДАР (SVG, без библиотек) ──
+  function renderRadar(avgs){
+    const dirs=Object.keys(avgs);
+    if(dirs.length===0) return '<div class="hint" style="padding:10px">Недостаточно оценок для диаграммы.</div>';
+    if(dirs.length<3){
+      // меньше 3 осей — радар вырождается, показываем полосами
+      return dirs.map(d=>{
+        const v=avgs[d], pct=Math.round(v/5*100);
+        return '<div style="margin-bottom:10px"><div style="font-size:13px;margin-bottom:3px">'+escapeHtml(d)+' <b style="color:var(--green-deep)">'+v.toFixed(1)+'</b></div>'+
+          '<div style="height:10px;background:#eee;border-radius:5px;overflow:hidden"><div style="width:'+pct+'%;height:100%;background:var(--terra)"></div></div></div>';
+      }).join('');
+    }
+    const cx=130,cy=130,R=95,n=dirs.length;
+    const ang=i=>(-Math.PI/2)+(2*Math.PI*i/n);
+    const pt=(i,r)=>[cx+r*Math.cos(ang(i)), cy+r*Math.sin(ang(i))];
+    let grid='';
+    // кольца 1..5
+    for(let ring=1;ring<=5;ring++){
+      const rr=R*ring/5;
+      const pts=dirs.map((_,i)=>pt(i,rr).map(x=>x.toFixed(1)).join(',')).join(' ');
+      grid+='<polygon points="'+pts+'" fill="none" stroke="#e0ccae" stroke-width="1"/>';
+    }
+    // оси + подписи
+    let axes='', labels='';
+    dirs.forEach((d,i)=>{
+      const [x,y]=pt(i,R);
+      axes+='<line x1="'+cx+'" y1="'+cy+'" x2="'+x.toFixed(1)+'" y2="'+y.toFixed(1)+'" stroke="#e0ccae" stroke-width="1"/>';
+      const [lx,ly]=pt(i,R+18);
+      const anchor=Math.abs(lx-cx)<10?'middle':(lx<cx?'end':'start');
+      labels+='<text x="'+lx.toFixed(1)+'" y="'+ly.toFixed(1)+'" text-anchor="'+anchor+'" font-size="11" font-weight="600" fill="#5A3A28" dominant-baseline="middle">'+escapeHtml(d)+'</text>';
+    });
+    // данные
+    const dataPts=dirs.map((d,i)=>pt(i, R*Math.max(0,Math.min(5,avgs[d]))/5).map(x=>x.toFixed(1)).join(',')).join(' ');
+    const dots=dirs.map((d,i)=>{ const [x,y]=pt(i,R*Math.max(0,Math.min(5,avgs[d]))/5); return '<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="3.5" fill="#C1694F"/>'; }).join('');
+    return '<svg viewBox="0 0 260 260" width="260" height="260">'+grid+axes+
+      '<polygon points="'+dataPts+'" fill="rgba(193,105,79,0.22)" stroke="#C1694F" stroke-width="2"/>'+dots+labels+'</svg>';
+  }
+
+  // ── BOOTSTRAP ──
+  async function bootstrap(){
+    const id=getQueryParam('id');
+    if(!id){ document.getElementById('content').innerHTML='<div class="err">В ссылке не указан ID публикации.</div>'; return; }
+    try{
+      const pubResp=await fetch(LIBRARY_URL+'?action=getPublished&id='+encodeURIComponent(id)).then(r=>r.json());
+      if(!pubResp.ok) throw new Error(pubResp.error||'Не удалось загрузить публикацию');
+      const pub=pubResp.publication; if(!pub||!pub.id) throw new Error('Публикация не найдена.');
+      publishedMeta={id:pub.id,name:pub.name||'',theme:pub.theme||''};
+      publishedState=JSON.parse(pub.stateJson||'{}');
+      if(!Array.isArray(publishedState.schedule)||!publishedState.schedule[0]||!Array.isArray(publishedState.schedule[0].am)) throw new Error('Это не похоже на смену на 4 отряда.');
+      const [chResp,scResp]=await Promise.all([
+        fetch(LIBRARY_URL+'?action=getChildren&seasonId='+encodeURIComponent(id)).then(r=>r.json()).catch(()=>({ok:false})),
+        fetch(LIBRARY_URL+'?action=getScores&seasonId='+encodeURIComponent(id)).then(r=>r.json()).catch(()=>({ok:false}))
+      ]);
+      troopsChildren=(chResp&&chResp.ok&&Array.isArray(chResp.children))?chResp.children:[];
+      scoresMap=(scResp&&scResp.ok&&scResp.scores&&scResp.scores.scores)?scResp.scores.scores:{};
+      allMks=buildAllScoredMks();
+
+      const sel=document.getElementById('child-pick');
+      const kids=troopsChildren.slice().sort((a,b)=>(Number(a.troop)-Number(b.troop))||String(a.name).localeCompare(b.name,'ru'));
+      sel.innerHTML='<option value="">—</option>'+kids.map(k=>'<option value="'+escapeHtml(String(k.crmId))+'">'+escapeHtml(k.name)+'</option>').join('');
+
+      const childFromUrl=getQueryParam('child');
+      if(childFromUrl){ sel.value=childFromUrl; onChildChange(); }
+      else document.getElementById('content').innerHTML='<div class="hint">Выбери ребёнка вверху.</div>';
+    }catch(e){
+      document.getElementById('content').innerHTML='<div class="err">Ошибка: '+escapeHtml(e.message)+'</div>';
+    }
+  }
+
+  function setMode(m){
+    currentMode=m;
+    document.body.className=document.body.className.replace(/mode-\w+/g,'')+' mode-'+m;
+    if(!document.body.classList.contains('unlocked')) document.body.classList.add('unlocked');
+    document.getElementById('mode-int').classList.toggle('active',m==='internal');
+    document.getElementById('mode-par').classList.toggle('active',m==='parent');
+    onChildChange();
+  }
+
+  function onChildChange(){
+    const id=document.getElementById('child-pick').value;
+    if(!id){ document.getElementById('content').innerHTML='<div class="hint">Выбери ребёнка вверху.</div>'; return; }
+    renderPassport(id);
+  }
+
+  function findChild(id){ return troopsChildren.find(k=>String(k.crmId)===String(id)); }
+
+  function renderPassport(childId){
+    const kid=findChild(childId);
+    if(!kid){ document.getElementById('content').innerHTML='<div class="err">Ребёнок не найден.</div>'; return; }
+    const byMk=childMkScores(childId);
+    const mkNames=Object.keys(byMk);
+    const avgs=dirAverages(byMk);
+    const parent = currentMode==='parent';
+
+    let html='';
+    // шапка
+    html+='<div class="pass-head">'+
+      '<div class="pass-kicker">прознание · coddy</div>'+
+      '<div class="pass-name">'+escapeHtml(kid.name)+'</div>'+
+      '<div class="pass-meta">отряд '+kid.troop+(kid.age?' · '+kid.age+' лет':'')+'</div>'+
+      (publishedState.theme?'<div class="pass-theme">смена «'+escapeHtml(publishedState.theme.replace(/_/g,' '))+'»</div>':'')+
+      '</div>';
+
+    if(mkNames.length===0){
+      html+='<div class="hint">У ребёнка пока нет выставленных оценок. Паспорт появится, когда педагоги заполнят баллы.</div>';
+      document.getElementById('content').innerHTML=html;
+      return;
+    }
+
+    // профиль по направлениям (радар)
+    html+='<div class="section"><div class="section-title">📊 Профиль по направлениям</div>';
+    html+='<div class="radar-wrap"><div>'+renderRadar(avgs)+'</div>';
+    // легенда со значениями (во внутреннем режиме — точные; родителям — словами)
+    html+='<div class="radar-legend">';
+    Object.keys(avgs).sort((a,b)=>avgs[b]-avgs[a]).forEach(d=>{
+      const v=avgs[d];
+      const word = v>=4.5?'ярко':v>=3.5?'уверенно':v>=2.5?'развивается':'в начале пути';
+      html+='<div class="lg"><span class="dot"></span>'+escapeHtml(d)+
+        (parent?(' <span class="val">'+word+'</span>'):(' <span class="val">'+v.toFixed(1)+'</span>'))+'</div>';
+    });
+    html+='</div></div></div>';
+
+    // сильные направления (бейджи) — где >=4
+    const strong=Object.keys(avgs).filter(d=>avgs[d]>=4).sort((a,b)=>avgs[b]-avgs[a]);
+    if(strong.length){
+      html+='<div class="section"><div class="section-title">⭐ Ярко проявил себя</div><div class="badges">';
+      strong.forEach(d=>{ html+='<div class="badge">'+escapeHtml(d)+(parent?'':' <span class="b-val">'+avgs[d].toFixed(1)+'</span>')+'</div>'; });
+      html+='</div></div>';
+    }
+
+    // зона роста — направления <3.5 (мягко)
+    const grow=Object.keys(avgs).filter(d=>avgs[d]<3.5).sort((a,b)=>avgs[a]-avgs[b]);
+    if(grow.length){
+      html+='<div class="section"><div class="section-title">🌱 Зона роста</div>'+
+        '<div class="growth">'+escapeHtml(grow.join(', '))+' — здесь у ребёнка есть пространство для роста. С поддержкой и интересом эти навыки раскроются ярче.</div></div>';
+    }
+
+    // карта занятий (внутренний режим — с баллами; родителям — без цифр)
+    html+='<div class="section internal-only"><div class="section-title">🗂 Карта занятий</div><div class="mk-list">';
+    mkNames.forEach(n=>{
+      const mk=byMk[n]; const labels=mk.comm?CRIT_RU_COMM:CRIT_RU;
+      let crits='';
+      CRIT_KEYS.forEach(cr=>{ if(mk.crits[cr]!==undefined) crits+='<span class="c">'+labels[cr]+': <b>'+mk.crits[cr]+'</b></span>'; });
+      html+='<div class="mk-item"><span class="mk-n">'+escapeHtml(n)+'</span><span class="mk-dir">'+escapeHtml(mk.dir)+'</span>'+
+        '<div class="mk-crits">'+crits+'</div></div>';
+    });
+    html+='</div></div>';
+
+    // письмо
+    html+='<div class="section"><div class="section-title">✍️ Тёплое слово</div><div id="letter-slot">';
+    if(letterCache[childId]){
+      html+='<div class="letter-box">'+escapeHtml(letterCache[childId])+'</div>';
+    } else {
+      html+='<button class="gen-letter-btn" onclick="genLetter(\''+escapeHtml(String(childId))+'\',\''+escapeHtml(kid.name)+'\')">✍️ Сформировать письмо</button>';
+    }
+    html+='</div></div>';
+
+    document.getElementById('content').innerHTML=html;
+  }
+
+  // ── ПИСЬМО (переиспользует generateReport) ──
+  function scoresForChild(childId){
+    const res=[];
+    allMks.forEach(mk=>CRIT_KEYS.forEach(cr=>{ const v=scoresMap[mk.mkKey+'|'+childId+'|'+cr]; if(v!=null&&v!=='') res.push({mkName:mk.name,criterion:cr,value:v,comm:mk.comm}); }));
+    return res;
+  }
+  async function genLetter(childId, childName){
+    const slot=document.getElementById('letter-slot');
+    slot.innerHTML='<div class="letter-loading">ИИ пишет письмо… (10–20 сек)</div>';
+    try{
+      const scores=scoresForChild(childId);
+      const resp=await fetch(LIBRARY_URL,{ method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({ action:'generateReport', childName:childName, theme:(publishedState.theme||''), scores:scores }) }).then(r=>r.json());
+      if(!resp.ok) throw new Error(resp.error||'Ошибка');
+      letterCache[childId]=resp.result.report;
+      slot.innerHTML='<div class="letter-box">'+escapeHtml(resp.result.report)+'</div>';
+    }catch(e){ slot.innerHTML='<div class="err">Ошибка: '+escapeHtml(e.message)+'</div>'; }
+  }
+
+  window.tryUnlock=tryUnlock;
+  window.onChildChange=onChildChange;
+  window.setMode=setMode;
+  window.genLetter=genLetter;
+</script>
+</body>
+</html>
