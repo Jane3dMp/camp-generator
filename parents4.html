@@ -825,8 +825,9 @@
   }
 
   // === ЧТО СДЕЛАЮТ ДЕТИ ===
-  // Собираем parentSelectedRefs из всех слотов (am/pm × 4 отряда). undefined → fallback
-  // на getParentsRefs (все родительские рефы шаблона). Группируем по направлениям.
+  // Показываем родителям ТЕ ЖЕ рефы, что и педагогу: slot.selectedRefs (явный выбор),
+  // иначе fallback на libraryRefs из снимка / getRefs с сервера. Единая точка управления —
+  // окно 🖼 в админке. Отдельных «родительских» рефов больше нет (исключает рассинхрон).
   async function renderWhatTheyMake() {
     if (!publishedState || !Array.isArray(publishedState.schedule)) return;
     const tplData = {};
@@ -834,9 +835,9 @@
       if (!slot || !slot.template) return;
       const tpl = String(slot.template).trim();
       if (!tplData[tpl]) tplData[tpl] = { urls: new Set(), hasUndefined: false };
-      // Пустой массив тоже считаем «нет явного выбора» — иначе fallback на getParentsRefs не сработает.
-      if (Array.isArray(slot.parentSelectedRefs) && slot.parentSelectedRefs.length > 0) {
-        slot.parentSelectedRefs.forEach(u => tplData[tpl].urls.add(u));
+      // Непустой selectedRefs — явный выбор. Пустой/нет — fallback на все рефы шаблона.
+      if (Array.isArray(slot.selectedRefs) && slot.selectedRefs.length > 0) {
+        slot.selectedRefs.forEach(u => tplData[tpl].urls.add(u));
       } else {
         tplData[tpl].hasUndefined = true;
       }
@@ -856,12 +857,32 @@
     const templates = Object.keys(tplData);
     if (templates.length === 0) return;
 
-    const tplsToFetch = templates.filter(tpl => tplData[tpl].hasUndefined);
+    // Для шаблонов без явного выбора — берём все рефы шаблона.
+    // Сначала из снимка публикации (libraryRefs), затем добиваем сервером (getRefs) для тех,
+    // кого в снимке не оказалось.
+    const snapRefs = (publishedState.libraryRefs && typeof publishedState.libraryRefs === 'object') ? publishedState.libraryRefs : {};
+    const tplsNeedServer = [];
+    templates.forEach(tpl => {
+      if (!tplData[tpl].hasUndefined) return;
+      // Пробуем найти в снимке (по точному имени и по нормализованному)
+      let refs = snapRefs[tpl];
+      if (!Array.isArray(refs)) {
+        const norm = normalizeName(tpl);
+        const key = Object.keys(snapRefs).find(k => normalizeName(k) === norm);
+        if (key) refs = snapRefs[key];
+      }
+      if (Array.isArray(refs) && refs.length > 0) {
+        refs.forEach(u => tplData[tpl].urls.add(u));
+      } else {
+        tplsNeedServer.push(tpl);
+      }
+    });
+
     let fetchResults = [];
-    if (tplsToFetch.length > 0) {
+    if (tplsNeedServer.length > 0) {
       try {
-        fetchResults = await Promise.all(tplsToFetch.map(tpl =>
-          fetch(LIBRARY_URL + '?action=getParentsRefs&template=' + encodeURIComponent(tpl))
+        fetchResults = await Promise.all(tplsNeedServer.map(tpl =>
+          fetch(LIBRARY_URL + '?action=getRefs&template=' + encodeURIComponent(tpl))
             .then(r => r.json())
             .then(data => ({ tpl, refs: (data && data.ok) ? (data.refs || []) : [] }))
             .catch(() => ({ tpl, refs: [] }))
