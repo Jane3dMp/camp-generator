@@ -833,6 +833,7 @@
   .icon-btn:hover { background: var(--ink); color: var(--paper); border-color: var(--ink); }
   .icon-btn.locked-btn { background: var(--yellow); color: var(--ink); border-color: var(--yellow); }
   .icon-btn.has-comment { background: var(--yellow); border-color: var(--yellow-deep); color: var(--ink); }
+  .icon-btn.scored-btn { background: #8FA370; border-color: #6f8052; color: #fff; }
 
   /* «Применить всем отрядам» — мелкая кнопка под рядом */
   .row-tools {
@@ -1481,6 +1482,7 @@ function defaultSlot(opts={}) {
     duration: opts.duration || 60,
     isTrip: !!opts.isTrip,   // выезд (true) или обычный МК (false). Авто-определяется по format.
     locked: false,
+    scored: !!opts.scored,   // помечен как «оценочный» — педагоги ставят баллы детям после этого МК
     comment: opts.comment || '',
     selectedRefs: Array.isArray(opts.selectedRefs) ? opts.selectedRefs : [],
     refsNone: !!opts.refsNone,
@@ -1952,6 +1954,7 @@ function renderTripPlate(dayIdx, half, tIdx, slot, troopsLabel) {
     </div>
     <div class="troop-actions">
       <button class="icon-btn ${slot.locked?'locked-btn':''}" onclick="event.stopPropagation();toggleLock(${dayIdx},'${half}',${tIdx})" title="${slot.locked?'Открепить':'Закрепить'}">${slot.locked?'✓':'○'}</button>
+      <button class="icon-btn ${slot.scored?'scored-btn':''}" onclick="event.stopPropagation();toggleScored(${dayIdx},'${half}',${tIdx})" title="${slot.scored?'Снять с оценивания':'Отметить как оценочный МК (баллы детям)'}">📊</button>
       <button class="icon-btn" onclick="event.stopPropagation();openTemplatePicker(${dayIdx},'${half}',${tIdx})" title="Выбрать выезд из библиотеки">🧱</button>
       <button class="icon-btn" onclick="event.stopPropagation();openVariants(${dayIdx},'${half}',${tIdx})" title="Подобрать варианты через ИИ">🔄</button>
       <button class="icon-btn" onclick="event.stopPropagation();generateThemeForSlot(${dayIdx},'${half}',${tIdx})" title="Подобрать тему">✨</button>
@@ -2138,6 +2141,7 @@ function renderMultiCard(dayIdx, half, idx, slot, timeLabel, posLabel) {
     </div>
     <div class="troop-actions">
       <button class="icon-btn ${slot.locked?'locked-btn':''}" onclick="event.stopPropagation();toggleLock(${dayIdx},'${half}',${idx})" title="${slot.locked?'Открепить':'Закрепить'}">${slot.locked?'✓':'○'}</button>
+      <button class="icon-btn ${slot.scored?'scored-btn':''}" onclick="event.stopPropagation();toggleScored(${dayIdx},'${half}',${idx})" title="${slot.scored?'Снять с оценивания':'Отметить как оценочный МК (баллы детям)'}">📊</button>
       <button class="icon-btn" onclick="event.stopPropagation();openTemplatePicker(${dayIdx},'${half}',${idx})" title="Выбрать МК из библиотеки">🧱</button>
       <button class="icon-btn" onclick="event.stopPropagation();openVariants(${dayIdx},'${half}',${idx})" title="Подобрать варианты через ИИ">🔄</button>
       <button class="icon-btn" onclick="event.stopPropagation();generateThemeForSlot(${dayIdx},'${half}',${idx})" title="Подобрать тему">✨</button>
@@ -2209,6 +2213,7 @@ function renderTroopCard(dayIdx, half, tIdx, slot) {
     </div>
     <div class="troop-actions">
       <button class="icon-btn ${slot.locked?'locked-btn':''}" onclick="event.stopPropagation();toggleLock(${dayIdx},'${half}',${tIdx})" title="${slot.locked?'Открепить':'Закрепить'}">${slot.locked?'✓':'○'}</button>
+      <button class="icon-btn ${slot.scored?'scored-btn':''}" onclick="event.stopPropagation();toggleScored(${dayIdx},'${half}',${tIdx})" title="${slot.scored?'Снять с оценивания':'Отметить как оценочный МК (баллы детям)'}">📊</button>
       <button class="icon-btn" onclick="event.stopPropagation();openTemplatePicker(${dayIdx},'${half}',${tIdx})" title="Выбрать МК / выезд из библиотеки">🧱</button>
       <button class="icon-btn" onclick="event.stopPropagation();toggleTripFlag(${dayIdx},'${half}',${tIdx})" title="${slot.isTrip ? 'Сделать обычным МК' : 'Пометить как выезд'}">🚌</button>
       <button class="icon-btn" onclick="event.stopPropagation();openVariants(${dayIdx},'${half}',${tIdx})" title="Подобрать варианты через ИИ">🔄</button>
@@ -2264,6 +2269,15 @@ function toggleLock(day, half, idx) {
   s.locked = !s.locked;
   render();
   toast(s.locked ? 'Закреплено' : 'Откреплено');
+}
+
+// Помечает слот-МК как «оценочный» — после него педагоги ставят баллы детям (scores4).
+function toggleScored(day, half, idx) {
+  const s = getSlot(day, half, idx);
+  if (!s || !s.template) { toast('Сначала выбери МК'); return; }
+  s.scored = !s.scored;
+  render();
+  toast(s.scored ? 'МК отмечен для баллов 📊' : 'Снято с оценивания');
 }
 
 function clearSlot(day, half, idx) {
