@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Письма родителям · Прознание</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@400;500;600;700&family=Inter:wght@400;500;600&family=Caveat:wght@600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --yellow:#FED634; --yellow-deep:#C9A800; --ink:#1f1c14; --paper:#fffdf6;
+    --t1:#41BEEA; --t2:#FF8A3D; --t3:#8FA370; --t4:#C879D8;
+    --line:#e9e3cf; --muted:#8a8470; --green:#8FA370; --green-deep:#6f8052;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Inter',system-ui,sans-serif;font-size:16px;line-height:1.5}
+  h1,h2,h3{font-family:'Geologica',sans-serif;margin:0}
+  em{font-family:'Caveat',cursive;font-style:normal;font-size:1.15em;color:var(--green-deep)}
+
+  #lockscreen{position:fixed;inset:0;background:var(--paper);display:flex;align-items:center;justify-content:center;z-index:1000;padding:24px}
+  body.unlocked #lockscreen{display:none}
+  body:not(.unlocked) #app{display:none}
+  .lock-card{max-width:340px;width:100%;text-align:center}
+  .lock-card h1{font-size:24px;margin-bottom:6px}
+  .lock-card p{color:var(--muted);font-size:14px;margin:0 0 18px}
+  .lock-card input{width:100%;padding:12px 14px;font-size:16px;border:2px solid var(--line);border-radius:12px;margin-bottom:10px;font-family:inherit}
+  .lock-card input:focus{outline:none;border-color:var(--yellow-deep)}
+  .lock-card button{width:100%;padding:12px;font-size:16px;font-weight:600;background:var(--yellow);border:none;border-radius:12px;cursor:pointer;font-family:inherit;color:var(--ink)}
+  .lock-err{color:#c0392b;font-size:13px;min-height:18px;margin-top:4px}
+
+  header{padding:18px 20px 14px;border-bottom:1px solid var(--line)}
+  .hwrap{max-width:720px;margin:0 auto}
+  header h1{font-size:21px}
+  header .sub{color:var(--muted);font-size:13px;margin-top:2px}
+  .toolbar{max-width:720px;margin:12px auto 0;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .btn{padding:9px 14px;font-size:14px;border-radius:10px;cursor:pointer;font-family:inherit;font-weight:600;border:2px solid var(--green);background:#f3f7ee;color:var(--green-deep)}
+  .btn:hover{background:#e8efe0}
+  .btn[disabled]{opacity:.5;cursor:default}
+  .note{font-size:12px;color:var(--muted);max-width:720px;margin:8px auto 0}
+
+  main{max-width:720px;margin:0 auto;padding:18px 20px 80px}
+  .hint{color:var(--muted);font-size:14px;padding:30px 10px;text-align:center}
+  .err{color:#c0392b;padding:20px;text-align:center}
+
+  .kid-row{display:flex;align-items:center;gap:12px;padding:11px 4px;border-bottom:1px solid #f3eede}
+  .kid-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+  .t1{background:var(--t1)} .t2{background:var(--t2)} .t3{background:var(--t3)} .t4{background:var(--t4)}
+  .kid-name{flex:1 1 auto;font-size:15px}
+  .kid-name .age{color:var(--muted);font-size:13px;margin-left:5px}
+  .kid-count{font-size:12px;color:var(--muted);flex:0 0 auto}
+  .kid-count.none{color:#c0392b}
+  .gen-btn{padding:7px 12px;font-size:13px;border:1px solid var(--green);background:#fff;color:var(--green-deep);border-radius:9px;cursor:pointer;font-family:inherit;font-weight:600;flex:0 0 auto}
+  .gen-btn:hover{background:#f3f7ee}
+  .gen-btn[disabled]{opacity:.45;cursor:default}
+  .gen-btn.ready{background:var(--green);color:#fff}
+
+  /* модалка письма */
+  .rep-overlay{position:fixed;inset:0;background:rgba(31,28,20,0.45);display:none;align-items:flex-start;justify-content:center;z-index:900;padding:24px 16px;overflow-y:auto}
+  .rep-overlay.open{display:flex}
+  .rep-modal{background:var(--paper);max-width:600px;width:100%;border-radius:16px;padding:22px 24px 24px;box-shadow:0 12px 40px rgba(0,0,0,0.25);margin:auto}
+  .rep-modal h2{font-size:19px;margin-bottom:10px}
+  .rep-modal .rep-close{float:right;background:none;border:none;font-size:24px;cursor:pointer;color:var(--muted);line-height:1;margin:-2px -4px 0 0}
+  .rep-text{white-space:pre-wrap;font-size:15px;line-height:1.6;background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 16px;max-height:50vh;overflow-y:auto}
+  .rep-loading{text-align:center;color:var(--muted);padding:30px}
+  .rep-actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+  .rep-actions button{padding:9px 14px;font-size:14px;border-radius:10px;cursor:pointer;font-family:inherit;font-weight:600;border:none}
+  .rep-copy{background:var(--green);color:#fff}
+  .rep-copy:hover{background:var(--green-deep)}
+  .rep-regen{background:#fff;border:1px solid var(--line);color:var(--muted)}
+</style>
+</head>
+<body>
+
+<div id="lockscreen">
+  <div class="lock-card">
+    <h1>Письма родителям</h1>
+    <p>Введи пароль клуба</p>
+    <input type="password" id="lock-input" placeholder="Пароль" autocomplete="current-password">
+    <button onclick="tryUnlock()">Войти</button>
+    <div class="lock-err" id="lock-err"></div>
+  </div>
+</div>
+
+<div id="app">
+  <header>
+    <div class="hwrap">
+      <h1 id="title">Письма родителям</h1>
+      <div class="sub" id="subhead">Загрузка…</div>
+    </div>
+    <div class="toolbar">
+      <button class="btn" id="all-btn" onclick="generateAll()">✍️ Сформировать всем</button>
+      <span class="save-ind" id="all-status" style="font-size:13px;color:var(--muted)"></span>
+    </div>
+    <div class="note">Письмо строится из баллов педагогов с помощью ИИ. Проверяй текст перед отправкой родителям — это черновик, не финальная истина.</div>
+  </header>
+  <main id="content"><div class="hint">Загружаю…</div></main>
+</div>
+
+<div class="rep-overlay" id="rep-overlay" onclick="if(event.target===this)closeRep()">
+  <div class="rep-modal">
+    <button class="rep-close" onclick="closeRep()" title="Закрыть">×</button>
+    <h2 id="rep-title">Письмо</h2>
+    <div id="rep-body"></div>
+  </div>
+</div>
+
+<script>
+  const LIBRARY_URL = 'https://script.google.com/macros/s/AKfycbxb6EEzzl-FguxjpIO5YthGLj-QXh7puCD_DO4HL4wVPziHL1pEtVeuo3uNEi2i2yXq/exec';
+  const LOCK_PASSWORD_HASH = '45e5a3f82cc81679d006c8d2f6e3cce87c89ec2059fe13a2d79438f0368b226a';
+  const LOCK_TOKEN_KEY = 'camp4_lock_token';
+
+  const MONTHS = ['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
+  const NUM_TROOPS = 4;
+  const CRIT_KEYS = ['interest','diligence','potential'];
+
+  let publishedState=null, publishedMeta={id:'',name:'',theme:''};
+  let troopsChildren=[], scoresMap={}, allMks=[];
+  const reportCache={};  // childId -> текст письма (чтобы не дёргать ИИ повторно)
+
+  // ── LOCK ──
+  async function sha256Hex(str){
+    const buf=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+  async function tryUnlock(){
+    const inp=document.getElementById('lock-input'), err=document.getElementById('lock-err');
+    const hex=await sha256Hex(inp.value);
+    if(hex===LOCK_PASSWORD_HASH){ try{localStorage.setItem(LOCK_TOKEN_KEY,hex);}catch(e){} document.body.classList.add('unlocked'); bootstrap(); }
+    else { err.textContent='Неверный пароль'; inp.value=''; inp.focus(); }
+  }
+  document.getElementById('lock-input').addEventListener('keydown',e=>{ if(e.key==='Enter') tryUnlock(); });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeRep(); });
+  (function(){ let tok=''; try{tok=localStorage.getItem(LOCK_TOKEN_KEY)||'';}catch(e){}
+    if(tok===LOCK_PASSWORD_HASH){ document.body.classList.add('unlocked'); bootstrap(); }
+    else document.getElementById('lock-input').focus();
+  })();
+
+  // ── UTILS (синхронно со scores4) ──
+  function getQueryParam(n){ const m=new RegExp('[?&]'+n+'=([^&#]*)').exec(window.location.search); return m?decodeURIComponent(m[1]):''; }
+  function escapeHtml(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+  function normalizeName(s){ if(!s) return ''; return String(s).toLowerCase().replace(/ё/g,'е').replace(/\s+/g,' ').trim(); }
+  function dobSortKey4(dob){ const m=String(dob||'').trim().match(/^(\d{2})\.(\d{2})\.(\d{4})$/); if(!m) return 0; return new Date(+m[3],+m[2]-1,+m[1]).getTime(); }
+  function halfMode4(d,half){
+    if(d && typeof d==='object' && (d.amType!==undefined||d.pmType!==undefined)) return d[half+'Type']||'normal';
+    return 'normal';
+  }
+  function isCommMk(s){
+    const t=normalizeName((s&&(s.template||s.name))||''), dir=normalizeName((s&&s.direction)||'');
+    return t.includes('коммуникат')||t.includes('командн')||t.includes('тренинг')||dir.includes('soft')||dir.includes('нейро');
+  }
+
+  // Все оценочные МК смены (по всем педагогам) — для сопоставления mkKey -> {name, comm, troops}
+  function buildAllScoredMks(){
+    const out=[];
+    publishedState.schedule.forEach((d,idx)=>{
+      ['am','pm'].forEach(half=>{
+        const mode=halfMode4(d,half);
+        if(mode==='seq3'||mode==='rot4'){
+          const multi=d[half+'Multi']; if(!multi) return;
+          if(mode==='seq3'){
+            [['chainA',[1,2]],['chainB',[3,4]]].forEach(([sub,tr])=>{
+              const chain=multi[sub]||[]; const [tA,tB]=tr;
+              const s0=chain[0];
+              if(s0&&s0.template&&s0.scored){ out.push({mkKey:idx+'_'+half+'_'+sub+'_0_t'+tA,name:s0.template,comm:isCommMk(s0),troops:[tA]}); out.push({mkKey:idx+'_'+half+'_'+sub+'_0_t'+tB,name:s0.template,comm:isCommMk(s0),troops:[tB]}); }
+              const s1=chain[1];
+              if(s1&&s1.template&&s1.scored){ out.push({mkKey:idx+'_'+half+'_'+sub+'_1_t'+tB,name:s1.template,comm:isCommMk(s1),troops:[tB]}); out.push({mkKey:idx+'_'+half+'_'+sub+'_1_t'+tA,name:s1.template,comm:isCommMk(s1),troops:[tA]}); }
+              const s2=chain[2];
+              if(s2&&s2.template&&s2.scored){ out.push({mkKey:idx+'_'+half+'_'+sub+'_2_tAB',name:s2.template,comm:isCommMk(s2),troops:[tA,tB]}); }
+            });
+          } else {
+            (multi.stations||[]).forEach((s,st)=>{
+              if(!s||!s.template||!s.scored) return;
+              for(let k=0;k<4;k++){ const ti=((st-k)%4+4)%4; out.push({mkKey:idx+'_'+half+'_stations_'+st+'_t'+(ti+1),name:s.template,comm:isCommMk(s),troops:[ti+1]}); }
+            });
+          }
+          return;
+        }
+        if(mode==='seq3trip'){
+          const multi=d[half+'Multi']; if(!multi) return;
+          const sg=multi.studyGroup||'A'; const tA=(sg==='A')?1:3, tB=(sg==='A')?2:4;
+          const chain=multi.chainA||[];
+          const s0=chain[0]; if(s0&&s0.template&&s0.scored){ out.push({mkKey:idx+'_'+half+'_chainA_0_t'+tA,name:s0.template,comm:isCommMk(s0),troops:[tA]}); out.push({mkKey:idx+'_'+half+'_chainA_0_t'+tB,name:s0.template,comm:isCommMk(s0),troops:[tB]}); }
+          const s1=chain[1]; if(s1&&s1.template&&s1.scored){ out.push({mkKey:idx+'_'+half+'_chainA_1_t'+tB,name:s1.template,comm:isCommMk(s1),troops:[tB]}); out.push({mkKey:idx+'_'+half+'_chainA_1_t'+tA,name:s1.template,comm:isCommMk(s1),troops:[tA]}); }
+          const s2=chain[2]; if(s2&&s2.template&&s2.scored){ out.push({mkKey:idx+'_'+half+'_chainA_2_tAB',name:s2.template,comm:isCommMk(s2),troops:[tA,tB]}); }
+          return;
+        }
+        const arr=d[half]; if(!Array.isArray(arr)) return;
+        arr.forEach((s,i)=>{ if(!s||!s.template||!s.scored||s.isTrip) return; out.push({mkKey:idx+'_'+half+'_'+i+'_t'+(i+1),name:s.template,comm:isCommMk(s),troops:[i+1]}); });
+      });
+    });
+    return out;
+  }
+
+  // Собирает оценки одного ребёнка из scoresMap: массив {mkName, criterion, value, comm}
+  function scoresForChild(childId){
+    const res=[];
+    allMks.forEach(mk=>{
+      // ребёнок относится к МК, только если его отряд входит в troops И есть оценка
+      CRIT_KEYS.forEach(cr=>{
+        const v=scoresMap[mk.mkKey+'|'+childId+'|'+cr];
+        if(v!=null && v!=='') res.push({mkName:mk.name, criterion:cr, value:v, comm:mk.comm});
+      });
+    });
+    return res;
+  }
+
+  function childScoreCount(childId){
+    let n=0;
+    allMks.forEach(mk=> CRIT_KEYS.forEach(cr=>{ const v=scoresMap[mk.mkKey+'|'+childId+'|'+cr]; if(v!=null&&v!=='') n++; }));
+    return n;
+  }
+
+  // ── BOOTSTRAP ──
+  async function bootstrap(){
+    const id=getQueryParam('id');
+    if(!id){ document.getElementById('content').innerHTML='<div class="err">В ссылке не указан ID публикации.</div>'; return; }
+    document.getElementById('content').innerHTML='<div class="hint">Загружаю смену…</div>';
+    try{
+      const pubResp=await fetch(LIBRARY_URL+'?action=getPublished&id='+encodeURIComponent(id)).then(r=>r.json());
+      if(!pubResp.ok) throw new Error(pubResp.error||'Не удалось загрузить публикацию');
+      const pub=pubResp.publication;
+      if(!pub||!pub.id) throw new Error('Публикация не найдена.');
+      publishedMeta={id:pub.id,name:pub.name||'',theme:pub.theme||''};
+      publishedState=JSON.parse(pub.stateJson||'{}');
+      if(!Array.isArray(publishedState.schedule)||!publishedState.schedule[0]||!Array.isArray(publishedState.schedule[0].am))
+        throw new Error('Это не похоже на смену на 4 отряда.');
+
+      const [chResp,scResp]=await Promise.all([
+        fetch(LIBRARY_URL+'?action=getChildren&seasonId='+encodeURIComponent(id)).then(r=>r.json()).catch(()=>({ok:false})),
+        fetch(LIBRARY_URL+'?action=getScores&seasonId='+encodeURIComponent(id)).then(r=>r.json()).catch(()=>({ok:false}))
+      ]);
+      troopsChildren=(chResp&&chResp.ok&&Array.isArray(chResp.children))?chResp.children:[];
+      scoresMap=(scResp&&scResp.ok&&scResp.scores&&scResp.scores.scores)?scResp.scores.scores:{};
+      allMks=buildAllScoredMks();
+
+      document.getElementById('title').innerHTML=publishedState.theme?('Письма родителям · <em>'+escapeHtml(publishedState.theme)+'</em>'):'Письма родителям';
+      document.getElementById('subhead').textContent=publishedMeta.name||'смена';
+      renderList();
+    }catch(e){
+      document.getElementById('content').innerHTML='<div class="err">Ошибка: '+escapeHtml(e.message)+'</div>';
+    }
+  }
+
+  function renderList(){
+    const kids=troopsChildren.slice().sort((a,b)=> (Number(a.troop)-Number(b.troop)) || (dobSortKey4(b.dob)-dobSortKey4(a.dob)));
+    if(kids.length===0){ document.getElementById('content').innerHTML='<div class="hint">В смене пока нет детей. Импортируй их в админке.</div>'; return; }
+    let html='';
+    kids.forEach(k=>{
+      const cnt=childScoreCount(k.crmId);
+      const age=(k.age===''||k.age==null)?'':'<span class="age">'+k.age+'</span>';
+      const disabled = cnt===0 ? 'disabled' : '';
+      const cntCls = cnt===0 ? 'kid-count none' : 'kid-count';
+      const cntTxt = cnt===0 ? 'нет оценок' : (cnt+' оценок');
+      html+='<div class="kid-row">'+
+        '<span class="kid-dot t'+k.troop+'"></span>'+
+        '<span class="kid-name">'+escapeHtml(k.name)+age+'</span>'+
+        '<span class="'+cntCls+'">'+cntTxt+'</span>'+
+        '<button class="gen-btn" '+disabled+' onclick="genOne(\''+escapeHtml(String(k.crmId))+'\',\''+escapeHtml(k.name)+'\')">✍️ Письмо</button>'+
+        '</div>';
+    });
+    document.getElementById('content').innerHTML=html;
+  }
+
+  // ── ГЕНЕРАЦИЯ ──
+  async function callGenerate(childId, childName){
+    if(reportCache[childId]) return reportCache[childId];
+    const scores=scoresForChild(childId);
+    if(scores.length===0) throw new Error('У ребёнка нет оценок.');
+    const resp=await fetch(LIBRARY_URL,{
+      method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({ action:'generateReport', childName:childName, theme:(publishedState.theme||''), scores:scores })
+    }).then(r=>r.json());
+    if(!resp.ok) throw new Error(resp.error||'Ошибка генерации');
+    reportCache[childId]=resp.result.report;
+    return resp.result.report;
+  }
+
+  async function genOne(childId, childName){
+    openRep(childName, '<div class="rep-loading">ИИ пишет письмо… (10–20 сек)</div>');
+    try{
+      const text=await callGenerate(childId, childName);
+      showRep(childName, text, childId);
+    }catch(e){
+      document.getElementById('rep-body').innerHTML='<div class="err">Ошибка: '+escapeHtml(e.message)+'</div>';
+    }
+  }
+
+  async function generateAll(){
+    const kids=troopsChildren.filter(k=>childScoreCount(k.crmId)>0);
+    if(kids.length===0){ alert('Ни у одного ребёнка нет оценок.'); return; }
+    const btn=document.getElementById('all-btn'), st=document.getElementById('all-status');
+    btn.disabled=true;
+    let done=0;
+    for(const k of kids){
+      st.textContent='Генерирую '+(done+1)+' из '+kids.length+'… ('+k.name+')';
+      try{ await callGenerate(k.crmId, k.name); }catch(e){ /* пропускаем сбойного */ }
+      done++;
+    }
+    st.textContent='Готово: '+done+' писем. Нажми «✍️ Письмо» у ребёнка, чтобы открыть.';
+    btn.disabled=false;
+    renderList();
+  }
+
+  // ── МОДАЛКА ──
+  function openRep(name, bodyHtml){
+    document.getElementById('rep-title').textContent='Письмо · '+name;
+    document.getElementById('rep-body').innerHTML=bodyHtml;
+    document.getElementById('rep-overlay').classList.add('open');
+  }
+  function showRep(name, text, childId){
+    const body='<div class="rep-text" id="rep-text-box">'+escapeHtml(text)+'</div>'+
+      '<div class="rep-actions">'+
+        '<button class="rep-copy" onclick="copyRep()">📋 Копировать</button>'+
+        '<button class="rep-regen" onclick="regen(\''+escapeHtml(String(childId))+'\',\''+escapeHtml(name)+'\')">↻ Сгенерировать заново</button>'+
+      '</div>';
+    document.getElementById('rep-body').innerHTML=body;
+  }
+  function closeRep(){ document.getElementById('rep-overlay').classList.remove('open'); }
+  function copyRep(){
+    const box=document.getElementById('rep-text-box'); if(!box) return;
+    const text=box.textContent;
+    const done=()=>{ const b=document.querySelector('.rep-copy'); if(b){ const o=b.textContent; b.textContent='✓ Скопировано'; setTimeout(()=>b.textContent=o,1500);} };
+    if(navigator.clipboard) navigator.clipboard.writeText(text).then(done).catch(()=>fallbackCopy(text,done));
+    else fallbackCopy(text,done);
+  }
+  function fallbackCopy(text,done){ const ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.left='-9999px'; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');done();}catch(e){} document.body.removeChild(ta); }
+  async function regen(childId, childName){
+    delete reportCache[childId];
+    await genOne(childId, childName);
+  }
+
+  window.tryUnlock=tryUnlock;
+  window.genOne=genOne;
+  window.generateAll=generateAll;
+  window.closeRep=closeRep;
+  window.copyRep=copyRep;
+  window.regen=regen;
+</script>
+</body>
+</html>
