@@ -345,6 +345,9 @@
   @media print {
     body { background: var(--white); font-size: 9.5pt; }
     .top-bar, .font-control { display: none !important; }
+    /* Печатаем всегда табличный (десктоп) вид, даже если экран узкий */
+    .mobile-view { display: none !important; }
+    .desktop-view { display: block !important; }
     .week-wrap {
       margin: 0; padding: 0; box-shadow: none; max-width: 100%;
       page-break-after: always;
@@ -373,10 +376,81 @@
     }
   }
 
-  /* Адаптив для предпросмотра на узких экранах: горизонтальная прокрутка */
-  @media (max-width: 1100px) {
+  /* ── Десктоп / мобильный: по умолчанию показываем десктоп, прячем мобильный ── */
+  .mobile-view { display: none; }
+  .desktop-view { display: block; }
+
+  /* На широких экранах слегка скроллим таблицу если не влезает */
+  @media (max-width: 1100px) and (min-width: 701px) {
     .week-wrap { padding: 16px; overflow-x: auto; }
-    table.print-grid { min-width: 1100px; }
+    table.print-grid, table.admin-grid, table.trips-grid { min-width: 980px; }
+  }
+
+  /* ── МОБИЛЬНЫЙ ВИД (≤700px): прячем таблицы, показываем карточки ── */
+  @media (max-width: 700px) {
+    .desktop-view { display: none; }
+    .mobile-view { display: block; }
+    .top-bar { padding: 12px 14px 10px; position: static; }
+    .top-bar-inner { gap: 12px; }
+    .title { font-size: 26px; }
+    .view-switch, .troop-switch { flex-wrap: wrap; }
+    .view-switch button, .troop-switch button { padding: 7px 10px; font-size: 11px; }
+    .actions { width: 100%; }
+    .font-control { bottom: 10px; left: 10px; }
+
+    .m-day {
+      background: var(--white); margin: 0 0 16px; border-radius: 6px;
+      overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+    }
+    .m-day-head {
+      background: var(--ink); color: var(--white);
+      padding: 12px 16px; display: flex; align-items: baseline; justify-content: space-between;
+    }
+    .m-day-num { font-family: Caveat, cursive; font-weight: 600; font-size: 22px; color: var(--yellow); }
+    .m-day-date { font-family: Inter; font-size: 11px; letter-spacing: 0.08em; opacity: 0.85; }
+
+    .m-half { padding: 12px 14px 4px; }
+    .m-half + .m-half { border-top: 1px solid rgba(21,22,23,0.1); }
+    .m-half-label {
+      font-family: Inter; font-size: 11px; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--yellow-deep); margin-bottom: 10px;
+    }
+    /* Блок отряда / пары */
+    .m-troop-block, .m-pair-block {
+      margin-bottom: 12px; padding-left: 10px;
+      border-left: 4px solid rgba(21,22,23,0.2);
+    }
+    .m-troop-block.t1 { border-left-color: var(--troop-1); }
+    .m-troop-block.t2 { border-left-color: var(--troop-2); }
+    .m-troop-block.t3 { border-left-color: var(--troop-3); }
+    .m-troop-block.t4 { border-left-color: var(--troop-4); }
+    .m-troop-block.is-trip, .m-pair-block.is-trip { border-left-color: var(--yellow-deep); }
+    .m-pair-block { border-left-color: var(--ink); }
+
+    .m-troop-tag, .m-pair-tag {
+      display: inline-block; font-family: Inter; font-size: 11px; font-weight: 700;
+      padding: 2px 9px; border-radius: 3px; margin-bottom: 8px;
+      letter-spacing: 0.04em; color: var(--white);
+    }
+    .m-troop-tag.t1-bg { background: var(--troop-1); }
+    .m-troop-tag.t2-bg { background: var(--troop-2); }
+    .m-troop-tag.t3-bg { background: var(--troop-3); }
+    .m-troop-tag.t4-bg { background: var(--troop-4); }
+    .m-pair-tag { background: var(--ink); }
+
+    /* Внутри блока — те же .item, что в таблице, но крупнее под палец */
+    .m-items .item { margin-bottom: 12px; padding-bottom: 10px; }
+    .m-items .item-name { font-size: 15px; }
+    .m-items .item-theme { font-size: 15px; }
+    .m-items .item-meta { font-size: 12px; }
+    .m-items .item-time { font-size: 12px; }
+    .m-items .item-order { font-size: 12px; }
+    /* Жёлтая заливка для выездного блока */
+    .m-troop-block.is-trip .m-items, .m-pair-block.is-trip .m-items {
+      background: rgba(254,214,52,0.18); padding: 8px 10px; border-radius: 4px;
+    }
+    .m-empty { padding: 40px 20px; text-align: center; font-family: Geologica; font-style: italic; color: rgba(21,22,23,0.5); }
   }
 </style>
 </head>
@@ -621,16 +695,26 @@
   window.printAllTroops = printAllTroops;
 
   function renderCurrentView() {
-    if (currentView === 'admin') renderAdminView();
-    else renderAllWeeks();
+    const container = document.getElementById('weeks-container');
+    // Десктоп-контент (таблицы) собираем в строку через renderDesktopHTML,
+    // мобильный (карточки) — через renderMobileHTML. Оба всегда в DOM, CSS прячет ненужное.
+    const desktopHTML = renderDesktopHTML();
+    const mobileHTML = renderMobileHTML();
+    container.innerHTML =
+      '<div class="desktop-view">' + desktopHTML + '</div>' +
+      '<div class="mobile-view">' + mobileHTML + '</div>';
+    if (typeof applyFontSize === 'function') {} // шрифт применяется через CSS-переменную
+  }
+
+  // Возвращает HTML десктоп-вида (таблицы) — для текущего режима/фильтра.
+  function renderDesktopHTML() {
+    if (currentView === 'admin') return renderAdminViewHTML();
+    return renderAllWeeksHTML();
   }
 
   // ── РЕНДЕР: ВОЖАТСКИЙ ВИД (по отрядам × дни) ──
-  function renderAllWeeks() {
-    const container = document.getElementById('weeks-container');
+  function renderAllWeeksHTML() {
     const total = Math.min(publishedState.schedule.length, NUM_DAYS);
-
-    // Если печатаем все отряды по очереди — каждый отряд отдельным блоком с разрывом страницы
     if (printAllMode) {
       let html = '';
       for (let t = 1; t <= NUM_TROOPS; t++) {
@@ -644,11 +728,8 @@
         }
         html += '</div>';
       }
-      container.innerHTML = html;
-      return;
+      return html;
     }
-
-    // Обычный режим — учитываем currentTroop
     let html = '';
     if (currentTroop !== 'all') html += renderTroopHeader(parseInt(currentTroop, 10));
     for (let w = 0; w < 2; w++) {
@@ -657,7 +738,7 @@
       if (startIdx >= total) break;
       html += renderWeek(w + 1, startIdx, endIdx, currentTroop);
     }
-    container.innerHTML = html || '<div class="week-wrap"><em>Нет дней для печати.</em></div>';
+    return html || '<div class="week-wrap"><em>Нет дней для печати.</em></div>';
   }
 
   function renderTroopHeader(troop) {
@@ -875,8 +956,7 @@
   // В каждой ячейке — список МК с временем, темой курсивом, педагогом и кабинетом.
   // Выезды красят ячейку жёлтым. Внизу — сводка выездов (renderTripsSummary).
 
-  function renderAdminView() {
-    const container = document.getElementById('weeks-container');
+  function renderAdminViewHTML() {
     const total = Math.min(publishedState.schedule.length, NUM_DAYS);
     let html = '';
     for (let w = 0; w < 2; w++) {
@@ -886,7 +966,7 @@
       html += renderAdminWeek(w + 1, startIdx, endIdx);
     }
     html += renderTripsSummary();
-    container.innerHTML = html || '<div class="week-wrap"><em>Нет данных для админа.</em></div>';
+    return html || '<div class="week-wrap"><em>Нет данных для админа.</em></div>';
   }
 
   function renderAdminWeek(weekNum, startIdx, endIdx) {
@@ -1128,6 +1208,78 @@
         </table>
       </div>
     `;
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // МОБИЛЬНЫЙ ВИД: вертикальные карточки (для просмотра на телефоне).
+  // Переиспользует логику renderTroopCell / renderAdminCell, снимая обёртку <td>.
+  // ─────────────────────────────────────────────────────────────
+  // Достаёт внутренности ячейки (без <td>...</td>) и флаг trip.
+  function cellInner(tdHtml) {
+    const m = tdHtml.match(/^<td class="cell([^"]*)">([\s\S]*)<\/td>$/);
+    if (!m) {
+      // пустая/особая ячейка (empty, rot-ditto)
+      const isEmpty = /class="cell empty"/.test(tdHtml) || /rot-ditto/.test(tdHtml);
+      return { inner: tdHtml.replace(/^<td[^>]*>/, '').replace(/<\/td>$/, ''), trip: false, empty: isEmpty };
+    }
+    return { inner: m[2], trip: /\btrip\b/.test(m[1]), empty: false };
+  }
+
+  function renderMobileHTML() {
+    const total = Math.min(publishedState.schedule.length, NUM_DAYS);
+    if (total === 0) return '<div class="m-empty">Нет дней для показа.</div>';
+    let html = '';
+    for (let i = 0; i < total; i++) {
+      const d = publishedState.schedule[i];
+      const dt = dateForDay(publishedState, i);
+      const dateLabel = dt.getDate() + ' ' + MONTHS[dt.getMonth()] + ' · ' + WEEKDAYS_SHORT[dt.getDay()].toUpperCase();
+      html += `<div class="m-day">
+        <div class="m-day-head"><span class="m-day-num">День ${i+1}</span><span class="m-day-date">${dateLabel}</span></div>`;
+      ['am','pm'].forEach(half => {
+        const halfLabel = half === 'am' ? 'До обеда · 9:30–13:30' : 'После обеда · 14:00–17:30';
+        if (currentView === 'admin') {
+          html += renderMobileAdminHalf(d, half, halfLabel);
+        } else {
+          html += renderMobileTroopHalf(d, half, halfLabel);
+        }
+      });
+      html += '</div>';
+    }
+    return html;
+  }
+
+  // Вожатский мобильный: блок half, внутри — каждый отряд (или выбранный) со своими занятиями.
+  function renderMobileTroopHalf(d, half, halfLabel) {
+    let blocks = '';
+    const troopList = (currentTroop === 'all') ? [1,2,3,4] : [parseInt(currentTroop,10)];
+    troopList.forEach(troop => {
+      const td = renderTroopCell(d, half, troop);
+      const { inner, trip, empty } = cellInner(td);
+      if (empty || !inner.trim()) return; // отряд ничего не делает в этот блок — пропускаем
+      blocks += `<div class="m-troop-block t${troop}${trip ? ' is-trip' : ''}">
+        <div class="m-troop-tag t${troop}-bg">Отряд ${troop}</div>
+        <div class="m-items">${inner}</div>
+      </div>`;
+    });
+    if (!blocks) return ''; // в этой половине ничего нет
+    return `<div class="m-half"><div class="m-half-label">${halfLabel}</div>${blocks}</div>`;
+  }
+
+  // Админский мобильный: блок half, внутри — пары отрядов с занятиями.
+  function renderMobileAdminHalf(d, half, halfLabel) {
+    let blocks = '';
+    [[1,2],[3,4]].forEach(pair => {
+      const td = renderAdminCell(d, half, pair);
+      const { inner, trip, empty } = cellInner(td);
+      if (empty || !inner.trim()) return;
+      const pairLabel = 'отряды ' + pair[0] + ', ' + pair[1];
+      blocks += `<div class="m-pair-block${trip ? ' is-trip' : ''}">
+        <div class="m-pair-tag">${pairLabel}</div>
+        <div class="m-items">${inner}</div>
+      </div>`;
+    });
+    if (!blocks) return '';
+    return `<div class="m-half"><div class="m-half-label">${halfLabel}</div>${blocks}</div>`;
   }
 
   function pluralRu(n, one, few, many) {
