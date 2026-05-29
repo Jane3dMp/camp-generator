@@ -113,6 +113,7 @@
   .parent-only{display:none}
   body.mode-parent .internal-only{display:none}
   body.mode-parent .parent-only{display:block}
+  body.parent-link .topbar{display:none !important}
 </style>
 </head>
 <body class="mode-internal">
@@ -153,6 +154,7 @@
   let publishedState=null, publishedMeta={id:'',name:'',theme:''};
   let troopsChildren=[], scoresMap={}, allMks=[];
   let currentMode='internal';
+  let parentToken='';
   const letterCache={};
 
   // ── LOCK ──
@@ -167,7 +169,23 @@
     else { err.textContent='Неверный пароль'; inp.value=''; inp.focus(); }
   }
   document.getElementById('lock-input').addEventListener('keydown',e=>{ if(e.key==='Enter') tryUnlock(); });
-  (function(){ let tok=''; try{tok=localStorage.getItem(LOCK_TOKEN_KEY)||'';}catch(e){}
+  (function(){
+    // Родитель: ссылка с токеном → без пароля, без выпадашки, только свой ребёнок.
+    // Читаем токен устойчиво — из всего URL (search ИЛИ hash), на случай мобильных браузеров.
+    var t = getQueryParam('t');
+    if(!t){
+      // запасной разбор: ищем t= в любом месте URL
+      var m = /[?&#]t=([^&#]+)/.exec(window.location.href);
+      if(m) t = decodeURIComponent(m[1]);
+    }
+    if(t){
+      parentToken = t;
+      document.body.className = 'unlocked mode-parent parent-link';
+      currentMode = 'parent';
+      bootstrapParent();
+      return;
+    }
+    let tok=''; try{tok=localStorage.getItem(LOCK_TOKEN_KEY)||'';}catch(e){}
     if(tok===LOCK_PASSWORD_HASH){ document.body.classList.add('unlocked'); bootstrap(); }
     else document.getElementById('lock-input').focus();
   })();
@@ -327,6 +345,31 @@
     }
   }
 
+  // Родительский вход: грузим публикацию (тема+расписание) и паспорт ТОЛЬКО своего ребёнка по токену
+  async function bootstrapParent(){
+    const id=getQueryParam('id');
+    if(!id){ document.getElementById('content').innerHTML='<div class="err">Ссылка неполная.</div>'; return; }
+    document.getElementById('content').innerHTML='<div class="hint">Загружаю паспорт…</div>';
+    try{
+      const [pubResp, passResp] = await Promise.all([
+        fetch(LIBRARY_URL+'?action=getPublished&id='+encodeURIComponent(id)).then(r=>r.json()),
+        fetch(LIBRARY_URL+'?action=getPassportByToken&id='+encodeURIComponent(id)+'&t='+encodeURIComponent(parentToken)).then(r=>r.json())
+      ]);
+      if(!pubResp.ok) throw new Error('Смена не найдена.');
+      publishedMeta={id:pubResp.publication.id,name:pubResp.publication.name||'',theme:pubResp.publication.theme||''};
+      publishedState=JSON.parse(pubResp.publication.stateJson||'{}');
+      allMks=buildAllScoredMks();
+
+      const pr = passResp.result || passResp;
+      if(!pr || !pr.ok){ document.getElementById('content').innerHTML='<div class="err">'+escapeHtml((pr&&pr.error)||'Ссылка недействительна.')+'</div>'; return; }
+      troopsChildren=[pr.child];
+      scoresMap=pr.scores||{};
+      renderPassport(String(pr.child.crmId));
+    }catch(e){
+      document.getElementById('content').innerHTML='<div class="err">Ошибка: '+escapeHtml(e.message)+'</div>';
+    }
+  }
+
   function setMode(m){
     currentMode=m;
     document.body.className=document.body.className.replace(/mode-\w+/g,'')+' mode-'+m;
@@ -403,8 +446,10 @@
       '</div></div>';
 
     // ── ХАРАКТЕРИСТИКА (письмо) ──
+    let autoGenLetter=false;
     html+='<div class="card"><div class="card-title">✍️ Живая характеристика</div><div id="letter-slot">';
     if(letterCache[childId]){ html+='<div class="letter-box">'+escapeHtml(letterCache[childId])+'</div>'; }
+    else if(parent){ html+='<div class="letter-loading">Готовим тёплые слова о ребёнке…</div>'; autoGenLetter=true; }
     else { html+='<button class="gen-letter-btn" onclick="genLetter(\''+escapeHtml(String(childId))+'\',\''+escapeHtml(kid.name)+'\')">✍️ Сформировать характеристику</button>'; }
     html+='</div></div>';
 
@@ -477,6 +522,7 @@
     html+='<div class="soon-note">С расширением отметок педагогов в паспорте позже появятся: учёт посещаемости, знаки за яркие моменты («Железная воля», «Командный игрок»), детальные радары по рамке 4P (знания · умения · характер · мышление) и печатная версия A4.</div>';
 
     document.getElementById('content').innerHTML=html;
+    if(autoGenLetter){ genLetter(String(childId), kid.name); }
   }
 
   // ── ПИСЬМО (переиспользует generateReport) ──
