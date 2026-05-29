@@ -11,6 +11,15 @@
     --ink:#151617; --white:#ffffff; --paper:#fffdf6; --paper-warm:#FBF6EC;
     --yellow:#FED634; --yellow-deep:#C9A800; --moss:#8FA370; --moss-deep:#6f8052;
     --line:rgba(21,22,23,0.15); --muted:rgba(21,22,23,0.55);
+    /* Coddy-голубой (уже используется в родительских ссылках) */
+    --sky:#41BEEA; --sky-deep:#2f9ec7;
+    /* акценты зон хаба */
+    --zone-team:#C9A800;     /* Команда — жёлтый Прознание */
+    --zone-parents:#E08A3C;  /* Родители — тёплый оранжевый */
+    --zone-troops:#41BEEA;   /* Отряды — голубой Coddy */
+    --zone-admin:#6f8052;    /* Администрирование — мох */
+    --zone-scores:#534AB7;   /* Аналитика — фиолетовый (как отряд 4) */
+    --zone-docs:#185FA5;     /* Документы — синий */
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--paper);color:var(--ink);font-family:'Inter',system-ui,sans-serif;font-size:15px;line-height:1.5}
@@ -31,26 +40,63 @@
   .lock-card button:hover{background:var(--yellow-deep)}
   .lock-err{color:#ff8a7a;font-size:13px;min-height:18px;margin-top:4px}
 
-  header{background:var(--paper-warm);border-bottom:1px solid var(--line);padding:18px 22px}
-  header .hwrap{max-width:920px;margin:0 auto}
-  header h1{font-size:22px}
-  header .sub{color:var(--muted);font-size:13px;margin-top:3px}
-  .tabs{max-width:920px;margin:14px auto 0;display:flex;gap:8px;flex-wrap:wrap}
-  .tab{padding:9px 15px;font-size:14px;border:2px solid var(--line);background:var(--white);border-radius:10px;cursor:pointer;font-family:inherit;font-weight:600;color:var(--ink)}
-  .tab.active{border-color:var(--moss);background:#f3f7ee;color:var(--moss-deep)}
+  /* ── HERO-ШАПКА (командный центр) ── */
+  header{
+    background:linear-gradient(180deg,var(--paper-warm) 0%,var(--paper) 100%);
+    border-bottom:1px solid var(--line);padding:26px 22px 0;
+    background-image:
+      radial-gradient(circle at 12% 0%, rgba(254,214,52,0.10) 0%, transparent 42%),
+      radial-gradient(circle at 92% 30%, rgba(65,190,234,0.08) 0%, transparent 45%);
+  }
+  header .hwrap{max-width:920px;margin:0 auto;display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .h-eyebrow{font-family:'Inter',sans-serif;font-size:11px;font-weight:600;letter-spacing:0.22em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+  header h1{font-size:30px;line-height:1.05;letter-spacing:-0.01em}
+  header h1 .h-accent{font-family:'Caveat',cursive;font-weight:600;background:var(--yellow);color:var(--ink);padding:0 9px;border-radius:5px;display:inline-block;line-height:1.1}
+  header .sub{color:var(--muted);font-size:13px;margin-top:7px}
+  .h-chips{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+  .chip{display:inline-flex;align-items:center;gap:6px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--ink);background:var(--white);border:1px solid var(--line);border-radius:999px;padding:6px 12px;line-height:1}
+  .chip .chip-dot{width:7px;height:7px;border-radius:50%;background:var(--moss)}
+  .chip code{background:transparent;font-size:11px;color:var(--muted);cursor:pointer}
+  .chip.chip-id:hover{border-color:var(--ink)}
+
+  .tabs{max-width:920px;margin:18px auto 0;display:flex;gap:4px;flex-wrap:nowrap;overflow-x:auto;border-bottom:2px solid var(--line);padding-bottom:0;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{padding:11px 16px 12px;font-size:14px;border:none;background:transparent;border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;font-family:inherit;font-weight:600;color:var(--muted);white-space:nowrap;transition:color .15s,border-color .15s}
+  .tab:hover{color:var(--ink)}
+  .tab.active{border-bottom-color:var(--yellow-deep);color:var(--ink)}
+  .tab:focus-visible{outline:2px solid var(--yellow-deep);outline-offset:2px;border-radius:6px}
 
   main{max-width:920px;margin:0 auto;padding:22px;}
   .pane{display:none}
   .pane.active{display:block}
 
-  /* links — плитки */
-  .link-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
-  .link-tile{position:relative;display:block;background:var(--white);border:1px solid var(--line);border-radius:12px;padding:18px 16px;text-decoration:none;color:var(--ink);transition:all 0.15s;cursor:pointer}
-  .link-tile:hover{border-color:var(--moss);background:#f3f7ee;transform:translateY(-1px);box-shadow:0 4px 12px rgba(90,58,40,0.08)}
-  .link-tile .lt-ic{font-size:22px;display:block;margin-bottom:8px}
-  .link-tile .lt-name{font-weight:600;font-size:14px;line-height:1.3;display:block;padding-right:24px}
-  .link-tile .lt-copy{position:absolute;top:12px;right:10px;background:transparent;border:none;cursor:pointer;font-size:15px;opacity:0.45;padding:4px;border-radius:6px;line-height:1}
+  /* ── ЗОНЫ ── */
+  .zone{margin-bottom:24px}
+  .zone-head{font-family:'Inter',sans-serif;font-size:11px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:var(--muted);margin:0 0 10px 2px;display:flex;align-items:center;gap:8px}
+  .zone-head::before{content:"";width:10px;height:10px;border-radius:3px;background:var(--zc,var(--moss))}
+
+  /* ── КАРТОЧКИ-ПЛИТКИ ── */
+  .link-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,280px));gap:12px}
+  .link-tile{position:relative;display:flex;flex-direction:column;background:var(--white);border:1px solid var(--line);border-left:4px solid var(--zc,var(--moss));border-radius:12px;padding:16px 16px 14px;text-decoration:none;color:var(--ink);transition:transform .15s,box-shadow .15s,border-color .15s;cursor:pointer;min-height:118px}
+  .link-tile:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(90,58,40,0.12);border-color:var(--line);border-left-color:var(--zc,var(--moss))}
+  .link-tile:focus-visible{outline:2px solid var(--zc,var(--moss));outline-offset:2px}
+  .link-tile .lt-ic{font-size:24px;line-height:1;display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;background:var(--paper-warm);background:color-mix(in srgb,var(--zc,var(--moss)) 14%,transparent);margin-bottom:10px}
+  .link-tile .lt-name{font-weight:600;font-size:15px;line-height:1.25;display:block;padding-right:26px;font-family:'Geologica',sans-serif}
+  .link-tile .lt-desc{font-size:12.5px;line-height:1.4;color:var(--muted);margin-top:4px}
+  .link-tile .lt-go{margin-top:auto;padding-top:10px;font-size:12px;font-weight:600;color:var(--zc,var(--moss-deep));display:inline-flex;align-items:center;gap:4px;opacity:0;transform:translateX(-4px);transition:opacity .15s,transform .15s}
+  .link-tile:hover .lt-go{opacity:1;transform:translateX(0)}
+  .link-tile .lt-copy{position:absolute;top:13px;right:11px;background:transparent;border:none;cursor:pointer;font-size:15px;opacity:0.4;padding:4px;border-radius:6px;line-height:1}
   .link-tile .lt-copy:hover{opacity:1;background:rgba(0,0,0,0.05)}
+  .link-tile .lt-copy:focus-visible{outline:2px solid var(--zc,var(--moss));outline-offset:1px;opacity:1}
+  @media (prefers-reduced-motion:reduce){
+    .link-tile,.link-tile:hover,.link-tile .lt-go{transition:none;transform:none}
+    .link-tile .lt-go{opacity:1}
+  }
+  @media (max-width:560px){
+    header h1{font-size:25px}
+    .link-grid{grid-template-columns:1fr}
+    .link-tile .lt-go{opacity:1;transform:none}
+  }
   .btn{padding:8px 13px;font-size:13px;border:1px solid var(--line);background:var(--white);border-radius:8px;cursor:pointer;font-family:inherit;font-weight:600;color:var(--ink);text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
   .btn:hover{background:var(--paper-warm)}
   .btn-primary{background:var(--ink);color:var(--white);border-color:var(--ink)}
@@ -150,8 +196,14 @@
 <div id="app">
   <header>
     <div class="hwrap">
-      <h1 id="title">Администратор смены</h1>
-      <div class="sub" id="subhead">Загрузка…</div>
+      <div>
+        <div class="h-eyebrow">Администратор · пульт смены</div>
+        <h1 id="title">Администратор смены</h1>
+        <div class="sub" id="subhead">Загрузка…</div>
+      </div>
+      <div class="h-chips" id="h-chips">
+        <span class="chip"><span class="chip-dot"></span><span id="chip-troops">4 отряда</span></span>
+      </div>
     </div>
     <div class="tabs">
       <button class="tab active" id="tab-links" onclick="switchPane('links')">🔗 Ссылки</button>
@@ -298,38 +350,69 @@
   async function bootstrap(){
     if(!SEASON_ID){ document.getElementById('subhead').textContent='В ссылке не указан ID смены'; document.getElementById('links-wrap').innerHTML='<div class="soon">Нет ID смены в ссылке.</div>'; return; }
     document.getElementById('troops-season-id').textContent = SEASON_ID;
+    // ID — в чип шапки, по клику копируется
+    try{
+      const chips=document.getElementById('h-chips');
+      if(chips && !document.getElementById('chip-id')){
+        const c=document.createElement('span');
+        c.className='chip chip-id'; c.id='chip-id'; c.title='Скопировать ID хаба';
+        c.innerHTML='ID&nbsp;<code>'+escapeHtml(SEASON_ID)+'</code>';
+        c.style.cursor='pointer';
+        c.onclick=()=>{ if(navigator.clipboard) navigator.clipboard.writeText(SEASON_ID).then(()=>toast('ID скопирован')).catch(()=>{}); };
+        chips.appendChild(c);
+      }
+    }catch(e){}
     try{
       const r=await fetch(LIBRARY_URL+'?action=getPublished&id='+encodeURIComponent(SEASON_ID)).then(r=>r.json());
       if(r.ok && r.publication){ seasonMeta={id:r.publication.id,name:r.publication.name||'',theme:r.publication.theme||'',stateJson:r.publication.stateJson||''}; }
       document.getElementById('title').textContent = seasonMeta.name ? ('Администратор · '+seasonMeta.name) : 'Администратор смены';
-      document.getElementById('subhead').textContent = 'ID: '+SEASON_ID;
-    }catch(e){ document.getElementById('subhead').textContent='ID: '+SEASON_ID; }
+      document.getElementById('subhead').textContent = seasonMeta.theme ? ('Тема смены: '+seasonMeta.theme) : 'Пульт управления сменой';
+    }catch(e){ document.getElementById('subhead').textContent='Пульт управления сменой'; }
     renderLinks();
   }
 
   // ── ССЫЛКИ ──
   function pageUrl(page){ return location.href.split('?')[0].replace(/admin-hub4\.html$/, page) + '?id=' + encodeURIComponent(SEASON_ID); }
+  // [иконка, подпись, файл, ключ-зоны, описание]
   const LINKS = [
-    ['👩‍🏫','Педагогам','view4.html'],
-    ['👨‍👩‍👧','Родителям (расписание)','parents4.html'],
-    ['📋','Кураторам (отряды + игры)','print4.html'],
-    ['🗓','Админу (дни × блоки)','admin4.html'],
-    ['💰','Табель педагогов','payroll4.html'],
-    ['📊','Баллы детям','scores4.html'],
-    ['✍️','Письма родителям','reports4.html'],
-    ['🪪','Паспорт ребёнка','passport4.html']
+    ['👩‍🏫','Педагогам','view4.html','team','Материалы и инструкции для команды педагогов'],
+    ['📋','Кураторам (отряды + игры)','print4.html','troops','Отряды, игры и рабочие материалы кураторов'],
+    ['🗓️','Админу (дни × блоки)','admin4.html','admin','Полная сетка смены по дням и блокам'],
+    ['👨‍👩‍👧','Родителям (расписание)','parents4.html','parents','Расписание, удобное отправить родителям'],
+    ['✉️','Письма родителям','reports4.html','parents','Тёплые письма по итогам смены'],
+    ['💰','Табель педагогов','payroll4.html','team','Учёт рабочих смен команды'],
+    ['📊','Баллы детям','scores4.html','scores','Начисление и просмотр баллов отрядов'],
+    ['🪪','Паспорт ребёнка','passport4.html','docs','Профиль и достижения ребёнка']
+  ];
+  // порядок и подписи зон
+  const ZONES = [
+    ['team','Команда'],
+    ['troops','Отряды'],
+    ['admin','Администрирование'],
+    ['parents','Родители'],
+    ['scores','Аналитика'],
+    ['docs','Документы']
   ];
   function renderLinks(){
-    let html='<div class="link-grid">';
-    LINKS.forEach(([ic,label,page])=>{
-      const url=pageUrl(page);
-      html+='<a class="link-tile" href="'+escapeHtml(url)+'" target="_blank" rel="noopener">'+
-        '<button class="lt-copy" title="Копировать ссылку" onclick="event.preventDefault();event.stopPropagation();copyLink(\''+escapeJs(url)+'\',this)">📋</button>'+
-        '<span class="lt-ic">'+ic+'</span>'+
-        '<span class="lt-name">'+escapeHtml(label)+'</span>'+
-        '</a>';
+    let html='';
+    ZONES.forEach(([zkey,zname])=>{
+      const items=LINKS.filter(l=>l[3]===zkey);
+      if(!items.length) return;
+      html+='<div class="zone" style="--zc:var(--zone-'+zkey+')">';
+      html+='<div class="zone-head">'+escapeHtml(zname)+'</div>';
+      html+='<div class="link-grid">';
+      items.forEach(([ic,label,page,,desc])=>{
+        const url=pageUrl(page);
+        html+='<a class="link-tile" style="--zc:var(--zone-'+zkey+')" href="'+escapeHtml(url)+'" target="_blank" rel="noopener">'+
+          '<button class="lt-copy" title="Копировать ссылку" aria-label="Копировать ссылку" onclick="event.preventDefault();event.stopPropagation();copyLink(\''+escapeJs(url)+'\',this)">📋</button>'+
+          '<span class="lt-ic">'+ic+'</span>'+
+          '<span class="lt-name">'+escapeHtml(label)+'</span>'+
+          '<span class="lt-desc">'+escapeHtml(desc)+'</span>'+
+          '<span class="lt-go">Открыть →</span>'+
+          '</a>';
+      });
+      html+='</div></div>';
     });
-    html+='</div>';
     document.getElementById('links-wrap').innerHTML=html;
   }
   function copyLink(url,btn){ const done=()=>{const o=btn.textContent;btn.textContent='✓';setTimeout(()=>btn.textContent=o,1200);}; if(navigator.clipboard) navigator.clipboard.writeText(url).then(done).catch(()=>{}); }
