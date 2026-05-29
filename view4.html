@@ -153,6 +153,59 @@
     text-decoration: none; transition: background 0.15s;
   }
   .vslot-scored-btn:hover { background: #6f8052; }
+  .vslot-btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .vslot-btn-row .vslot-scored-btn { margin-top: 0; }
+  .vslot-lesson-btn {
+    display: inline-block; background: #C8714B; color: #fff; border: none; cursor: pointer;
+    font-family: Inter, sans-serif; font-size: 13px; font-weight: 600; padding: 7px 14px;
+    border-radius: 9px; transition: background 0.15s;
+  }
+  .vslot-lesson-btn:hover { background: #a9572f; }
+
+  .ln-overlay {
+    position: fixed; inset: 0; background: rgba(21,22,23,0.55); z-index: 9999;
+    display: none; align-items: flex-start; justify-content: center; padding: 16px; overflow-y: auto;
+  }
+  .ln-overlay.open { display: flex; }
+  .ln-modal {
+    background: var(--white, #fff); width: 100%; max-width: 520px; margin-top: 24px;
+    border-radius: 16px; padding: 20px; box-shadow: 0 18px 50px rgba(0,0,0,0.3);
+    font-family: Inter, sans-serif; color: var(--ink, #151617);
+  }
+  .ln-title { font-size: 17px; font-weight: 700; margin: 0 0 2px; }
+  .ln-sub { font-size: 12px; color: rgba(21,22,23,0.6); margin: 0 0 14px; }
+  .ln-rec-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .ln-rec-btn {
+    border: none; cursor: pointer; width: 56px; height: 56px; border-radius: 50%;
+    background: #C8714B; color: #fff; font-size: 22px; flex: none; transition: background 0.15s;
+  }
+  .ln-rec-btn.recording { background: #c0392b; animation: ln-pulse 1.2s infinite; }
+  @keyframes ln-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(192,57,43,0.5);} 50% { box-shadow: 0 0 0 10px rgba(192,57,43,0);} }
+  .ln-timer { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .ln-hint { font-size: 12px; color: rgba(21,22,23,0.6); }
+  .ln-status { font-size: 13px; margin: 10px 0; min-height: 18px; color: var(--ink); }
+  .ln-status.err { color: #c0392b; }
+  .ln-label { font-size: 12px; font-weight: 600; margin: 12px 0 4px; }
+  .ln-textarea {
+    width: 100%; box-sizing: border-box; min-height: 120px; padding: 10px;
+    border: 1.5px solid rgba(21,22,23,0.18); border-radius: 10px; font-family: Inter, sans-serif;
+    font-size: 14px; line-height: 1.5; resize: vertical;
+  }
+  .ln-raw { font-size: 12px; color: rgba(21,22,23,0.55); white-space: pre-wrap;
+    background: rgba(21,22,23,0.04); border-radius: 8px; padding: 8px 10px; margin-top: 6px; display: none; }
+  .ln-raw.open { display: block; }
+  .ln-toggle-raw { background: none; border: none; color: #C8714B; cursor: pointer; font-size: 12px; padding: 4px 0; }
+  .ln-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .ln-btn { border: none; cursor: pointer; font-family: Inter, sans-serif; font-size: 13px;
+    font-weight: 600; padding: 9px 16px; border-radius: 9px; }
+  .ln-btn.primary { background: #8FA370; color: #fff; }
+  .ln-btn.primary:hover { background: #6f8052; }
+  .ln-btn.viber { background: #7360f2; color: #fff; }
+  .ln-btn.viber:hover { background: #5b49d6; }
+  .ln-btn.ghost { background: rgba(21,22,23,0.07); color: var(--ink); }
+  .ln-btn.ghost:hover { background: rgba(21,22,23,0.13); }
+  .ln-btn:disabled { opacity: 0.5; cursor: default; }
+  .ln-close { float: right; background: none; border: none; font-size: 22px; cursor: pointer; color: rgba(21,22,23,0.5); line-height: 1; }
   .vslot-theme { font-family: Caveat, cursive; font-size: 16px; color: var(--yellow-deep); font-weight: 600; line-height: 1.1; margin-top: 2px; }
   .vslot-comment {
     font-family: Inter, sans-serif; font-size: 12px; color: var(--ink);
@@ -919,6 +972,12 @@
       const url = 'scores4.html?id=' + encodeURIComponent(id) + (t ? '&teacher=' + encodeURIComponent(t) : '') + '&mk=' + encodeURIComponent(s.mkKey);
       scoredBtn = `<a class="vslot-scored-btn" href="${url}" target="_blank" rel="noopener">📊 Проставить баллы</a>`;
     }
+    let lessonBtn = '';
+    if (s.mkKey) {
+      const t = document.getElementById('teacher-pick') ? document.getElementById('teacher-pick').value : '';
+      lessonBtn = `<button type="button" class="vslot-lesson-btn"
+        onclick='LessonNotes.open(${JSON.stringify(JSON.stringify({ mkKey: s.mkKey, teacher: t, mkName: s.template || '', troopsLabel: s.troopsLabel || ('отряд ' + s.troop), time: s.time || '' }))})'>🎤 Запись урока</button>`;
+    }
     return `
       <div class="vslot${s.isTrip ? ' is-trip' : ''}${(s.scored && s.mkKey) ? ' is-scored' : ''}">
         <div class="vslot-row">
@@ -931,7 +990,7 @@
               <span class="pill-troop t${s.troop}">${escapeHtml(s.troopsLabel || ('отряд ' + s.troop))}</span>${escapeHtml(s.room)}
             </div>
             ${renderRefsForSlot(s.refs)}
-            ${scoredBtn}
+            <div class="vslot-btn-row">${scoredBtn}${lessonBtn}</div>
           </div>
         </div>
       </div>`;
@@ -1142,6 +1201,240 @@
     document.getElementById('view-content').innerHTML = html;
     hydrateAllRefPreviews();
   }
+
+  /* ===== Запись урока: диктофон → транскрибация → правка → Viber ===== */
+  var LessonNotes = (function () {
+    var ctx = null;            // данные текущего слота
+    var mediaRecorder = null;
+    var chunks = [];
+    var stream = null;
+    var timerId = null;
+    var seconds = 0;
+    var MAX_SECONDS = 300;     // мягкий лимит 5 минут
+
+    function el(id) { return document.getElementById(id); }
+
+    function ensureModal() {
+      if (el('ln-overlay')) return;
+      var ov = document.createElement('div');
+      ov.id = 'ln-overlay';
+      ov.className = 'ln-overlay';
+      ov.innerHTML =
+        '<div class="ln-modal">' +
+          '<button type="button" class="ln-close" onclick="LessonNotes.close()">×</button>' +
+          '<div class="ln-title">🎤 Запись урока</div>' +
+          '<div class="ln-sub" id="ln-sub"></div>' +
+          '<div class="ln-rec-row">' +
+            '<button type="button" class="ln-rec-btn" id="ln-rec" onclick="LessonNotes.toggleRec()">●</button>' +
+            '<div><div class="ln-timer" id="ln-timer">0:00</div>' +
+            '<div class="ln-hint" id="ln-hint">Нажми и наговори, что было на занятии</div></div>' +
+          '</div>' +
+          '<div class="ln-status" id="ln-status"></div>' +
+          '<div id="ln-result" style="display:none">' +
+            '<div class="ln-label">Текст для родительского чата (можно поправить):</div>' +
+            '<textarea class="ln-textarea" id="ln-text"></textarea>' +
+            '<button type="button" class="ln-toggle-raw" onclick="LessonNotes.toggleRaw()">Показать исходную расшифровку</button>' +
+            '<div class="ln-raw" id="ln-raw"></div>' +
+            '<div class="ln-actions">' +
+              '<button type="button" class="ln-btn primary" id="ln-save" onclick="LessonNotes.save()">💾 Сохранить</button>' +
+              '<button type="button" class="ln-btn viber" onclick="LessonNotes.toViber()">📲 Открыть в Viber</button>' +
+              '<button type="button" class="ln-btn ghost" onclick="LessonNotes.copy()">📋 Скопировать</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(ov);
+      ov.addEventListener('click', function (e) { if (e.target === ov) LessonNotes.close(); });
+    }
+
+    function setStatus(msg, isErr) {
+      var s = el('ln-status');
+      s.textContent = msg || '';
+      s.className = 'ln-status' + (isErr ? ' err' : '');
+    }
+
+    function fmt(t) { var m = Math.floor(t / 60), s = t % 60; return m + ':' + (s < 10 ? '0' : '') + s; }
+
+    function dayIdxFromKey(mkKey) {
+      var n = parseInt(String(mkKey).split('_')[0], 10);
+      return isNaN(n) ? '' : n;
+    }
+
+    function open(payloadJson) {
+      ensureModal();
+      ctx = JSON.parse(payloadJson);
+      el('ln-sub').textContent = (ctx.mkName || 'занятие') + ' · ' + (ctx.troopsLabel || '') + (ctx.time ? ' · ' + ctx.time : '');
+      el('ln-result').style.display = 'none';
+      el('ln-text').value = '';
+      el('ln-raw').textContent = '';
+      el('ln-raw').className = 'ln-raw';
+      seconds = 0; el('ln-timer').textContent = '0:00';
+      el('ln-rec').className = 'ln-rec-btn'; el('ln-rec').textContent = '●';
+      el('ln-hint').textContent = 'Нажми и наговори, что было на занятии';
+      setStatus('');
+      el('ln-overlay').classList.add('open');
+      // подгрузим прежнюю запись, если была
+      loadExisting();
+    }
+
+    function loadExisting() {
+      var id = getQueryParam('id');
+      if (!id || !ctx) return;
+      fetch(LIBRARY_URL + '?action=getLessonNote&seasonId=' + encodeURIComponent(id) +
+            '&mkKey=' + encodeURIComponent(ctx.mkKey))
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d && d.found && d.textClean) {
+            el('ln-text').value = d.textClean;
+            el('ln-raw').textContent = d.textRaw || '';
+            el('ln-result').style.display = 'block';
+            setStatus('Найдена прежняя запись — можно переписать или поправить.');
+          }
+        })
+        .catch(function () {});
+    }
+
+    function close() {
+      stopTracks();
+      if (timerId) { clearInterval(timerId); timerId = null; }
+      var ov = el('ln-overlay');
+      if (ov) ov.classList.remove('open');
+    }
+
+    function stopTracks() {
+      if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
+    }
+
+    function pickMime() {
+      var cand = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'];
+      for (var i = 0; i < cand.length; i++) {
+        if (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(cand[i])) return cand[i];
+      }
+      return '';
+    }
+
+    function toggleRec() {
+      if (mediaRecorder && mediaRecorder.state === 'recording') { stopRec(); return; }
+      startRec();
+    }
+
+    function startRec() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setStatus('Браузер не поддерживает запись звука.', true); return;
+      }
+      setStatus('');
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(function (s) {
+        stream = s;
+        var mime = pickMime();
+        chunks = [];
+        try {
+          mediaRecorder = mime ? new MediaRecorder(s, { mimeType: mime }) : new MediaRecorder(s);
+        } catch (e) { mediaRecorder = new MediaRecorder(s); }
+        mediaRecorder.ondataavailable = function (ev) { if (ev.data && ev.data.size) chunks.push(ev.data); };
+        mediaRecorder.onstop = onStopped;
+        mediaRecorder.start();
+        el('ln-rec').className = 'ln-rec-btn recording';
+        el('ln-rec').textContent = '■';
+        el('ln-hint').textContent = 'Идёт запись… нажми ■ чтобы остановить';
+        seconds = 0; el('ln-timer').textContent = '0:00';
+        timerId = setInterval(function () {
+          seconds++; el('ln-timer').textContent = fmt(seconds);
+          if (seconds >= MAX_SECONDS) stopRec();
+        }, 1000);
+      }).catch(function () {
+        setStatus('Нет доступа к микрофону. Разреши доступ в настройках браузера.', true);
+      });
+    }
+
+    function stopRec() {
+      if (timerId) { clearInterval(timerId); timerId = null; }
+      if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+      el('ln-rec').className = 'ln-rec-btn';
+      el('ln-rec').textContent = '●';
+      el('ln-hint').textContent = 'Готово. Обрабатываю…';
+    }
+
+    function onStopped() {
+      stopTracks();
+      var blob = new Blob(chunks, { type: (mediaRecorder && mediaRecorder.mimeType) || 'audio/webm' });
+      if (!blob.size) { setStatus('Пустая запись, попробуй ещё раз.', true); return; }
+      setStatus('⏳ Расшифровываю и причёсываю текст (это занимает 10–40 сек)…');
+      var reader = new FileReader();
+      reader.onloadend = function () {
+        var b64 = String(reader.result).split(',')[1];
+        sendAudio(b64, blob.type);
+      };
+      reader.readAsDataURL(blob);
+    }
+
+    function sendAudio(b64, mime) {
+      var body = { action: 'transcribeLesson', audioBase64: b64, mime: mime, mkName: ctx.mkName || '' };
+      fetch(LIBRARY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // обходит CORS-preflight Apps Script
+        body: JSON.stringify(body)
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (!d || !d.ok) { setStatus('Не удалось расшифровать: ' + ((d && d.error) || 'ошибка сервера'), true); return; }
+          el('ln-text').value = d.textClean || d.textRaw || '';
+          el('ln-raw').textContent = d.textRaw || '';
+          el('ln-result').style.display = 'block';
+          setStatus('Готово. Проверь текст и при желании поправь.');
+        })
+        .catch(function (e) { setStatus('Ошибка сети: ' + e.message, true); });
+    }
+
+    function toggleRaw() { el('ln-raw').classList.toggle('open'); }
+
+    function save() {
+      var id = getQueryParam('id');
+      var text = el('ln-text').value.trim();
+      if (!text) { setStatus('Текст пустой.', true); return; }
+      var btn = el('ln-save'); btn.disabled = true;
+      var body = {
+        action: 'saveLessonNote', seasonId: id, mkKey: ctx.mkKey,
+        teacher: ctx.teacher || '', dayIdx: dayIdxFromKey(ctx.mkKey),
+        mkName: ctx.mkName || '', textRaw: el('ln-raw').textContent || '', textClean: text
+      };
+      fetch(LIBRARY_URL, {
+        method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(body)
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          btn.disabled = false;
+          setStatus(d && d.ok ? '✅ Сохранено.' : 'Не удалось сохранить.', !(d && d.ok));
+        })
+        .catch(function (e) { btn.disabled = false; setStatus('Ошибка сети: ' + e.message, true); });
+    }
+
+    function toViber() {
+      var text = el('ln-text').value.trim();
+      if (!text) { setStatus('Сначала наговори или впиши текст.', true); return; }
+      window.location.href = 'viber://forward?text=' + encodeURIComponent(text);
+      setStatus('Открываю Viber… Если текст не подставился — нажми «Скопировать» и вставь вручную.');
+    }
+
+    function copy() {
+      var text = el('ln-text').value.trim();
+      if (!text) { setStatus('Текст пустой.', true); return; }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(
+          function () { setStatus('📋 Скопировано — вставь в нужный чат Viber.'); },
+          function () { fallbackCopy(text); }
+        );
+      } else { fallbackCopy(text); }
+    }
+
+    function fallbackCopy(text) {
+      var ta = el('ln-text'); ta.focus(); ta.select();
+      try { document.execCommand('copy'); setStatus('📋 Скопировано — вставь в нужный чат Viber.'); }
+      catch (e) { setStatus('Скопируй текст вручную.', true); }
+    }
+
+    return { open: open, close: close, toggleRec: toggleRec, toggleRaw: toggleRaw,
+             save: save, toViber: toViber, copy: copy };
+  })();
 </script>
 </body>
 </html>
