@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Администратор · Прознание</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@400;500;600;700&family=Inter:wght@400;500;600&family=Caveat:wght@600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#151617; --white:#ffffff; --paper:#fffdf6; --paper-warm:#FBF6EC;
+    --yellow:#FED634; --yellow-deep:#C9A800; --moss:#8FA370; --moss-deep:#6f8052;
+    --line:rgba(21,22,23,0.15); --muted:rgba(21,22,23,0.55);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Inter',system-ui,sans-serif;font-size:15px;line-height:1.5}
+  h1,h2,h3{font-family:'Geologica',sans-serif;margin:0}
+  code{font-family:ui-monospace,Menlo,monospace}
+
+  /* lock */
+  #lockscreen{position:fixed;inset:0;background:var(--paper);display:flex;align-items:center;justify-content:center;z-index:1000;padding:24px}
+  body.unlocked #lockscreen{display:none}
+  body:not(.unlocked) #app{display:none}
+  .lock-card{max-width:340px;width:100%;text-align:center}
+  .lock-card h1{font-size:24px;margin-bottom:6px}
+  .lock-card p{color:var(--muted);font-size:14px;margin:0 0 18px}
+  .lock-card input{width:100%;padding:12px 14px;font-size:16px;border:2px solid var(--line);border-radius:12px;margin-bottom:10px;font-family:inherit}
+  .lock-card input:focus{outline:none;border-color:var(--yellow-deep)}
+  .lock-card button{width:100%;padding:12px;font-size:16px;font-weight:600;background:var(--yellow);border:none;border-radius:12px;cursor:pointer;font-family:inherit;color:var(--ink)}
+  .lock-err{color:#c0392b;font-size:13px;min-height:18px;margin-top:4px}
+
+  header{background:var(--paper-warm);border-bottom:1px solid var(--line);padding:18px 22px}
+  header .hwrap{max-width:920px;margin:0 auto}
+  header h1{font-size:22px}
+  header .sub{color:var(--muted);font-size:13px;margin-top:3px}
+  .tabs{max-width:920px;margin:14px auto 0;display:flex;gap:8px;flex-wrap:wrap}
+  .tab{padding:9px 15px;font-size:14px;border:2px solid var(--line);background:var(--white);border-radius:10px;cursor:pointer;font-family:inherit;font-weight:600;color:var(--ink)}
+  .tab.active{border-color:var(--moss);background:#f3f7ee;color:var(--moss-deep)}
+
+  main{max-width:920px;margin:0 auto;padding:22px;}
+  .pane{display:none}
+  .pane.active{display:block}
+
+  /* links */
+  .link-card{background:var(--white);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:12px}
+  .link-label{font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:6px}
+  .link-row{display:flex;gap:6px;align-items:center}
+  .link-row input{flex:1;font-family:Inter,sans-serif;font-size:13px;border:1px solid var(--line);background:var(--paper-warm);padding:8px 11px;color:var(--ink);outline:none;border-radius:7px}
+  .btn{padding:8px 13px;font-size:13px;border:1px solid var(--line);background:var(--white);border-radius:8px;cursor:pointer;font-family:inherit;font-weight:600;color:var(--ink);text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+  .btn:hover{background:var(--paper-warm)}
+  .btn-primary{background:var(--ink);color:var(--white);border-color:var(--ink)}
+  .btn-primary:hover{opacity:0.9;background:var(--ink)}
+  .btn-sm{padding:6px 9px;font-size:12px}
+  .btn-ghost{background:transparent;border-color:transparent;color:var(--muted)}
+
+  /* troops (перенос из index4) */
+  .troops-import-panel{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;background:var(--paper-warm);border:1px solid rgba(21,22,23,0.1);border-radius:6px;padding:14px 16px;margin-bottom:14px}
+  .troops-import-panel .field{flex:1;min-width:220px;margin:0}
+  .troops-import-panel label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
+  .troops-import-panel input{width:100%;padding:9px 11px;font-size:14px;border:1px solid var(--line);border-radius:7px;font-family:inherit}
+  .troops-statusbar{display:flex;gap:16px;align-items:center;margin-bottom:14px;font-family:Inter,sans-serif;font-size:12px;color:rgba(21,22,23,0.65);flex-wrap:wrap}
+  .troops-statusbar code{background:var(--white);padding:2px 6px;border-radius:2px;font-size:11px;border:1px solid rgba(21,22,23,0.15)}
+  .kid-board{display:grid;grid-template-columns:1.1fr 1fr 1fr 1fr 1fr;gap:8px;align-items:start}
+  .kid-col{border-radius:8px;border:1px solid rgba(21,22,23,0.12);padding:8px;min-height:200px}
+  .kid-col-title{font-family:Inter,sans-serif;font-size:12px;font-weight:600;margin-bottom:8px;padding:0 2px}
+  .kid-card{background:var(--white);border:1px solid rgba(21,22,23,0.15);border-radius:5px;padding:6px 8px;margin-bottom:5px;cursor:grab;font-family:Inter,sans-serif;font-size:12px;display:flex;justify-content:space-between;align-items:center;gap:6px}
+  .kid-card:active{cursor:grabbing}
+  .kid-card .tc-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .kid-card .tc-age{color:rgba(21,22,23,0.45)}
+  .kid-card .tc-lock{cursor:pointer;font-size:13px;flex-shrink:0}
+  .kid-card.is-locked{background:#FFF6D8;border-color:#E8C200;box-shadow:inset 3px 0 0 #E8C200}
+  .kid-card.is-locked .tc-name{font-weight:600}
+  .kid-col.drag-over{outline:2px dashed currentColor;outline-offset:-2px}
+  .troops-hint{font-family:Inter,sans-serif;font-size:12px;color:rgba(21,22,23,0.5);margin-top:14px;line-height:1.5}
+  @media (max-width:900px){ .kid-board{grid-template-columns:1fr 1fr} }
+
+  .soon{background:var(--white);border:1px dashed var(--line);border-radius:12px;padding:28px;text-align:center;color:var(--muted);font-size:14px}
+  .soon h3{font-family:'Geologica';font-size:16px;color:var(--ink);margin-bottom:8px}
+
+  #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:10px;font-size:14px;opacity:0;pointer-events:none;transition:all 0.25s;z-index:2000}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<div id="lockscreen">
+  <div class="lock-card">
+    <h1>Администратор</h1>
+    <p>Введи пароль клуба</p>
+    <input type="password" id="lock-input" placeholder="Пароль" autocomplete="current-password">
+    <button onclick="tryUnlock()">Войти</button>
+    <div class="lock-err" id="lock-err"></div>
+  </div>
+</div>
+
+<div id="app">
+  <header>
+    <div class="hwrap">
+      <h1 id="title">Администратор смены</h1>
+      <div class="sub" id="subhead">Загрузка…</div>
+    </div>
+    <div class="tabs">
+      <button class="tab active" id="tab-links" onclick="switchPane('links')">🔗 Ссылки</button>
+      <button class="tab" id="tab-troops" onclick="switchPane('troops')">👦 Отряды</button>
+      <button class="tab" id="tab-lists" onclick="switchPane('lists')">📋 Списки</button>
+      <button class="tab" id="tab-checks" onclick="switchPane('checks')">🗂 Карта чеков</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- ССЫЛКИ -->
+    <div class="pane active" id="pane-links">
+      <div id="links-wrap"><div class="soon">Загружаю ссылки…</div></div>
+    </div>
+
+    <!-- ОТРЯДЫ (перенос окна из index4) -->
+    <div class="pane" id="pane-troops">
+      <div class="troops-import-panel">
+        <div class="field">
+          <label>ID или названия лагерных групп в Альфе (через запятую)</label>
+          <input type="text" id="troops-group-input" placeholder="напр. 162  или  Лагерь июнь №1, Лагерь июнь №2">
+        </div>
+        <button class="btn btn-primary" id="troops-import-btn" onclick="importTroopsChildren()">⬇ Импортировать и разбить</button>
+        <button class="btn" onclick="reshuffleTroops()" title="Переразложить незакреплённых по возрасту">🔀 Переразбить</button>
+        <button class="btn" onclick="checkTroopsActuality()" id="troops-check-btn" title="Сравнить список с актуальным составом в Альфе">🔍 Проверить актуальность</button>
+        <button class="btn" onclick="saveTroopsManual()" title="Сохранить распределение в таблицу">💾 Сохранить</button>
+      </div>
+      <div class="troops-statusbar">
+        <span id="troops-save-status"><span style="color:var(--moss)">●</span> сохранено</span>
+        <span>Смена: <code id="troops-season-id">—</code></span>
+        <span id="troops-counts"></span>
+      </div>
+      <div id="troops-check-result" style="display:none;margin-bottom:14px"></div>
+      <div id="troops-board" class="kid-board"></div>
+      <p class="troops-hint">Перетащи карточку между колонками. 🔒 закрепляет ребёнка — при «Переразбить» закреплённые не двигаются. Дата рождения определяет, в какой отряд попадёт ребёнок (1 — младшие, 4 — старшие).</p>
+    </div>
+
+    <!-- СПИСКИ (задел) -->
+    <div class="pane" id="pane-lists">
+      <div class="soon"><h3>📋 Списки</h3>Здесь появится формирование списков детей (по отрядам, для печати, для регистрации). В разработке.</div>
+    </div>
+
+    <!-- КАРТА ЧЕКОВ (задел) -->
+    <div class="pane" id="pane-checks">
+      <div class="soon"><h3>🗂 Карта чеков детей</h3>Здесь появится карта чеков / оплат по детям. В разработке.</div>
+    </div>
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  const LIBRARY_URL = 'https://script.google.com/macros/s/AKfycbxb6EEzzl-FguxjpIO5YthGLj-QXh7puCD_DO4HL4wVPziHL1pEtVeuo3uNEi2i2yXq/exec';
+  const LOCK_PASSWORD_HASH = '45e5a3f82cc81679d006c8d2f6e3cce87c89ec2059fe13a2d79438f0368b226a';
+  const LOCK_TOKEN_KEY = 'camp4_lock_token';
+
+  const SEASON_ID = (function(){ const m=/[?&]id=([^&#]+)/.exec(location.search); return m?decodeURIComponent(m[1]):''; })();
+  let seasonMeta = { id: SEASON_ID, name: '', theme: '' };
+
+  const TROOPS4_META = [
+    { key: 0, name: 'Без отряда',        color: '#888780', bg: 'transparent' },
+    { key: 1, name: 'Отряд 1 · младшие', color: '#185FA5', bg: '#E6F1FB' },
+    { key: 2, name: 'Отряд 2',           color: '#993C1D', bg: '#FAECE7' },
+    { key: 3, name: 'Отряд 3',           color: '#3B6D11', bg: '#EAF3DE' },
+    { key: 4, name: 'Отряд 4 · старшие', color: '#534AB7', bg: '#EEEDFE' }
+  ];
+  let _troopsKids = [];
+  let _troopsSaveTimer = null;
+
+  // ── LOCK ──
+  async function sha256Hex(str){
+    const buf=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+  async function tryUnlock(){
+    const inp=document.getElementById('lock-input'), err=document.getElementById('lock-err');
+    const hex=await sha256Hex(inp.value);
+    if(hex===LOCK_PASSWORD_HASH){ try{localStorage.setItem(LOCK_TOKEN_KEY,hex);}catch(e){} document.body.classList.add('unlocked'); bootstrap(); }
+    else { err.textContent='Неверный пароль'; inp.value=''; inp.focus(); }
+  }
+  document.getElementById('lock-input').addEventListener('keydown',e=>{ if(e.key==='Enter') tryUnlock(); });
+  (function(){ let tok=''; try{tok=localStorage.getItem(LOCK_TOKEN_KEY)||'';}catch(e){}
+    if(tok===LOCK_PASSWORD_HASH){ document.body.classList.add('unlocked'); bootstrap(); }
+    else document.getElementById('lock-input').focus();
+  })();
+
+  // ── UTILS ──
+  function escapeHtml(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+  function escapeJs(s){ return String(s==null?'':s).replace(/'/g,"\\'"); }
+  function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(window._toastTimer); window._toastTimer=setTimeout(()=>t.classList.remove('show'),2200); }
+  function dobSortKey4_(dob){ const m=String(dob||'').trim().match(/^(\d{2})\.(\d{2})\.(\d{4})$/); if(!m) return 0; return new Date(+m[3],+m[2]-1,+m[1]).getTime(); }
+
+  function switchPane(which){
+    ['links','troops','lists','checks'].forEach(p=>{
+      document.getElementById('pane-'+p).classList.toggle('active', p===which);
+      document.getElementById('tab-'+p).classList.toggle('active', p===which);
+    });
+    if(which==='troops' && _troopsKids.length===0) loadTroopsChildren();
+  }
+
+  // ── BOOTSTRAP ──
+  async function bootstrap(){
+    if(!SEASON_ID){ document.getElementById('subhead').textContent='В ссылке не указан ID смены'; document.getElementById('links-wrap').innerHTML='<div class="soon">Нет ID смены в ссылке.</div>'; return; }
+    document.getElementById('troops-season-id').textContent = SEASON_ID;
+    try{
+      const r=await fetch(LIBRARY_URL+'?action=getPublished&id='+encodeURIComponent(SEASON_ID)).then(r=>r.json());
+      if(r.ok && r.publication){ seasonMeta={id:r.publication.id,name:r.publication.name||'',theme:r.publication.theme||''}; }
+      document.getElementById('title').textContent = seasonMeta.name ? ('Администратор · '+seasonMeta.name) : 'Администратор смены';
+      document.getElementById('subhead').textContent = 'ID: '+SEASON_ID;
+    }catch(e){ document.getElementById('subhead').textContent='ID: '+SEASON_ID; }
+    renderLinks();
+  }
+
+  // ── ССЫЛКИ ──
+  function pageUrl(page){ return location.href.split('?')[0].replace(/admin-hub4\.html$/, page) + '?id=' + encodeURIComponent(SEASON_ID); }
+  const LINKS = [
+    ['для педагогов','view4.html'],
+    ['для родителей (расписание)','parents4.html'],
+    ['для кураторов (по отрядам + игры)','print4.html'],
+    ['для админа (дни × блоки + выезды)','admin4.html'],
+    ['табель работы педагогов','payroll4.html'],
+    ['баллы детям (педагоги после оценочных МК)','scores4.html'],
+    ['письма родителям (ИИ по баллам)','reports4.html'],
+    ['цифровой паспорт ребёнка','passport4.html']
+  ];
+  function renderLinks(){
+    let html='';
+    LINKS.forEach(([label,page])=>{
+      const url=pageUrl(page);
+      html+='<div class="link-card"><div class="link-label">'+escapeHtml(label)+'</div><div class="link-row">'+
+        '<input type="text" readonly value="'+escapeHtml(url)+'" onclick="this.select()">'+
+        '<button class="btn btn-sm" onclick="copyLink(\''+escapeJs(url)+'\',this)">📋</button>'+
+        '<a class="btn btn-sm" href="'+escapeHtml(url)+'" target="_blank" rel="noopener">↗</a>'+
+        '</div></div>';
+    });
+    html+='<div style="margin-top:8px"><button class="btn btn-primary" onclick="openParentLinks()">🔗 Ссылки для родителей (SendPulse)</button></div>';
+    document.getElementById('links-wrap').innerHTML=html;
+  }
+  function copyLink(url,btn){ const done=()=>{const o=btn.textContent;btn.textContent='✓';setTimeout(()=>btn.textContent=o,1200);}; if(navigator.clipboard) navigator.clipboard.writeText(url).then(done).catch(()=>{}); }
+
+  // ── ССЫЛКИ ДЛЯ РОДИТЕЛЕЙ (SendPulse) — как в index4 ──
+  async function openParentLinks(){
+    if(!SEASON_ID){ toast('Нет ID смены'); return; }
+    const passBase = pageUrl('passport4.html').split('?')[0];
+    let ov=document.getElementById('parent-links-ov');
+    if(!ov){ ov=document.createElement('div'); ov.id='parent-links-ov'; ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:flex-start;justify-content:center;z-index:9999;padding:24px 16px;overflow-y:auto'; ov.onclick=e=>{if(e.target===ov)ov.remove();}; document.body.appendChild(ov); }
+    ov.innerHTML='<div style="background:#fff;max-width:820px;width:100%;border-radius:12px;padding:22px 24px;margin:auto"><div style="font-size:13px;color:#666">Генерирую токены…</div></div>';
+    try{
+      await fetch(LIBRARY_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'generatePassportTokens',seasonId:SEASON_ID})}).then(r=>r.json());
+      const resp=await fetch(LIBRARY_URL+'?action=getPassportTokens&seasonId='+encodeURIComponent(SEASON_ID)).then(r=>r.json());
+      const list=(resp.ok&&Array.isArray(resp.tokens))?resp.tokens:[];
+      if(!list.length){ ov.querySelector('div div').textContent='Нет детей — сначала импортируй на вкладке «Отряды».'; return; }
+      const rows=list.map(t=>({phone:t.parentPhone||'',child:t.childName||'',link:passBase+'?id='+encodeURIComponent(SEASON_ID)+'&t='+encodeURIComponent(t.token)}));
+      const csv='phone,child,link\n'+rows.map(r=>'"'+r.phone+'","'+r.child.replace(/"/g,'""')+'","'+r.link+'"').join('\n');
+      window._parentLinksCSV=csv;
+      let html='<div style="background:#fff;max-width:820px;width:100%;border-radius:12px;padding:22px 24px;margin:auto;font-family:Inter,sans-serif">';
+      html+='<div style="display:flex;align-items:center;margin-bottom:6px"><h3 style="margin:0;font-size:18px;flex:1">🔗 Ссылки для родителей</h3><button onclick="document.getElementById(\'parent-links-ov\').remove()" style="border:none;background:none;font-size:22px;cursor:pointer;color:#999">×</button></div>';
+      html+='<div style="font-size:13px;color:#666;line-height:1.5;margin-bottom:14px">Телефон в E.164 → персональная ссылка. Загрузи CSV в SendPulse: бот по номеру выдаст ссылку. Ссылка открывает паспорт без пароля, только этого ребёнка.</div>';
+      html+='<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap"><button class="btn btn-sm" onclick="copyParentCSV(this)" style="background:#8FA370;color:#fff;border-color:#8FA370">📋 Копировать CSV</button><button class="btn btn-sm" onclick="downloadParentCSV()">⬇️ Скачать CSV</button><span style="font-size:12px;color:#999;align-self:center">всего: '+rows.length+'</span></div>';
+      html+='<div style="max-height:50vh;overflow-y:auto;border:1px solid #eee;border-radius:8px"><table style="width:100%;border-collapse:collapse;font-size:12px"><tr style="background:#FBF6EC;position:sticky;top:0"><th style="text-align:left;padding:7px 9px">Телефон</th><th style="text-align:left;padding:7px 9px">Ребёнок</th><th style="text-align:left;padding:7px 9px">Ссылка</th></tr>';
+      rows.forEach(r=>{ html+='<tr style="border-top:1px solid #f0f0f0"><td style="padding:6px 9px;white-space:nowrap">'+escapeHtml(r.phone||'—')+'</td><td style="padding:6px 9px">'+escapeHtml(r.child)+'</td><td style="padding:6px 9px"><a href="'+escapeHtml(r.link)+'" target="_blank" style="color:#41BEEA;font-size:11px">открыть ↗</a> <button class="btn btn-sm" style="padding:2px 7px;font-size:11px" onclick="copyLink(\''+escapeJs(r.link)+'\',this)">📋</button></td></tr>'; });
+      html+='</table></div><div style="font-size:11px;color:#aaa;margin-top:10px">Где телефона нет — дозаполни вручную в CSV.</div></div>';
+      ov.innerHTML=html;
+    }catch(e){ ov.innerHTML='<div style="background:#fff;max-width:520px;border-radius:12px;padding:22px;margin:auto"><div style="color:#c0392b">Ошибка: '+escapeHtml(e.message)+'</div><button class="btn btn-sm" style="margin-top:12px" onclick="document.getElementById(\'parent-links-ov\').remove()">Закрыть</button></div>'; }
+  }
+  function copyParentCSV(btn){ const t=window._parentLinksCSV||''; const done=()=>{const o=btn.textContent;btn.textContent='✓ Скопировано';setTimeout(()=>btn.textContent=o,1500);}; if(navigator.clipboard) navigator.clipboard.writeText(t).then(done).catch(()=>{}); }
+  function downloadParentCSV(){ const t=window._parentLinksCSV||''; const blob=new Blob(['\ufeff'+t],{type:'text/csv;charset=utf-8'}); const u=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=u; a.download='ссылки_родителям.csv'; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u); }
+
+  // ── ОТРЯДЫ (перенос из index4, seasonId = SEASON_ID) ──
+  function troopsSeasonId_(){ return SEASON_ID; }
+  function troopsSetStatus_(saved){ const s=document.getElementById('troops-save-status'); if(!s) return; s.innerHTML=saved?'<span style="color:var(--moss)">●</span> сохранено':'<span style="color:#C9A800">●</span> сохранение…'; }
+
+  async function loadTroopsChildren(){
+    const sid=troopsSeasonId_(); const board=document.getElementById('troops-board');
+    if(!sid){ board.innerHTML='<div style="padding:20px;color:var(--muted)">Нет ID смены.</div>'; return; }
+    board.innerHTML='<div style="padding:20px;font-size:13px;color:rgba(21,22,23,0.5)">Загружаю детей…</div>';
+    try{
+      const r=await fetch(LIBRARY_URL+'?action=getChildren&seasonId='+encodeURIComponent(sid));
+      const j=await r.json();
+      if(!j.ok) throw new Error(j.error||'Ошибка загрузки');
+      _troopsKids=(j.children||[]).map(c=>({crmId:String(c.crmId),name:c.name||'',dob:c.dob||'',age:c.age,gender:c.gender,parentName:c.parentName||'',parentPhone:c.parentPhone||'',troop:c.troop||0,locked:!!c.locked}));
+      renderTroopsBoard();
+    }catch(e){ board.innerHTML='<div style="padding:20px;font-size:13px;color:#c0392b">Ошибка: '+escapeHtml(e.message)+'</div>'; }
+  }
+
+  async function importTroopsChildren(){
+    const sid=troopsSeasonId_();
+    if(!sid){ toast('Нет ID смены'); return; }
+    const raw=(document.getElementById('troops-group-input').value||'').trim();
+    if(!raw){ toast('Введи id или названия групп'); return; }
+    const parts=raw.split(',').map(s=>s.trim()).filter(Boolean);
+    const ids=parts.filter(p=>/^\d+$/.test(p)).map(Number);
+    const names=parts.filter(p=>!/^\d+$/.test(p));
+    const btn=document.getElementById('troops-import-btn'); const oldLabel=btn.textContent;
+    btn.disabled=true; btn.textContent='⏳ Импорт из Альфы…'; troopsSetStatus_(false);
+    try{
+      const r1=await fetch(LIBRARY_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'importChildren',seasonId:sid,groupIds:ids.length?ids:null,groupNames:names.length?names:null})});
+      const j1=await r1.json(); if(!j1.ok) throw new Error(j1.error||'Ошибка импорта');
+      btn.textContent='⏳ Разбиваю по возрасту…';
+      const r2=await fetch(LIBRARY_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'autoSplitTroops',seasonId:sid})});
+      const j2=await r2.json(); if(!j2.ok) throw new Error(j2.error||'Ошибка разбивки');
+      await loadTroopsChildren(); troopsSetStatus_(true);
+      let msg='Импортировано: '+(j1.result.added+j1.result.updated)+' детей, разбито на 4 отряда';
+      if(j1.result.missingNames&&j1.result.missingNames.length) msg+='. Не найдены группы: '+j1.result.missingNames.join(', ');
+      toast(msg);
+    }catch(e){ toast('Ошибка: '+e.message); troopsSetStatus_(true); }
+    finally{ btn.disabled=false; btn.textContent=oldLabel; }
+  }
+
+  async function reshuffleTroops(){
+    const sid=troopsSeasonId_(); if(!sid){ toast('Нет ID смены'); return; }
+    troopsSetStatus_(false);
+    try{
+      const r=await fetch(LIBRARY_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'autoSplitTroops',seasonId:sid})});
+      const j=await r.json(); if(!j.ok) throw new Error(j.error||'Ошибка');
+      await loadTroopsChildren(); troopsSetStatus_(true); toast('Переразбито по возрасту (закреплённые на местах)');
+    }catch(e){ toast('Ошибка: '+e.message); troopsSetStatus_(true); }
+  }
+
+  async function saveTroopsToServer_(){
+    const sid=troopsSeasonId_(); if(!sid) throw new Error('Нет ID смены');
+    const assignments={}; _troopsKids.forEach(k=>{ assignments[k.crmId]={troop:k.troop||'',locked:!!k.locked}; });
+    const r=await fetch(LIBRARY_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'saveTroops',seasonId:sid,assignments:assignments})});
+    const j=await r.json(); if(!j.ok) throw new Error(j.error||'Ошибка сохранения'); return j.result;
+  }
+  function troopsAutoSave_(){ troopsSetStatus_(false); if(_troopsSaveTimer) clearTimeout(_troopsSaveTimer); _troopsSaveTimer=setTimeout(async()=>{ try{ await saveTroopsToServer_(); troopsSetStatus_(true); }catch(e){ toast('Не сохранилось: '+e.message); } },800); }
+  async function saveTroopsManual(){ troopsSetStatus_(false); try{ await saveTroopsToServer_(); troopsSetStatus_(true); toast('Отряды сохранены'); }catch(e){ toast('Ошибка: '+e.message); } }
+
+  function renderTroopsBoard(){
+    const board=document.getElementById('troops-board'); board.innerHTML='';
+    const counts=[0,0,0,0,0]; _troopsKids.forEach(k=>{ counts[k.troop||0]++; });
+    TROOPS4_META.forEach(tr=>{
+      const col=document.createElement('div'); col.className='kid-col'; col.style.background=tr.bg; col.style.color=tr.color; col.dataset.troop=tr.key;
+      const list=_troopsKids.filter(k=>(k.troop||0)===tr.key).sort((a,b)=>dobSortKey4_(b.dob)-dobSortKey4_(a.dob));
+      const title=document.createElement('div'); title.className='kid-col-title'; title.style.color=tr.color;
+      title.innerHTML=escapeHtml(tr.name)+' <span style="opacity:0.6">('+list.length+')</span>'; col.appendChild(title);
+      list.forEach(k=>{
+        const card=document.createElement('div'); card.className='kid-card'+(k.locked?' is-locked':''); card.draggable=true; card.dataset.id=k.crmId;
+        const ageStr=(k.age===''||k.age==null)?'':' <span class="tc-age">'+k.age+'</span>';
+        card.innerHTML='<span class="tc-name" title="'+escapeHtml(k.name)+(k.parentPhone?' · '+escapeHtml(k.parentPhone):'')+'">'+escapeHtml(k.name)+ageStr+'</span>'+
+          '<span class="tc-lock" title="'+(k.locked?'Закреплён — нажми, чтобы открепить':'Нажми, чтобы закрепить')+'">'+(k.locked?'🔒':'🔓')+'</span>';
+        card.querySelector('.tc-lock').onclick=(e)=>{ e.stopPropagation(); k.locked=!k.locked; renderTroopsBoard(); troopsAutoSave_(); };
+        card.ondragstart=(e)=>{ e.dataTransfer.setData('id',k.crmId); card.style.opacity='0.4'; };
+        card.ondragend=()=>{ card.style.opacity='1'; };
+        col.appendChild(card);
+      });
+      col.ondragover=(e)=>{ e.preventDefault(); col.classList.add('drag-over'); };
+      col.ondragleave=()=>{ col.classList.remove('drag-over'); };
+      col.ondrop=(e)=>{ e.preventDefault(); col.classList.remove('drag-over'); const id=e.dataTransfer.getData('id'); const k=_troopsKids.find(x=>x.crmId===id); if(k&&(k.troop||0)!==tr.key){ k.troop=tr.key; renderTroopsBoard(); troopsAutoSave_(); } };
+      board.appendChild(col);
+    });
+    const placed=_troopsKids.length-counts[0];
+    document.getElementById('troops-counts').textContent='распределено: '+placed+'/'+_troopsKids.length;
+  }
+
+  async function checkTroopsActuality(){
+    const sid=troopsSeasonId_(); if(!sid){ toast('Нет ID смены'); return; }
+    const box=document.getElementById('troops-check-result'); const btn=document.getElementById('troops-check-btn'); const oldLabel=btn.textContent;
+    btn.disabled=true; btn.textContent='⏳ Проверяю Альфу…'; box.style.display='block';
+    box.innerHTML='<div style="padding:14px;font-size:13px;color:rgba(21,22,23,0.6)">Сравниваю список с актуальным составом в Альфе…</div>';
+    try{
+      const r=await fetch(LIBRARY_URL+'?action=checkChildrenActuality&seasonId='+encodeURIComponent(sid)+'&_t='+Date.now());
+      const j=await r.json(); if(!j.ok) throw new Error(j.error||'Ошибка проверки');
+      renderCheckResult_(j.result);
+    }catch(e){ box.innerHTML='<div style="padding:14px;font-size:13px;color:#c0392b">Ошибка: '+escapeHtml(e.message)+'</div>'; }
+    finally{ btn.disabled=false; btn.textContent=oldLabel; }
+  }
+  function renderCheckResult_(res){
+    const box=document.getElementById('troops-check-result'); const left=res.left||[]; const added=res.added||[];
+    window._troopsCheckedGroups=res.groupsChecked||[];
+    if(res.inSync||(left.length===0&&added.length===0)){
+      box.innerHTML='<div style="padding:12px 16px;background:#EAF6E3;border:1px solid #9Fca7e;border-radius:6px;font-size:13px;color:#3B6D11">✓ Состав актуален — расхождений с Альфой нет.'+(res.groupsChecked&&res.groupsChecked.length?' <span style="opacity:0.7">(группы: '+res.groupsChecked.join(', ')+')</span>':'')+' <button class="btn btn-sm btn-ghost" onclick="document.getElementById(\'troops-check-result\').style.display=\'none\'">скрыть</button></div>';
+      return;
+    }
+    let html='<div style="padding:14px 16px;background:#FFF6E5;border:1px solid #E8C95A;border-radius:6px">';
+    html+='<div style="font-weight:700;font-size:13px;margin-bottom:10px">Найдены расхождения с Альфой'+(res.groupsChecked&&res.groupsChecked.length?' <span style="font-weight:400;opacity:0.7">(группы: '+res.groupsChecked.join(', ')+')</span>':'')+'</div>';
+    if(left.length>0){
+      window._troopsLeftIds=left.map(c=>c.crmId);
+      html+='<div style="margin-bottom:12px"><div style="font-size:12px;font-weight:600;color:#c0392b;margin-bottom:5px">Выбыли из Альфы ('+left.length+') — больше не едут:</div>';
+      html+='<div style="font-size:13px;line-height:1.6;margin-bottom:8px">'+left.map(c=>'• '+escapeHtml(c.name)).join('<br>')+'</div>';
+      html+='<button class="btn btn-sm" onclick="removeLeftChildren_()" style="border-color:#c0392b;color:#c0392b">🗑 Убрать выбывших ('+left.length+')</button></div>';
+    }
+    if(added.length>0){
+      html+='<div style="margin-bottom:6px"><div style="font-size:12px;font-weight:600;color:#185FA5;margin-bottom:5px">Новые в Альфе ('+added.length+') — ещё не в списке:</div>';
+      html+='<div style="font-size:13px;line-height:1.6;margin-bottom:8px">'+added.map(c=>'• '+escapeHtml(c.name)+(c.age!==''&&c.age!=null?' ('+c.age+')':'')).join('<br>')+'</div>';
+      html+='<button class="btn btn-sm" onclick="addNewChildren_()" style="border-color:#185FA5;color:#185FA5">⬇ Добавить новых и разбить</button></div>';
+    }
+    html+='<div style="margin-top:8px"><button class="btn btn-sm btn-ghost" onclick="document.getElementById(\'troops-check-result\').style.display=\'none\'">скрыть</button></div></div>';
+    box.innerHTML=html;
+  }
+  async function removeLeftChildren_(){
+    const ids=window._troopsLeftIds||[]; if(!ids.length) return;
+    if(!confirm('Убрать '+ids.length+' выбывших из списка отрядов? Они исчезнут из смены.')) return;
+    const sid=troopsSeasonId_(); troopsSetStatus_(false);
+    try{
+      const r=await fetch(LIBRARY_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'removeChildren',seasonId:sid,crmIds:ids})});
+      const j=await r.json(); if(!j.ok) throw new Error(j.error||'Ошибка');
+      await loadTroopsChildren(); troopsSetStatus_(true); document.getElementById('troops-check-result').style.display='none';
+      toast('Убрано выбывших: '+(j.result.removed||ids.length));
+    }catch(e){ toast('Ошибка: '+e.message); troopsSetStatus_(true); }
+  }
+  async function addNewChildren_(){
+    document.getElementById('troops-check-result').style.display='none';
+    if(window._troopsCheckedGroups&&window._troopsCheckedGroups.length){ const inp=document.getElementById('troops-group-input'); if(inp&&!inp.value.trim()) inp.value=window._troopsCheckedGroups.join(', '); }
+    await importTroopsChildren();
+  }
+
+  // экспорты
+  window.tryUnlock=tryUnlock; window.switchPane=switchPane;
+  window.copyLink=copyLink; window.openParentLinks=openParentLinks; window.copyParentCSV=copyParentCSV; window.downloadParentCSV=downloadParentCSV;
+  window.importTroopsChildren=importTroopsChildren; window.reshuffleTroops=reshuffleTroops; window.saveTroopsManual=saveTroopsManual;
+  window.checkTroopsActuality=checkTroopsActuality; window.removeLeftChildren_=removeLeftChildren_; window.addNewChildren_=addNewChildren_;
+</script>
+</body>
+</html>
