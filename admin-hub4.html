@@ -88,10 +88,14 @@
   table.att thead th{background:var(--paper-warm);font-weight:600;font-size:12px;padding:7px 6px;white-space:nowrap;position:sticky;top:0}
   table.att th.att-name{text-align:left;padding:7px 11px;min-width:190px}
   table.att td.att-name{text-align:left;padding:7px 11px;white-space:nowrap}
+  table.att td.att-name:empty,table.att td.att-name{min-height:32px}
   table.att tr.att-troop td{background:var(--paper-warm);font-weight:700;font-family:'Geologica',sans-serif;color:var(--moss-deep);padding:7px 11px;text-align:left;letter-spacing:0.04em}
   .att-cell{width:38px;height:34px;cursor:pointer;font-weight:700;font-size:16px;user-select:none}
   .att-cell.v-plus{color:#3B6D11;background:#EAF3DE}
   .att-cell.v-minus{color:#993C1D;background:#FAECE7}
+  table.att th.att-dog{min-width:64px}
+  .att-cell.att-dog{width:64px}
+  .att-cell.att-dog.v-dog{color:#185FA5;background:#E6F1FB}
   .att-cell:hover{outline:2px solid var(--moss);outline-offset:-2px}
   .att-hint{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5}
   @media print{
@@ -482,24 +486,37 @@
     const box=document.getElementById('att-table');
     if(!_attKids.length){ box.innerHTML='<div style="padding:20px;font-size:13px;color:var(--muted)">Нет детей. Импортируй на вкладке «Отряды».</div>'; return; }
     const ROMAN=['','I','II','III','IV'];
-    let html='<table class="att"><thead><tr><th class="att-name">Ребёнок</th>';
+    let html='<table class="att"><thead><tr><th class="att-name">Ребёнок</th><th class="att-dog">Договор</th>';
     _attDates.forEach(d=>{ html+='<th>'+escapeHtml(d)+'</th>'; });
     html+='</tr></thead><tbody>';
     const renderKid=(k)=>{
-      let row='<tr><td class="att-name">'+escapeHtml(k.name)+'</td>';
+      const dv=_attMap[k.crmId+'|dogovor']||'';
+      let row='<tr><td class="att-name">'+escapeHtml(k.name)+'</td>'+
+        '<td class="att-cell att-dog '+(dv==='✓'?'v-dog':'')+'" data-cid="'+escapeHtml(k.crmId)+'" data-di="dogovor" onclick="cycleDog(this)">'+(dv||'')+'</td>';
       _attDates.forEach((d,di)=>{ const v=_attMap[k.crmId+'|'+di]||''; const cls=v==='+'?'v-plus':(v==='-'?'v-minus':''); row+='<td class="att-cell '+cls+'" data-cid="'+escapeHtml(k.crmId)+'" data-di="'+di+'" onclick="cycleAtt(this)">'+(v||'')+'</td>'; });
       return row+'</tr>';
+    };
+    const emptyRows=(n)=>{
+      let rows='';
+      for(let i=0;i<n;i++){
+        rows+='<tr><td class="att-name">&nbsp;</td><td class="att-cell att-dog"></td>';
+        _attDates.forEach(()=>{ rows+='<td class="att-cell"></td>'; });
+        rows+='</tr>';
+      }
+      return rows;
     };
     for(let t=1;t<=4;t++){
       const kids=_attKids.filter(k=>(k.troop||0)===t).sort((a,b)=>dobSortKey4_(b.dob)-dobSortKey4_(a.dob));
       if(!kids.length) continue;
-      html+='<tr class="att-troop"><td colspan="'+(_attDates.length+1)+'">'+ROMAN[t]+' отряд</td></tr>';
+      html+='<tr class="att-troop"><td colspan="'+(_attDates.length+2)+'">'+ROMAN[t]+' отряд</td></tr>';
       kids.forEach(k=>{ html+=renderKid(k); });
+      html+=emptyRows(2);
     }
     const noTroop=_attKids.filter(k=>!(k.troop>=1&&k.troop<=4));
     if(noTroop.length){
-      html+='<tr class="att-troop"><td colspan="'+(_attDates.length+1)+'">Без отряда</td></tr>';
+      html+='<tr class="att-troop"><td colspan="'+(_attDates.length+2)+'">Без отряда</td></tr>';
       noTroop.forEach(k=>{ html+=renderKid(k); });
+      html+=emptyRows(2);
     }
     html+='</tbody></table>';
     box.innerHTML=html;
@@ -513,6 +530,16 @@
     td.textContent=next;
     td.className='att-cell'+(next==='+'?' v-plus':(next==='-'?' v-minus':''));
     saveAtt_(cid,di,next);
+  }
+
+  function cycleDog(td){
+    const cid=td.dataset.cid, key=cid+'|dogovor';
+    const cur=_attMap[key]||'';
+    const next = cur===''?'✓':'';
+    if(next==='') delete _attMap[key]; else _attMap[key]=next;
+    td.textContent=next;
+    td.className='att-cell att-dog'+(next==='✓'?' v-dog':'');
+    saveAtt_(cid,'dogovor',next);
   }
 
   let _attSaveQueue=Promise.resolve();
@@ -536,7 +563,7 @@
   window.copyLink=copyLink; window.openParentLinks=openParentLinks; window.copyParentCSV=copyParentCSV; window.downloadParentCSV=downloadParentCSV;
   window.importTroopsChildren=importTroopsChildren; window.reshuffleTroops=reshuffleTroops; window.saveTroopsManual=saveTroopsManual;
   window.checkTroopsActuality=checkTroopsActuality; window.removeLeftChildren_=removeLeftChildren_; window.addNewChildren_=addNewChildren_;
-  window.cycleAtt=cycleAtt; window.printAttendance=printAttendance;
+  window.cycleAtt=cycleAtt; window.cycleDog=cycleDog; window.printAttendance=printAttendance;
 </script>
 </body>
 </html>
