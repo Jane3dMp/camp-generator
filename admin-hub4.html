@@ -41,11 +41,15 @@
   .pane{display:none}
   .pane.active{display:block}
 
-  /* links */
-  .link-card{background:var(--white);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:12px}
-  .link-label{font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:6px}
-  .link-row{display:flex;gap:6px;align-items:center}
-  .link-row input{flex:1;font-family:Inter,sans-serif;font-size:13px;border:1px solid var(--line);background:var(--paper-warm);padding:8px 11px;color:var(--ink);outline:none;border-radius:7px}
+  /* links — плитки */
+  .link-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+  .link-tile{position:relative;display:block;background:var(--white);border:1px solid var(--line);border-radius:12px;padding:18px 16px;text-decoration:none;color:var(--ink);transition:all 0.15s;cursor:pointer}
+  .link-tile:hover{border-color:var(--moss);background:#f3f7ee;transform:translateY(-1px);box-shadow:0 4px 12px rgba(90,58,40,0.08)}
+  .link-tile .lt-ic{font-size:22px;display:block;margin-bottom:8px}
+  .link-tile .lt-name{font-weight:600;font-size:14px;line-height:1.3;display:block;padding-right:24px}
+  .link-tile .lt-copy{position:absolute;top:12px;right:10px;background:transparent;border:none;cursor:pointer;font-size:15px;opacity:0.45;padding:4px;border-radius:6px;line-height:1}
+  .link-tile .lt-copy:hover{opacity:1;background:rgba(0,0,0,0.05)}
+  .sendpulse-btn{margin-top:16px}
   .btn{padding:8px 13px;font-size:13px;border:1px solid var(--line);background:var(--white);border-radius:8px;cursor:pointer;font-family:inherit;font-weight:600;color:var(--ink);text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
   .btn:hover{background:var(--paper-warm)}
   .btn-primary{background:var(--ink);color:var(--white);border-color:var(--ink)}
@@ -214,26 +218,27 @@
   // ── ССЫЛКИ ──
   function pageUrl(page){ return location.href.split('?')[0].replace(/admin-hub4\.html$/, page) + '?id=' + encodeURIComponent(SEASON_ID); }
   const LINKS = [
-    ['для педагогов','view4.html'],
-    ['для родителей (расписание)','parents4.html'],
-    ['для кураторов (по отрядам + игры)','print4.html'],
-    ['для админа (дни × блоки + выезды)','admin4.html'],
-    ['табель работы педагогов','payroll4.html'],
-    ['баллы детям (педагоги после оценочных МК)','scores4.html'],
-    ['письма родителям (ИИ по баллам)','reports4.html'],
-    ['цифровой паспорт ребёнка','passport4.html']
+    ['👩‍🏫','Педагогам','view4.html'],
+    ['👨‍👩‍👧','Родителям (расписание)','parents4.html'],
+    ['📋','Кураторам (отряды + игры)','print4.html'],
+    ['🗓','Админу (дни × блоки)','admin4.html'],
+    ['💰','Табель педагогов','payroll4.html'],
+    ['📊','Баллы детям','scores4.html'],
+    ['✍️','Письма родителям','reports4.html'],
+    ['🪪','Паспорт ребёнка','passport4.html']
   ];
   function renderLinks(){
-    let html='';
-    LINKS.forEach(([label,page])=>{
+    let html='<div class="link-grid">';
+    LINKS.forEach(([ic,label,page])=>{
       const url=pageUrl(page);
-      html+='<div class="link-card"><div class="link-label">'+escapeHtml(label)+'</div><div class="link-row">'+
-        '<input type="text" readonly value="'+escapeHtml(url)+'" onclick="this.select()">'+
-        '<button class="btn btn-sm" onclick="copyLink(\''+escapeJs(url)+'\',this)">📋</button>'+
-        '<a class="btn btn-sm" href="'+escapeHtml(url)+'" target="_blank" rel="noopener">↗</a>'+
-        '</div></div>';
+      html+='<a class="link-tile" href="'+escapeHtml(url)+'" target="_blank" rel="noopener">'+
+        '<button class="lt-copy" title="Копировать ссылку" onclick="event.preventDefault();event.stopPropagation();copyLink(\''+escapeJs(url)+'\',this)">📋</button>'+
+        '<span class="lt-ic">'+ic+'</span>'+
+        '<span class="lt-name">'+escapeHtml(label)+'</span>'+
+        '</a>';
     });
-    html+='<div style="margin-top:8px"><button class="btn btn-primary" onclick="openParentLinks()">🔗 Ссылки для родителей (SendPulse)</button></div>';
+    html+='</div>';
+    html+='<button class="btn btn-primary sendpulse-btn" onclick="openParentLinks()">🔗 Ссылки для родителей (SendPulse)</button>';
     document.getElementById('links-wrap').innerHTML=html;
   }
   function copyLink(url,btn){ const done=()=>{const o=btn.textContent;btn.textContent='✓';setTimeout(()=>btn.textContent=o,1200);}; if(navigator.clipboard) navigator.clipboard.writeText(url).then(done).catch(()=>{}); }
