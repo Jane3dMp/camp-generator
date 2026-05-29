@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Паспорт ребёнка · Прознание</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@400;500;600;700&family=Inter:wght@400;500;600&family=Caveat:wght@600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@400;500;600;700&family=Unbounded:wght@500;600;700;800&family=Inter:wght@400;500;600&family=Caveat:wght@600&display=swap" rel="stylesheet">
 <style>
   :root{
     --yellow:#FED634; --yellow-deep:#C9A800; --ink:#1f1c14; --paper:#fffdf6;
@@ -14,22 +14,22 @@
     --terra:#C1694F;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Inter',system-ui,sans-serif;font-size:16px;line-height:1.5}
-  h1,h2,h3{font-family:'Geologica',sans-serif;margin:0}
+  body{margin:0;background:#FBF6EC;color:#2E2A22;font-family:'Inter',system-ui,sans-serif;font-size:16px;line-height:1.5}
+  h1,h2,h3{margin:0}
   em{font-family:'Caveat',cursive;font-style:normal;font-size:1.15em;color:var(--green-deep)}
 
-  #lockscreen{position:fixed;inset:0;background:var(--paper);display:flex;align-items:center;justify-content:center;z-index:1000;padding:24px}
+  #lockscreen{position:fixed;inset:0;background:#FBF6EC;display:flex;align-items:center;justify-content:center;z-index:1000;padding:24px}
   body.unlocked #lockscreen{display:none}
   body:not(.unlocked) #app{display:none}
   .lock-card{max-width:340px;width:100%;text-align:center}
-  .lock-card h1{font-size:24px;margin-bottom:6px}
+  .lock-card h1{font-family:'Unbounded';font-size:24px;font-weight:700;margin-bottom:6px;color:#5A3A28}
   .lock-card p{color:var(--muted);font-size:14px;margin:0 0 18px}
   .lock-card input{width:100%;padding:12px 14px;font-size:16px;border:2px solid var(--line);border-radius:12px;margin-bottom:10px;font-family:inherit}
   .lock-card input:focus{outline:none;border-color:var(--yellow-deep)}
   .lock-card button{width:100%;padding:12px;font-size:16px;font-weight:600;background:var(--yellow);border:none;border-radius:12px;cursor:pointer;font-family:inherit;color:var(--ink)}
   .lock-err{color:#c0392b;font-size:13px;min-height:18px;margin-top:4px}
 
-  .topbar{max-width:760px;margin:0 auto;padding:14px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+  .topbar{max-width:720px;margin:0 auto;padding:14px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
   .topbar label{font-size:13px;color:var(--muted)}
   select{padding:8px 11px;font-size:14px;border:2px solid var(--line);border-radius:10px;font-family:inherit;background:#fff;max-width:100%}
   select:focus{outline:none;border-color:var(--yellow-deep)}
@@ -37,49 +37,78 @@
   .mode-switch button{padding:7px 12px;font-size:13px;border:none;background:#fff;color:var(--green-deep);cursor:pointer;font-family:inherit;font-weight:600}
   .mode-switch button.active{background:var(--green);color:#fff}
 
-  main{max-width:760px;margin:0 auto;padding:22px 20px 80px}
+  main{max-width:720px;margin:0 auto;padding:14px 20px 90px}
   .hint{color:var(--muted);font-size:14px;padding:36px 10px;text-align:center}
   .err{color:#c0392b;padding:20px;text-align:center}
 
-  /* шапка паспорта */
-  .pass-head{text-align:center;padding:10px 0 22px;border-bottom:2px solid var(--line);margin-bottom:24px}
-  .pass-kicker{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--terra);font-weight:600}
-  .pass-name{font-family:'Geologica';font-size:30px;font-weight:700;color:#5A3A28;margin:6px 0 2px}
-  .pass-meta{font-size:14px;color:var(--muted)}
-  .pass-theme{font-family:'Caveat';font-size:19px;color:var(--green-deep);margin-top:4px}
+  /* карточки */
+  .card{background:#fff;border-radius:18px;padding:22px 24px;margin-bottom:18px;box-shadow:0 4px 18px rgba(90,58,40,0.07);border:1px solid #F0E6D2}
+  .card-title{font-family:'Unbounded';font-size:13px;font-weight:600;letter-spacing:.5px;color:var(--green-deep);margin-bottom:16px;display:flex;align-items:center;gap:8px;text-transform:none}
 
-  .section{margin-bottom:28px}
-  .section-title{font-family:'Geologica';font-size:15px;font-weight:600;color:var(--green-deep);margin-bottom:12px;display:flex;align-items:center;gap:7px}
+  /* шапка паспорта */
+  .pass-head{text-align:center;padding:8px 0 6px}
+  .pass-kicker{font-family:'Unbounded';font-size:10px;letter-spacing:4px;text-transform:uppercase;color:var(--terra);font-weight:600}
+  .pass-name{font-family:'Unbounded';font-size:34px;font-weight:800;color:#5A3A28;margin:8px 0 4px;line-height:1.05}
+  .pass-meta{font-size:14px;color:var(--muted)}
+  .pass-theme{font-family:'Caveat';font-size:21px;color:var(--green-deep);margin-top:6px}
+
+  /* три цифры */
+  .stats{display:flex;gap:12px;margin:18px 0 4px;justify-content:center;flex-wrap:wrap}
+  .stat{flex:1 1 0;min-width:120px;background:#FBF6EC;border-radius:14px;padding:16px 12px;text-align:center}
+  .stat .num{font-family:'Unbounded';font-size:30px;font-weight:700;color:var(--terra);line-height:1}
+  .stat .lbl{font-size:12px;color:var(--muted);margin-top:6px}
 
   /* radar */
-  .radar-wrap{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:20px}
+  .radar-wrap{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:24px}
   .radar-legend{font-size:13px;color:var(--ink)}
-  .radar-legend .lg{display:flex;align-items:center;gap:8px;margin-bottom:6px}
-  .radar-legend .dot{width:10px;height:10px;border-radius:50%;background:var(--terra);flex:0 0 auto}
+  .radar-legend .lg{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+  .radar-legend .dot{width:11px;height:11px;border-radius:50%;background:var(--terra);flex:0 0 auto}
   .radar-legend .val{font-weight:600;color:var(--green-deep);margin-left:4px}
 
-  /* бейджи направлений */
+  /* характеристика (письмо) */
+  .letter-box{white-space:pre-wrap;font-size:15px;line-height:1.7;color:#4A3A2E;font-family:'Lora',Georgia,serif}
+  .gen-letter-btn{padding:10px 16px;font-size:14px;border:2px solid var(--green);background:#f3f7ee;color:var(--green-deep);border-radius:11px;cursor:pointer;font-family:inherit;font-weight:600}
+  .gen-letter-btn:hover{background:#e8efe0}
+  .letter-loading{color:var(--muted);font-size:14px;padding:14px}
+
+  /* лестница достижений */
+  .ladder{display:flex;align-items:stretch;gap:0}
+  .lstep{flex:1;text-align:center;padding:12px 6px;position:relative;font-size:13px;color:var(--muted)}
+  .lstep .ic{font-size:24px;filter:grayscale(1);opacity:.45}
+  .lstep .nm{margin-top:5px;font-weight:600}
+  .lstep.done{color:var(--green-deep)}
+  .lstep.done .ic{filter:none;opacity:1}
+  .lstep.cur .nm{color:var(--terra)}
+  .lstep::after{content:'';position:absolute;top:24px;right:-50%;width:100%;height:2px;background:var(--line);z-index:0}
+  .lstep:last-child::after{display:none}
+  .lstep.done::after{background:var(--green)}
+  .ladder-note{font-size:13px;color:var(--muted);margin-top:12px;text-align:center}
+
+  /* знаки */
   .badges{display:flex;gap:10px;flex-wrap:wrap}
-  .badge{padding:8px 14px;border-radius:24px;font-size:14px;font-weight:600;background:#f3f7ee;border:1.5px solid var(--green);color:var(--green-deep)}
-  .badge .b-val{opacity:.7;font-weight:500;margin-left:4px}
+  .badge{padding:9px 15px;border-radius:24px;font-size:14px;font-weight:600;background:#f3f7ee;border:1.5px solid var(--green);color:var(--green-deep);display:flex;align-items:center;gap:6px}
+  .badge .b-val{opacity:.65;font-weight:500;margin-left:2px}
 
   /* карта занятий */
-  .mk-list{display:flex;flex-direction:column;gap:8px}
-  .mk-item{border:1px solid var(--line);border-radius:10px;padding:10px 13px;background:#fff}
+  .mk-list{display:flex;flex-direction:column;gap:10px}
+  .mk-item{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#FBF6EC}
   .mk-item .mk-n{font-weight:600;font-size:14px}
   .mk-item .mk-dir{font-size:12px;color:var(--muted);margin-left:6px}
-  .mk-crits{display:flex;gap:14px;margin-top:5px;flex-wrap:wrap;font-size:13px;color:var(--ink)}
+  .mk-crits{display:flex;gap:16px;margin-top:6px;flex-wrap:wrap;font-size:13px;color:var(--ink)}
   .mk-crits .c{color:var(--muted)}
   .mk-crits .c b{color:var(--green-deep);font-weight:600}
 
   /* зона роста */
-  .growth{background:#F4E8D6;border-left:3px solid var(--terra);border-radius:0 8px 8px 0;padding:12px 16px;font-size:14px;line-height:1.55;color:#6B4A32}
+  .growth{background:#F4E8D6;border-left:3px solid var(--terra);border-radius:0 10px 10px 0;padding:14px 18px;font-size:14px;line-height:1.6;color:#6B4A32}
 
-  /* письмо */
-  .letter-box{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;white-space:pre-wrap;font-size:15px;line-height:1.65;color:#4A3A2E;font-family:'Lora','Geologica',serif}
-  .gen-letter-btn{padding:9px 15px;font-size:14px;border:2px solid var(--green);background:#f3f7ee;color:var(--green-deep);border-radius:10px;cursor:pointer;font-family:inherit;font-weight:600}
-  .gen-letter-btn:hover{background:#e8efe0}
-  .letter-loading{color:var(--muted);font-size:14px;padding:14px}
+  /* что дальше */
+  .next-list{display:flex;flex-direction:column;gap:10px}
+  .next-item{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;background:#FBF6EC;border-radius:12px}
+  .next-item .ni-ic{font-size:22px;flex:0 0 auto}
+  .next-item .ni-t{font-weight:600;font-size:14px;color:#5A3A28}
+  .next-item .ni-c{font-size:13px;color:var(--muted);margin-top:2px}
+
+  .soon-note{font-size:12px;color:var(--muted);font-style:italic;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
 
   .parent-only{display:none}
   body.mode-parent .internal-only{display:none}
@@ -228,16 +257,18 @@
   }
 
   // ── РАДАР (SVG, без библиотек) ──
+  const RADAR_COLORS=['#C1694F','#41BEEA','#D9A441','#9B6FB0','#8FA370','#FF8A3D'];
+  function radarColor(i){ return RADAR_COLORS[i%RADAR_COLORS.length]; }
   function renderRadar(avgs){
     const dirs=Object.keys(avgs);
     if(dirs.length===0) return '<div class="hint" style="padding:10px">Недостаточно оценок для диаграммы.</div>';
     if(dirs.length<3){
       // меньше 3 осей — радар вырождается, показываем полосами
-      return dirs.map(d=>{
+      return '<div style="min-width:240px">'+dirs.map((d,i)=>{
         const v=avgs[d], pct=Math.round(v/5*100);
-        return '<div style="margin-bottom:10px"><div style="font-size:13px;margin-bottom:3px">'+escapeHtml(d)+' <b style="color:var(--green-deep)">'+v.toFixed(1)+'</b></div>'+
-          '<div style="height:10px;background:#eee;border-radius:5px;overflow:hidden"><div style="width:'+pct+'%;height:100%;background:var(--terra)"></div></div></div>';
-      }).join('');
+        return '<div style="margin-bottom:12px"><div style="font-size:13px;margin-bottom:4px">'+escapeHtml(d)+' <b style="color:var(--green-deep)">'+v.toFixed(1)+'</b></div>'+
+          '<div style="height:12px;background:#F0E6D2;border-radius:6px;overflow:hidden"><div style="width:'+pct+'%;height:100%;background:'+radarColor(i)+'"></div></div></div>';
+      }).join('')+'</div>';
     }
     const cx=130,cy=130,R=95,n=dirs.length;
     const ang=i=>(-Math.PI/2)+(2*Math.PI*i/n);
@@ -260,7 +291,7 @@
     });
     // данные
     const dataPts=dirs.map((d,i)=>pt(i, R*Math.max(0,Math.min(5,avgs[d]))/5).map(x=>x.toFixed(1)).join(',')).join(' ');
-    const dots=dirs.map((d,i)=>{ const [x,y]=pt(i,R*Math.max(0,Math.min(5,avgs[d]))/5); return '<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="3.5" fill="#C1694F"/>'; }).join('');
+    const dots=dirs.map((d,i)=>{ const [x,y]=pt(i,R*Math.max(0,Math.min(5,avgs[d]))/5); return '<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="4" fill="'+radarColor(i)+'"/>'; }).join('');
     return '<svg viewBox="0 0 260 260" width="260" height="260">'+grid+axes+
       '<polygon points="'+dataPts+'" fill="rgba(193,105,79,0.22)" stroke="#C1694F" stroke-width="2"/>'+dots+labels+'</svg>';
   }
@@ -313,6 +344,32 @@
 
   function findChild(id){ return troopsChildren.find(k=>String(k.crmId)===String(id)); }
 
+  // Маппинг направление → курсы клуба (из контекста Прознание+Coddy)
+  const NEXT_COURSES = {
+    'IT': {ic:'💻', courses:'Scratch, Minecraft, Roblox Studio, Python, Blender, Робототехника'},
+    'Творчество': {ic:'🎨', courses:'Digital Art, Арт-студия, Глина и лепка, Пескография'},
+    'Коммуникация': {ic:'🗣️', courses:'Говорилка, Развитие речи, интенсив «Код личности»'},
+    'Активность': {ic:'⚡', courses:'активные форматы каникул в клубе'},
+    'Прочее': {ic:'✨', courses:'направления клуба по интересам ребёнка'}
+  };
+
+  // Знак по направлению
+  const BADGE_IC = { 'IT':'💻', 'Творчество':'🎨', 'Коммуникация':'🤝', 'Активность':'⚡', 'Прочее':'⭐' };
+
+  // Уровень-лестница из общего среднего
+  const LADDER = [
+    {ic:'🌱', nm:'Участник', min:0},
+    {ic:'⭐', nm:'Активный', min:3.0},
+    {ic:'🏅', nm:'Звезда смены', min:4.0},
+    {ic:'👑', nm:'Мастер', min:4.6}
+  ];
+
+  function overallAvg(byMk){
+    let sum=0,n=0;
+    Object.values(byMk).forEach(mk=>Object.values(mk.crits).forEach(v=>{sum+=v;n++;}));
+    return n?sum/n:0;
+  }
+
   function renderPassport(childId){
     const kid=findChild(childId);
     if(!kid){ document.getElementById('content').innerHTML='<div class="err">Ребёнок не найден.</div>'; return; }
@@ -320,52 +377,82 @@
     const mkNames=Object.keys(byMk);
     const avgs=dirAverages(byMk);
     const parent = currentMode==='parent';
+    const theme = publishedState.theme?publishedState.theme.replace(/_/g,' '):'';
 
     let html='';
-    // шапка
-    html+='<div class="pass-head">'+
-      '<div class="pass-kicker">прознание · coddy</div>'+
+    // ── ШАПКА (карточка) ──
+    html+='<div class="card"><div class="pass-head">'+
+      '<div class="pass-kicker">прознание · coddy · каникулы в клубе</div>'+
       '<div class="pass-name">'+escapeHtml(kid.name)+'</div>'+
       '<div class="pass-meta">отряд '+kid.troop+(kid.age?' · '+kid.age+' лет':'')+'</div>'+
-      (publishedState.theme?'<div class="pass-theme">смена «'+escapeHtml(publishedState.theme.replace(/_/g,' '))+'»</div>':'')+
+      (theme?'<div class="pass-theme">смена «'+escapeHtml(theme)+'»</div>':'')+
       '</div>';
 
     if(mkNames.length===0){
-      html+='<div class="hint">У ребёнка пока нет выставленных оценок. Паспорт появится, когда педагоги заполнят баллы.</div>';
+      html+='<div class="hint">У ребёнка пока нет выставленных оценок. Паспорт появится, когда педагоги заполнят баллы.</div></div>';
       document.getElementById('content').innerHTML=html;
       return;
     }
 
-    // профиль по направлениям (радар)
-    html+='<div class="section"><div class="section-title">📊 Профиль по направлениям</div>';
-    html+='<div class="radar-wrap"><div>'+renderRadar(avgs)+'</div>';
-    // легенда со значениями (во внутреннем режиме — точные; родителям — словами)
-    html+='<div class="radar-legend">';
-    Object.keys(avgs).sort((a,b)=>avgs[b]-avgs[a]).forEach(d=>{
+    // ── ТРИ ЦИФРЫ ──
+    const nDirs=Object.keys(avgs).length;
+    html+='<div class="stats">'+
+      '<div class="stat"><div class="num">'+mkNames.length+'</div><div class="lbl">занятий прошёл</div></div>'+
+      '<div class="stat"><div class="num">'+nDirs+'</div><div class="lbl">направлен'+(nDirs===1?'ие':(nDirs<5?'ия':'ий'))+' освоил</div></div>'+
+      '<div class="stat"><div class="num">'+overallAvg(byMk).toFixed(1)+'</div><div class="lbl">средний балл</div></div>'+
+      '</div></div>';
+
+    // ── ХАРАКТЕРИСТИКА (письмо) ──
+    html+='<div class="card"><div class="card-title">✍️ Живая характеристика</div><div id="letter-slot">';
+    if(letterCache[childId]){ html+='<div class="letter-box">'+escapeHtml(letterCache[childId])+'</div>'; }
+    else { html+='<button class="gen-letter-btn" onclick="genLetter(\''+escapeHtml(String(childId))+'\',\''+escapeHtml(kid.name)+'\')">✍️ Сформировать характеристику</button>'; }
+    html+='</div></div>';
+
+    // ── РАДАР ──
+    html+='<div class="card"><div class="card-title">📊 Профиль по направлениям</div>';
+    html+='<div class="radar-wrap"><div>'+renderRadar(avgs)+'</div><div class="radar-legend">';
+    Object.keys(avgs).sort((a,b)=>avgs[b]-avgs[a]).forEach((d,i)=>{
       const v=avgs[d];
       const word = v>=4.5?'ярко':v>=3.5?'уверенно':v>=2.5?'развивается':'в начале пути';
-      html+='<div class="lg"><span class="dot"></span>'+escapeHtml(d)+
+      html+='<div class="lg"><span class="dot" style="background:'+radarColor(i)+'"></span>'+escapeHtml(d)+
         (parent?(' <span class="val">'+word+'</span>'):(' <span class="val">'+v.toFixed(1)+'</span>'))+'</div>';
     });
     html+='</div></div></div>';
 
-    // сильные направления (бейджи) — где >=4
+    // ── ЛЕСТНИЦА ДОСТИЖЕНИЙ ──
+    const ov=overallAvg(byMk);
+    let curIdx=0; LADDER.forEach((s,i)=>{ if(ov>=s.min) curIdx=i; });
+    html+='<div class="card"><div class="card-title">🪜 Лестница достижений</div><div class="ladder">';
+    LADDER.forEach((s,i)=>{
+      const cls=(i<curIdx?'done':(i===curIdx?'done cur':''));
+      html+='<div class="lstep '+cls+'"><div class="ic">'+s.ic+'</div><div class="nm">'+s.nm+'</div></div>';
+    });
+    html+='</div>';
+    if(curIdx<LADDER.length-1){
+      const next=LADDER[curIdx+1];
+      html+='<div class="ladder-note">Сейчас: <b style="color:var(--terra)">'+LADDER[curIdx].nm+'</b>. До уровня «'+next.nm+'» — ещё немного роста.</div>';
+    } else {
+      html+='<div class="ladder-note">Высший уровень — <b style="color:var(--terra)">Мастер</b>! 🎉</div>';
+    }
+    html+='</div>';
+
+    // ── ОСОБЫЕ ЗНАКИ ──
     const strong=Object.keys(avgs).filter(d=>avgs[d]>=4).sort((a,b)=>avgs[b]-avgs[a]);
     if(strong.length){
-      html+='<div class="section"><div class="section-title">⭐ Ярко проявил себя</div><div class="badges">';
-      strong.forEach(d=>{ html+='<div class="badge">'+escapeHtml(d)+(parent?'':' <span class="b-val">'+avgs[d].toFixed(1)+'</span>')+'</div>'; });
+      html+='<div class="card"><div class="card-title">🏆 Особые знаки</div><div class="badges">';
+      strong.forEach(d=>{ html+='<div class="badge">'+(BADGE_IC[d]||'⭐')+' '+escapeHtml(d)+(parent?'':' <span class="b-val">'+avgs[d].toFixed(1)+'</span>')+'</div>'; });
       html+='</div></div>';
     }
 
-    // зона роста — направления <3.5 (мягко)
+    // ── ЗОНА РОСТА ──
     const grow=Object.keys(avgs).filter(d=>avgs[d]<3.5).sort((a,b)=>avgs[a]-avgs[b]);
     if(grow.length){
-      html+='<div class="section"><div class="section-title">🌱 Зона роста</div>'+
+      html+='<div class="card"><div class="card-title">🌱 Зона роста</div>'+
         '<div class="growth">'+escapeHtml(grow.join(', '))+' — здесь у ребёнка есть пространство для роста. С поддержкой и интересом эти навыки раскроются ярче.</div></div>';
     }
 
-    // карта занятий (внутренний режим — с баллами; родителям — без цифр)
-    html+='<div class="section internal-only"><div class="section-title">🗂 Карта занятий</div><div class="mk-list">';
+    // ── КАРТА ЗАНЯТИЙ (внутренний режим) ──
+    html+='<div class="card internal-only"><div class="card-title">🗂 Разбор по занятиям</div><div class="mk-list">';
     mkNames.forEach(n=>{
       const mk=byMk[n]; const labels=mk.comm?CRIT_RU_COMM:CRIT_RU;
       let crits='';
@@ -375,14 +462,19 @@
     });
     html+='</div></div>';
 
-    // письмо
-    html+='<div class="section"><div class="section-title">✍️ Тёплое слово</div><div id="letter-slot">';
-    if(letterCache[childId]){
-      html+='<div class="letter-box">'+escapeHtml(letterCache[childId])+'</div>';
-    } else {
-      html+='<button class="gen-letter-btn" onclick="genLetter(\''+escapeHtml(String(childId))+'\',\''+escapeHtml(kid.name)+'\')">✍️ Сформировать письмо</button>';
+    // ── ЧТО ПОПРОБОВАТЬ ДАЛЬШЕ ──
+    if(strong.length){
+      html+='<div class="card"><div class="card-title">🧭 Что попробовать дальше</div><div class="next-list">';
+      strong.slice(0,2).forEach(d=>{
+        const nc=NEXT_COURSES[d]||NEXT_COURSES['Прочее'];
+        html+='<div class="next-item"><div class="ni-ic">'+nc.ic+'</div><div><div class="ni-t">Раз понравилось направление «'+escapeHtml(d)+'»</div>'+
+          '<div class="ni-c">обратите внимание на курсы клуба: '+escapeHtml(nc.courses)+'.</div></div></div>';
+      });
+      html+='</div></div>';
     }
-    html+='</div></div>';
+
+    // ── СНОСКА про то, что появится позже ──
+    html+='<div class="soon-note">С расширением отметок педагогов в паспорте позже появятся: учёт посещаемости, знаки за яркие моменты («Железная воля», «Командный игрок»), детальные радары по рамке 4P (знания · умения · характер · мышление) и печатная версия A4.</div>';
 
     document.getElementById('content').innerHTML=html;
   }
