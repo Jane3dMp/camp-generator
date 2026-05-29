@@ -79,7 +79,32 @@
   .troops-hint{font-family:Inter,sans-serif;font-size:12px;color:rgba(21,22,23,0.5);margin-top:14px;line-height:1.5}
   @media (max-width:900px){ .kid-board{grid-template-columns:1fr 1fr} }
 
-  .soon{background:var(--white);border:1px dashed var(--line);border-radius:12px;padding:28px;text-align:center;color:var(--muted);font-size:14px}
+  /* посещаемость */
+  .att-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+  .att-status{font-size:12px;color:var(--muted)}
+  .att-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+  table.att{border-collapse:collapse;width:100%;font-size:13px;background:var(--white)}
+  table.att th,table.att td{border:1px solid var(--line);padding:0;text-align:center}
+  table.att thead th{background:var(--paper-warm);font-weight:600;font-size:12px;padding:7px 6px;white-space:nowrap;position:sticky;top:0}
+  table.att th.att-name{text-align:left;padding:7px 11px;min-width:190px}
+  table.att td.att-name{text-align:left;padding:7px 11px;white-space:nowrap}
+  table.att tr.att-troop td{background:var(--paper-warm);font-weight:700;font-family:'Geologica',sans-serif;color:var(--moss-deep);padding:7px 11px;text-align:left;letter-spacing:0.04em}
+  .att-cell{width:38px;height:34px;cursor:pointer;font-weight:700;font-size:16px;user-select:none}
+  .att-cell.v-plus{color:#3B6D11;background:#EAF3DE}
+  .att-cell.v-minus{color:#993C1D;background:#FAECE7}
+  .att-cell:hover{outline:2px solid var(--moss);outline-offset:-2px}
+  .att-hint{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5}
+  @media print{
+    body{background:#fff}
+    #lockscreen,header,.att-bar,.att-hint,#toast{display:none !important}
+    main{max-width:none;padding:0}
+    .pane:not(#pane-lists){display:none !important}
+    .att-wrap{border:none;overflow:visible}
+    table.att{font-size:12px}
+    table.att .att-cell{width:auto}
+    body.print-blank .att-cell{color:transparent !important;background:#fff !important}
+  }
+
   .soon h3{font-family:'Geologica';font-size:16px;color:var(--ink);margin-bottom:8px}
 
   #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:10px;font-size:14px;opacity:0;pointer-events:none;transition:all 0.25s;z-index:2000}
@@ -139,9 +164,15 @@
       <p class="troops-hint">Перетащи карточку между колонками. 🔒 закрепляет ребёнка — при «Переразбить» закреплённые не двигаются. Дата рождения определяет, в какой отряд попадёт ребёнок (1 — младшие, 4 — старшие).</p>
     </div>
 
-    <!-- СПИСКИ (задел) -->
+    <!-- СПИСКИ — таблица посещаемости -->
     <div class="pane" id="pane-lists">
-      <div class="soon"><h3>📋 Списки</h3>Здесь появится формирование списков детей (по отрядам, для печати, для регистрации). В разработке.</div>
+      <div class="att-bar">
+        <button class="btn" onclick="printAttendance(false)">🖨 Печать с отметками</button>
+        <button class="btn" onclick="printAttendance(true)">🖨 Печать пустой</button>
+        <span class="att-status" id="att-status"></span>
+      </div>
+      <div class="att-wrap"><div id="att-table"></div></div>
+      <p class="att-hint">Клик по ячейке: пусто → <b style="color:#3B6D11">+</b> (был) → <b style="color:#993C1D">−</b> (не был) → пусто. Сохраняется автоматически. Столбцы — дни смены.</p>
     </div>
   </main>
 </div>
@@ -165,6 +196,10 @@
   ];
   let _troopsKids = [];
   let _troopsSaveTimer = null;
+  let _attKids = [];      // дети для посещаемости (по отрядам)
+  let _attMap = {};       // 'childId|dateIdx' -> '+'|'-'
+  let _attDates = [];     // ['1 июн', '2 июн', ...]
+  let _attLoaded = false;
 
   // ── LOCK ──
   async function sha256Hex(str){
@@ -195,6 +230,7 @@
       document.getElementById('tab-'+p).classList.toggle('active', p===which);
     });
     if(which==='troops' && _troopsKids.length===0) loadTroopsChildren();
+    if(which==='lists' && !_attLoaded) loadAttendance();
   }
 
   // ── BOOTSTRAP ──
@@ -203,7 +239,7 @@
     document.getElementById('troops-season-id').textContent = SEASON_ID;
     try{
       const r=await fetch(LIBRARY_URL+'?action=getPublished&id='+encodeURIComponent(SEASON_ID)).then(r=>r.json());
-      if(r.ok && r.publication){ seasonMeta={id:r.publication.id,name:r.publication.name||'',theme:r.publication.theme||''}; }
+      if(r.ok && r.publication){ seasonMeta={id:r.publication.id,name:r.publication.name||'',theme:r.publication.theme||'',stateJson:r.publication.stateJson||''}; }
       document.getElementById('title').textContent = seasonMeta.name ? ('Администратор · '+seasonMeta.name) : 'Администратор смены';
       document.getElementById('subhead').textContent = 'ID: '+SEASON_ID;
     }catch(e){ document.getElementById('subhead').textContent='ID: '+SEASON_ID; }
@@ -404,11 +440,103 @@
     await importTroopsChildren();
   }
 
+  // ── ПОСЕЩАЕМОСТЬ ──
+  const MONTHS_SHORT = ['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
+  function buildAttDates_(){
+    let start=null, nDays=0;
+    try{
+      const st = JSON.parse(seasonMeta.stateJson || '{}');
+      nDays = Array.isArray(st.schedule) ? st.schedule.length : 0;
+      const sd = st.startDate || st.start || (st.meta && st.meta.startDate);
+      if(sd) start = new Date(String(sd) + 'T00:00:00');
+    }catch(e){}
+    const out=[];
+    if(start && !isNaN(start.getTime()) && nDays>0){
+      for(let i=0;i<nDays;i++){ const d=new Date(start.getTime()); d.setDate(d.getDate()+i); out.push(d.getDate()+' '+MONTHS_SHORT[d.getMonth()]); }
+    } else if(nDays>0){
+      for(let i=0;i<nDays;i++) out.push('День '+(i+1));
+    } else {
+      for(let i=0;i<10;i++) out.push('День '+(i+1));
+    }
+    return out;
+  }
+
+  async function loadAttendance(){
+    const box=document.getElementById('att-table');
+    box.innerHTML='<div style="padding:20px;font-size:13px;color:var(--muted)">Загружаю…</div>';
+    _attDates = buildAttDates_();
+    try{
+      const [chR, atR] = await Promise.all([
+        fetch(LIBRARY_URL+'?action=getChildren&seasonId='+encodeURIComponent(SEASON_ID)).then(r=>r.json()),
+        fetch(LIBRARY_URL+'?action=getAttendance&seasonId='+encodeURIComponent(SEASON_ID)).then(r=>r.json()).catch(()=>({ok:false}))
+      ]);
+      if(!chR.ok) throw new Error(chR.error||'Ошибка загрузки детей');
+      _attKids=(chR.children||[]).map(c=>({crmId:String(c.crmId),name:c.name||'',dob:c.dob||'',troop:c.troop||0}));
+      _attMap=(atR&&atR.ok&&atR.attendance&&atR.attendance.attendance)?atR.attendance.attendance:((atR&&atR.attendance)||{});
+      _attLoaded=true;
+      renderAttendance();
+    }catch(e){ box.innerHTML='<div style="padding:20px;font-size:13px;color:#c0392b">Ошибка: '+escapeHtml(e.message)+'</div>'; }
+  }
+
+  function renderAttendance(){
+    const box=document.getElementById('att-table');
+    if(!_attKids.length){ box.innerHTML='<div style="padding:20px;font-size:13px;color:var(--muted)">Нет детей. Импортируй на вкладке «Отряды».</div>'; return; }
+    const ROMAN=['','I','II','III','IV'];
+    let html='<table class="att"><thead><tr><th class="att-name">Ребёнок</th>';
+    _attDates.forEach(d=>{ html+='<th>'+escapeHtml(d)+'</th>'; });
+    html+='</tr></thead><tbody>';
+    const renderKid=(k)=>{
+      let row='<tr><td class="att-name">'+escapeHtml(k.name)+'</td>';
+      _attDates.forEach((d,di)=>{ const v=_attMap[k.crmId+'|'+di]||''; const cls=v==='+'?'v-plus':(v==='-'?'v-minus':''); row+='<td class="att-cell '+cls+'" data-cid="'+escapeHtml(k.crmId)+'" data-di="'+di+'" onclick="cycleAtt(this)">'+(v||'')+'</td>'; });
+      return row+'</tr>';
+    };
+    for(let t=1;t<=4;t++){
+      const kids=_attKids.filter(k=>(k.troop||0)===t).sort((a,b)=>dobSortKey4_(b.dob)-dobSortKey4_(a.dob));
+      if(!kids.length) continue;
+      html+='<tr class="att-troop"><td colspan="'+(_attDates.length+1)+'">'+ROMAN[t]+' отряд</td></tr>';
+      kids.forEach(k=>{ html+=renderKid(k); });
+    }
+    const noTroop=_attKids.filter(k=>!(k.troop>=1&&k.troop<=4));
+    if(noTroop.length){
+      html+='<tr class="att-troop"><td colspan="'+(_attDates.length+1)+'">Без отряда</td></tr>';
+      noTroop.forEach(k=>{ html+=renderKid(k); });
+    }
+    html+='</tbody></table>';
+    box.innerHTML=html;
+  }
+
+  function cycleAtt(td){
+    const cid=td.dataset.cid, di=td.dataset.di, key=cid+'|'+di;
+    const cur=_attMap[key]||'';
+    const next = cur===''?'+':(cur==='+'?'-':'');
+    if(next==='') delete _attMap[key]; else _attMap[key]=next;
+    td.textContent=next;
+    td.className='att-cell'+(next==='+'?' v-plus':(next==='-'?' v-minus':''));
+    saveAtt_(cid,di,next);
+  }
+
+  let _attSaveQueue=Promise.resolve();
+  function saveAtt_(cid,di,value){
+    document.getElementById('att-status').textContent='сохранение…';
+    _attSaveQueue = _attSaveQueue.then(async()=>{
+      try{
+        await fetch(LIBRARY_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'saveAttendance',seasonId:SEASON_ID,childId:cid,dateIdx:di,value:value})});
+        document.getElementById('att-status').textContent='сохранено';
+      }catch(e){ document.getElementById('att-status').textContent='ошибка сохранения'; }
+    });
+  }
+
+  function printAttendance(blank){
+    document.body.classList.toggle('print-blank', !!blank);
+    setTimeout(()=>{ window.print(); setTimeout(()=>document.body.classList.remove('print-blank'),500); }, 80);
+  }
+
   // экспорты
   window.tryUnlock=tryUnlock; window.switchPane=switchPane;
   window.copyLink=copyLink; window.openParentLinks=openParentLinks; window.copyParentCSV=copyParentCSV; window.downloadParentCSV=downloadParentCSV;
   window.importTroopsChildren=importTroopsChildren; window.reshuffleTroops=reshuffleTroops; window.saveTroopsManual=saveTroopsManual;
   window.checkTroopsActuality=checkTroopsActuality; window.removeLeftChildren_=removeLeftChildren_; window.addNewChildren_=addNewChildren_;
+  window.cycleAtt=cycleAtt; window.printAttendance=printAttendance;
 </script>
 </body>
 </html>
