@@ -716,7 +716,16 @@
       _attKids.filter(k=>!(k.troop>=1&&k.troop<=4)).forEach(k=>ordered.push(k));
     }
     let cells='';
-    ordered.forEach(k=>{ const nm = k._name || shortName_(k.name); cells+='<div class="ms"><span class="ms-name">'+escapeHtml(nm)+'</span></div>'; });
+    ordered.forEach(k=>{
+      const nm = k._name || shortName_(k.name);
+      const parts = String(nm).trim().split(/\s+/);
+      const surname = parts[0] || '';
+      const firstname = parts.slice(1).join(' ') || '';
+      cells += '<div class="ms"><div class="ms-stack">'+
+        '<span class="ms-first">'+escapeHtml(firstname || surname)+'</span>'+
+        (firstname ? '<span class="ms-last">'+escapeHtml(surname)+'</span>' : '')+
+        '</div></div>';
+    });
 
     const w=window.open('','_blank');
     if(!w){ toast('Разреши всплывающие окна для печати'); return; }
@@ -729,14 +738,16 @@
       'body{font-family:Unbounded,Arial,sans-serif;margin:0;padding:0}'+
       '.sheet{display:flex;flex-wrap:wrap}'+
       '.ms{width:60mm;height:20mm;border:1px solid #C1694F;background:#FBF6EC;display:flex;align-items:center;justify-content:center;padding:2mm;box-sizing:border-box;break-inside:avoid;margin:-0.5px 0 0 -0.5px}'+
-      '.ms-name{font-family:Unbounded;font-weight:700;color:#5A3A28;text-align:center;line-height:1.05;white-space:nowrap;display:inline-block;font-size:15px}'+
+      '.ms-stack{display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05;width:100%}'+
+      '.ms-first{font-family:Unbounded;font-weight:700;color:#5A3A28;text-align:center;white-space:nowrap;font-size:13px;display:inline-block}'+
+      '.ms-last{font-family:Unbounded;font-weight:600;color:#5A3A28;text-align:center;white-space:nowrap;font-size:10px;display:inline-block;margin-top:1px;opacity:0.85}'+
       '@media print{.noprint{display:none}}'+
       '.noprint{position:fixed;top:10px;right:10px;background:#161617;color:#fff;border:none;padding:10px 16px;border-radius:8px;cursor:pointer;font-size:14px;font-family:Arial}'+
       '</style></head><body>'+
       '<button class="noprint" onclick="window.print()">🖨 Печать</button>'+
       '<div class="sheet">'+cells+'</div>'+
       '<scr'+'ipt>'+
-      'function fitMs(){var n=document.querySelectorAll(".ms-name");for(var i=0;i<n.length;i++){var el=n[i];var box=el.parentElement.clientWidth-10;var size=15;el.style.fontSize=size+"px";while(el.scrollWidth>box&&size>7){size-=0.5;el.style.fontSize=size+"px";}}}'+
+      'function fitMs(){var cells=document.querySelectorAll(".ms");for(var i=0;i<cells.length;i++){var box=cells[i].clientWidth-10;var first=cells[i].querySelector(".ms-first");var last=cells[i].querySelector(".ms-last");if(first){var s=13;first.style.fontSize=s+"px";while(first.scrollWidth>box&&s>7){s-=0.5;first.style.fontSize=s+"px";}}if(last){var s2=10;last.style.fontSize=s2+"px";while(last.scrollWidth>box&&s2>6){s2-=0.5;last.style.fontSize=s2+"px";}}}}'+
       'window.onload=function(){fitMs();setTimeout(function(){window.print();},400);};'+
       '</scr'+'ipt>'+
       '</body></html>');
