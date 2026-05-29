@@ -175,6 +175,8 @@
         <button class="btn" onclick="printAttendance(true)">🖨 Печать пустой</button>
         <button class="btn" onclick="openStickers()">🏷 Наклейки (ФИО ×3)</button>
         <button class="btn" onclick="openTags()">🎫 Бирки (8 на лист)</button>
+        <button class="btn" onclick="openMiniStickers()">🔖 Мини-наклейки (6×2 см)</button>
+        <button class="btn" onclick="openMini()">🔖 Мини-наклейки (6×2 см)</button>
         <span class="att-status" id="att-status"></span>
       </div>
       <div class="att-wrap"><div id="att-table"></div></div>
@@ -640,12 +642,46 @@
     w.document.close();
   }
 
+  // Мини-наклейки 6×2 см, 1 на ребёнка, вплотную (под резку/рулон), фирменный стиль.
+  function openMiniStickers(){
+    if(!_attKids.length){ toast('Нет детей — открой вкладку «Списки», данные подгрузятся'); return; }
+    const ordered=[];
+    for(let t=1;t<=4;t++){ _attKids.filter(k=>(k.troop||0)===t).sort((a,b)=>dobSortKey4_(b.dob)-dobSortKey4_(a.dob)).forEach(k=>ordered.push(k)); }
+    _attKids.filter(k=>!(k.troop>=1&&k.troop<=4)).forEach(k=>ordered.push(k));
+    let cells='';
+    ordered.forEach(k=>{ cells+='<div class="ms"><span class="ms-name">'+escapeHtml(shortName_(k.name))+'</span></div>'; });
+
+    const w=window.open('','_blank');
+    if(!w){ toast('Разреши всплывающие окна для печати'); return; }
+    const title='Мини-наклейки · '+(seasonMeta.name||'смена');
+    w.document.write('<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>'+escapeHtml(title)+'</title>'+
+      '<link rel="preconnect" href="https://fonts.googleapis.com">'+
+      '<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;700;800&display=swap" rel="stylesheet">'+
+      '<style>'+
+      '@page{size:A4;margin:6mm}'+
+      'body{font-family:Unbounded,Arial,sans-serif;margin:0;padding:0}'+
+      '.sheet{display:flex;flex-wrap:wrap}'+
+      '.ms{width:60mm;height:20mm;border:1px solid #C1694F;background:#FBF6EC;display:flex;align-items:center;justify-content:center;padding:2mm;box-sizing:border-box;break-inside:avoid;margin:-0.5px 0 0 -0.5px}'+
+      '.ms-name{font-family:Unbounded;font-weight:700;color:#5A3A28;text-align:center;line-height:1.05;white-space:nowrap;display:inline-block;font-size:15px}'+
+      '@media print{.noprint{display:none}}'+
+      '.noprint{position:fixed;top:10px;right:10px;background:#161617;color:#fff;border:none;padding:10px 16px;border-radius:8px;cursor:pointer;font-size:14px;font-family:Arial}'+
+      '</style></head><body>'+
+      '<button class="noprint" onclick="window.print()">🖨 Печать</button>'+
+      '<div class="sheet">'+cells+'</div>'+
+      '<scr'+'ipt>'+
+      'function fitMs(){var n=document.querySelectorAll(".ms-name");for(var i=0;i<n.length;i++){var el=n[i];var box=el.parentElement.clientWidth-10;var size=15;el.style.fontSize=size+"px";while(el.scrollWidth>box&&size>7){size-=0.5;el.style.fontSize=size+"px";}}}'+
+      'window.onload=function(){fitMs();setTimeout(function(){window.print();},400);};'+
+      '</scr'+'ipt>'+
+      '</body></html>');
+    w.document.close();
+  }
+
   // экспорты
   window.tryUnlock=tryUnlock; window.switchPane=switchPane;
   window.copyLink=copyLink; window.openParentLinks=openParentLinks; window.copyParentCSV=copyParentCSV; window.downloadParentCSV=downloadParentCSV;
   window.importTroopsChildren=importTroopsChildren; window.reshuffleTroops=reshuffleTroops; window.saveTroopsManual=saveTroopsManual;
   window.checkTroopsActuality=checkTroopsActuality; window.removeLeftChildren_=removeLeftChildren_; window.addNewChildren_=addNewChildren_;
-  window.cycleAtt=cycleAtt; window.cycleDog=cycleDog; window.printAttendance=printAttendance; window.openStickers=openStickers; window.openTags=openTags;
+  window.cycleAtt=cycleAtt; window.cycleDog=cycleDog; window.printAttendance=printAttendance; window.openStickers=openStickers; window.openTags=openTags; window.openMiniStickers=openMiniStickers;
 </script>
 </body>
 </html>
