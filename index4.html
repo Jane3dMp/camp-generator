@@ -4328,6 +4328,9 @@ async function openPublishPanel() {
           <button class="btn btn-sm" onclick="copyText4('${escapeJs(passportUrl)}', this)">📋</button>
           <a class="btn btn-sm" href="${escapeHtml(passportUrl)}" target="_blank" rel="noopener" style="text-decoration:none">↗</a>
         </div>
+        <div style="margin-top:8px">
+          <button class="btn btn-sm" onclick="openParentLinks4()" style="background:var(--ink);color:var(--white)">🔗 Ссылки для родителей (SendPulse)</button>
+        </div>
       </div>
       <div style="margin-bottom:14px;padding:12px 14px;background:rgba(254,214,52,0.12);border-left:3px solid var(--yellow-deep);border-radius:4px;font-family:Inter,sans-serif;font-size:12px;line-height:1.45">
         <strong>Готовите новую смену?</strong> «🆕 Начать новую» — следующая публикация уйдёт под новым URL. Старая останется доступной по своей ссылке.
@@ -4354,6 +4357,66 @@ async function openPublishPanel() {
   openModal();
   loadAllPublications4();
 }
+
+async function openParentLinks4() {
+  const id = (typeof state !== 'undefined' && state) ? (state.publishId || '') : '';
+  if (!id) { alert('Сначала опубликуй смену.'); return; }
+  const passBase = (location.href.split('?')[0]).replace(/index4\.html$/, 'passport4.html');
+
+  // модалка
+  let ov = document.getElementById('parent-links-ov');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'parent-links-ov';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:flex-start;justify-content:center;z-index:9999;padding:24px 16px;overflow-y:auto';
+    ov.onclick = e => { if (e.target === ov) ov.remove(); };
+    document.body.appendChild(ov);
+  }
+  ov.innerHTML = '<div style="background:#fff;max-width:760px;width:100%;border-radius:12px;padding:22px 24px;margin:auto;font-family:Inter,sans-serif"><div style="font-size:13px;color:#666">Загружаю и генерирую токены…</div></div>';
+
+  try {
+    // 1. сгенерировать/досоздать токены
+    await fetch(LIBRARY_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({ action:'generatePassportTokens', seasonId:id }) }).then(r=>r.json());
+    // 2. получить токены
+    const resp = await fetch(LIBRARY_URL + '?action=getPassportTokens&seasonId=' + encodeURIComponent(id)).then(r=>r.json());
+    const list = (resp.ok && Array.isArray(resp.tokens)) ? resp.tokens : [];
+    if (!list.length) { ov.querySelector('div div').textContent = 'Нет детей в смене — сначала импортируй их.'; return; }
+
+    const rows = list.map(t => {
+      const link = passBase + '?id=' + encodeURIComponent(id) + '&t=' + encodeURIComponent(t.token);
+      return { phone: t.parentPhone||'', parent: t.parentName||'', child: t.childName||'', link };
+    });
+
+    // CSV для SendPulse: phone,child,link
+    const csv = 'phone,child,link\n' + rows.map(r => '"'+r.phone+'","'+r.child.replace(/"/g,'""')+'","'+r.link+'"').join('\n');
+    window._parentLinksCSV = csv;
+
+    let html = '<div style="background:#fff;max-width:820px;width:100%;border-radius:12px;padding:22px 24px;margin:auto;font-family:Inter,sans-serif">';
+    html += '<div style="display:flex;align-items:center;margin-bottom:6px"><h3 style="margin:0;font-size:18px;flex:1">🔗 Ссылки для родителей</h3><button onclick="document.getElementById(\'parent-links-ov\').remove()" style="border:none;background:none;font-size:22px;cursor:pointer;color:#999">×</button></div>';
+    html += '<div style="font-size:13px;color:#666;line-height:1.5;margin-bottom:14px">Телефон в формате E.164 (для SendPulse) → персональная ссылка на паспорт ребёнка. Загрузи CSV в SendPulse: бот по номеру родителя выдаст его ссылку. Ссылка открывает паспорт без пароля, только этого ребёнка.</div>';
+    html += '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">';
+    html += '<button class="btn btn-sm" onclick="copyParentCSV4(this)" style="background:#8FA370;color:#fff">📋 Копировать CSV</button>';
+    html += '<button class="btn btn-sm" onclick="downloadParentCSV4()">⬇️ Скачать CSV</button>';
+    html += '<span style="font-size:12px;color:#999;align-self:center">всего: ' + rows.length + '</span></div>';
+    html += '<div style="max-height:50vh;overflow-y:auto;border:1px solid #eee;border-radius:8px"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+    html += '<tr style="background:#FBF6EC;position:sticky;top:0"><th style="text-align:left;padding:7px 9px">Телефон</th><th style="text-align:left;padding:7px 9px">Ребёнок</th><th style="text-align:left;padding:7px 9px">Ссылка</th></tr>';
+    rows.forEach(r => {
+      html += '<tr style="border-top:1px solid #f0f0f0"><td style="padding:6px 9px;white-space:nowrap">'+escapeHtml(r.phone||'—')+'</td>'+
+        '<td style="padding:6px 9px">'+escapeHtml(r.child)+'</td>'+
+        '<td style="padding:6px 9px"><a href="'+escapeHtml(r.link)+'" target="_blank" style="color:#41BEEA;font-size:11px">открыть ↗</a> '+
+        '<button class="btn btn-sm" style="padding:2px 7px;font-size:11px" onclick="copyText4(\''+escapeJs(r.link)+'\',this)">📋</button></td></tr>';
+    });
+    html += '</table></div>';
+    html += '<div style="font-size:11px;color:#aaa;margin-top:10px">Где телефона нет — строка с пустым полем, дозаполни вручную в CSV.</div>';
+    html += '</div>';
+    ov.innerHTML = html;
+  } catch (e) {
+    ov.innerHTML = '<div style="background:#fff;max-width:520px;width:100%;border-radius:12px;padding:22px;margin:auto;font-family:Inter,sans-serif"><div style="color:#c0392b">Ошибка: '+escapeHtml(e.message)+'</div><div style="font-size:12px;color:#999;margin-top:8px">Проверь, что роуты generatePassportTokens / getPassportTokens добавлены в Code.gs и сделан деплой New version.</div><button class="btn btn-sm" style="margin-top:12px" onclick="document.getElementById(\'parent-links-ov\').remove()">Закрыть</button></div>';
+  }
+}
+function copyParentCSV4(btn){ const t=window._parentLinksCSV||''; const done=()=>{const o=btn.textContent;btn.textContent='✓ Скопировано';setTimeout(()=>btn.textContent=o,1500);}; if(navigator.clipboard) navigator.clipboard.writeText(t).then(done).catch(()=>{}); }
+function downloadParentCSV4(){ const t=window._parentLinksCSV||''; const blob=new Blob(['\ufeff'+t],{type:'text/csv;charset=utf-8'}); const u=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=u; a.download='ссылки_родителям.csv'; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u); }
 
 function copyText4(text, btnEl) {
   const done = () => { if (btnEl) { const o = btnEl.textContent; btnEl.textContent = '✓'; setTimeout(() => btnEl.textContent = o, 1500); } toast('Скопировано'); };
