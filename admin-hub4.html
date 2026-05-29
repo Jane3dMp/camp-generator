@@ -96,6 +96,26 @@
   table.att th.att-dog{min-width:64px}
   .att-cell.att-dog{width:64px}
   .att-cell.att-dog.v-dog{color:#185FA5;background:#E6F1FB}
+
+  /* модалка генератора печати */
+  #pg-ov{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;align-items:flex-start;justify-content:center;z-index:9999;padding:24px 16px;overflow-y:auto}
+  #pg-ov.show{display:flex}
+  #pg-box{background:#fff;max-width:680px;width:100%;border-radius:12px;padding:22px 24px;margin:auto}
+  #pg-box h3{font-size:18px;margin:0 0 4px}
+  #pg-box .pg-sub{font-size:12px;color:var(--muted);margin-bottom:16px}
+  #pg-box .pg-section{margin-bottom:16px}
+  #pg-box .pg-section h4{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:0 0 8px}
+  #pg-textarea{width:100%;min-height:90px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-family:inherit;font-size:14px;resize:vertical}
+  #pg-kids{max-height:220px;overflow-y:auto;border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+  .pg-troop{font-weight:700;color:var(--moss-deep);font-family:'Geologica',sans-serif;font-size:12px;margin:8px 0 4px;letter-spacing:.04em}
+  .pg-troop:first-child{margin-top:0}
+  .pg-kid{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:13px;cursor:pointer;user-select:none}
+  .pg-kid input{cursor:pointer}
+  #pg-formats{display:flex;gap:8px;flex-wrap:wrap}
+  .pg-fmt{padding:9px 14px;border:2px solid var(--line);background:#fff;border-radius:8px;cursor:pointer;font-family:inherit;font-weight:600;font-size:13px;color:var(--ink)}
+  .pg-fmt.active{border-color:var(--moss);background:#f3f7ee;color:var(--moss-deep)}
+  #pg-actions{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:16px}
+  .pg-count{font-size:13px;color:var(--muted)}
   .att-cell:hover{outline:2px solid var(--moss);outline-offset:-2px}
   .att-hint{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5}
   @media print{
@@ -171,18 +191,50 @@
     <!-- СПИСКИ — таблица посещаемости -->
     <div class="pane" id="pane-lists">
       <div class="att-bar">
-        <button class="btn" onclick="printAttendance(false)">🖨 Печать с отметками</button>
-        <button class="btn" onclick="printAttendance(true)">🖨 Печать пустой</button>
-        <button class="btn" onclick="openStickers()">🏷 Наклейки (ФИО ×3)</button>
-        <button class="btn" onclick="openTags()">🎫 Бирки (8 на лист)</button>
-        <button class="btn" onclick="openMiniStickers()">🔖 Мини-наклейки (6×2 см)</button>
-        <button class="btn" onclick="openMini()">🔖 Мини-наклейки (6×2 см)</button>
+        <button class="btn" onclick="printAttendance(false)">🖨 Печать таблицы (с отметками)</button>
+        <button class="btn" onclick="printAttendance(true)">🖨 Печать таблицы (пустой)</button>
+        <button class="btn btn-primary" onclick="openPrintGenerator()">🏷 Печать имён (наклейки/бирки)</button>
         <span class="att-status" id="att-status"></span>
       </div>
       <div class="att-wrap"><div id="att-table"></div></div>
       <p class="att-hint">Клик по ячейке: пусто → <b style="color:#3B6D11">+</b> (был) → <b style="color:#993C1D">−</b> (не был) → пусто. Сохраняется автоматически. Столбцы — дни смены.</p>
     </div>
   </main>
+</div>
+
+<!-- Модалка генератора печати -->
+<div id="pg-ov" onclick="if(event.target===this)closePrintGenerator()">
+  <div id="pg-box">
+    <h3>🏷 Печать имён</h3>
+    <div class="pg-sub">Выбери детей из списка или впиши имена руками (или то и другое — соберётся в один список).</div>
+
+    <div class="pg-section">
+      <h4>Вписать имена (одно на строку)</h4>
+      <textarea id="pg-textarea" placeholder="Иванов Иван&#10;Петрова Маша" oninput="updatePgCount()"></textarea>
+    </div>
+
+    <div class="pg-section">
+      <h4>Выбрать из списка <button class="btn btn-sm btn-ghost" onclick="pgToggleAll()" style="float:right;padding:3px 8px;font-size:11px">снять/выбрать всех</button></h4>
+      <div id="pg-kids"></div>
+    </div>
+
+    <div class="pg-section">
+      <h4>Формат</h4>
+      <div id="pg-formats">
+        <button class="pg-fmt active" data-fmt="mini" onclick="pgSetFmt('mini')">🔖 Мини-наклейки (6×2 см)</button>
+        <button class="pg-fmt" data-fmt="tags" onclick="pgSetFmt('tags')">🎫 Бирки (8 на лист)</button>
+        <button class="pg-fmt" data-fmt="stickers" onclick="pgSetFmt('stickers')">🏷 Наклейки (ФИО ×3)</button>
+      </div>
+    </div>
+
+    <div id="pg-actions">
+      <span class="pg-count" id="pg-count">0 имён</span>
+      <div style="display:flex;gap:8px">
+        <button class="btn" onclick="closePrintGenerator()">Отмена</button>
+        <button class="btn btn-primary" onclick="pgPrint()">🖨 Печать</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div id="toast"></div>
@@ -563,22 +615,28 @@
     setTimeout(()=>{ window.print(); setTimeout(()=>document.body.classList.remove('print-blank'),500); }, 80);
   }
 
-  // Наклейки: каждое ФИО (Фамилия+Имя) 3 раза подряд, по 3 в ряд, с разбивкой по отрядам.
-  function openStickers(){
-    if(!_attKids.length){ toast('Нет детей — открой вкладку «Списки», данные подгрузятся'); return; }
-    const ROMAN=['','I','II','III','IV'];
-    let cells='';
-    const pushKid=(k)=>{ const nm=escapeHtml(shortName_(k.name)); for(let i=0;i<3;i++) cells+='<div class="st"><span>'+nm+'</span></div>'; };
+  // Наклейки: каждое ФИО 3 раза подряд, по 3 в ряд.
+  // namesList — массив строк (если null, берём всех детей по отрядам)
+  function openStickers(namesList){
     let groups='';
-    for(let t=1;t<=4;t++){
-      const kids=_attKids.filter(k=>(k.troop||0)===t).sort((a,b)=>dobSortKey4_(b.dob)-dobSortKey4_(a.dob));
-      if(!kids.length) continue;
-      cells='';
-      kids.forEach(pushKid);
-      groups+='<h2>'+ROMAN[t]+' отряд</h2><div class="grid">'+cells+'</div>';
+    if(namesList && namesList.length){
+      let cells='';
+      namesList.forEach(nm=>{ const safe=escapeHtml(nm); for(let i=0;i<3;i++) cells+='<div class="st"><span>'+safe+'</span></div>'; });
+      groups='<div class="grid">'+cells+'</div>';
+    } else {
+      if(!_attKids.length){ toast('Нет имён для печати'); return; }
+      const ROMAN=['','I','II','III','IV'];
+      let cells='';
+      const pushKid=(k)=>{ const nm=escapeHtml(shortName_(k.name)); for(let i=0;i<3;i++) cells+='<div class="st"><span>'+nm+'</span></div>'; };
+      for(let t=1;t<=4;t++){
+        const kids=_attKids.filter(k=>(k.troop||0)===t).sort((a,b)=>dobSortKey4_(b.dob)-dobSortKey4_(a.dob));
+        if(!kids.length) continue;
+        cells=''; kids.forEach(pushKid);
+        groups+='<h2>'+ROMAN[t]+' отряд</h2><div class="grid">'+cells+'</div>';
+      }
+      const noTroop=_attKids.filter(k=>!(k.troop>=1&&k.troop<=4));
+      if(noTroop.length){ cells=''; noTroop.forEach(pushKid); groups+='<h2>Без отряда</h2><div class="grid">'+cells+'</div>'; }
     }
-    const noTroop=_attKids.filter(k=>!(k.troop>=1&&k.troop<=4));
-    if(noTroop.length){ cells=''; noTroop.forEach(pushKid); groups+='<h2>Без отряда</h2><div class="grid">'+cells+'</div>'; }
 
     const w=window.open('','_blank');
     if(!w){ toast('Разреши всплывающие окна для печати наклеек'); return; }
@@ -608,14 +666,18 @@
   }
 
   // Бирки: 1 на ребёнка, 8 на лист (2×4), фирменный кремовый/терракота.
-  function openTags(){
-    if(!_attKids.length){ toast('Нет детей — открой вкладку «Списки», данные подгрузятся'); return; }
-    // все дети по отрядам подряд (фамилия+имя), но без заголовков — просто поток бирок
-    const ordered=[];
-    for(let t=1;t<=4;t++){ _attKids.filter(k=>(k.troop||0)===t).sort((a,b)=>dobSortKey4_(b.dob)-dobSortKey4_(a.dob)).forEach(k=>ordered.push(k)); }
-    _attKids.filter(k=>!(k.troop>=1&&k.troop<=4)).forEach(k=>ordered.push(k));
+  function openTags(namesList){
+    let ordered;
+    if(namesList && namesList.length){
+      ordered = namesList.map(nm => ({ _name: nm }));
+    } else {
+      if(!_attKids.length){ toast('Нет имён для печати'); return; }
+      ordered=[];
+      for(let t=1;t<=4;t++){ _attKids.filter(k=>(k.troop||0)===t).sort((a,b)=>dobSortKey4_(b.dob)-dobSortKey4_(a.dob)).forEach(k=>ordered.push(k)); }
+      _attKids.filter(k=>!(k.troop>=1&&k.troop<=4)).forEach(k=>ordered.push(k));
+    }
     let cells='';
-    ordered.forEach(k=>{ cells+='<div class="tag"><span class="tag-name">'+escapeHtml(shortName_(k.name))+'</span></div>'; });
+    ordered.forEach(k=>{ const nm = k._name || shortName_(k.name); cells+='<div class="tag"><span class="tag-name">'+escapeHtml(nm)+'</span></div>'; });
 
     const w=window.open('','_blank');
     if(!w){ toast('Разреши всплывающие окна для печати бирок'); return; }
@@ -643,13 +705,18 @@
   }
 
   // Мини-наклейки 6×2 см, 1 на ребёнка, вплотную (под резку/рулон), фирменный стиль.
-  function openMiniStickers(){
-    if(!_attKids.length){ toast('Нет детей — открой вкладку «Списки», данные подгрузятся'); return; }
-    const ordered=[];
-    for(let t=1;t<=4;t++){ _attKids.filter(k=>(k.troop||0)===t).sort((a,b)=>dobSortKey4_(b.dob)-dobSortKey4_(a.dob)).forEach(k=>ordered.push(k)); }
-    _attKids.filter(k=>!(k.troop>=1&&k.troop<=4)).forEach(k=>ordered.push(k));
+  function openMiniStickers(namesList){
+    let ordered;
+    if(namesList && namesList.length){
+      ordered = namesList.map(nm => ({ _name: nm }));
+    } else {
+      if(!_attKids.length){ toast('Нет имён для печати'); return; }
+      ordered=[];
+      for(let t=1;t<=4;t++){ _attKids.filter(k=>(k.troop||0)===t).sort((a,b)=>dobSortKey4_(b.dob)-dobSortKey4_(a.dob)).forEach(k=>ordered.push(k)); }
+      _attKids.filter(k=>!(k.troop>=1&&k.troop<=4)).forEach(k=>ordered.push(k));
+    }
     let cells='';
-    ordered.forEach(k=>{ cells+='<div class="ms"><span class="ms-name">'+escapeHtml(shortName_(k.name))+'</span></div>'; });
+    ordered.forEach(k=>{ const nm = k._name || shortName_(k.name); cells+='<div class="ms"><span class="ms-name">'+escapeHtml(nm)+'</span></div>'; });
 
     const w=window.open('','_blank');
     if(!w){ toast('Разреши всплывающие окна для печати'); return; }
@@ -676,12 +743,69 @@
     w.document.close();
   }
 
+  // ── ГЕНЕРАТОР ПЕЧАТИ ИМЁН ──
+  let _pgFmt = 'mini';
+  function openPrintGenerator(){
+    if(!_attLoaded) loadAttendance(); // подтянем детей если ещё не
+    document.getElementById('pg-textarea').value='';
+    renderPgKids();
+    pgSetFmt('mini');
+    updatePgCount();
+    document.getElementById('pg-ov').classList.add('show');
+  }
+  function closePrintGenerator(){ document.getElementById('pg-ov').classList.remove('show'); }
+  function renderPgKids(){
+    const box=document.getElementById('pg-kids');
+    if(!_attKids.length){ box.innerHTML='<div style="color:var(--muted);padding:6px 0;font-size:12px">Дети ещё не загружены. Открой вкладку «Списки» или импортируй на «Отряды».</div>'; return; }
+    const ROMAN=['','I','II','III','IV'];
+    let html='';
+    for(let t=1;t<=4;t++){
+      const kids=_attKids.filter(k=>(k.troop||0)===t).sort((a,b)=>dobSortKey4_(b.dob)-dobSortKey4_(a.dob));
+      if(!kids.length) continue;
+      html+='<div class="pg-troop">'+ROMAN[t]+' отряд</div>';
+      kids.forEach(k=>{
+        const nm=escapeHtml(shortName_(k.name));
+        html+='<label class="pg-kid"><input type="checkbox" data-cid="'+escapeHtml(k.crmId)+'" data-name="'+nm+'" onchange="updatePgCount()"><span>'+nm+'</span></label>';
+      });
+    }
+    const noTroop=_attKids.filter(k=>!(k.troop>=1&&k.troop<=4));
+    if(noTroop.length){
+      html+='<div class="pg-troop">Без отряда</div>';
+      noTroop.forEach(k=>{ const nm=escapeHtml(shortName_(k.name)); html+='<label class="pg-kid"><input type="checkbox" data-cid="'+escapeHtml(k.crmId)+'" data-name="'+nm+'" onchange="updatePgCount()"><span>'+nm+'</span></label>'; });
+    }
+    box.innerHTML=html;
+  }
+  function pgToggleAll(){
+    const inputs=document.querySelectorAll('#pg-kids input[type=checkbox]');
+    const allChecked=Array.from(inputs).every(i=>i.checked);
+    inputs.forEach(i=>{ i.checked=!allChecked; });
+    updatePgCount();
+  }
+  function pgSetFmt(fmt){ _pgFmt=fmt; document.querySelectorAll('.pg-fmt').forEach(b=>{ b.classList.toggle('active', b.dataset.fmt===fmt); }); }
+  function collectPgNames(){
+    const names=[];
+    document.querySelectorAll('#pg-kids input[type=checkbox]:checked').forEach(i=>{ names.push(i.dataset.name); });
+    const raw=document.getElementById('pg-textarea').value;
+    raw.split(/\r?\n/).forEach(line=>{ const s=line.trim(); if(s) names.push(s); });
+    return names;
+  }
+  function updatePgCount(){ const n=collectPgNames().length; document.getElementById('pg-count').textContent=n+' имён'; }
+  function pgPrint(){
+    const names=collectPgNames();
+    if(!names.length){ toast('Не выбрано ни одного имени'); return; }
+    closePrintGenerator();
+    if(_pgFmt==='mini') openMiniStickers(names);
+    else if(_pgFmt==='tags') openTags(names);
+    else openStickers(names);
+  }
+
   // экспорты
   window.tryUnlock=tryUnlock; window.switchPane=switchPane;
   window.copyLink=copyLink; window.openParentLinks=openParentLinks; window.copyParentCSV=copyParentCSV; window.downloadParentCSV=downloadParentCSV;
   window.importTroopsChildren=importTroopsChildren; window.reshuffleTroops=reshuffleTroops; window.saveTroopsManual=saveTroopsManual;
   window.checkTroopsActuality=checkTroopsActuality; window.removeLeftChildren_=removeLeftChildren_; window.addNewChildren_=addNewChildren_;
   window.cycleAtt=cycleAtt; window.cycleDog=cycleDog; window.printAttendance=printAttendance; window.openStickers=openStickers; window.openTags=openTags; window.openMiniStickers=openMiniStickers;
+  window.openPrintGenerator=openPrintGenerator; window.closePrintGenerator=closePrintGenerator; window.pgToggleAll=pgToggleAll; window.pgSetFmt=pgSetFmt; window.updatePgCount=updatePgCount; window.pgPrint=pgPrint;
 </script>
 </body>
 </html>
