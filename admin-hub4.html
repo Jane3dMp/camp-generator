@@ -17,17 +17,19 @@
   h1,h2,h3{font-family:'Geologica',sans-serif;margin:0}
   code{font-family:ui-monospace,Menlo,monospace}
 
-  /* lock */
-  #lockscreen{position:fixed;inset:0;background:var(--paper);display:flex;align-items:center;justify-content:center;z-index:1000;padding:24px}
+  /* lock — тёмный стиль */
+  #lockscreen{position:fixed;inset:0;background:#161617;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;padding:24px}
   body.unlocked #lockscreen{display:none}
   body:not(.unlocked) #app{display:none}
-  .lock-card{max-width:340px;width:100%;text-align:center}
-  .lock-card h1{font-size:24px;margin-bottom:6px}
-  .lock-card p{color:var(--muted);font-size:14px;margin:0 0 18px}
-  .lock-card input{width:100%;padding:12px 14px;font-size:16px;border:2px solid var(--line);border-radius:12px;margin-bottom:10px;font-family:inherit}
-  .lock-card input:focus{outline:none;border-color:var(--yellow-deep)}
-  .lock-card button{width:100%;padding:12px;font-size:16px;font-weight:600;background:var(--yellow);border:none;border-radius:12px;cursor:pointer;font-family:inherit;color:var(--ink)}
-  .lock-err{color:#c0392b;font-size:13px;min-height:18px;margin-top:4px}
+  .lock-card{max-width:360px;width:100%;text-align:center}
+  .lock-logo{font-family:'Caveat',cursive;font-size:40px;font-weight:600;color:var(--yellow);line-height:1;margin-bottom:8px}
+  .lock-card p{color:rgba(255,255,255,0.55);font-size:13px;margin:0 0 22px}
+  .lock-card input{width:100%;padding:13px 15px;font-size:16px;border:1.5px solid rgba(255,255,255,0.18);border-radius:12px;margin-bottom:10px;font-family:inherit;background:rgba(255,255,255,0.06);color:#fff}
+  .lock-card input::placeholder{color:rgba(255,255,255,0.4)}
+  .lock-card input:focus{outline:none;border-color:var(--yellow)}
+  .lock-card button{width:100%;padding:13px;font-size:16px;font-weight:600;background:var(--yellow);border:none;border-radius:12px;cursor:pointer;font-family:inherit;color:#161617}
+  .lock-card button:hover{background:var(--yellow-deep)}
+  .lock-err{color:#ff8a7a;font-size:13px;min-height:18px;margin-top:4px}
 
   header{background:var(--paper-warm);border-bottom:1px solid var(--line);padding:18px 22px}
   header .hwrap{max-width:920px;margin:0 auto}
@@ -49,7 +51,6 @@
   .link-tile .lt-name{font-weight:600;font-size:14px;line-height:1.3;display:block;padding-right:24px}
   .link-tile .lt-copy{position:absolute;top:12px;right:10px;background:transparent;border:none;cursor:pointer;font-size:15px;opacity:0.45;padding:4px;border-radius:6px;line-height:1}
   .link-tile .lt-copy:hover{opacity:1;background:rgba(0,0,0,0.05)}
-  .sendpulse-btn{margin-top:16px}
   .btn{padding:8px 13px;font-size:13px;border:1px solid var(--line);background:var(--white);border-radius:8px;cursor:pointer;font-family:inherit;font-weight:600;color:var(--ink);text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
   .btn:hover{background:var(--paper-warm)}
   .btn-primary{background:var(--ink);color:var(--white);border-color:var(--ink)}
@@ -89,8 +90,8 @@
 
 <div id="lockscreen">
   <div class="lock-card">
-    <h1>Администратор</h1>
-    <p>Введи пароль клуба</p>
+    <div class="lock-logo">Прознание · Coddy</div>
+    <p>введи пароль чтобы открыть страницу администратора</p>
     <input type="password" id="lock-input" placeholder="Пароль" autocomplete="current-password">
     <button onclick="tryUnlock()">Войти</button>
     <div class="lock-err" id="lock-err"></div>
@@ -107,7 +108,6 @@
       <button class="tab active" id="tab-links" onclick="switchPane('links')">🔗 Ссылки</button>
       <button class="tab" id="tab-troops" onclick="switchPane('troops')">👦 Отряды</button>
       <button class="tab" id="tab-lists" onclick="switchPane('lists')">📋 Списки</button>
-      <button class="tab" id="tab-checks" onclick="switchPane('checks')">🗂 Карта чеков</button>
     </div>
   </header>
 
@@ -142,11 +142,6 @@
     <!-- СПИСКИ (задел) -->
     <div class="pane" id="pane-lists">
       <div class="soon"><h3>📋 Списки</h3>Здесь появится формирование списков детей (по отрядам, для печати, для регистрации). В разработке.</div>
-    </div>
-
-    <!-- КАРТА ЧЕКОВ (задел) -->
-    <div class="pane" id="pane-checks">
-      <div class="soon"><h3>🗂 Карта чеков детей</h3>Здесь появится карта чеков / оплат по детям. В разработке.</div>
     </div>
   </main>
 </div>
@@ -195,7 +190,7 @@
   function dobSortKey4_(dob){ const m=String(dob||'').trim().match(/^(\d{2})\.(\d{2})\.(\d{4})$/); if(!m) return 0; return new Date(+m[3],+m[2]-1,+m[1]).getTime(); }
 
   function switchPane(which){
-    ['links','troops','lists','checks'].forEach(p=>{
+    ['links','troops','lists'].forEach(p=>{
       document.getElementById('pane-'+p).classList.toggle('active', p===which);
       document.getElementById('tab-'+p).classList.toggle('active', p===which);
     });
@@ -238,7 +233,6 @@
         '</a>';
     });
     html+='</div>';
-    html+='<button class="btn btn-primary sendpulse-btn" onclick="openParentLinks()">🔗 Ссылки для родителей (SendPulse)</button>';
     document.getElementById('links-wrap').innerHTML=html;
   }
   function copyLink(url,btn){ const done=()=>{const o=btn.textContent;btn.textContent='✓';setTimeout(()=>btn.textContent=o,1200);}; if(navigator.clipboard) navigator.clipboard.writeText(url).then(done).catch(()=>{}); }
