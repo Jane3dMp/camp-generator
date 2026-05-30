@@ -179,6 +179,21 @@
 
   #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:10px;font-size:14px;opacity:0;pointer-events:none;transition:all 0.25s;z-index:2000}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* Сводка «что не сдано» */
+  .ah-card{border-radius:14px;padding:16px 18px;margin:0 0 18px;font-family:Inter,sans-serif;font-size:14px;line-height:1.5;border:1px solid transparent}
+  .ah-card.ok{background:rgba(143,163,112,0.12);border-color:rgba(143,163,112,0.35);color:#3f5028}
+  .ah-card.warn{background:rgba(254,214,52,0.18);border-color:rgba(254,214,52,0.55);color:#6a4d00}
+  .ah-card.danger{background:rgba(192,57,43,0.10);border-color:rgba(192,57,43,0.35);color:#7a1a10}
+  .ah-card.loading{background:rgba(21,22,23,0.04);color:rgba(21,22,23,0.6);font-size:13px}
+  .ah-head{font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .ah-pill{display:inline-block;padding:2px 9px;border-radius:7px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px}
+  .ah-pill.danger{background:#c0392b;color:#fff}
+  .ah-pill.warn{background:#d49a00;color:#fff}
+  .ah-teacher{margin:8px 0 4px;font-weight:600}
+  .ah-list{margin:0 0 4px 18px;padding:0}
+  .ah-list li{margin:2px 0;font-size:13px}
+  .ah-foot{font-size:12px;color:rgba(21,22,23,0.55);margin-top:8px}
 </style>
 </head>
 <body>
@@ -215,6 +230,7 @@
   <main>
     <!-- ССЫЛКИ -->
     <div class="pane active" id="pane-links">
+      <div id="admin-alerts"></div>
       <div id="links-wrap"><div class="soon">Загружаю ссылки…</div></div>
     </div>
 
@@ -369,6 +385,7 @@
       document.getElementById('subhead').textContent = seasonMeta.theme ? ('Тема смены: '+seasonMeta.theme) : 'Пульт управления сменой';
     }catch(e){ document.getElementById('subhead').textContent='Пульт управления сменой'; }
     renderLinks();
+    renderPendingTasks();
   }
 
   // ── ССЫЛКИ ──
@@ -908,6 +925,219 @@
   window.checkTroopsActuality=checkTroopsActuality; window.removeLeftChildren_=removeLeftChildren_; window.addNewChildren_=addNewChildren_;
   window.cycleAtt=cycleAtt; window.cycleDog=cycleDog; window.printAttendance=printAttendance; window.openStickers=openStickers; window.openTags=openTags; window.openMiniStickers=openMiniStickers;
   window.openPrintGenerator=openPrintGenerator; window.closePrintGenerator=closePrintGenerator; window.pgToggleAll=pgToggleAll; window.pgSetFmt=pgSetFmt; window.updatePgCount=updatePgCount; window.pgPrint=pgPrint;
+
+  /* ===== Сводка «что не сдано» (отчёты по занятиям) ===== */
+  // Минимальный перенос хелперов расписания из view4 — чтобы не дублировать логику в трёх местах,
+  // вызывается из обоих файлов один и тот же расчёт mkKey.
+  const _M = ['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
+  function _normName(s){ return String(s==null?'':s).toLowerCase().replace(/ё/g,'е').replace(/\s+/g,' ').trim(); }
+  function _dateForDay(state, dayIdx){
+    const start = new Date(state.startDate + 'T00:00:00');
+    let d = new Date(start), workDays = 0;
+    while (workDays < dayIdx + 1) {
+      if (d.getDay() !== 0 && d.getDay() !== 6) workDays++;
+      if (workDays < dayIdx + 1) d.setDate(d.getDate() + 1);
+      else break;
+    }
+    return d;
+  }
+  function _halfMode4(dOrType, half){
+    if (dOrType && typeof dOrType === 'object' && (dOrType.amType !== undefined || dOrType.pmType !== undefined)) {
+      return dOrType[half + 'Type'] || 'normal';
+    }
+    const type = String(dOrType || ''), isAM = half === 'am';
+    switch (type) {
+      case 'seq3_am': return isAM?'seq3':'normal';
+      case 'seq3_pm': return isAM?'normal':'seq3';
+      case 'seq3_full': return 'seq3';
+      case 'rot4_am': return isAM?'rot4':'normal';
+      case 'rot4_pm': return isAM?'normal':'rot4';
+      case 'rot4_full': return 'rot4';
+      case 'trip4_am': return isAM?'trip4':'normal';
+      case 'trip4_pm': return isAM?'normal':'trip4';
+      case 'trip2_am': return isAM?'trip2':'normal';
+      case 'trip2_pm': return isAM?'normal':'trip2';
+      case 'trip2_full': return 'trip2';
+      case 'parallel_am': return isAM?'parallel':'normal';
+      case 'parallel_pm': return isAM?'normal':'parallel';
+      case 'parallel_full': return 'parallel';
+      default: return 'normal';
+    }
+  }
+  function _activeSlots(d, half){
+    const m = _halfMode4(d, half);
+    if (m === 'trip4') return [{idx:0,isTrip:true}];
+    if (m === 'trip2') return [{idx:0},{idx:1},{idx:2,isTrip:true}];
+    if (m === 'parallel') return [{idx:0,isTrip:true},{idx:2,isTrip:true}];
+    if (m === 'parallel2') return [{idx:0,isTrip:true},{idx:2,isTrip:true},{idx:2,isTrip:true},{idx:0,isTrip:true}];
+    return [{idx:0},{idx:1},{idx:2},{idx:3}];
+  }
+
+  // Перебирает день и зовёт cb(slot) для КАЖДОГО педагогового захода.
+  // slot = { teacher, template, theme, scored, troop, mkKey }
+  // Покрывает все режимы: normal, trip*, seq3, rot4, seq3trip.
+  function _walkDay(day, idx, cb){
+    ['am','pm'].forEach(half => {
+      const mode = _halfMode4(day, half);
+
+      if (mode === 'seq3' || mode === 'rot4') {
+        const multi = day[half + 'Multi']; if (!multi) return;
+        if (mode === 'seq3') {
+          [['chainA',[1,2]], ['chainB',[3,4]]].forEach(pair => {
+            const sub = pair[0], tA = pair[1][0], tB = pair[1][1];
+            const chain = multi[sub] || [];
+            const s0 = chain[0];
+            if (s0 && s0.template && s0.teacher) {
+              cb({teacher:s0.teacher, template:s0.template, theme:s0.theme||'', scored:!!s0.scored, troop:tA, mkKey: idx+'_'+half+'_'+sub+'_0_t'+tA});
+              cb({teacher:s0.teacher, template:s0.template, theme:s0.theme||'', scored:!!s0.scored, troop:tB, mkKey: idx+'_'+half+'_'+sub+'_0_t'+tB});
+            }
+            const s1 = chain[1];
+            if (s1 && s1.template && s1.teacher) {
+              cb({teacher:s1.teacher, template:s1.template, theme:s1.theme||'', scored:!!s1.scored, troop:tB, mkKey: idx+'_'+half+'_'+sub+'_1_t'+tB});
+              cb({teacher:s1.teacher, template:s1.template, theme:s1.theme||'', scored:!!s1.scored, troop:tA, mkKey: idx+'_'+half+'_'+sub+'_1_t'+tA});
+            }
+            const s2 = chain[2];
+            if (s2 && s2.template && s2.teacher) {
+              cb({teacher:s2.teacher, template:s2.template, theme:s2.theme||'', scored:!!s2.scored, troop:tA, mkKey: idx+'_'+half+'_'+sub+'_2_tAB'});
+            }
+          });
+        } else {
+          (multi.stations || []).forEach((s, st) => {
+            if (!s || !s.template || !s.teacher) return;
+            for (let k = 0; k < 4; k++) {
+              const troopIdx = ((st - k) % 4 + 4) % 4;
+              cb({teacher:s.teacher, template:s.template, theme:s.theme||'', scored:!!s.scored, troop:troopIdx+1, mkKey: idx+'_'+half+'_stations_'+st+'_t'+(troopIdx+1)});
+            }
+          });
+        }
+        return;
+      }
+
+      if (mode === 'seq3trip') {
+        const multi = day[half + 'Multi']; if (!multi) return;
+        const sg = multi.studyGroup || 'A';
+        const tA = (sg === 'A') ? 1 : 3;
+        const tB = (sg === 'A') ? 2 : 4;
+        const chain = multi.chainA || [];
+        const s0 = chain[0];
+        if (s0 && s0.template && s0.teacher) {
+          cb({teacher:s0.teacher, template:s0.template, theme:s0.theme||'', scored:!!s0.scored, troop:tA, mkKey: idx+'_'+half+'_chainA_0_t'+tA});
+          cb({teacher:s0.teacher, template:s0.template, theme:s0.theme||'', scored:!!s0.scored, troop:tB, mkKey: idx+'_'+half+'_chainA_0_t'+tB});
+        }
+        const s1 = chain[1];
+        if (s1 && s1.template && s1.teacher) {
+          cb({teacher:s1.teacher, template:s1.template, theme:s1.theme||'', scored:!!s1.scored, troop:tB, mkKey: idx+'_'+half+'_chainA_1_t'+tB});
+          cb({teacher:s1.teacher, template:s1.template, theme:s1.theme||'', scored:!!s1.scored, troop:tA, mkKey: idx+'_'+half+'_chainA_1_t'+tA});
+        }
+        const s2 = chain[2];
+        if (s2 && s2.template && s2.teacher) {
+          cb({teacher:s2.teacher, template:s2.template, theme:s2.theme||'', scored:!!s2.scored, troop:tA, mkKey: idx+'_'+half+'_chainA_2_tAB'});
+        }
+        return;
+      }
+
+      const arr = day[half];
+      if (!Array.isArray(arr)) return;
+      _activeSlots(day, half).forEach(a => {
+        const s = arr[a.idx];
+        if (!s || !s.template || !s.teacher) return;
+        if (a.isTrip) return; // выезды отчётом не закрываем
+        cb({teacher:s.teacher, template:s.template, theme:s.theme||'', scored:!!s.scored, troop:a.idx+1, mkKey: idx+'_'+half+'_'+a.idx+'_t'+(a.idx+1)});
+      });
+    });
+  }
+
+  // Текущий день смены: ищем рабочий день, дата которого == сегодня (по локальной дате).
+  function _todayDayIdx(state){
+    if (!state || !Array.isArray(state.schedule) || !state.startDate) return -1;
+    const today = new Date(); today.setHours(0,0,0,0);
+    for (let i = 0; i < state.schedule.length; i++) {
+      const d = _dateForDay(state, i); d.setHours(0,0,0,0);
+      if (d.getTime() === today.getTime()) return i;
+    }
+    return -1;
+  }
+
+  async function renderPendingTasks(){
+    const box = document.getElementById('admin-alerts');
+    if (!box) return;
+    box.innerHTML = '<div class="ah-card loading">Проверяю отчёты педагогов…</div>';
+
+    let state = null;
+    try { state = JSON.parse(seasonMeta.stateJson || '{}'); } catch(e){}
+    if (!state || !Array.isArray(state.schedule) || !state.startDate) {
+      box.innerHTML = ''; return;
+    }
+
+    const todayIdx = _todayDayIdx(state);
+    if (todayIdx < 0) {
+      // Сегодня не день смены — сводки нет.
+      box.innerHTML = ''; return;
+    }
+
+    // Собираем занятия за сегодня + за все прошедшие дни смены (накопленные долги).
+    const buckets = {}; // noteGroupId → {teacher, dayIdx, mkName, mkKeys[]}
+    const dayIdxs = [];
+    for (let i = 0; i <= todayIdx; i++) dayIdxs.push(i);
+    dayIdxs.forEach(i => {
+      _walkDay(state.schedule[i], i, slot => {
+        const gid = SEASON_ID + '|' + i + '|' + _normName(slot.teacher) + '|' + _normName(slot.template);
+        if (!buckets[gid]) {
+          buckets[gid] = {gid, teacher: slot.teacher, dayIdx: i, mkName: slot.template, mkKeys: []};
+        }
+        buckets[gid].mkKeys.push(slot.mkKey);
+      });
+    });
+
+    // Спрашиваем у сервера статусы записей.
+    let notes = {};
+    try {
+      const r = await fetch(LIBRARY_URL + '?action=listLessonNotes&seasonId=' + encodeURIComponent(SEASON_ID)).then(r=>r.json());
+      if (r && r.ok && r.notes) notes = r.notes;
+    } catch(e){}
+
+    // Группируем «нет отчёта» по педагогу.
+    const byTeacher = {}; // teacher → [{dayIdx, mkName}]
+    Object.keys(buckets).forEach(gid => {
+      const g = buckets[gid];
+      // Группа считается закрытой, если хотя бы для одного её mkKey есть hasText=true.
+      const closed = g.mkKeys.some(k => notes[k] && notes[k].hasText);
+      if (closed) return;
+      const t = g.teacher;
+      (byTeacher[t] = byTeacher[t] || []).push({dayIdx: g.dayIdx, mkName: g.mkName});
+    });
+
+    const teachers = Object.keys(byTeacher).sort((a,b) => a.localeCompare(b, 'ru'));
+    const now = new Date();
+    const overdueNow = (now.getHours() > 17) || (now.getHours() === 17 && now.getMinutes() >= 30);
+
+    if (!teachers.length) {
+      box.innerHTML = '<div class="ah-card ok"><div class="ah-head">✅ Все отчёты по сегодняшнему дню сданы</div>' +
+        '<div class="ah-foot">Проверяются занятия за сегодня и накопленные долги прошлых дней.</div></div>';
+      return;
+    }
+
+    const cardClass = overdueNow ? 'danger' : 'warn';
+    const pillHtml = overdueNow
+      ? '<span class="ah-pill danger">просрочено</span>'
+      : '<span class="ah-pill warn">в работе до 17:30</span>';
+    let html = '<div class="ah-card ' + cardClass + '">' +
+      '<div class="ah-head">📋 Не сданы отчёты по занятиям ' + pillHtml + '</div>';
+    teachers.forEach(t => {
+      const items = byTeacher[t].sort((a,b) => a.dayIdx - b.dayIdx || a.mkName.localeCompare(b.mkName, 'ru'));
+      html += '<div class="ah-teacher">' + escapeHtml(t) + '</div><ul class="ah-list">';
+      items.forEach(it => {
+        const date = _dateForDay(state, it.dayIdx);
+        const dateStr = date.getDate() + ' ' + _M[date.getMonth()];
+        const dayLabel = (it.dayIdx === todayIdx) ? 'сегодня' : ('день ' + (it.dayIdx + 1) + ', ' + dateStr);
+        html += '<li>' + escapeHtml(dayLabel) + ' — ' + escapeHtml(it.mkName) + '</li>';
+      });
+      html += '</ul>';
+    });
+    html += '<div class="ah-foot">Проверяются занятия за сегодня и накопленные долги прошлых дней. ' +
+      (overdueNow ? 'Сейчас уже после 17:30 — отчёты должны быть сданы.' : 'Дедлайн — 17:30.') + '</div></div>';
+    box.innerHTML = html;
+  }
 </script>
 </body>
 </html>
