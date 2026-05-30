@@ -167,6 +167,13 @@
   }
   .ln-badge.saved { background: rgba(143,163,112,0.18); color: #5e7042; }
   .ln-badge.sent  { background: rgba(115,96,242,0.16); color: #5b49d6; }
+  .ln-cover-box {
+    background: rgba(200,113,75,0.10); border: 1px solid rgba(200,113,75,0.30);
+    border-radius: 10px; padding: 10px 12px; margin: 4px 0 14px; font-size: 13px; line-height: 1.45;
+  }
+  .ln-cover-hint { font-size: 12px; color: rgba(21,22,23,0.6); margin-top: 4px; }
+  .ln-troopnotes-body { display: none; margin-top: 6px; }
+  .ln-troopnotes-body.open { display: block; }
 
   .ln-overlay {
     position: fixed; inset: 0; background: rgba(21,22,23,0.55); z-index: 9999;
@@ -1232,6 +1239,7 @@
           '<button type="button" class="ln-close" onclick="LessonNotes.close()">×</button>' +
           '<div class="ln-title">🎤 Запись урока</div>' +
           '<div class="ln-sub" id="ln-sub"></div>' +
+          '<div id="ln-cover"></div>' +
           '<div class="ln-rec-row">' +
             '<button type="button" class="ln-rec-btn" id="ln-rec" onclick="LessonNotes.toggleRec()">●</button>' +
             '<div><div class="ln-timer" id="ln-timer">0:00</div>' +
@@ -1243,6 +1251,7 @@
             '<textarea class="ln-textarea" id="ln-text"></textarea>' +
             '<button type="button" class="ln-toggle-raw" onclick="LessonNotes.toggleRaw()">Показать исходную расшифровку</button>' +
             '<div class="ln-raw" id="ln-raw"></div>' +
+            '<div id="ln-troopnotes"></div>' +
             '<div class="ln-actions">' +
               '<button type="button" class="ln-btn primary" id="ln-save" onclick="LessonNotes.save()">💾 Сохранить</button>' +
               '<button type="button" class="ln-btn viber" onclick="LessonNotes.toViber()">📲 Открыть в Viber</button>' +
@@ -1271,31 +1280,103 @@
     function open(payloadJson) {
       ensureModal();
       ctx = JSON.parse(payloadJson);
-      el('ln-sub').textContent = (ctx.mkName || 'занятие') + ' · ' + (ctx.troopsLabel || '') + (ctx.time ? ' · ' + ctx.time : '');
+      // Собираем охват: все слоты этого дня с тем же названием МК у этого педагога.
+      computeCoverage();
+      var sub = (ctx.mkName || 'занятие');
+      el('ln-sub').textContent = sub + (ctx.coverLabel ? ' · ' + ctx.coverLabel : (ctx.time ? ' · ' + ctx.time : ''));
       el('ln-result').style.display = 'none';
       el('ln-text').value = '';
       el('ln-raw').textContent = '';
       el('ln-raw').className = 'ln-raw';
+      el('ln-cover').innerHTML = renderCoverInfo();
       seconds = 0; el('ln-timer').textContent = '0:00';
       el('ln-rec').className = 'ln-rec-btn'; el('ln-rec').textContent = '●';
       el('ln-hint').textContent = 'Нажми и наговори, что было на занятии';
       setStatus('');
       el('ln-overlay').classList.add('open');
-      // подгрузим прежнюю запись, если была
       loadExisting();
+    }
+
+    // Находит все mkKey этого же МК этого педагога в этот день + список отрядов.
+    function computeCoverage() {
+      ctx.dayIdx = dayIdxFromKey(ctx.mkKey);
+      ctx.noteGroupId = getQueryParam('id') + '|' + ctx.dayIdx + '|' +
+        normalizeName(ctx.teacher || '') + '|' + normalizeName(ctx.mkName || '');
+      var mkKeys = [ctx.mkKey];
+      var troops = [];
+      try {
+        var days = buildScheduleForTeacher(ctx.teacher || '');
+        var day = days.find(function (d) { return d.idx === ctx.dayIdx; });
+        // у объекта дня в buildScheduleForTeacher idx может не лежать — fallback по слотам
+        var pool = [];
+        days.forEach(function (d) { (d.slots || []).forEach(function (s) { pool.push(s); }); });
+        pool.forEach(function (s) {
+          if (!s.mkKey) return;
+          if (dayIdxFromKey(s.mkKey) !== ctx.dayIdx) return;
+          if (normalizeName(s.template || '') !== normalizeName(ctx.mkName || '')) return;
+          if (mkKeys.indexOf(s.mkKey) < 0) mkKeys.push(s.mkKey);
+          var tl = s.troopsLabel || ('отряд ' + s.troop);
+          if (troops.indexOf(tl) < 0) troops.push(tl);
+        });
+      } catch (e) {}
+      ctx.mkKeys = mkKeys;
+      ctx.troops = troops;
+      ctx.coverLabel = troops.length > 1 ? troops.join(', ') : (ctx.troopsLabel || '');
+    }
+
+    function renderCoverInfo() {
+      if (!ctx.troops || ctx.troops.length <= 1) return '';
+      return '<div class="ln-cover-box">📋 Один отчёт на занятие. Он закроет: <b>' +
+        ctx.troops.map(escapeHtml).join(', ') + '</b><div class="ln-cover-hint">' +
+        'Текст уйдёт во все эти отряды. Ниже можно добавить отдельную заметку по отряду, если где-то было иначе.</div></div>';
+    }
+
+    function renderTroopNotes() {
+      var box = el('ln-troopnotes');
+      if (!box) return;
+      if (!ctx.troops || ctx.troops.length <= 1) { box.innerHTML = ''; return; }
+      ctx.troopNotes = ctx.troopNotes || {};
+      var html = '<button type="button" class="ln-toggle-raw" onclick="LessonNotes.toggleTroopNotes()">' +
+        '➕ Добавить отдельную заметку по отряду (если где-то было иначе)</button>' +
+        '<div id="ln-troopnotes-body" class="ln-troopnotes-body">';
+      ctx.troops.forEach(function (t) {
+        var val = ctx.troopNotes[t] || '';
+        html += '<div class="ln-label">' + escapeHtml(t) + ':</div>' +
+          '<textarea class="ln-textarea ln-troop-ta" data-troop="' + escapeHtml(t) + '" ' +
+          'style="min-height:54px" placeholder="Необязательно — только если отличалось">' + escapeHtml(val) + '</textarea>';
+      });
+      html += '</div>';
+      box.innerHTML = html;
+    }
+
+    function toggleTroopNotes() {
+      var b = el('ln-troopnotes-body');
+      if (b) b.classList.toggle('open');
+    }
+
+    function collectTroopNotes() {
+      var out = {};
+      var tas = document.querySelectorAll('.ln-troop-ta');
+      Array.prototype.forEach.call(tas, function (ta) {
+        var v = ta.value.trim();
+        if (v) out[ta.getAttribute('data-troop')] = v;
+      });
+      return out;
     }
 
     function loadExisting() {
       var id = getQueryParam('id');
       if (!id || !ctx) return;
       fetch(LIBRARY_URL + '?action=getLessonNote&seasonId=' + encodeURIComponent(id) +
-            '&mkKey=' + encodeURIComponent(ctx.mkKey))
+            '&noteGroupId=' + encodeURIComponent(ctx.noteGroupId))
         .then(function (r) { return r.json(); })
         .then(function (d) {
           if (d && d.found && d.textClean) {
             el('ln-text').value = d.textClean;
             el('ln-raw').textContent = d.textRaw || '';
+            ctx.troopNotes = d.troopNotes || {};
             el('ln-result').style.display = 'block';
+            renderTroopNotes();
             setStatus('Найдена прежняя запись — можно переписать или поправить.');
           }
         })
@@ -1388,6 +1469,7 @@
           el('ln-text').value = d.textClean || d.textRaw || '';
           el('ln-raw').textContent = d.textRaw || '';
           el('ln-result').style.display = 'block';
+          renderTroopNotes();
           setStatus('Готово. Проверь текст и при желании поправь.');
         })
         .catch(function (e) { setStatus('Ошибка сети: ' + e.message, true); });
@@ -1406,9 +1488,11 @@
       if (!text) { setStatus('Текст пустой.', true); return Promise.reject(); }
       var btn = el('ln-save'); if (!silent) btn.disabled = true;
       var body = {
-        action: 'saveLessonNote', seasonId: id, mkKey: ctx.mkKey,
-        teacher: ctx.teacher || '', dayIdx: dayIdxFromKey(ctx.mkKey),
-        mkName: ctx.mkName || '', textRaw: el('ln-raw').textContent || '', textClean: text
+        action: 'saveLessonNote', seasonId: id, noteGroupId: ctx.noteGroupId,
+        teacher: ctx.teacher || '', dayIdx: ctx.dayIdx,
+        mkName: ctx.mkName || '', mkKeys: ctx.mkKeys || [ctx.mkKey],
+        textRaw: el('ln-raw').textContent || '', textClean: text,
+        troopNotes: collectTroopNotes()
       };
       return fetch(LIBRARY_URL, {
         method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -1418,10 +1502,8 @@
         .then(function (d) {
           if (!silent) btn.disabled = false;
           if (d && d.ok) {
-            statusCache[ctx.mkKey] = statusCache[ctx.mkKey] || {};
-            statusCache[ctx.mkKey].hasText = true;
-            refreshBadges();
-            if (!silent) setStatus('✅ Сохранено.');
+            markCache(false);
+            if (!silent) setStatus('✅ Сохранено для: ' + (ctx.troops || []).join(', '));
           } else if (!silent) {
             setStatus('Не удалось сохранить.', true);
           }
@@ -1433,23 +1515,39 @@
         });
     }
 
+    // Обновить кэш статусов по всем mkKey группы.
+    function markCache(sent) {
+      (ctx.mkKeys || [ctx.mkKey]).forEach(function (k) {
+        statusCache[k] = statusCache[k] || {};
+        statusCache[k].hasText = true;
+        if (sent) statusCache[k].sent = true;
+      });
+      refreshBadges();
+    }
+
     function markSent() {
       var id = getQueryParam('id');
       return fetch(LIBRARY_URL, {
         method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'markLessonSent', seasonId: id, mkKey: ctx.mkKey })
+        body: JSON.stringify({ action: 'markLessonSent', seasonId: id, noteGroupId: ctx.noteGroupId })
       })
         .then(function (r) { return r.json(); })
-        .then(function (d) {
-          if (d && d.ok) {
-            statusCache[ctx.mkKey] = statusCache[ctx.mkKey] || {};
-            statusCache[ctx.mkKey].hasText = true;
-            statusCache[ctx.mkKey].sent = true;
-            refreshBadges();
-          }
-          return d;
-        })
+        .then(function (d) { if (d && d.ok) markCache(true); return d; })
         .catch(function () {});
+    }
+
+    // Полный текст для отправки: шапка + текст + (если есть) заметки по отрядам.
+    function buildFullText() {
+      var head = 'Отчёт о проведённых занятиях педагога ' + (ctx.teacher || '') +
+        ' по «' + (ctx.mkName || 'занятие') + '»';
+      var parts = [head, '', el('ln-text').value.trim()];
+      var tn = collectTroopNotes();
+      var keys = Object.keys(tn);
+      if (keys.length) {
+        parts.push('');
+        keys.forEach(function (t) { parts.push(t + ': ' + tn[t]); });
+      }
+      return parts.join('\n');
     }
 
     function again() {
@@ -1464,32 +1562,35 @@
     function toViber() {
       var text = el('ln-text').value.trim();
       if (!text) { setStatus('Сначала наговори или впиши текст.', true); return; }
-      // Сначала тихо сохраняем и отмечаем отправку, потом открываем Viber.
+      var full = buildFullText();
       doSave(true).then(markSent).then(function () {
-        window.location.href = 'viber://forward?text=' + encodeURIComponent(text);
+        window.location.href = 'viber://forward?text=' + encodeURIComponent(full);
         setStatus('Открываю Viber… Если текст не подставился — нажми «Скопировать» и вставь вручную.');
       }).catch(function () {
-        // Даже если сохранение не прошло — всё равно открываем Viber, текст у педагога есть.
-        window.location.href = 'viber://forward?text=' + encodeURIComponent(text);
+        window.location.href = 'viber://forward?text=' + encodeURIComponent(full);
       });
     }
 
     function copy() {
       var text = el('ln-text').value.trim();
       if (!text) { setStatus('Текст пустой.', true); return; }
+      var full = buildFullText();
       doSave(true).then(markSent);
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(
-          function () { setStatus('📋 Скопировано — вставь в нужный чат Viber.'); },
-          function () { fallbackCopy(text); }
+        navigator.clipboard.writeText(full).then(
+          function () { setStatus('📋 Скопировано (с заголовком) — вставь в нужный чат Viber.'); },
+          function () { fallbackCopy(full); }
         );
-      } else { fallbackCopy(text); }
+      } else { fallbackCopy(full); }
     }
 
     function fallbackCopy(text) {
-      var ta = el('ln-text'); ta.focus(); ta.select();
-      try { document.execCommand('copy'); setStatus('📋 Скопировано — вставь в нужный чат Viber.'); }
+      var tmp = document.createElement('textarea');
+      tmp.value = text; tmp.style.position = 'fixed'; tmp.style.opacity = '0';
+      document.body.appendChild(tmp); tmp.focus(); tmp.select();
+      try { document.execCommand('copy'); setStatus('📋 Скопировано (с заголовком) — вставь в нужный чат Viber.'); }
       catch (e) { setStatus('Скопируй текст вручную.', true); }
+      document.body.removeChild(tmp);
     }
 
     // Подтянуть статусы всех записей смены и расставить бейджи. Зовётся после отрисовки расписания.
@@ -1526,6 +1627,7 @@
 
     return { open: open, close: close, toggleRec: toggleRec, toggleRaw: toggleRaw,
              save: save, toViber: toViber, copy: copy, again: again,
+             toggleTroopNotes: toggleTroopNotes,
              loadStatuses: loadStatuses, refreshBadges: refreshBadges };
   })();
 </script>
