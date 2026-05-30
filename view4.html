@@ -1315,13 +1315,36 @@
           if (dayIdxFromKey(s.mkKey) !== ctx.dayIdx) return;
           if (normalizeName(s.template || '') !== normalizeName(ctx.mkName || '')) return;
           if (mkKeys.indexOf(s.mkKey) < 0) mkKeys.push(s.mkKey);
-          var tl = s.troopsLabel || ('отряд ' + s.troop);
-          if (troops.indexOf(tl) < 0) troops.push(tl);
+          var tl = troopLabelOf(s);
+          if (tl && troops.indexOf(tl) < 0) troops.push(tl);
         });
       } catch (e) {}
       ctx.mkKeys = mkKeys;
-      ctx.troops = troops;
-      ctx.coverLabel = troops.length > 1 ? troops.join(', ') : (ctx.troopsLabel || '');
+      ctx.troops = sortTroops(troops);
+      ctx.coverLabel = ctx.troops.length > 1 ? ctx.troops.join(', ') : (troopLabelOf(ctx) || ctx.troopsLabel || '');
+    }
+
+    // Чистая метка отряда: «отряд N» (без «станция …»). Берём s.troop, иначе вытаскиваем из mkKey.
+    function troopLabelOf(s) {
+      var tr = s.troop;
+      if (tr == null && s.mkKey) {
+        var mm = String(s.mkKey).match(/_t(\d+)$/);
+        if (mm) tr = mm[1];
+      }
+      if (tr == null) {
+        // общий слот вида ...tAB — несколько отрядов
+        if (s.troopsLabel) return String(s.troopsLabel).replace(/станц[^,·]*[·,]?\s*/gi, '').trim();
+        return '';
+      }
+      return 'отряд ' + tr;
+    }
+
+    function sortTroops(arr) {
+      return arr.slice().sort(function (a, b) {
+        var na = parseInt((a.match(/\d+/) || [99])[0], 10);
+        var nb = parseInt((b.match(/\d+/) || [99])[0], 10);
+        return na - nb;
+      });
     }
 
     function renderCoverInfo() {
