@@ -209,6 +209,32 @@
     padding: 20px; font-size: 15px; line-height: 1.6; color: var(--ink);
     white-space: pre-wrap; overflow-y: auto;
   }
+
+  /* === МОДАЛКА «КАК ПОЛЬЗОВАТЬСЯ» === */
+  .help-popup .refs-popup-box { max-width: 620px; padding: 24px 26px; font-family: Inter, sans-serif; }
+  .help-popup .refs-popup-title em { font-family: Caveat, cursive; font-style: normal; font-weight: 600; background: var(--yellow); padding: 0 6px; border-radius: 4px; }
+  .help-content { font-size: 14.5px; color: var(--ink); line-height: 1.55; }
+  .help-content h4 {
+    font-family: Geologica, sans-serif; font-size: 13px; font-weight: 700;
+    margin: 18px 0 8px; letter-spacing: 0.04em;
+  }
+  .help-content h4:first-child { margin-top: 0; }
+  .help-content p { margin: 8px 0; }
+  .help-content ol, .help-content ul { margin: 8px 0; padding-left: 22px; }
+  .help-content li { margin: 6px 0; }
+  .help-content strong { font-weight: 700; }
+  .help-content .help-key {
+    display: inline-block; background: var(--paper-warm, #FFFBEC); border: 1px solid rgba(21,22,23,0.2);
+    padding: 1px 7px; border-radius: 4px; font-size: 13px; font-weight: 600; white-space: nowrap;
+  }
+  .help-content .help-note {
+    background: var(--paper-warm, #FFFBEC); border-left: 3px solid var(--yellow-deep, #C9A800);
+    padding: 10px 14px; margin: 14px 0; font-size: 13.5px;
+  }
+  .help-content .help-warn {
+    background: #FBEDE6; border-left: 3px solid #9A4B30;
+    padding: 10px 14px; margin: 14px 0; font-size: 13.5px;
+  }
   .item-order {
     font-family: Inter; font-size: 0.78em; font-weight: 600;
     color: var(--ink); background: rgba(21,22,23,0.06);
@@ -601,6 +627,7 @@
         <div class="subhead" id="view-subhead"></div>
       </div>
       <div class="actions">
+        <button class="nav-to-troops" id="help-btn" onclick="openHelp()" style="cursor:pointer" title="Как пользоваться этой страницей">❓ Инструкция</button>
         <button class="nav-to-troops" id="roster-btn" onclick="openRosterPopup()" style="cursor:pointer">👦 Состав отрядов</button>
         <a class="nav-to-troops" id="nav-to-payroll" href="#" target="_blank" rel="noopener">📊 Табель педагогов →</a>
         <a class="nav-to-troops" id="nav-to-troops" href="#" target="_blank" rel="noopener">👦 Версия для кураторов →</a>
@@ -649,6 +676,46 @@
       <button class="refs-popup-close" onclick="closeCommentPopup()" title="Закрыть">✕</button>
     </div>
     <div class="comment-popup-text" id="comment-popup-text"></div>
+  </div>
+</div>
+
+<!-- МОДАЛКА «КАК ПОЛЬЗОВАТЬСЯ» -->
+<div class="refs-popup help-popup" id="help-popup" onclick="if(event.target===this)closeHelp()">
+  <div class="refs-popup-box">
+    <div class="refs-popup-head">
+      <span class="refs-popup-title">❓ Как пользоваться <em>этой страницей</em></span>
+      <button class="refs-popup-close" onclick="closeHelp()" title="Закрыть">✕</button>
+    </div>
+    <div class="help-content">
+      <h4>Что это за окно</h4>
+      <p>Расписание смены глазами админа. Видишь весь календарь смены, состав отрядов с телефонами родителей, быстрые переходы к табелю работы педагогов и к версии для кураторов.</p>
+
+      <h4>Что делать</h4>
+      <ol>
+        <li>Прокрути и посмотри расписание смены. На мобильном — компактный вид; шрифт можно увеличить кнопками <span class="help-key">−</span> / <span class="help-key">+</span> / <span class="help-key">↻</span> в правом нижнем углу.</li>
+        <li>Нажми <span class="help-key">👦 Состав отрядов</span> — увидишь всех детей по отрядам с <strong>кликабельными телефонами родителей</strong>. Касание по телефону на смартфоне = звонок.</li>
+        <li>Нужен табель работы педагогов? <span class="help-key">📊 Табель педагогов →</span> откроет payroll4 в новой вкладке.</li>
+        <li>Нужно показать расписание куратору? <span class="help-key">👦 Версия для кураторов →</span> — то же расписание, но с интерфейсом куратора (печать, фильтр по отрядам, более крупный шрифт).</li>
+      </ol>
+
+      <div class="help-note">
+        Это окно <strong>не дублирует</strong> главный пульт админа — admin-hub4. Этот — про <em>чтение расписания</em>; admin-hub4 — про управление сменой (импорт детей, посещаемость, печать имён). Используй оба в зависимости от задачи.
+      </div>
+
+      <h4>Куда уходит то, что ты делаешь здесь</h4>
+      <p>Ничего не сохраняется — это окно просмотра. Само расписание берётся из последней опубликованной версии в index4.</p>
+
+      <h4>Что важно</h4>
+      <ul>
+        <li>Если что-то в расписании выглядит «не так» — проверь черновик в index4. Возможно, не нажата кнопка «Опубликовать».</li>
+        <li>На мобильном устройстве ссылки на табель и версию для кураторов скрываются, остаётся только <span class="help-key">👦 Состав отрядов</span> — это by design, эти ссылки нужны редко и на компьютере.</li>
+        <li>Если страница «застряла» или показывает старое — Ctrl+Shift+R (на телефоне — потяни вниз).</li>
+      </ul>
+
+      <div class="help-warn">
+        <strong>Телефоны родителей видны в попапе «Состав» — это конфиденциальная информация.</strong> Не делай скриншоты с открытым попапом, не пересылай ссылку этой страницы в открытые чаты. Ссылку даёт только администратор клуба и только команде.
+      </div>
+    </div>
   </div>
 </div>
 
@@ -844,6 +911,15 @@
   }
   window.openRosterPopup = openRosterPopup;
   window.closeRosterPopup = closeRosterPopup;
+
+  function openHelp() {
+    document.getElementById('help-popup').classList.add('open');
+  }
+  function closeHelp() {
+    document.getElementById('help-popup').classList.remove('open');
+  }
+  window.openHelp = openHelp;
+  window.closeHelp = closeHelp;
 
   // ── ПОПАП КОММЕНТАРИЯ (комментарии бывают длинными) ──
   const _commentStore = {};

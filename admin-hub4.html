@@ -163,6 +163,33 @@
   #pg-actions{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:16px}
   .pg-count{font-size:13px;color:var(--muted)}
   .att-cell:hover{outline:2px solid var(--moss);outline-offset:-2px}
+
+  /* ── МОДАЛКА «КАК ПОЛЬЗОВАТЬСЯ» ── */
+  .help-btn{background:var(--white);border:1px solid var(--ink);padding:6px 12px;border-radius:999px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;color:var(--ink);line-height:1}
+  .help-btn:hover{background:var(--yellow);border-color:var(--yellow-deep)}
+  .help-popup{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;align-items:flex-start;justify-content:center;z-index:9998;padding:24px 16px;overflow-y:auto}
+  .help-popup.open{display:flex}
+  .help-popup-box{background:#fff;max-width:680px;width:100%;border-radius:12px;padding:24px 26px 28px;margin:auto;font-family:'Inter',sans-serif;position:relative}
+  .help-popup-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:12px}
+  .help-popup-title{font-family:'Geologica',sans-serif;font-weight:700;font-size:18px;line-height:1.25}
+  .help-popup-title em{font-family:'Caveat',cursive;font-style:normal;font-weight:600;background:var(--yellow);padding:0 6px;border-radius:4px;color:var(--ink)}
+  .help-popup-close{background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);line-height:1;padding:0 4px;flex-shrink:0}
+  .help-popup-close:hover{color:var(--ink)}
+  .help-content{font-size:14.5px;color:var(--ink);line-height:1.55}
+  .help-content h4{font-family:'Geologica',sans-serif;font-size:13px;font-weight:700;margin:18px 0 8px;letter-spacing:0.04em;color:var(--moss-deep)}
+  .help-content h4:first-child{margin-top:0}
+  .help-content p{margin:8px 0}
+  .help-content ol,.help-content ul{margin:8px 0;padding-left:22px}
+  .help-content li{margin:6px 0}
+  .help-content strong{font-weight:700}
+  .help-content .help-key{display:inline-block;background:var(--paper-warm);border:1px solid rgba(21,22,23,0.2);padding:1px 7px;border-radius:4px;font-size:13px;font-weight:600;white-space:nowrap}
+  .help-content .help-note{background:var(--paper-warm);border-left:3px solid var(--yellow-deep);padding:10px 14px;margin:14px 0;font-size:13.5px}
+  .help-content .help-warn{background:#FBEDE6;border-left:3px solid #9A4B30;padding:10px 14px;margin:14px 0;font-size:13.5px}
+  @media (max-width: 640px){
+    .help-popup-box{padding:18px 18px}
+    .help-popup-title{font-size:16px}
+    .help-content{font-size:14px}
+  }
   .att-hint{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5}
   @media print{
     body{background:#fff}
@@ -231,6 +258,7 @@
       </div>
       <div class="h-chips" id="h-chips">
         <span class="chip"><span class="chip-dot"></span><span id="chip-troops">4 отряда</span></span>
+        <button class="help-btn" onclick="openHelp()" title="Как пользоваться этой страницей">❓ Инструкция</button>
       </div>
     </div>
     <div class="tabs">
@@ -313,6 +341,72 @@
       <div style="display:flex;gap:8px">
         <button class="btn" onclick="closePrintGenerator()">Отмена</button>
         <button class="btn btn-primary" onclick="pgPrint()">🖨 Печать</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- МОДАЛКА «КАК ПОЛЬЗОВАТЬСЯ» -->
+<div class="help-popup" id="help-popup" onclick="if(event.target===this)closeHelp()">
+  <div class="help-popup-box">
+    <div class="help-popup-head">
+      <span class="help-popup-title">❓ Как пользоваться <em>этой страницей</em></span>
+      <button class="help-popup-close" onclick="closeHelp()" title="Закрыть">✕</button>
+    </div>
+    <div class="help-content">
+      <h4>Что это за окно</h4>
+      <p>Пульт администратора смены. Три вкладки сверху:</p>
+      <ul>
+        <li><span class="help-key">🔗 Ссылки</span> — все ссылки на инструменты смены (педагогам, родителям, кураторам, табель, баллы, письма, паспорта) + блок «штрафников».</li>
+        <li><span class="help-key">👦 Отряды</span> — импорт детей из CRM, разбивка по отрядам, проверка актуальности. То же окно, что в index4 — синхрон через общий лист «Дети».</li>
+        <li><span class="help-key">📋 Списки</span> — таблица посещаемости + универсальный генератор печатных имён (мини-наклейки, бирки, наклейки ФИО).</li>
+      </ul>
+
+      <h4>Вкладка «🔗 Ссылки»</h4>
+      <p>Открой эту вкладку — увидишь сетку плиток. Каждая плитка — ссылка на одно из окон системы (педагогам, кураторам, родителям и т.д.). Клик по плитке открывает окно в новой вкладке. <span class="help-key">📋</span> в углу плитки — копирует URL.</p>
+      <div class="help-note">
+        <strong>Блок «штрафники»</strong> сверху над плитками: если у педагогов есть невыставленные баллы или несданные отчёты по оценочным занятиям — они появятся здесь. Раскрывается по дням смены. Красный значок «просрочено» = долги за прошлые дни или сегодняшние после 17:30. Жёлтый = «в работе до 17:30». Будущие дни свёрнуты в «📅 Заранее по будущим дням».
+      </div>
+
+      <h4>Вкладка «👦 Отряды»</h4>
+      <ol>
+        <li><strong>Импорт детей.</strong> Укажи группу в Альфа CRM (например 324) → <span class="help-key">⬇ Импортировать и разбить</span>. Подтянутся дети из филиала «Каникулы», автоматически разобьются по возрасту: младшие в отряд 1, старшие в отряд 4.</li>
+        <li><strong>Перетаскивай</strong> карточки между отрядами, если нужно поправить разбивку. Кнопка <span class="help-key">🔒</span> на карточке — закрепить (защита от перезаписи при «🔀 Переразбить» или новых импортах).</li>
+        <li><strong><span class="help-key">🔍 Проверить актуальность</span></strong> — сравнивает текущий список с Альфой. Покажет кого исключили из клуба (исчезли из CRM) и кто добавился новый. Решаешь — удалить выбывших / добавить новых.</li>
+        <li><span class="help-key">💾 Сохранить</span> жми после ручных правок — на случай если автосохранение не успело.</li>
+      </ol>
+      <p>Важно: это <strong>тот же экран</strong>, что у тебя в index4 (где составляется расписание). Один лист «Дети» на оба окна. Изменил тут — изменилось там. Last write wins.</p>
+
+      <h4>Вкладка «📋 Списки» — посещаемость</h4>
+      <ol>
+        <li>Таблица: столбец <span class="help-key">Договор</span> + дни смены (например «1 июн, 2 июн…») + строки детей по отрядам. В конце каждого отряда есть 2 пустые строки для ручного дописывания.</li>
+        <li><strong>Ячейка кликается циклом:</strong> пусто → <span class="help-key">+</span> (зелёный, был) → <span class="help-key">−</span> (терракота, не был) → пусто.</li>
+        <li>Столбец «Договор»: пусто → <span class="help-key">✓</span> (синий, договор есть) → пусто.</li>
+        <li>Автосохранение по очереди — статус «сохранение… / сохранено» показывается рядом.</li>
+        <li><strong>Печать</strong>: <span class="help-key">🖨 Печать таблицы (с отметками)</span> или <span class="help-key">пустой</span> для бумажной разлиновки куратору.</li>
+      </ol>
+      <div class="help-note">
+        «<span class="help-key">−</span> в посещаемости» влияет на письма родителям: если ребёнок отмечен как отсутствующий в день D, то голосовой отчёт педагога за этот день <strong>НЕ попадёт</strong> в его письмо/паспорт. Это защита от «ИИ написал про действия ребёнка, которого там не было».
+      </div>
+
+      <h4>Вкладка «📋 Списки» — генератор печати имён</h4>
+      <p>Одна кнопка <span class="help-key">🏷 Печать имён</span> → модалка с тремя вариантами оформления:</p>
+      <ul>
+        <li><strong>🔖 Мини-наклейки 6×2 см</strong> — на рулон/резку, плотно без зазоров. Имя крупно, фамилия мельче.</li>
+        <li><strong>🎫 Бирки (8 на лист)</strong> — крупный шрифт, кремовый фон, терракотовая рамка. На прищепку / на бейдж.</li>
+        <li><strong>🏷 Наклейки ФИО ×3</strong> — каждое имя повторяется три раза подряд, по 3 в ряд. Чёрная рамка, ВЕРХНИЙ РЕГИСТР.</li>
+      </ul>
+      <p>В модалке можешь: впечатать имена руками + отметить детей галочками из списка. Соберутся в один общий список для печати. Имя везде — <strong>Фамилия + Имя</strong> (без отчества), размер шрифта автоматически подгоняется под длину имени.</p>
+
+      <h4>Что важно</h4>
+      <ul>
+        <li>Изменения в «👦 Отряды» здесь и в index4 идут в один лист — синхрон автоматический. Не работаешь в двух окнах одновременно с одним ребёнком.</li>
+        <li>Перезагрузка страницы тянет данные с сервера — ничего не теряется.</li>
+        <li>Размер шрифта в печатных формах подгоняется автоматически (длинные имена сжимаются). Есть нижние пороги — ниже не уменьшит, иначе нечитаемо.</li>
+      </ul>
+
+      <div class="help-warn">
+        <strong>Не печатай таблицу посещаемости со скриншотом ссылки этой страницы — телефоны родителей видны в окне «Отряды».</strong> Если делишься скриншотами или раздаёшь распечатки команде — открывай только вкладку «📋 Списки», там телефонов нет.
       </div>
     </div>
   </div>
@@ -938,6 +1032,10 @@
   window.checkTroopsActuality=checkTroopsActuality; window.removeLeftChildren_=removeLeftChildren_; window.addNewChildren_=addNewChildren_;
   window.cycleAtt=cycleAtt; window.cycleDog=cycleDog; window.printAttendance=printAttendance; window.openStickers=openStickers; window.openTags=openTags; window.openMiniStickers=openMiniStickers;
   window.openPrintGenerator=openPrintGenerator; window.closePrintGenerator=closePrintGenerator; window.pgToggleAll=pgToggleAll; window.pgSetFmt=pgSetFmt; window.updatePgCount=updatePgCount; window.pgPrint=pgPrint;
+
+  function openHelp(){ document.getElementById('help-popup').classList.add('open'); }
+  function closeHelp(){ document.getElementById('help-popup').classList.remove('open'); }
+  window.openHelp=openHelp; window.closeHelp=closeHelp;
 
   /* ===== Сводка «что не сдано» (отчёты по занятиям) ===== */
   // Минимальный перенос хелперов расписания из view4 — чтобы не дублировать логику в трёх местах,
