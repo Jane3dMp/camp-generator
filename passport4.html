@@ -537,7 +537,7 @@
     try{
       const scores=scoresForChild(childId);
       const resp=await fetch(LIBRARY_URL,{ method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body:JSON.stringify({ action:'generateReport', childName:childName, theme:(publishedState.theme||''), scores:scores }) }).then(r=>r.json());
+        body:JSON.stringify({ action:'generateReport', childName:childName, theme:(publishedState.theme||''), scores:scores, seasonId:publishedMeta.id, childId:childId }) }).then(r=>r.json());
       if(!resp.ok) throw new Error(resp.error||'Ошибка');
       letterCache[childId]=resp.result.report;
       slot.innerHTML='<div class="letter-box">'+escapeHtml(resp.result.report)+'</div>';

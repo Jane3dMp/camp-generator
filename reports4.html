@@ -297,7 +297,7 @@
     if(scores.length===0) throw new Error('У ребёнка нет оценок.');
     const resp=await fetch(LIBRARY_URL,{
       method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({ action:'generateReport', childName:childName, theme:(publishedState.theme||''), scores:scores })
+      body:JSON.stringify({ action:'generateReport', childName:childName, theme:(publishedState.theme||''), scores:scores, seasonId:publishedMeta.id, childId:childId })
     }).then(r=>r.json());
     if(!resp.ok) throw new Error(resp.error||'Ошибка генерации');
     reportCache[childId]=resp.result.report;
