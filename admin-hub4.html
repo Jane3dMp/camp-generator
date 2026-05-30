@@ -263,8 +263,8 @@
     </div>
     <div class="tabs">
       <button class="tab active" id="tab-links" onclick="switchPane('links')">🔗 Ссылки</button>
-      <button class="tab" id="tab-troops" onclick="switchPane('troops')">👦 Отряды</button>
-      <button class="tab" id="tab-attendance" onclick="switchPane('attendance')">📒 Табель</button>
+      <button class="tab" id="tab-troops" onclick="switchPane('troops')">👦 Состав отрядов</button>
+      <button class="tab" id="tab-attendance" onclick="switchPane('attendance')">📒 Табель посещения детей</button>
       <button class="tab" id="tab-lists" onclick="switchPane('lists')">📋 Списки</button>
     </div>
   </header>
@@ -370,8 +370,8 @@
       <p>Пульт администратора смены. Четыре вкладки сверху:</p>
       <ul>
         <li><span class="help-key">🔗 Ссылки</span> — все ссылки на инструменты смены (педагогам, родителям, кураторам, табель, баллы, письма, паспорта) + блок «штрафников».</li>
-        <li><span class="help-key">👦 Отряды</span> — импорт детей из CRM, разбивка по отрядам, проверка актуальности. То же окно, что в index4 — синхрон через общий лист «Дети».</li>
-        <li><span class="help-key">📒 Табель</span> — таблица посещаемости день × ребёнок. Отметки «был / не был / договор» по каждому ребёнку и дню. Печать журнала с отметками или пустого.</li>
+        <li><span class="help-key">👦 Состав отрядов</span> — импорт детей из CRM, разбивка по отрядам, проверка актуальности. То же окно, что в index4 — синхрон через общий лист «Дети».</li>
+        <li><span class="help-key">📒 Табель посещения детей</span> — таблица посещаемости день × ребёнок. Отметки «был / не был / договор» по каждому ребёнку и дню. Печать журнала с отметками или пустого.</li>
         <li><span class="help-key">📋 Списки</span> — универсальный генератор печатных имён (мини-наклейки, бирки, наклейки ФИО ×3).</li>
       </ul>
 
@@ -381,7 +381,7 @@
         <strong>Блок «штрафники»</strong> сверху над плитками: если у педагогов есть невыставленные баллы или несданные отчёты по оценочным занятиям — они появятся здесь. Раскрывается по дням смены. Красный значок «просрочено» = долги за прошлые дни или сегодняшние после 17:30. Жёлтый = «в работе до 17:30». Будущие дни свёрнуты в «📅 Заранее по будущим дням».
       </div>
 
-      <h4>Вкладка «👦 Отряды»</h4>
+      <h4>Вкладка «👦 Состав отрядов»</h4>
       <ol>
         <li><strong>Импорт детей.</strong> Укажи группу в Альфа CRM (например 324) → <span class="help-key">⬇ Импортировать и разбить</span>. Подтянутся дети из филиала «Каникулы», автоматически разобьются по возрасту: младшие в отряд 1, старшие в отряд 4.</li>
         <li><strong>Перетаскивай</strong> карточки между отрядами, если нужно поправить разбивку. Кнопка <span class="help-key">🔒</span> на карточке — закрепить (защита от перезаписи при «🔀 Переразбить» или новых импортах).</li>
@@ -390,7 +390,7 @@
       </ol>
       <p>Важно: это <strong>тот же экран</strong>, что у тебя в index4 (где составляется расписание). Один лист «Дети» на оба окна. Изменил тут — изменилось там. Last write wins.</p>
 
-      <h4>Вкладка «📒 Табель»</h4>
+      <h4>Вкладка «📒 Табель посещения детей»</h4>
       <ol>
         <li>Таблица: столбец <span class="help-key">Договор</span> + дни смены (например «1 июн, 2 июн…») + строки детей по отрядам. В конце каждого отряда есть 2 пустые строки для ручного дописывания.</li>
         <li><strong>Ячейка кликается циклом:</strong> пусто → <span class="help-key">+</span> (зелёный, был) → <span class="help-key">−</span> (терракота, не был) → пусто.</li>
@@ -414,13 +414,13 @@
 
       <h4>Что важно</h4>
       <ul>
-        <li>Изменения в «👦 Отряды» здесь и в index4 идут в один лист — синхрон автоматический. Не работаешь в двух окнах одновременно с одним ребёнком.</li>
+        <li>Изменения в «👦 Состав отрядов» здесь и в index4 идут в один лист — синхрон автоматический. Не работаешь в двух окнах одновременно с одним ребёнком.</li>
         <li>Перезагрузка страницы тянет данные с сервера — ничего не теряется.</li>
         <li>Размер шрифта в печатных формах подгоняется автоматически (длинные имена сжимаются). Есть нижние пороги — ниже не уменьшит, иначе нечитаемо.</li>
       </ul>
 
       <div class="help-warn">
-        <strong>Не печатай таблицу посещаемости со скриншотом ссылки этой страницы — телефоны родителей видны в окне «Отряды».</strong> Если делишься скриншотами или раздаёшь распечатки команде — открывай только вкладку «📒 Табель», там телефонов нет.
+        <strong>Не печатай таблицу посещаемости со скриншотом ссылки этой страницы — телефоны родителей видны в окне «Состав отрядов».</strong> Если делишься скриншотами или раздаёшь распечатки команде — открывай только вкладку «📒 Табель посещения детей», там телефонов нет.
       </div>
     </div>
   </div>
@@ -513,12 +513,12 @@
   function pageUrl(page){ return location.href.split('?')[0].replace(/admin-hub4\.html$/, page) + '?id=' + encodeURIComponent(SEASON_ID); }
   // [иконка, подпись, файл, ключ-зоны, описание]
   const LINKS = [
-    ['👩‍🏫','Педагогам','view4.html','team','Материалы и инструкции для команды педагогов'],
-    ['📊','Баллы детям','scores4.html','team','Начисление и просмотр баллов отрядов'],
-    ['💰','Табель педагогов','payroll4.html','team','Учёт рабочих смен команды'],
-    ['📋','Кураторам (отряды + игры)','print4.html','troops','Отряды, игры и рабочие материалы кураторов'],
-    ['🗓️','Админу (дни × блоки)','admin4.html','troops','Полная сетка смены по дням и блокам'],
-    ['👨‍👩‍👧','Родителям (расписание)','parents4.html','parents','Расписание, удобное отправить родителям'],
+    ['👩‍🏫','Расписание пед состава','view4.html','team','Материалы и инструкции для команды педагогов'],
+    ['📊','Табель баллов за МК','scores4.html','team','Начисление и просмотр баллов отрядов'],
+    ['📋','Расписание для кураторов','print4.html','troops','Отряды, игры и рабочие материалы кураторов'],
+    ['🗓️','Расписание для админа','admin4.html','troops','Полная сетка смены по дням и блокам'],
+    ['💰','Табель учета рабочих часов пед состава','payroll4.html','troops','Учёт рабочих смен команды'],
+    ['👨‍👩‍👧','Расписание для родителей','parents4.html','parents','Расписание, удобное отправить родителям'],
     ['✉️','Письма родителям','reports4.html','parents','Тёплые письма по итогам смены'],
     ['🪪','Паспорт ребёнка','passport4.html','parents','Профиль и достижения ребёнка']
   ];
@@ -563,7 +563,7 @@
       await fetch(LIBRARY_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'generatePassportTokens',seasonId:SEASON_ID})}).then(r=>r.json());
       const resp=await fetch(LIBRARY_URL+'?action=getPassportTokens&seasonId='+encodeURIComponent(SEASON_ID)).then(r=>r.json());
       const list=(resp.ok&&Array.isArray(resp.tokens))?resp.tokens:[];
-      if(!list.length){ ov.querySelector('div div').textContent='Нет детей — сначала импортируй на вкладке «Отряды».'; return; }
+      if(!list.length){ ov.querySelector('div div').textContent='Нет детей — сначала импортируй на вкладке «Состав отрядов».'; return; }
       const rows=list.map(t=>({phone:t.parentPhone||'',child:t.childName||'',link:passBase+'?id='+encodeURIComponent(SEASON_ID)+'&t='+encodeURIComponent(t.token)}));
       const csv='phone,child,link\n'+rows.map(r=>'"'+r.phone+'","'+r.child.replace(/"/g,'""')+'","'+r.link+'"').join('\n');
       window._parentLinksCSV=csv;
@@ -769,7 +769,7 @@
 
   function renderAttendance(){
     const box=document.getElementById('att-table');
-    if(!_attKids.length){ box.innerHTML='<div style="padding:20px;font-size:13px;color:var(--muted)">Нет детей. Импортируй на вкладке «Отряды».</div>'; return; }
+    if(!_attKids.length){ box.innerHTML='<div style="padding:20px;font-size:13px;color:var(--muted)">Нет детей. Импортируй на вкладке «Состав отрядов».</div>'; return; }
     const ROMAN=['','I','II','III','IV'];
     let html='<table class="att"><thead><tr><th class="att-name">Ребёнок</th><th class="att-dog">Договор</th>';
     _attDates.forEach(d=>{ html+='<th>'+escapeHtml(d)+'</th>'; });
@@ -857,7 +857,7 @@
         _attLoaded=true;
       }catch(e){ toast('Ошибка: '+e.message); return; }
     }
-    if(!_attKids.length){ toast('Нет детей. Импортируй на «Отряды»'); return; }
+    if(!_attKids.length){ toast('Нет детей. Импортируй на «Состав отрядов»'); return; }
 
     const ROMAN=['','I','II','III','IV'];
     const ROWS=12, EXTRA_COLS=5;
@@ -880,7 +880,7 @@
         '</section>'
       );
     }
-    if(!pages.length){ toast('В отрядах нет детей. Распредели на «Отряды»'); return; }
+    if(!pages.length){ toast('В отрядах нет детей. Распредели на «Состав отрядов»'); return; }
 
     const html='<!doctype html><html><head><meta charset="utf-8"><title>Лист куратора · '+escapeHtml(SEASON_ID||'')+'</title>'+
 '<style>'+
@@ -1074,7 +1074,7 @@ pages.join('')+
   function closePrintGenerator(){ document.getElementById('pg-ov').classList.remove('show'); }
   function renderPgKids(){
     const box=document.getElementById('pg-kids');
-    if(!_attKids.length){ box.innerHTML='<div style="color:var(--muted);padding:6px 0;font-size:12px">Дети ещё не загружены. Открой вкладку «Табель» или импортируй на «Отряды».</div>'; return; }
+    if(!_attKids.length){ box.innerHTML='<div style="color:var(--muted);padding:6px 0;font-size:12px">Дети ещё не загружены. Открой вкладку «Табель посещения детей» или импортируй на «Состав отрядов».</div>'; return; }
     const ROMAN=['','I','II','III','IV'];
     let html='';
     for(let t=1;t<=4;t++){
