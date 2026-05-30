@@ -169,6 +169,42 @@
   .pull-list label { font-size: 13px; cursor: pointer; flex: 1; }
   .pull-list .already { color: rgba(21,22,23,0.4); font-size: 12px; font-style: italic; }
 
+  /* ── Модалка-инструкция ── */
+  .modal-bg.modal-help { align-items: flex-start; overflow-y: auto; padding: 20px; z-index: 600; }
+  .modal-bg.modal-help .modal-box { max-width: 640px; padding: 24px 26px; margin: 0 auto; font-family: Inter, sans-serif; }
+  .help-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; gap: 12px; }
+  .help-title { font-family: Geologica, sans-serif; font-weight: 700; font-size: 18px; line-height: 1.25; }
+  .help-title em { font-family: Caveat, cursive; font-style: normal; font-weight: 600; background: var(--yellow); padding: 0 6px; border-radius: 4px; color: var(--ink); }
+  .help-close { background: none; border: none; font-size: 22px; cursor: pointer; color: rgba(21,22,23,0.5); line-height: 1; padding: 0 4px; flex-shrink: 0; }
+  .help-close:hover { color: var(--ink); }
+  .help-content { font-size: 14.5px; color: var(--ink); line-height: 1.55; }
+  .help-content h4 {
+    font-family: Geologica, sans-serif; font-size: 13px; font-weight: 700;
+    margin: 18px 0 8px; letter-spacing: 0.04em;
+  }
+  .help-content h4:first-child { margin-top: 0; }
+  .help-content p { margin: 8px 0; }
+  .help-content ol, .help-content ul { margin: 8px 0; padding-left: 22px; }
+  .help-content li { margin: 6px 0; }
+  .help-content strong { font-weight: 700; }
+  .help-content .help-key {
+    display: inline-block; background: var(--paper-warm); border: 1px solid rgba(21,22,23,0.2);
+    padding: 1px 7px; border-radius: 4px; font-size: 13px; font-weight: 600; white-space: nowrap;
+  }
+  .help-content .help-note {
+    background: var(--paper-warm); border-left: 3px solid var(--yellow-deep);
+    padding: 10px 14px; margin: 14px 0; font-size: 13.5px;
+  }
+  .help-content .help-warn {
+    background: #FBEDE6; border-left: 3px solid #9A4B30;
+    padding: 10px 14px; margin: 14px 0; font-size: 13.5px;
+  }
+  @media (max-width: 640px) {
+    .modal-bg.modal-help .modal-box { padding: 18px 18px; }
+    .help-title { font-size: 16px; }
+    .help-content { font-size: 14px; }
+  }
+
   /* ── Тост ── */
   .toast {
     position: fixed; bottom: 20px; right: 20px; background: var(--ink); color: var(--white);
@@ -199,6 +235,7 @@
       <div class="subhead" id="subhead"></div>
     </div>
     <div class="actions">
+      <button onclick="openHelp()" id="help-btn" title="Как пользоваться этой страницей">❓ Инструкция</button>
       <button onclick="clearCellsClick()" id="clear-cells-btn" title="Удалить все занятия и ставки. Список педагогов, питание и флаги выплат — останутся.">🧹 Очистить ячейки</button>
       <button onclick="clearAllClick()" id="clear-all-btn" title="Удалить весь табель этой смены (включая педагогов и флаги выплат). Безвозвратно.">🗑 Удалить весь табель</button>
       <button onclick="exportToExcel()" id="export-btn">📥 Экспорт в Excel</button>
@@ -250,6 +287,49 @@
     <div class="modal-actions">
       <button class="btn" onclick="closePullTeachersModal()">Отмена</button>
       <button class="btn btn-primary" onclick="confirmPullTeachers()" id="confirm-pull-btn">Добавить выбранных</button>
+    </div>
+  </div>
+</div>
+
+<!-- МОДАЛКА «КАК ПОЛЬЗОВАТЬСЯ» -->
+<div class="modal-bg modal-help" id="help-modal" onclick="if(event.target===this)closeHelp()">
+  <div class="modal-box">
+    <div class="help-head">
+      <span class="help-title">❓ Как пользоваться <em>этой страницей</em></span>
+      <button class="help-close" onclick="closeHelp()" title="Закрыть">✕</button>
+    </div>
+    <div class="help-content">
+      <h4>Что это за окно</h4>
+      <p>Табель работы педагогов на смене: дни × педагоги, для каждой пары — сколько занятий было, ставка, итого. Система сама считает занятия из расписания. Питание (детей × 14 ₽ за порцию) — отдельная общая колонка для сверки со столовой.</p>
+
+      <h4>Что делать</h4>
+      <ol>
+        <li><strong>Подтяни педагогов смены.</strong> Нажми <span class="help-key">🔄 Подтянуть из расписания</span> — увидишь всех педагогов смены, отметь нужных и подтверди. Или добавь вручную через <span class="help-key">➕ Добавить педагога</span> (например, если ведёт без расписания).</li>
+        <li><strong>Подтяни занятия по дням.</strong> В каждой строке дня есть кнопка <span class="help-key">📥</span> — нажми, и в строку проставятся занятия по педагогам с ставкой 35 ₽ по умолчанию. Делать это надо отдельно для каждого дня — это защита от случайной перезаписи всего табеля одним кликом.</li>
+        <li><strong>Поправь, если нужно.</strong> Ставку или количество занятий можно отредактировать вручную в любой ячейке. Если особая ячейка не должна перезаписаться при следующих «📥 Подтянуть» — нажми <span class="help-key">🔒</span> рядом с ней.</li>
+        <li><strong>Отмечай выплаты галочками.</strong> «выплачено» можно отмечать по дню (все педагоги этого дня зачёркнуты) или по педагогу целиком (все его дни зачёркнуты). Как в Excel.</li>
+        <li><strong>Питание</strong> вписывается в общую колонку числом детей на дне. Сумма по столбцу — для сверки со столовой.</li>
+        <li><strong>Когда табель готов</strong> — <span class="help-key">📥 Экспорт в Excel</span>. Файл уходит в стандартном формате, его можно отдать бухгалтерии.</li>
+      </ol>
+
+      <div class="help-note">
+        Логика подсчёта занятий зависит от режима в расписании. Станционные дни (rot4) дают ×4 на педагога. Цепочечные (seq3) — ×2 на каждый МК в цепочке. Обычные слоты — ×1 за отряд. Это всё уже зашито — считать руками не надо, просто доверяй кнопке <span class="help-key">📥</span>.
+      </div>
+
+      <h4>Куда уходит то, что ты здесь меняешь</h4>
+      <p>Все правки автоматически сохраняются в Google Sheets (лист «Табель»). Индикатор <span class="help-key">● сохранено</span> сверху показывает статус. Бухгалтерия получает данные через файл Excel — экспорт делай вручную, когда смена закроется.</p>
+
+      <h4>Что важно</h4>
+      <ul>
+        <li><span class="help-key">🧹 Очистить ячейки</span> удаляет занятия и ставки, но <strong>оставляет</strong> список педагогов, питание и галочки выплат. Удобно, если ошибся при подтягивании, но не хочешь начинать с нуля.</li>
+        <li><span class="help-key">🗑 Удалить весь табель</span> — <strong>необратимо</strong>. Удаляет всё, включая педагогов и выплаты. Двойное подтверждение защищает от случайного клика.</li>
+        <li>🔒 на ячейке защищает её от перезаписи при следующих «📥 Подтянуть». «Очистить ячейки» замки игнорирует.</li>
+        <li>Перезагрузка страницы ничего не теряет — табель тянется с сервера при каждом открытии.</li>
+      </ul>
+
+      <div class="help-warn">
+        <strong>Не нажимай «🗑 Удалить весь табель», если хочешь просто переподтянуть данные.</strong> Для этого есть «🧹 Очистить ячейки» — она оставит структуру (педагогов и выплаты), а ячейки опустит. Потом нажмёшь 📥 по каждому дню.
+      </div>
     </div>
   </div>
 </div>
@@ -890,6 +970,12 @@
     toast('Скачано: ' + fname);
   }
   window.exportToExcel = exportToExcel;
+
+  // ── ИНСТРУКЦИЯ ──
+  function openHelp() { document.getElementById('help-modal').classList.add('open'); }
+  function closeHelp() { document.getElementById('help-modal').classList.remove('open'); }
+  window.openHelp = openHelp;
+  window.closeHelp = closeHelp;
 
   // ── ОЧИСТКА ──
   // «Очистить ячейки» — удаляет занятия/ставки/замки, но оставляет список педагогов,
