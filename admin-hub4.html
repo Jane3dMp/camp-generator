@@ -313,8 +313,12 @@
     <div class="pane" id="pane-lists">
       <div class="att-bar">
         <button class="btn btn-primary" onclick="openPrintGenerator()">🏷 Печать имён (наклейки/бирки)</button>
+        <button class="btn" onclick="openCuratorList()">🗒 Лист куратора (по отрядам)</button>
       </div>
-      <p class="att-hint">Генератор печатных имён для смены: мини-наклейки 6×2 см, бирки на прищепку, наклейки ФИО ×3. Открой кнопку выше — соберёшь список из детей смены или впишешь руками.</p>
+      <p class="att-hint">
+        <strong>🏷 Печать имён</strong> — модалка с тремя видами (мини-наклейки, бирки, наклейки ФИО ×3). Соберёшь список из детей смены или впишешь руками.<br>
+        <strong>🗒 Лист куратора</strong> — 4 листа A4 (горизонтально), по одному отряду на лист. Дети сверху (12 пронумерованных строк, лишние пустые — под новеньких), справа 5 пустых колонок для отметок куратора (баллы за МК).
+      </p>
     </div>
   </main>
 </div>
@@ -399,13 +403,14 @@
       </div>
 
       <h4>Вкладка «📋 Списки»</h4>
-      <p>Одна кнопка <span class="help-key">🏷 Печать имён</span> → модалка с тремя вариантами оформления:</p>
+      <p><span class="help-key">🏷 Печать имён</span> → модалка с тремя вариантами оформления:</p>
       <ul>
         <li><strong>🔖 Мини-наклейки 6×2 см</strong> — на рулон/резку, плотно без зазоров. Имя крупно, фамилия мельче.</li>
         <li><strong>🎫 Бирки (8 на лист)</strong> — крупный шрифт, кремовый фон, терракотовая рамка. На прищепку / на бейдж.</li>
         <li><strong>🏷 Наклейки ФИО ×3</strong> — каждое имя повторяется три раза подряд, по 3 в ряд. Чёрная рамка, ВЕРХНИЙ РЕГИСТР.</li>
       </ul>
       <p>В модалке можешь: впечатать имена руками + отметить детей галочками из списка. Соберутся в один общий список для печати. Имя везде — <strong>Фамилия + Имя</strong> (без отчества), размер шрифта автоматически подгоняется под длину имени.</p>
+      <p><span class="help-key">🗒 Лист куратора</span> → откроется отдельная вкладка с 4 листами A4 горизонтально, по одному отряду на лист. На каждом листе: номер и имя ребёнка (12 строк — оставлен запас под новеньких, которые приходят посреди смены), справа 5 пустых колонок без подписей — куратор ставит баллы за МК руками. Сортировка детей такая же, как в Табеле (младшие сверху).</p>
 
       <h4>Что важно</h4>
       <ul>
@@ -836,6 +841,74 @@
   function printAttendance(blank){
     document.body.classList.toggle('print-blank', !!blank);
     setTimeout(()=>{ window.print(); setTimeout(()=>document.body.classList.remove('print-blank'),500); }, 80);
+  }
+
+  // Лист куратора: 4 страницы A4 horizontal, по одному отряду на лист.
+  // 12 пронумерованных строк (часть детей, часть пустых под новых),
+  // 5 пустых колонок справа — куратор ставит баллы за МК руками.
+  // Сортировка детей — как в табеле (по dob, младшие сверху).
+  async function openCuratorList(){
+    // Если ещё не грузили детей в табель — загрузим, чтобы кнопка работала из любой вкладки.
+    if(!_attLoaded){
+      try{
+        const chR = await fetch(LIBRARY_URL+'?action=getChildren&seasonId='+encodeURIComponent(SEASON_ID)).then(r=>r.json());
+        if(!chR.ok) throw new Error(chR.error||'Ошибка загрузки детей');
+        _attKids=(chR.children||[]).map(c=>({crmId:String(c.crmId),name:c.name||'',dob:c.dob||'',troop:c.troop||0}));
+        _attLoaded=true;
+      }catch(e){ toast('Ошибка: '+e.message); return; }
+    }
+    if(!_attKids.length){ toast('Нет детей. Импортируй на «Отряды»'); return; }
+
+    const ROMAN=['','I','II','III','IV'];
+    const ROWS=12, EXTRA_COLS=5;
+    const pages=[];
+    for(let t=1;t<=4;t++){
+      const kids=_attKids.filter(k=>(k.troop||0)===t).sort((a,b)=>dobSortKey4_(b.dob)-dobSortKey4_(a.dob));
+      if(!kids.length) continue;
+      let rows='';
+      for(let i=0;i<ROWS;i++){
+        const k=kids[i];
+        const name=k ? escapeHtml(shortName_(k.name)) : '';
+        rows+='<tr><td class="num">'+(i+1)+'</td><td class="name">'+name+'</td>';
+        for(let c=0;c<EXTRA_COLS;c++) rows+='<td class="cell"></td>';
+        rows+='</tr>';
+      }
+      pages.push(
+        '<section class="page">'+
+          '<div class="roman">'+ROMAN[t]+' отряд</div>'+
+          '<table>'+rows+'</table>'+
+        '</section>'
+      );
+    }
+    if(!pages.length){ toast('В отрядах нет детей. Распредели на «Отряды»'); return; }
+
+    const html='<!doctype html><html><head><meta charset="utf-8"><title>Лист куратора · '+escapeHtml(SEASON_ID||'')+'</title>'+
+'<style>'+
+'@page{size:A4 landscape;margin:12mm 15mm}'+
+'*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
+'body{font-family:"Geologica","Inter",-apple-system,system-ui,sans-serif;margin:0;color:#151617;background:#fff}'+
+'.page{page-break-after:always;padding:4mm 0}'+
+'.page:last-child{page-break-after:auto}'+
+'.roman{font-family:"Geologica",Georgia,serif;font-size:32pt;font-weight:700;text-align:center;margin:0 0 10mm;color:#C77E5E;letter-spacing:8px}'+
+'table{width:100%;border-collapse:collapse;border:1.5px solid #2a2a2a;table-layout:fixed}'+
+'td{border:1.2px solid #2a2a2a;height:12mm;vertical-align:middle}'+
+'td.num{width:10mm;text-align:center;font-size:11pt;color:#6F6A60}'+
+'td.name{width:72mm;padding:0 6mm;font-size:14pt;font-weight:500}'+
+'.controls{position:fixed;top:12px;right:12px;z-index:10}'+
+'.controls button{padding:8px 14px;font:14px/1.2 -apple-system,system-ui,sans-serif;border-radius:8px;border:1px solid #ccc;background:#fff;cursor:pointer;margin-left:6px}'+
+'.controls button.primary{background:#151617;color:#FED634;border-color:#151617;font-weight:600}'+
+'@media print{.controls{display:none !important}}'+
+'</style></head><body>'+
+'<div class="controls"><button class="primary" onclick="window.print()">🖨 Печать</button><button onclick="window.close()">✕</button></div>'+
+pages.join('')+
+'<script>setTimeout(function(){window.print()},350);<\/script>'+
+'</body></html>';
+
+    const w=window.open('','_blank');
+    if(!w){ toast('Браузер заблокировал окно. Разреши popup для этого сайта.'); return; }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
   }
 
   // Наклейки: каждое ФИО 3 раза подряд, по 3 в ряд.
