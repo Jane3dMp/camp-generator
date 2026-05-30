@@ -47,8 +47,11 @@
   .help-overlay.open{display:flex}
   .help-modal{background:var(--paper);max-width:560px;width:100%;border-radius:16px;padding:24px 26px 28px;box-shadow:0 12px 40px rgba(0,0,0,0.25);margin:auto}
   .help-modal h2{font-size:20px;margin-bottom:4px}
+  .help-modal h2 em{font-family:'Caveat',cursive;font-style:normal;font-weight:600;color:var(--ink);background:var(--yellow);padding:0 6px;border-radius:4px;font-size:1em}
   .help-modal .help-close{float:right;background:none;border:none;font-size:24px;cursor:pointer;color:var(--muted);line-height:1;margin:-4px -6px 0 0}
   .help-modal h3{font-family:'Geologica';font-size:15px;color:var(--green-deep);margin:18px 0 6px}
+  .help-modal h4{font-family:'Geologica',sans-serif;font-size:13px;font-weight:700;color:var(--green-deep);margin:18px 0 8px;letter-spacing:0.04em}
+  .help-modal h4:first-of-type{margin-top:0}
   .help-modal p{font-size:14px;margin:0 0 8px;line-height:1.55}
   .help-modal ol{font-size:14px;margin:0 0 8px;padding-left:20px;line-height:1.6}
   .help-modal ul{font-size:14px;margin:0 0 8px;padding-left:18px;line-height:1.6}
@@ -56,8 +59,8 @@
   .help-modal .crit-name{font-weight:600;color:var(--ink)}
   .help-modal .scale-row{display:flex;gap:8px;align-items:baseline;font-size:14px;margin-bottom:4px}
   .help-modal .scale-val{flex:0 0 38px;font-weight:700;color:var(--green-deep)}
-  .help-modal .help-done{margin-top:20px;width:100%;padding:11px;font-size:15px;font-weight:600;background:var(--green);color:#fff;border:none;border-radius:11px;cursor:pointer;font-family:inherit}
-  .help-modal .help-done:hover{background:var(--green-deep)}
+  .help-modal .help-key{display:inline-block;background:#fff;border:1px solid var(--line);padding:1px 7px;border-radius:6px;font-size:13px;font-weight:600;white-space:nowrap}
+  .help-modal .help-note{background:#f3f7ee;border-left:3px solid var(--green);padding:10px 14px;margin:14px 0;font-size:13.5px;border-radius:0 6px 6px 0}
   .save-ind.ok{color:var(--green-deep)}
   .save-ind.saving{color:var(--yellow-deep)}
   .save-ind.err{color:#c0392b}
@@ -142,34 +145,47 @@
 <div class="help-overlay" id="help-overlay" onclick="if(event.target===this)closeHelp()">
   <div class="help-modal">
     <button class="help-close" onclick="closeHelp()" title="Закрыть">×</button>
-    <h2>Как заполнять баллы</h2>
-    <p style="color:var(--muted)">Короткая памятка для педагога.</p>
+    <h2>❓ Как пользоваться <em>этой страницей</em></h2>
 
-    <h3>Что делать</h3>
+    <h4>Что это за окно</h4>
+    <p>Здесь ты ставишь детям баллы после своих оценочных МК. Три критерия на каждого ребёнка, шкала 2–5. Это нужно, чтобы потом ИИ написал тёплое письмо родителям и собрал цифровой паспорт ребёнка.</p>
+
+    <h4>Что делать</h4>
     <ol>
-      <li>Выбери себя в списке «Педагог» вверху.</li>
+      <li>Выбери себя в списке <span class="help-key">Педагог</span> сверху.</li>
       <li>Появятся твои МК, отмеченные как оценочные — по дням, с точным временем и отрядом.</li>
       <li>Под каждым МК — дети того отряда, который был у тебя на этом занятии.</li>
-      <li>Поставь каждому ребёнку три оценки. Заполняется на ходу — сохраняется автоматически (видно «● сохранено» вверху справа).</li>
+      <li>Поставь каждому ребёнку три оценки. Заполняется на ходу — сохраняется автоматически (видно <span class="help-key">● сохранено</span> вверху справа).</li>
     </ol>
     <p>Оценки можно ставить не за один присест: выставил часть — закрыл, вернулся позже, продолжил. Уже выставленное подгрузится.</p>
 
-    <h3>Что значат критерии</h3>
+    <div class="help-note">
+      Удобный путь: из окна расписания (view4) после оценочного МК нажми <span class="help-key">Проставить баллы</span> — попадёшь сюда сразу с фильтром на это занятие.
+    </div>
+
+    <h4>Что значат критерии</h4>
     <p><span class="crit-name">Интерес</span> — насколько ребёнок вовлечён: горят ли глаза, задаёт вопросы, хочет попробовать сам, делает больше, чем просили.</p>
     <p><span class="crit-name">Усердие</span> — насколько старается: аккуратность, доводит ли работу до конца, не бросает при трудностях, исправляет недочёты.</p>
-    <p><span class="crit-name">Потенциал</span> — способности в этом направлении: схватывает суть, придумывает своё, видит формы/логику/композицию — то, что можно развивать дальше.</p>
+    <p><span class="crit-name">Потенциал</span> — способности в этом направлении: схватывает суть, придумывает своё, видит формы / логику / композицию — то, что можно развивать дальше.</p>
     <p style="color:var(--muted);font-size:13px">Для коммуникативных МК критерии другие: <span class="crit-name">Лидерство</span> (инициатива, умеет организовать), <span class="crit-name">Команда</span> (слушает, договаривается, сотрудничает), <span class="crit-name">Конфликты</span> (спокойно решает разногласия, ищет компромисс).</p>
 
-    <h3>Что значат баллы</h3>
+    <h4>Что значат баллы</h4>
     <div class="scale-row"><span class="scale-val">5</span><span>проявлено отлично, ярко</span></div>
     <div class="scale-row"><span class="scale-val">4</span><span>проявлено хорошо</span></div>
     <div class="scale-row"><span class="scale-val">3</span><span>проявлено средне, есть куда расти</span></div>
     <div class="scale-row"><span class="scale-val">2</span><span>пока почти не проявляется</span></div>
     <div class="scale-row"><span class="scale-val">–</span><span>был на занятии, но именно этот критерий оценить не удалось</span></div>
     <div class="scale-row"><span class="scale-val">не&nbsp;был</span><span>ребёнка не было на этом занятии</span></div>
-    <p style="color:var(--muted);font-size:13px;margin-top:8px">Ставь честно — баллы помогают увидеть сильные стороны ребёнка и подсказать родителям, что развивать. Низкие оценки не «плохо»: это зона роста.</p>
 
-    <button class="help-done" onclick="closeHelp()">Понятно</button>
+    <h4>Куда уходит то, что ты ставишь здесь</h4>
+    <p>Все баллы складываются по ребёнку и используются для письма родителям (его собирает админ смены) и для цифрового паспорта ребёнка (по ссылке после смены).</p>
+
+    <h4>Что важно</h4>
+    <ul>
+      <li>Ставь честно — баллы помогают увидеть сильные стороны ребёнка и подсказать родителям, что развивать. Низкие оценки не «плохо»: это зона роста.</li>
+      <li>Если случайно поставил не тот балл — просто нажми правильный, перезапишется.</li>
+      <li>Если ребёнка не было — выбери <span class="help-key">не был</span>, иначе он попадёт в письмо как «не проявил критерий».</li>
+    </ul>
   </div>
 </div>
 
