@@ -196,6 +196,16 @@
   .ah-tag{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:6px;font-size:11px;font-weight:600;vertical-align:middle}
   .ah-tag.report{background:#C8714B;color:#fff}
   .ah-tag.scores{background:#534AB7;color:#fff}
+  .ah-future{margin:0 0 18px;border:1px solid rgba(21,22,23,0.12);border-radius:12px;background:rgba(21,22,23,0.025)}
+  .ah-future > summary{cursor:pointer;padding:12px 16px;font-size:13px;font-weight:600;color:rgba(21,22,23,0.65);list-style:none;user-select:none}
+  .ah-future > summary::-webkit-details-marker{display:none}
+  .ah-future > summary::before{content:'▸ ';display:inline-block;transition:transform 0.15s;margin-right:4px}
+  .ah-future[open] > summary::before{transform:rotate(90deg)}
+  .ah-future[open] > summary{border-bottom:1px solid rgba(21,22,23,0.08)}
+  .ah-future-body{padding:10px 16px 14px}
+  .ah-future-body .ah-teacher{font-weight:600;margin:8px 0 4px}
+  .ah-future-body .ah-list{margin:0 0 4px 18px}
+  .ah-future-body .ah-list li{font-size:13px;color:rgba(21,22,23,0.7)}
   .ah-foot{font-size:12px;color:rgba(21,22,23,0.55);margin-top:8px}
 </style>
 </head>
@@ -1110,15 +1120,16 @@
     ]);
 
     // Для каждой группы решаем, что не сделано.
-    // Отчёт: группа закрыта, если хоть для одного mkKey есть hasText.
-    // Баллы: проверяются только для группы со scored=true; закрыты, если хоть один mkKey оценён.
+    // ВАЖНО: если у группы нет галки scored — её педагог не должен сдавать отчёт и баллы,
+    // в штрафники не попадает. Так отрезаются кураторы, админы и любые неоценочные слоты.
     const byTeacher = {}; // teacher → [{dayIdx, mkName, missReport, missScores}]
     Object.keys(buckets).forEach(gid => {
       const g = buckets[gid];
+      if (!g.scored) return; // без галки — пропускаем целиком
       const reportDone = g.mkKeys.some(k => notes[k] && notes[k].hasText);
-      const scoresDone = g.scored ? g.mkKeys.some(k => mkScored[k]) : true;
+      const scoresDone = g.mkKeys.some(k => mkScored[k]);
       const missReport = !reportDone;
-      const missScores = g.scored && !scoresDone;
+      const missScores = !scoresDone;
       if (!missReport && !missScores) return;
       const t = g.teacher;
       (byTeacher[t] = byTeacher[t] || []).push({
@@ -1150,40 +1161,70 @@
     const onlyFuture = !hasPastDebts && !hasTodayDebts && hasFutureDebts;
 
     if (!teachers.length) {
-      box.innerHTML = '<div class="ah-card ok"><div class="ah-head">✅ Все отчёты и баллы по смене сданы</div>' +
-        '<div class="ah-foot">Проверяется вся опубликованная смена.</div></div>';
+      box.innerHTML = '<div class="ah-card ok"><div class="ah-head">✅ Все отчёты и баллы по смене сданы</div></div>';
       return;
     }
 
-    const cardClass = overdueNow ? 'danger' : 'warn';
-    const pillHtml = overdueNow
-      ? '<span class="ah-pill danger">просрочено</span>'
-      : (onlyFuture
-          ? '<span class="ah-pill warn">заранее</span>'
-          : '<span class="ah-pill warn">в работе до 17:30</span>');
-    let html = '<div class="ah-card ' + cardClass + '">' +
-      '<div class="ah-head">📋 Не закрыты задачи педагогов ' + pillHtml + '</div>';
-    teachers.forEach(t => {
-      const items = byTeacher[t].sort((a,b) => a.dayIdx - b.dayIdx || a.mkName.localeCompare(b.mkName, 'ru'));
-      html += '<div class="ah-teacher">' + escapeHtml(t) + '</div><ul class="ah-list">';
-      items.forEach(it => {
-        const date = _dateForDay(state, it.dayIdx);
-        const dateStr = date.getDate() + ' ' + _M[date.getMonth()];
-        const dayLabel = (todayIdx >= 0 && it.dayIdx === todayIdx) ? 'сегодня' : ('день ' + (it.dayIdx + 1) + ', ' + dateStr);
-        const tags = [];
-        if (it.missReport) tags.push('<span class="ah-tag report">нет отчёта</span>');
-        if (it.missScores) tags.push('<span class="ah-tag scores">не выставлены баллы</span>');
-        html += '<li>' + escapeHtml(dayLabel) + ' — ' + escapeHtml(it.mkName) + ' ' + tags.join(' ') + '</li>';
+    // Делим долги каждого педагога на актуальные (прошлые + сегодня) и будущие.
+    const teachersCurrent = {}, teachersFuture = {};
+    Object.keys(byTeacher).forEach(t => {
+      byTeacher[t].forEach(it => {
+        const k = dayKind[it.dayIdx];
+        const dest = (k === 'future') ? teachersFuture : teachersCurrent;
+        (dest[t] = dest[t] || []).push(it);
       });
-      html += '</ul>';
     });
-    let footMsg;
-    if (hasPastDebts) footMsg = 'Есть незакрытые задачи за прошедшие дни.';
-    else if (hasTodayDebts && past1730) footMsg = 'Сейчас уже после 17:30 — задачи должны быть сданы.';
-    else if (onlyFuture) footMsg = 'Это будущие дни смены — задачи можно сдать заранее.';
-    else footMsg = 'Дедлайн — 17:30.';
-    html += '<div class="ah-foot">Проверяется вся опубликованная смена. ' +
-      footMsg + '</div></div>';
+    const curNames = Object.keys(teachersCurrent).sort((a,b)=>a.localeCompare(b,'ru'));
+    const futNames = Object.keys(teachersFuture).sort((a,b)=>a.localeCompare(b,'ru'));
+
+    // Хелпер: блок одного списка педагогов.
+    const renderTeacherList = (names, dict) => {
+      let h = '';
+      names.forEach(t => {
+        const items = dict[t].sort((a,b) => a.dayIdx - b.dayIdx || a.mkName.localeCompare(b.mkName, 'ru'));
+        h += '<div class="ah-teacher">' + escapeHtml(t) + '</div><ul class="ah-list">';
+        items.forEach(it => {
+          const date = _dateForDay(state, it.dayIdx);
+          const dateStr = date.getDate() + ' ' + _M[date.getMonth()];
+          const dayLabel = (todayIdx >= 0 && it.dayIdx === todayIdx) ? 'сегодня' : ('день ' + (it.dayIdx + 1) + ', ' + dateStr);
+          const tags = [];
+          if (it.missReport) tags.push('<span class="ah-tag report">нет отчёта</span>');
+          if (it.missScores) tags.push('<span class="ah-tag scores">не выставлены баллы</span>');
+          h += '<li>' + escapeHtml(dayLabel) + ' — ' + escapeHtml(it.mkName) + ' ' + tags.join(' ') + '</li>';
+        });
+        h += '</ul>';
+      });
+      return h;
+    };
+
+    let html = '';
+
+    // Основной блок — только если есть актуальные долги.
+    if (curNames.length) {
+      const cardClass = overdueNow ? 'danger' : 'warn';
+      const pillHtml = overdueNow
+        ? '<span class="ah-pill danger">просрочено</span>'
+        : '<span class="ah-pill warn">в работе до 17:30</span>';
+      html += '<div class="ah-card ' + cardClass + '">' +
+        '<div class="ah-head">📋 Не закрыты задачи педагогов ' + pillHtml + '</div>' +
+        renderTeacherList(curNames, teachersCurrent);
+      let footMsg;
+      if (hasPastDebts) footMsg = 'Есть незакрытые задачи за прошедшие дни.';
+      else if (hasTodayDebts && past1730) footMsg = 'Сейчас уже после 17:30 — задачи должны быть сданы.';
+      else footMsg = 'Дедлайн — 17:30.';
+      html += '<div class="ah-foot">' + footMsg + '</div></div>';
+    } else {
+      // Актуальных нет — покажем зелёную плашку (даже если впереди что-то открыто).
+      html += '<div class="ah-card ok"><div class="ah-head">✅ По прошедшим и сегодняшнему дням всё закрыто</div></div>';
+    }
+
+    // Будущие дни — отдельным свёрнутым блоком.
+    if (futNames.length) {
+      const futCount = futNames.reduce((sum, t) => sum + teachersFuture[t].length, 0);
+      html += '<details class="ah-future"><summary>📅 Заранее по будущим дням смены (' + futCount + ')</summary>' +
+        '<div class="ah-future-body">' + renderTeacherList(futNames, teachersFuture) + '</div></details>';
+    }
+
     box.innerHTML = html;
   }
 </script>
