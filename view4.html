@@ -161,6 +161,12 @@
     border-radius: 9px; transition: background 0.15s;
   }
   .vslot-lesson-btn:hover { background: #a9572f; }
+  .ln-badge {
+    display: inline-flex; align-items: center; font-family: Inter, sans-serif;
+    font-size: 11px; font-weight: 600; padding: 4px 9px; border-radius: 8px; align-self: center;
+  }
+  .ln-badge.saved { background: rgba(143,163,112,0.18); color: #5e7042; }
+  .ln-badge.sent  { background: rgba(115,96,242,0.16); color: #5b49d6; }
 
   .ln-overlay {
     position: fixed; inset: 0; background: rgba(21,22,23,0.55); z-index: 9999;
@@ -975,7 +981,7 @@
     let lessonBtn = '';
     if (s.mkKey) {
       const t = document.getElementById('teacher-pick') ? document.getElementById('teacher-pick').value : '';
-      lessonBtn = `<button type="button" class="vslot-lesson-btn"
+      lessonBtn = `<button type="button" class="vslot-lesson-btn" data-mkkey="${escapeHtml(s.mkKey)}"
         onclick='LessonNotes.open(${JSON.stringify(JSON.stringify({ mkKey: s.mkKey, teacher: t, mkName: s.template || '', troopsLabel: s.troopsLabel || ('отряд ' + s.troop), time: s.time || '' }))})'>🎤 Запись урока</button>`;
     }
     return `
@@ -1023,6 +1029,7 @@
     });
     document.getElementById('view-content').innerHTML = html;
     hydrateAllRefPreviews();
+    if (window.LessonNotes) LessonNotes.loadStatuses();
   }
 
   function renderRefsForSlot(refs) {
@@ -1211,6 +1218,7 @@
     var timerId = null;
     var seconds = 0;
     var MAX_SECONDS = 300;     // мягкий лимит 5 минут
+    var statusCache = {};      // { mkKey: {hasText, sent} } — для бейджей в расписании
 
     function el(id) { return document.getElementById(id); }
 
@@ -1239,6 +1247,7 @@
               '<button type="button" class="ln-btn primary" id="ln-save" onclick="LessonNotes.save()">💾 Сохранить</button>' +
               '<button type="button" class="ln-btn viber" onclick="LessonNotes.toViber()">📲 Открыть в Viber</button>' +
               '<button type="button" class="ln-btn ghost" onclick="LessonNotes.copy()">📋 Скопировать</button>' +
+              '<button type="button" class="ln-btn ghost" onclick="LessonNotes.again()">🔄 Записать заново</button>' +
             '</div>' +
           '</div>' +
         '</div>';
@@ -1387,37 +1396,88 @@
     function toggleRaw() { el('ln-raw').classList.toggle('open'); }
 
     function save() {
+      return doSave(false);
+    }
+
+    // silent=true — не трогаем кнопку/статус так шумно (используется перед отправкой).
+    function doSave(silent) {
       var id = getQueryParam('id');
       var text = el('ln-text').value.trim();
-      if (!text) { setStatus('Текст пустой.', true); return; }
-      var btn = el('ln-save'); btn.disabled = true;
+      if (!text) { setStatus('Текст пустой.', true); return Promise.reject(); }
+      var btn = el('ln-save'); if (!silent) btn.disabled = true;
       var body = {
         action: 'saveLessonNote', seasonId: id, mkKey: ctx.mkKey,
         teacher: ctx.teacher || '', dayIdx: dayIdxFromKey(ctx.mkKey),
         mkName: ctx.mkName || '', textRaw: el('ln-raw').textContent || '', textClean: text
       };
-      fetch(LIBRARY_URL, {
+      return fetch(LIBRARY_URL, {
         method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(body)
       })
         .then(function (r) { return r.json(); })
         .then(function (d) {
-          btn.disabled = false;
-          setStatus(d && d.ok ? '✅ Сохранено.' : 'Не удалось сохранить.', !(d && d.ok));
+          if (!silent) btn.disabled = false;
+          if (d && d.ok) {
+            statusCache[ctx.mkKey] = statusCache[ctx.mkKey] || {};
+            statusCache[ctx.mkKey].hasText = true;
+            refreshBadges();
+            if (!silent) setStatus('✅ Сохранено.');
+          } else if (!silent) {
+            setStatus('Не удалось сохранить.', true);
+          }
+          return d;
         })
-        .catch(function (e) { btn.disabled = false; setStatus('Ошибка сети: ' + e.message, true); });
+        .catch(function (e) {
+          if (!silent) { btn.disabled = false; setStatus('Ошибка сети: ' + e.message, true); }
+          throw e;
+        });
+    }
+
+    function markSent() {
+      var id = getQueryParam('id');
+      return fetch(LIBRARY_URL, {
+        method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'markLessonSent', seasonId: id, mkKey: ctx.mkKey })
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d && d.ok) {
+            statusCache[ctx.mkKey] = statusCache[ctx.mkKey] || {};
+            statusCache[ctx.mkKey].hasText = true;
+            statusCache[ctx.mkKey].sent = true;
+            refreshBadges();
+          }
+          return d;
+        })
+        .catch(function () {});
+    }
+
+    function again() {
+      // Вернуть к экрану записи, текст оставить (вдруг захотят дозаписать поверх).
+      el('ln-result').style.display = 'none';
+      seconds = 0; el('ln-timer').textContent = '0:00';
+      el('ln-rec').className = 'ln-rec-btn'; el('ln-rec').textContent = '●';
+      el('ln-hint').textContent = 'Нажми и наговори заново';
+      setStatus('Прежний текст сохранён. Новая запись заменит его после обработки.');
     }
 
     function toViber() {
       var text = el('ln-text').value.trim();
       if (!text) { setStatus('Сначала наговори или впиши текст.', true); return; }
-      window.location.href = 'viber://forward?text=' + encodeURIComponent(text);
-      setStatus('Открываю Viber… Если текст не подставился — нажми «Скопировать» и вставь вручную.');
+      // Сначала тихо сохраняем и отмечаем отправку, потом открываем Viber.
+      doSave(true).then(markSent).then(function () {
+        window.location.href = 'viber://forward?text=' + encodeURIComponent(text);
+        setStatus('Открываю Viber… Если текст не подставился — нажми «Скопировать» и вставь вручную.');
+      }).catch(function () {
+        // Даже если сохранение не прошло — всё равно открываем Viber, текст у педагога есть.
+        window.location.href = 'viber://forward?text=' + encodeURIComponent(text);
+      });
     }
 
     function copy() {
       var text = el('ln-text').value.trim();
       if (!text) { setStatus('Текст пустой.', true); return; }
+      doSave(true).then(markSent);
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(
           function () { setStatus('📋 Скопировано — вставь в нужный чат Viber.'); },
@@ -1432,8 +1492,41 @@
       catch (e) { setStatus('Скопируй текст вручную.', true); }
     }
 
+    // Подтянуть статусы всех записей смены и расставить бейджи. Зовётся после отрисовки расписания.
+    function loadStatuses() {
+      var id = getQueryParam('id');
+      if (!id) return;
+      fetch(LIBRARY_URL + '?action=listLessonNotes&seasonId=' + encodeURIComponent(id))
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d && d.ok && d.notes) { statusCache = d.notes; refreshBadges(); }
+        })
+        .catch(function () {});
+    }
+
+    // Обновить бейджи на кнопках записи в расписании по statusCache.
+    function refreshBadges() {
+      var btns = document.querySelectorAll('.vslot-lesson-btn[data-mkkey]');
+      Array.prototype.forEach.call(btns, function (btn) {
+        var key = btn.getAttribute('data-mkkey');
+        var st = statusCache[key];
+        var label = btn.parentNode ? btn.parentNode.querySelector('.ln-badge[data-mkkey="' + key + '"]') : null;
+        if (!st || (!st.hasText && !st.sent)) { if (label) label.remove(); return; }
+        var txt = st.sent ? '✅ отправлено' : '💾 сохранено';
+        var cls = st.sent ? 'ln-badge sent' : 'ln-badge saved';
+        if (!label) {
+          label = document.createElement('span');
+          label.setAttribute('data-mkkey', key);
+          btn.parentNode.insertBefore(label, btn.nextSibling);
+        }
+        label.className = cls;
+        label.textContent = txt;
+      });
+    }
+
     return { open: open, close: close, toggleRec: toggleRec, toggleRaw: toggleRaw,
-             save: save, toViber: toViber, copy: copy };
+             save: save, toViber: toViber, copy: copy, again: again,
+             loadStatuses: loadStatuses, refreshBadges: refreshBadges };
   })();
 </script>
 </body>
