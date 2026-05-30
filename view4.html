@@ -174,6 +174,12 @@
   .ln-cover-hint { font-size: 12px; color: rgba(21,22,23,0.6); margin-top: 4px; }
   .ln-troopnotes-body { display: none; margin-top: 6px; }
   .ln-troopnotes-body.open { display: block; }
+  .ln-troop-label { display: flex; align-items: center; gap: 8px; }
+  .ln-troop-rec {
+    border: none; cursor: pointer; width: 30px; height: 30px; border-radius: 50%;
+    background: #C8714B; color: #fff; font-size: 14px; line-height: 1; flex: none; padding: 0;
+  }
+  .ln-troop-rec.recording { background: #c0392b; animation: ln-pulse 1.2s infinite; }
 
   .ln-overlay {
     position: fixed; inset: 0; background: rgba(21,22,23,0.55); z-index: 9999;
@@ -1226,6 +1232,7 @@
     var seconds = 0;
     var MAX_SECONDS = 300;     // мягкий лимит 5 минут
     var statusCache = {};      // { mkKey: {hasText, sent} } — для бейджей в расписании
+    var recTarget = 'main';    // куда писать результат: 'main' или 'troop:<метка>'
 
     function el(id) { return document.getElementById(id); }
 
@@ -1364,7 +1371,11 @@
         '<div id="ln-troopnotes-body" class="ln-troopnotes-body">';
       ctx.troops.forEach(function (t) {
         var val = ctx.troopNotes[t] || '';
-        html += '<div class="ln-label">' + escapeHtml(t) + ':</div>' +
+        var tgt = 'troop:' + t;
+        html += '<div class="ln-label ln-troop-label">' + escapeHtml(t) +
+          '<button type="button" class="ln-troop-rec" data-target="' + escapeHtml(tgt) + '" ' +
+          'onclick="LessonNotes.toggleRec(\'' + escapeHtml(tgt).replace(/'/g, "\\'") + '\')" ' +
+          'title="Записать заметку голосом">🎤</button></div>' +
           '<textarea class="ln-textarea ln-troop-ta" data-troop="' + escapeHtml(t) + '" ' +
           'style="min-height:54px" placeholder="Необязательно — только если отличалось">' + escapeHtml(val) + '</textarea>';
       });
@@ -1425,8 +1436,34 @@
       return '';
     }
 
-    function toggleRec() {
-      if (mediaRecorder && mediaRecorder.state === 'recording') { stopRec(); return; }
+    // Кнопка-индикатор записи для текущей цели: главная или мини-кнопка отряда.
+    function recBtnEl() {
+      if (recTarget && recTarget.indexOf('troop:') === 0) {
+        return document.querySelector('.ln-troop-rec[data-target="' + cssEsc(recTarget) + '"]');
+      }
+      return el('ln-rec');
+    }
+    function cssEsc(s) { return String(s).replace(/"/g, '\\"'); }
+
+    function setRecBtnRecording(on) {
+      var b = recBtnEl();
+      if (!b) return;
+      if (b.id === 'ln-rec') {
+        b.className = on ? 'ln-rec-btn recording' : 'ln-rec-btn';
+        b.textContent = on ? '■' : '●';
+      } else {
+        b.className = on ? 'ln-troop-rec recording' : 'ln-troop-rec';
+        b.textContent = on ? '■' : '🎤';
+      }
+    }
+
+    function toggleRec(target) {
+      // Если идёт запись и нажали ту же цель — стоп; если другую — игнор (сначала останови текущую).
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        if (!target || target === recTarget) { stopRec(); }
+        return;
+      }
+      recTarget = target || 'main';
       startRec();
     }
 
@@ -1445,12 +1482,16 @@
         mediaRecorder.ondataavailable = function (ev) { if (ev.data && ev.data.size) chunks.push(ev.data); };
         mediaRecorder.onstop = onStopped;
         mediaRecorder.start();
-        el('ln-rec').className = 'ln-rec-btn recording';
-        el('ln-rec').textContent = '■';
-        el('ln-hint').textContent = 'Идёт запись… нажми ■ чтобы остановить';
-        seconds = 0; el('ln-timer').textContent = '0:00';
+        setRecBtnRecording(true);
+        if (recTarget === 'main') {
+          el('ln-hint').textContent = 'Идёт запись… нажми ■ чтобы остановить';
+          seconds = 0; el('ln-timer').textContent = '0:00';
+        } else {
+          setStatus('🎙 Запись заметки по отряду… нажми ■ у поля, чтобы остановить.');
+        }
+        seconds = 0; if (el('ln-timer')) el('ln-timer').textContent = '0:00';
         timerId = setInterval(function () {
-          seconds++; el('ln-timer').textContent = fmt(seconds);
+          seconds++; if (recTarget === 'main') el('ln-timer').textContent = fmt(seconds);
           if (seconds >= MAX_SECONDS) stopRec();
         }, 1000);
       }).catch(function () {
@@ -1461,9 +1502,8 @@
     function stopRec() {
       if (timerId) { clearInterval(timerId); timerId = null; }
       if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
-      el('ln-rec').className = 'ln-rec-btn';
-      el('ln-rec').textContent = '●';
-      el('ln-hint').textContent = 'Готово. Обрабатываю…';
+      setRecBtnRecording(false);
+      if (recTarget === 'main') el('ln-hint').textContent = 'Готово. Обрабатываю…';
     }
 
     function onStopped() {
@@ -1480,6 +1520,7 @@
     }
 
     function sendAudio(b64, mime) {
+      var target = recTarget; // фиксируем цель этой записи
       var body = { action: 'transcribeLesson', audioBase64: b64, mime: mime, mkName: ctx.mkName || '' };
       fetch(LIBRARY_URL, {
         method: 'POST',
@@ -1489,11 +1530,23 @@
         .then(function (r) { return r.json(); })
         .then(function (d) {
           if (!d || !d.ok) { setStatus('Не удалось расшифровать: ' + ((d && d.error) || 'ошибка сервера'), true); return; }
-          el('ln-text').value = d.textClean || d.textRaw || '';
-          el('ln-raw').textContent = d.textRaw || '';
-          el('ln-result').style.display = 'block';
-          renderTroopNotes();
-          setStatus('Готово. Проверь текст и при желании поправь.');
+          var txt = d.textClean || d.textRaw || '';
+          if (target && target.indexOf('troop:') === 0) {
+            var label = target.slice(6);
+            var ta = document.querySelector('.ln-troop-ta[data-troop="' + cssEsc(label) + '"]');
+            if (ta) {
+              ta.value = (ta.value.trim() ? ta.value.trim() + ' ' : '') + txt;
+              ctx.troopNotes = ctx.troopNotes || {};
+              ctx.troopNotes[label] = ta.value;
+            }
+            setStatus('Готово — заметка по «' + label + '» добавлена.');
+          } else {
+            el('ln-text').value = txt;
+            el('ln-raw').textContent = d.textRaw || '';
+            el('ln-result').style.display = 'block';
+            renderTroopNotes();
+            setStatus('Готово. Проверь текст и при желании поправь.');
+          }
         })
         .catch(function (e) { setStatus('Ошибка сети: ' + e.message, true); });
     }
@@ -1561,8 +1614,8 @@
 
     // Полный текст для отправки: шапка + текст + (если есть) заметки по отрядам.
     function buildFullText() {
-      var head = 'Отчёт о проведённых занятиях педагога ' + (ctx.teacher || '') +
-        ' по «' + (ctx.mkName || 'занятие') + '»';
+      var head = '**Отчёт о проведённых занятиях педагога ' + (ctx.teacher || '') +
+        ' по «' + (ctx.mkName || 'занятие') + '»**';
       var parts = [head, '', el('ln-text').value.trim()];
       var tn = collectTroopNotes();
       var keys = Object.keys(tn);
