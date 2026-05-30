@@ -761,10 +761,17 @@
     return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
   function dateForDay(state, idx) {
-    // Смены всегда начинаются с понедельника; первый день = startDate (понедельник).
+    // Смены идут по будням. idx — это порядковый номер РАБОЧЕГО дня (0..9),
+    // мы прибавляем idx будних дней к startDate, пропуская сб (6) и вс (0).
+    // Если startDate сам выпал на выходной — сдвигаемся к ближайшему буднему.
     const start = new Date(state.startDate || new Date());
     const d = new Date(start);
-    d.setDate(d.getDate() + idx);
+    let collected = 0;
+    while (collected < idx) {
+      d.setDate(d.getDate() + 1);
+      if (d.getDay() !== 0 && d.getDay() !== 6) collected++;
+    }
+    while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
     return d;
   }
 
