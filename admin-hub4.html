@@ -193,6 +193,9 @@
   .ah-teacher{margin:8px 0 4px;font-weight:600}
   .ah-list{margin:0 0 4px 18px;padding:0}
   .ah-list li{margin:2px 0;font-size:13px}
+  .ah-tag{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:6px;font-size:11px;font-weight:600;vertical-align:middle}
+  .ah-tag.report{background:#C8714B;color:#fff}
+  .ah-tag.scores{background:#534AB7;color:#fff}
   .ah-foot{font-size:12px;color:rgba(21,22,23,0.55);margin-top:8px}
 </style>
 </head>
@@ -1076,35 +1079,50 @@
     }
 
     // Собираем занятия за сегодня + за все прошедшие дни смены (накопленные долги).
-    const buckets = {}; // noteGroupId → {teacher, dayIdx, mkName, mkKeys[]}
+    const buckets = {}; // noteGroupId → {teacher, dayIdx, mkName, mkKeys[], scored}
     const dayIdxs = [];
     for (let i = 0; i <= todayIdx; i++) dayIdxs.push(i);
     dayIdxs.forEach(i => {
       _walkDay(state.schedule[i], i, slot => {
         const gid = SEASON_ID + '|' + i + '|' + _normName(slot.teacher) + '|' + _normName(slot.template);
         if (!buckets[gid]) {
-          buckets[gid] = {gid, teacher: slot.teacher, dayIdx: i, mkName: slot.template, mkKeys: []};
+          buckets[gid] = {gid, teacher: slot.teacher, dayIdx: i, mkName: slot.template, mkKeys: [], scored: false};
         }
         buckets[gid].mkKeys.push(slot.mkKey);
+        if (slot.scored) buckets[gid].scored = true;
       });
     });
 
-    // Спрашиваем у сервера статусы записей.
-    let notes = {};
-    try {
-      const r = await fetch(LIBRARY_URL + '?action=listLessonNotes&seasonId=' + encodeURIComponent(SEASON_ID)).then(r=>r.json());
-      if (r && r.ok && r.notes) notes = r.notes;
-    } catch(e){}
+    // Параллельно: статусы записей (отчёты) + баллы (mkTouched).
+    let notes = {}, mkScored = {};
+    await Promise.all([
+      fetch(LIBRARY_URL + '?action=listLessonNotes&seasonId=' + encodeURIComponent(SEASON_ID))
+        .then(r => r.json()).then(r => { if (r && r.ok && r.notes) notes = r.notes; }).catch(()=>{}),
+      fetch(LIBRARY_URL + '?action=getScores&seasonId=' + encodeURIComponent(SEASON_ID))
+        .then(r => r.json()).then(r => {
+          // У getScores_ ответ либо напрямую {mkTouched:[...]}, либо завёрнут jsonResponse в {ok,result}.
+          const data = (r && r.result) ? r.result : r;
+          if (data && Array.isArray(data.mkTouched)) {
+            data.mkTouched.forEach(k => { mkScored[k] = true; });
+          }
+        }).catch(()=>{})
+    ]);
 
-    // Группируем «нет отчёта» по педагогу.
-    const byTeacher = {}; // teacher → [{dayIdx, mkName}]
+    // Для каждой группы решаем, что не сделано.
+    // Отчёт: группа закрыта, если хоть для одного mkKey есть hasText.
+    // Баллы: проверяются только для группы со scored=true; закрыты, если хоть один mkKey оценён.
+    const byTeacher = {}; // teacher → [{dayIdx, mkName, missReport, missScores}]
     Object.keys(buckets).forEach(gid => {
       const g = buckets[gid];
-      // Группа считается закрытой, если хотя бы для одного её mkKey есть hasText=true.
-      const closed = g.mkKeys.some(k => notes[k] && notes[k].hasText);
-      if (closed) return;
+      const reportDone = g.mkKeys.some(k => notes[k] && notes[k].hasText);
+      const scoresDone = g.scored ? g.mkKeys.some(k => mkScored[k]) : true;
+      const missReport = !reportDone;
+      const missScores = g.scored && !scoresDone;
+      if (!missReport && !missScores) return;
       const t = g.teacher;
-      (byTeacher[t] = byTeacher[t] || []).push({dayIdx: g.dayIdx, mkName: g.mkName});
+      (byTeacher[t] = byTeacher[t] || []).push({
+        dayIdx: g.dayIdx, mkName: g.mkName, missReport: missReport, missScores: missScores
+      });
     });
 
     const teachers = Object.keys(byTeacher).sort((a,b) => a.localeCompare(b, 'ru'));
@@ -1112,7 +1130,7 @@
     const overdueNow = (now.getHours() > 17) || (now.getHours() === 17 && now.getMinutes() >= 30);
 
     if (!teachers.length) {
-      box.innerHTML = '<div class="ah-card ok"><div class="ah-head">✅ Все отчёты по сегодняшнему дню сданы</div>' +
+      box.innerHTML = '<div class="ah-card ok"><div class="ah-head">✅ Все отчёты и баллы по сегодняшнему дню сданы</div>' +
         '<div class="ah-foot">Проверяются занятия за сегодня и накопленные долги прошлых дней.</div></div>';
       return;
     }
@@ -1122,7 +1140,7 @@
       ? '<span class="ah-pill danger">просрочено</span>'
       : '<span class="ah-pill warn">в работе до 17:30</span>';
     let html = '<div class="ah-card ' + cardClass + '">' +
-      '<div class="ah-head">📋 Не сданы отчёты по занятиям ' + pillHtml + '</div>';
+      '<div class="ah-head">📋 Не закрыты задачи педагогов ' + pillHtml + '</div>';
     teachers.forEach(t => {
       const items = byTeacher[t].sort((a,b) => a.dayIdx - b.dayIdx || a.mkName.localeCompare(b.mkName, 'ru'));
       html += '<div class="ah-teacher">' + escapeHtml(t) + '</div><ul class="ah-list">';
@@ -1130,7 +1148,10 @@
         const date = _dateForDay(state, it.dayIdx);
         const dateStr = date.getDate() + ' ' + _M[date.getMonth()];
         const dayLabel = (it.dayIdx === todayIdx) ? 'сегодня' : ('день ' + (it.dayIdx + 1) + ', ' + dateStr);
-        html += '<li>' + escapeHtml(dayLabel) + ' — ' + escapeHtml(it.mkName) + '</li>';
+        const tags = [];
+        if (it.missReport) tags.push('<span class="ah-tag report">нет отчёта</span>');
+        if (it.missScores) tags.push('<span class="ah-tag scores">не выставлены баллы</span>');
+        html += '<li>' + escapeHtml(dayLabel) + ' — ' + escapeHtml(it.mkName) + ' ' + tags.join(' ') + '</li>';
       });
       html += '</ul>';
     });
