@@ -239,6 +239,36 @@
     white-space: nowrap;
   }
   .comment-popup .refs-popup-box { max-width: 560px; }
+
+  /* === МОДАЛКА «КАК ПОЛЬЗОВАТЬСЯ» === */
+  .help-popup .refs-popup-box { max-width: 620px; padding: 24px 26px; font-family: Inter, sans-serif; }
+  .help-popup .refs-popup-title em { font-family: Caveat, cursive; font-style: normal; font-weight: 600; background: var(--yellow); padding: 0 6px; border-radius: 4px; }
+  .help-content { font-size: 14.5px; color: var(--ink); line-height: 1.55; }
+  .help-content h4 {
+    font-family: Geologica, sans-serif; font-size: 13px; font-weight: 700;
+    margin: 18px 0 8px; letter-spacing: 0.04em;
+  }
+  .help-content h4:first-child { margin-top: 0; }
+  .help-content p { margin: 8px 0; }
+  .help-content ol, .help-content ul { margin: 8px 0; padding-left: 22px; }
+  .help-content li { margin: 6px 0; }
+  .help-content strong { font-weight: 700; }
+  .help-content .help-key {
+    display: inline-block; background: var(--paper-warm, #FFFBEC); border: 1px solid rgba(21,22,23,0.2);
+    padding: 1px 7px; border-radius: 4px; font-size: 13px; font-weight: 600; white-space: nowrap;
+  }
+  .help-content .help-note {
+    background: var(--paper-warm, #FFFBEC); border-left: 3px solid var(--yellow-deep, #C9A800);
+    padding: 10px 14px; margin: 14px 0; font-size: 13.5px;
+  }
+  .help-content .help-warn {
+    background: #FBEDE6; border-left: 3px solid #9A4B30;
+    padding: 10px 14px; margin: 14px 0; font-size: 13.5px;
+  }
+  @media (max-width: 640px) {
+    .help-popup .refs-popup-box { padding: 18px 18px; }
+    .help-content { font-size: 14px; }
+  }
   .comment-popup-text {
     padding: 20px; font-size: 15px; line-height: 1.6; color: var(--ink);
     white-space: pre-wrap; overflow-y: auto;
@@ -626,6 +656,7 @@
       <a class="doc-btn" href="1.pdf" target="_blank" rel="noopener">📄 Дворовые игры</a>
       <a class="doc-btn" href="2.pdf" target="_blank" rel="noopener">📄 Игры на бумаге</a>
       <button class="doc-btn" id="roster-btn" onclick="openRosterPopup()">👦 Состав отрядов</button>
+      <button class="doc-btn" id="help-btn" onclick="openHelp()" title="Как пользоваться этой страницей">❓ Инструкция</button>
     </div>
   </div>
 
@@ -649,6 +680,43 @@
       <button class="refs-popup-close" onclick="closeRosterPopup()" title="Закрыть">✕</button>
     </div>
     <div id="roster-popup-body"></div>
+  </div>
+</div>
+
+<!-- МОДАЛКА «КАК ПОЛЬЗОВАТЬСЯ» -->
+<div class="refs-popup help-popup" id="help-popup" onclick="if(event.target===this)closeHelp()">
+  <div class="refs-popup-box">
+    <div class="refs-popup-head">
+      <span class="refs-popup-title">❓ Как пользоваться <em>этой страницей</em></span>
+      <button class="refs-popup-close" onclick="closeHelp()" title="Закрыть">✕</button>
+    </div>
+    <div class="help-content">
+      <h4>Что это за окно</h4>
+      <p>Здесь видны все занятия смены по дням, дети по отрядам и <strong>телефоны родителей</strong> рядом с именами. У педагогов в их окне телефонов нет — телефоны только у куратора.</p>
+
+      <h4>Что делать</h4>
+      <ol>
+        <li>Открой ссылку, которую прислал админ смены. Видишь расписание по дням и отрядам.</li>
+        <li>Нажми <span class="help-key">👦 Состав отрядов</span> в шапке — откроется список всех отрядов: ребёнок + возраст + телефон родителя. <strong>Любой телефон кликабельный</strong> — нажми и позвонишь со смартфона напрямую.</li>
+        <li>В самом расписании, внутри карточки занятия, есть список детей этого занятия. Телефоны там тоже кликабельные.</li>
+        <li>Если нужно <strong>распечатать</strong> — нажми <span class="help-key">🖨 Печать</span> сверху (либо Ctrl+P). Список разлинован так, чтобы строки не рвались между страницами.</li>
+        <li>Кнопки «Все / Отряд 1–4» сверху — это фильтр по отряду. Для печати «по отрядам сразу» есть отдельная кнопка <span class="help-key">🖨 Печать по отрядам</span>.</li>
+      </ol>
+
+      <h4>Куда уходит то, что ты делаешь здесь</h4>
+      <p>Ничего никуда не сохраняется — это страница только для просмотра и звонков. Отметки посещаемости делает админ смены в своей странице.</p>
+
+      <h4>Что важно</h4>
+      <ul>
+        <li>Если ребёнка нет в списке — сообщи администратору, он подтянет актуальные данные из CRM.</li>
+        <li>Если страница «застряла» или показывает старое — Ctrl+Shift+R (на телефоне — потяни вниз).</li>
+        <li>Размер шрифта можно поменять кнопками «−» и «+» в правом нижнем углу — удобно, если печатаешь со сложного браузера или хочешь крупнее на экране.</li>
+      </ul>
+
+      <div class="help-warn">
+        <strong>⚠️ Телефоны родителей — конфиденциальная информация.</strong> Не делай скриншоты страницы для пересылки, не показывай её посторонним, не пересылай ссылку в открытые чаты. Ссылку даёт только админ смены и только команде.
+      </div>
+    </div>
   </div>
 </div>
 
@@ -856,6 +924,15 @@
     document.getElementById('roster-popup').classList.remove('open');
   }
   window.openRosterPopup = openRosterPopup;
+
+  function openHelp() {
+    document.getElementById('help-popup').classList.add('open');
+  }
+  function closeHelp() {
+    document.getElementById('help-popup').classList.remove('open');
+  }
+  window.openHelp = openHelp;
+  window.closeHelp = closeHelp;
   window.closeRosterPopup = closeRosterPopup;
 
   // ── ПОПАП КОММЕНТАРИЯ (комментарии бывают длинными) ──
