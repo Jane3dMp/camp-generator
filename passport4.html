@@ -37,6 +37,26 @@
   .mode-switch button{padding:7px 12px;font-size:13px;border:none;background:#fff;color:var(--green-deep);cursor:pointer;font-family:inherit;font-weight:600}
   .mode-switch button.active{background:var(--green);color:#fff}
 
+  /* ── МОДАЛКА «КАК ПОЛЬЗОВАТЬСЯ» ── */
+  .help-btn{padding:7px 12px;font-size:13px;border:2px solid var(--green);background:#f3f7ee;color:var(--green-deep);border-radius:10px;cursor:pointer;font-family:inherit;font-weight:600}
+  .help-btn:hover{background:#e8efe0}
+  .help-overlay{position:fixed;inset:0;background:rgba(31,28,20,0.45);display:none;align-items:flex-start;justify-content:center;z-index:950;padding:24px 16px;overflow-y:auto}
+  .help-overlay.open{display:flex}
+  .help-modal{background:var(--paper);max-width:640px;width:100%;border-radius:16px;padding:24px 26px 28px;box-shadow:0 12px 40px rgba(0,0,0,0.25);margin:auto;font-family:'Inter',sans-serif;position:relative}
+  .help-modal h2{font-size:20px;margin:0 0 4px;padding-right:30px}
+  .help-modal h2 em{font-family:'Caveat',cursive;font-style:normal;font-weight:600;color:var(--ink);background:var(--yellow);padding:0 6px;border-radius:4px;font-size:1em}
+  .help-modal .help-close{position:absolute;top:18px;right:22px;background:none;border:none;font-size:24px;cursor:pointer;color:var(--muted);line-height:1;padding:0 4px}
+  .help-modal .help-close:hover{color:var(--ink)}
+  .help-modal h4{font-family:'Geologica',sans-serif;font-size:13px;font-weight:700;color:var(--green-deep);margin:18px 0 8px;letter-spacing:0.04em}
+  .help-modal h4:first-of-type{margin-top:14px}
+  .help-modal p{font-size:14.5px;margin:0 0 8px;line-height:1.55;color:var(--ink)}
+  .help-modal ol,.help-modal ul{font-size:14.5px;margin:0 0 8px;padding-left:22px;line-height:1.55}
+  .help-modal li{margin:6px 0}
+  .help-modal strong{font-weight:700}
+  .help-modal .help-key{display:inline-block;background:#fff;border:1px solid var(--line);padding:1px 7px;border-radius:6px;font-size:13px;font-weight:600;white-space:nowrap}
+  .help-modal .help-note{background:#f3f7ee;border-left:3px solid var(--green);padding:10px 14px;margin:14px 0;font-size:13.5px;border-radius:0 6px 6px 0}
+  .help-modal .help-warn{background:#fbede6;border-left:3px solid #9A4B30;padding:10px 14px;margin:14px 0;font-size:13.5px;border-radius:0 6px 6px 0}
+
   main{max-width:720px;margin:0 auto;padding:14px 20px 90px}
   .hint{color:var(--muted);font-size:14px;padding:36px 10px;text-align:center}
   .err{color:#c0392b;padding:20px;text-align:center}
@@ -132,12 +152,59 @@
   <div class="topbar">
     <label for="child-pick">Ребёнок:</label>
     <select id="child-pick" onchange="onChildChange()"><option value="">—</option></select>
+    <button class="help-btn" onclick="openHelp()" title="Как пользоваться этой страницей">❓ Инструкция</button>
     <div class="mode-switch">
       <button id="mode-int" class="active" onclick="setMode('internal')">Внутренний</button>
       <button id="mode-par" onclick="setMode('parent')">Для родителей</button>
     </div>
   </div>
   <main id="content"><div class="hint">Загружаю смену…</div></main>
+
+  <!-- МОДАЛКА «КАК ПОЛЬЗОВАТЬСЯ» (только для админа — у родителя .topbar и эта модалка не нужны, но кнопка скрыта вместе с topbar) -->
+  <div class="help-overlay" id="help-overlay" onclick="if(event.target===this)closeHelp()">
+    <div class="help-modal">
+      <button class="help-close" onclick="closeHelp()" title="Закрыть">×</button>
+      <h2>❓ Как пользоваться <em>этой страницей</em></h2>
+
+      <h4>Что это за окно</h4>
+      <p>Цифровой паспорт ребёнка после смены. Складывается автоматически из баллов педагогов (scores4) и голосовых отчётов педагогов (view4): три цифры сверху, радар по направлениям, лестница достижений, особые знаки, тёплая характеристика от ИИ, что попробовать дальше. Это «итог смены» для ребёнка — то, что увидит родитель.</p>
+
+      <h4>Что делать</h4>
+      <ol>
+        <li><strong>Выбери ребёнка</strong> в селекте <span class="help-key">Ребёнок</span> сверху. Прокрути страницу — увидишь весь профиль.</li>
+        <li><strong>Если живой характеристики ещё нет</strong> — нажми <span class="help-key">✍️ Сформировать характеристику</span> в её блоке. ИИ напишет на основе баллов и голосовых отчётов отряда (это та же логика, что в reports4 — текст письма родителю = тексту характеристики в паспорте).</li>
+        <li><strong>Переключи <span class="help-key">Для родителей</span></strong> — увидишь, как этот же паспорт выглядит со стороны родителя. Цифры исчезают, появляются словесные уровни («ярко» / «уверенно» / «развивается» / «в начале пути»).</li>
+      </ol>
+
+      <h4>Как родители получают паспорт</h4>
+      <p>Не нужно ничего рассылать вручную — работает Telegram-бот <span class="help-key">@Passport weekend</span> в SendPulse:</p>
+      <ul>
+        <li>Родитель пишет боту → бот спрашивает номер телефона → скрипт ищет ребёнка по последним 9 цифрам.</li>
+        <li>Если найден — родителю прилетает сообщение с кнопкой <span class="help-key">🎓 Имя ребёнка</span> → по клику открывается этот же паспорт, но автоматически в режиме «Для родителей».</li>
+        <li>Если у одного родителя несколько детей — несколько кнопок.</li>
+        <li>Токены формируются автоматически при импорте детей в смену. Ничего отдельно генерить не нужно.</li>
+      </ul>
+
+      <h4>Куда уходит то, что ты делаешь здесь</h4>
+      <p>Эта страница — только показ. Здесь ничего не сохраняется. Сами данные пишут педагоги в scores4 и view4; токены ссылок для родителей формируются на этапе импорта детей через index4/admin-hub4.</p>
+
+      <h4>Что важно</h4>
+      <ul>
+        <li>Режим <span class="help-key">Для родителей</span> — НЕ просто визуальный переключатель. Это <strong>реальный режим</strong>, в котором родитель видит паспорт через свою токен-ссылку. Здесь у тебя превью.</li>
+        <li>В родительском режиме нет цифр специально — родителю не нужны точные баллы (5 vs 4), нужны слова. Низкое не звучит как «два», а как «в начале пути».</li>
+        <li>Радар по направлениям рисуется, если есть оценки по 3+ разным направлениям. Меньше — показываются цветные полосы.</li>
+        <li>В админском режиме есть всё: точные цифры, разбор по занятиям, баллы. Это для тебя как админа смены, чтобы понимать «что под капотом» характеристики.</li>
+      </ul>
+
+      <div class="help-warn">
+        <strong>Если родитель пишет «ссылка показывает старое / не открывается».</strong> Это кэш Telegram-браузера. Решение: повышай <span class="help-key">PASSPORT_LINK_VERSION</span> в Scores.gs (сейчас <code>'2'</code>) → деплой New version → токен в ссылке станет <code>&v=3</code>, Telegram отдаст свежую версию. Это надо делать после любой большой правки <code>passport4.html</code>.
+      </div>
+
+      <div class="help-note">
+        Логика характеристики единая с reports4 — если поменяешь промт в reports4, изменится и текст здесь.
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -548,6 +615,11 @@
   window.onChildChange=onChildChange;
   window.setMode=setMode;
   window.genLetter=genLetter;
+
+  function openHelp(){ document.getElementById('help-overlay').classList.add('open'); }
+  function closeHelp(){ document.getElementById('help-overlay').classList.remove('open'); }
+  window.openHelp=openHelp;
+  window.closeHelp=closeHelp;
 </script>
 </body>
 </html>
