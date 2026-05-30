@@ -1073,24 +1073,11 @@
     }
 
     const todayIdx = _todayDayIdx(state);
-    // До какого дня смены проверяем (включительно).
-    // Если сегодня день смены — проверяем до сегодня.
-    // Иначе — до последнего УЖЕ ПРОШЕДШЕГО рабочего дня смены (по календарю).
-    // Если смена ещё впереди — проверять нечего, но блок всё равно покажем (с пустым «всё чисто»).
-    let upToIdx = todayIdx;
-    if (upToIdx < 0) {
-      const today0 = new Date(); today0.setHours(0,0,0,0);
-      for (let i = 0; i < state.schedule.length; i++) {
-        const d = _dateForDay(state, i); d.setHours(0,0,0,0);
-        if (d.getTime() < today0.getTime()) upToIdx = i;
-        else break;
-      }
-    }
-
-    if (upToIdx < 0) {
-      // Смена ещё впереди — долгов быть не может, скрываем блок.
-      box.innerHTML = ''; return;
-    }
+    // Проверяем ВСЕ дни публикации, независимо от календаря — чтобы видеть
+    // незакрытые задачи заранее, до начала смены. Календарь нужен только для
+    // того, чтобы отделить «уже просрочено» (день в прошлом) от «впереди».
+    const upToIdx = state.schedule.length - 1;
+    if (upToIdx < 0) { box.innerHTML = ''; return; }
 
     // Собираем занятия за все прошедшие дни смены включительно (плюс сегодня, если идёт).
     const buckets = {}; // noteGroupId → {teacher, dayIdx, mkName, mkKeys[], scored}
@@ -1142,26 +1129,38 @@
     const teachers = Object.keys(byTeacher).sort((a,b) => a.localeCompare(b, 'ru'));
     const now = new Date();
     const past1730 = (now.getHours() > 17) || (now.getHours() === 17 && now.getMinutes() >= 30);
-    // Есть ли среди долгов хоть один прошлый день (не сегодня)?
-    let hasPastDebts = false, hasTodayDebts = false;
+    // Считаем для каждого дня — прошлый, сегодняшний или будущий (по календарю).
+    const today0 = new Date(); today0.setHours(0,0,0,0);
+    const dayKind = {}; // dayIdx -> 'past' | 'today' | 'future'
+    for (let i = 0; i <= upToIdx; i++) {
+      const d = _dateForDay(state, i); d.setHours(0,0,0,0);
+      const diff = d.getTime() - today0.getTime();
+      dayKind[i] = diff < 0 ? 'past' : (diff === 0 ? 'today' : 'future');
+    }
+    let hasPastDebts = false, hasTodayDebts = false, hasFutureDebts = false;
     Object.keys(byTeacher).forEach(t => byTeacher[t].forEach(it => {
-      if (it.dayIdx === todayIdx) hasTodayDebts = true;
-      else hasPastDebts = true;
+      const k = dayKind[it.dayIdx];
+      if (k === 'past') hasPastDebts = true;
+      else if (k === 'today') hasTodayDebts = true;
+      else hasFutureDebts = true;
     }));
-    // Красная плашка — если есть долги за прошлые дни (точно просрочено),
-    // либо сегодняшние долги уже после 17:30.
+    // Красная плашка — долги за прошлые дни или сегодняшние после 17:30.
+    // Будущие дни — не просрочены, плашка жёлтая «заранее».
     const overdueNow = hasPastDebts || (hasTodayDebts && past1730);
+    const onlyFuture = !hasPastDebts && !hasTodayDebts && hasFutureDebts;
 
     if (!teachers.length) {
       box.innerHTML = '<div class="ah-card ok"><div class="ah-head">✅ Все отчёты и баллы по смене сданы</div>' +
-        '<div class="ah-foot">Проверяются занятия за сегодня и накопленные долги прошлых дней.</div></div>';
+        '<div class="ah-foot">Проверяется вся опубликованная смена.</div></div>';
       return;
     }
 
     const cardClass = overdueNow ? 'danger' : 'warn';
     const pillHtml = overdueNow
       ? '<span class="ah-pill danger">просрочено</span>'
-      : '<span class="ah-pill warn">в работе до 17:30</span>';
+      : (onlyFuture
+          ? '<span class="ah-pill warn">заранее</span>'
+          : '<span class="ah-pill warn">в работе до 17:30</span>');
     let html = '<div class="ah-card ' + cardClass + '">' +
       '<div class="ah-head">📋 Не закрыты задачи педагогов ' + pillHtml + '</div>';
     teachers.forEach(t => {
@@ -1181,8 +1180,9 @@
     let footMsg;
     if (hasPastDebts) footMsg = 'Есть незакрытые задачи за прошедшие дни.';
     else if (hasTodayDebts && past1730) footMsg = 'Сейчас уже после 17:30 — задачи должны быть сданы.';
+    else if (onlyFuture) footMsg = 'Это будущие дни смены — задачи можно сдать заранее.';
     else footMsg = 'Дедлайн — 17:30.';
-    html += '<div class="ah-foot">Проверяются занятия за сегодня и накопленные долги прошлых дней. ' +
+    html += '<div class="ah-foot">Проверяется вся опубликованная смена. ' +
       footMsg + '</div></div>';
     box.innerHTML = html;
   }
