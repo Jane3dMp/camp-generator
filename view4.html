@@ -338,6 +338,51 @@
     .roster-popup { padding: 10px; }
     .roster-popup-box { padding: 16px; }
   }
+
+  /* === МОДАЛКА «КАК ПОЛЬЗОВАТЬСЯ» === */
+  .help-popup {
+    display: none; position: fixed; inset: 0; z-index: 1100;
+    background: rgba(21,22,23,0.55); padding: 20px;
+    align-items: flex-start; justify-content: center; overflow-y: auto;
+  }
+  .help-popup.open { display: flex; }
+  .help-popup-box {
+    background: var(--white); border-radius: 10px; max-width: 620px; width: 100%;
+    margin: 0 auto; padding: 24px 26px; box-shadow: 0 18px 60px rgba(0,0,0,0.3);
+    font-family: Inter, sans-serif;
+  }
+  .help-popup-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; gap: 12px; }
+  .help-popup-title { font-family: Geologica, sans-serif; font-weight: 700; font-size: 18px; line-height: 1.25; }
+  .help-popup-title em { font-family: Caveat, cursive; font-style: normal; font-weight: 600; background: var(--yellow); padding: 0 6px; border-radius: 4px; }
+  .help-popup-close {
+    background: none; border: none; font-size: 22px; cursor: pointer; color: rgba(21,22,23,0.5);
+    line-height: 1; padding: 0 4px; flex-shrink: 0;
+  }
+  .help-popup-close:hover { color: var(--ink); }
+  .help-content { font-size: 14.5px; color: var(--ink); line-height: 1.55; }
+  .help-content h4 {
+    font-family: Geologica, sans-serif; font-size: 13px; font-weight: 700;
+    margin: 18px 0 8px; letter-spacing: 0.04em;
+  }
+  .help-content h4:first-child { margin-top: 0; }
+  .help-content p { margin: 8px 0; }
+  .help-content ol, .help-content ul { margin: 8px 0; padding-left: 22px; }
+  .help-content li { margin: 6px 0; }
+  .help-content strong { font-weight: 700; }
+  .help-content .help-key {
+    display: inline-block; background: var(--paper-warm); border: 1px solid rgba(21,22,23,0.2);
+    padding: 1px 7px; border-radius: 4px; font-size: 13px; font-weight: 600; white-space: nowrap;
+  }
+  .help-content .help-note {
+    background: var(--paper-warm); border-left: 3px solid var(--yellow-deep);
+    padding: 10px 14px; margin: 14px 0; font-size: 13.5px;
+  }
+  @media (max-width: 640px) {
+    .help-popup { padding: 10px; }
+    .help-popup-box { padding: 18px 18px; }
+    .help-popup-title { font-size: 16px; }
+    .help-content { font-size: 14px; }
+  }
 </style>
 </head>
 <body>
@@ -369,6 +414,7 @@
     </select>
     <button class="view-refresh" onclick="reloadFromServer()" title="Обновить — взять последнюю опубликованную версию">↻</button>
     <button class="view-refresh" onclick="openRosterPopup()" title="Показать состав всех отрядов">👦 состав</button>
+    <button class="view-refresh" onclick="openHelp()" title="Как пользоваться этой страницей">❓ инструкция</button>
   </div>
 
   <div id="view-content">
@@ -385,6 +431,44 @@
       </div>
       <div class="roster-grid" id="roster-grid"></div>
       <div class="roster-popup-empty" id="roster-popup-empty" style="display:none">Список детей не загружен.</div>
+    </div>
+  </div>
+
+  <!-- МОДАЛКА «КАК ПОЛЬЗОВАТЬСЯ» -->
+  <div class="help-popup" id="help-popup" onclick="if(event.target===this)closeHelp()">
+    <div class="help-popup-box">
+      <div class="help-popup-head">
+        <span class="help-popup-title">❓ Как пользоваться <em>этой страницей</em></span>
+        <button class="help-popup-close" onclick="closeHelp()" title="Закрыть">✕</button>
+      </div>
+      <div class="help-content">
+        <h4>Что это за окно</h4>
+        <p>Здесь ты видишь своё расписание на смену — все занятия, которые ведёшь, по дням и отрядам.</p>
+
+        <h4>Что делать</h4>
+        <ol>
+          <li><strong>Выбери себя</strong> в селекте <span class="help-key">Педагог</span> сверху страницы.</li>
+          <li><strong>После каждого занятия</strong> нажми <span class="help-key">🎤 Запись урока</span> — наговори голосом, что было. ИИ расшифрует и причешет текст, ты сможешь его поправить.</li>
+          <li><strong>Один отчёт = одно занятие в день.</strong> Если ты вёл один и тот же МК сразу нескольким отрядам — пиши один отчёт, он покроет всех. Опционально добавь отдельную заметку по конкретному отряду через <span class="help-key">➕ Добавить заметку по отряду</span>.</li>
+          <li><strong>Отправь в родительский чат:</strong> <span class="help-key">Открыть в Viber</span> (текст подставится сам) или <span class="help-key">📋 Скопировать</span> и вставить в чат вручную.</li>
+          <li>Если у занятия есть бейдж <span class="help-key">📊 оценочный</span> — нажми <span class="help-key">Проставить баллы</span> и поставь 3 оценки каждому ребёнку (Интерес / Усердие / Потенциал). Это нужно для писем родителям и цифрового паспорта ребёнка.</li>
+        </ol>
+
+        <h4>Куда уходит то, что ты записываешь</h4>
+        <p>Голосовая запись расшифровывается, причёсывается ИИ и сохраняется в общую базу клуба. Дальше используется в письмах родителям после смены и в цифровом паспорте ребёнка.</p>
+
+        <h4>Что важно</h4>
+        <ul>
+          <li>Не дублируй отчёты по отрядам — <strong>один отчёт на занятие в день</strong>.</li>
+          <li>Текст после расшифровки можно править перед отправкой.</li>
+          <li>Кнопка <span class="help-key">👦 состав</span> показывает детей твоего занятия (ФИО + возраст, без телефонов — телефоны только у куратора).</li>
+          <li>Если что-то не получилось — закрой и открой модалку заново, ничего не потеряется.</li>
+        </ul>
+
+        <div class="help-note">
+          Если кнопка <span class="help-key">🎤 Запись урока</span> не появилась — проверь, что выбрал себя в селекте «Педагог».
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -594,6 +678,15 @@
   }
   window.openRosterPopup = openRosterPopup;
   window.closeRosterPopup = closeRosterPopup;
+
+  function openHelp() {
+    document.getElementById('help-popup').classList.add('open');
+  }
+  function closeHelp() {
+    document.getElementById('help-popup').classList.remove('open');
+  }
+  window.openHelp = openHelp;
+  window.closeHelp = closeHelp;
 
   async function loadAll(id) {
     document.getElementById('view-content').innerHTML = '<div class="view-loading">Загружаю расписание…</div>';
