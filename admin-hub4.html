@@ -1073,15 +1073,29 @@
     }
 
     const todayIdx = _todayDayIdx(state);
-    if (todayIdx < 0) {
-      // Сегодня не день смены — сводки нет.
+    // До какого дня смены проверяем (включительно).
+    // Если сегодня день смены — проверяем до сегодня.
+    // Иначе — до последнего УЖЕ ПРОШЕДШЕГО рабочего дня смены (по календарю).
+    // Если смена ещё впереди — проверять нечего, но блок всё равно покажем (с пустым «всё чисто»).
+    let upToIdx = todayIdx;
+    if (upToIdx < 0) {
+      const today0 = new Date(); today0.setHours(0,0,0,0);
+      for (let i = 0; i < state.schedule.length; i++) {
+        const d = _dateForDay(state, i); d.setHours(0,0,0,0);
+        if (d.getTime() < today0.getTime()) upToIdx = i;
+        else break;
+      }
+    }
+
+    if (upToIdx < 0) {
+      // Смена ещё впереди — долгов быть не может, скрываем блок.
       box.innerHTML = ''; return;
     }
 
-    // Собираем занятия за сегодня + за все прошедшие дни смены (накопленные долги).
+    // Собираем занятия за все прошедшие дни смены включительно (плюс сегодня, если идёт).
     const buckets = {}; // noteGroupId → {teacher, dayIdx, mkName, mkKeys[], scored}
     const dayIdxs = [];
-    for (let i = 0; i <= todayIdx; i++) dayIdxs.push(i);
+    for (let i = 0; i <= upToIdx; i++) dayIdxs.push(i);
     dayIdxs.forEach(i => {
       _walkDay(state.schedule[i], i, slot => {
         const gid = SEASON_ID + '|' + i + '|' + _normName(slot.teacher) + '|' + _normName(slot.template);
@@ -1127,10 +1141,19 @@
 
     const teachers = Object.keys(byTeacher).sort((a,b) => a.localeCompare(b, 'ru'));
     const now = new Date();
-    const overdueNow = (now.getHours() > 17) || (now.getHours() === 17 && now.getMinutes() >= 30);
+    const past1730 = (now.getHours() > 17) || (now.getHours() === 17 && now.getMinutes() >= 30);
+    // Есть ли среди долгов хоть один прошлый день (не сегодня)?
+    let hasPastDebts = false, hasTodayDebts = false;
+    Object.keys(byTeacher).forEach(t => byTeacher[t].forEach(it => {
+      if (it.dayIdx === todayIdx) hasTodayDebts = true;
+      else hasPastDebts = true;
+    }));
+    // Красная плашка — если есть долги за прошлые дни (точно просрочено),
+    // либо сегодняшние долги уже после 17:30.
+    const overdueNow = hasPastDebts || (hasTodayDebts && past1730);
 
     if (!teachers.length) {
-      box.innerHTML = '<div class="ah-card ok"><div class="ah-head">✅ Все отчёты и баллы по сегодняшнему дню сданы</div>' +
+      box.innerHTML = '<div class="ah-card ok"><div class="ah-head">✅ Все отчёты и баллы по смене сданы</div>' +
         '<div class="ah-foot">Проверяются занятия за сегодня и накопленные долги прошлых дней.</div></div>';
       return;
     }
@@ -1147,7 +1170,7 @@
       items.forEach(it => {
         const date = _dateForDay(state, it.dayIdx);
         const dateStr = date.getDate() + ' ' + _M[date.getMonth()];
-        const dayLabel = (it.dayIdx === todayIdx) ? 'сегодня' : ('день ' + (it.dayIdx + 1) + ', ' + dateStr);
+        const dayLabel = (todayIdx >= 0 && it.dayIdx === todayIdx) ? 'сегодня' : ('день ' + (it.dayIdx + 1) + ', ' + dateStr);
         const tags = [];
         if (it.missReport) tags.push('<span class="ah-tag report">нет отчёта</span>');
         if (it.missScores) tags.push('<span class="ah-tag scores">не выставлены баллы</span>');
@@ -1155,8 +1178,12 @@
       });
       html += '</ul>';
     });
+    let footMsg;
+    if (hasPastDebts) footMsg = 'Есть незакрытые задачи за прошедшие дни.';
+    else if (hasTodayDebts && past1730) footMsg = 'Сейчас уже после 17:30 — задачи должны быть сданы.';
+    else footMsg = 'Дедлайн — 17:30.';
     html += '<div class="ah-foot">Проверяются занятия за сегодня и накопленные долги прошлых дней. ' +
-      (overdueNow ? 'Сейчас уже после 17:30 — отчёты должны быть сданы.' : 'Дедлайн — 17:30.') + '</div></div>';
+      footMsg + '</div></div>';
     box.innerHTML = html;
   }
 </script>
