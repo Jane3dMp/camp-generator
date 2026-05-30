@@ -348,26 +348,26 @@
               const [tA,tB] = troops;
               // chain[0] (МК A): times[0]→tA, times[1]→tB — две карточки
               const s0 = chain[0];
-              if(s0 && s0.template && s0.scored && normalizeName(s0.teacher)===target){
+              if(s0 && s0.template && (s0.needsScores ?? s0.scored) && normalizeName(s0.teacher)===target){
                 mks.push({ mkKey:idx+'_'+half+'_'+sub+'_0_t'+tA, name:s0.template, theme:s0.theme||'', time:times[0]||'', troops:[tA], comm:isCommMk(s0) });
                 mks.push({ mkKey:idx+'_'+half+'_'+sub+'_0_t'+tB, name:s0.template, theme:s0.theme||'', time:times[1]||'', troops:[tB], comm:isCommMk(s0) });
               }
               // chain[1] (МК B): times[0]→tB, times[1]→tA (противофаза)
               const s1 = chain[1];
-              if(s1 && s1.template && s1.scored && normalizeName(s1.teacher)===target){
+              if(s1 && s1.template && (s1.needsScores ?? s1.scored) && normalizeName(s1.teacher)===target){
                 mks.push({ mkKey:idx+'_'+half+'_'+sub+'_1_t'+tB, name:s1.template, theme:s1.theme||'', time:times[0]||'', troops:[tB], comm:isCommMk(s1) });
                 mks.push({ mkKey:idx+'_'+half+'_'+sub+'_1_t'+tA, name:s1.template, theme:s1.theme||'', time:times[1]||'', troops:[tA], comm:isCommMk(s1) });
               }
               // chain[2] (общий): times[2] → оба отряда одновременно — одна карточка
               const s2 = chain[2];
-              if(s2 && s2.template && s2.scored && normalizeName(s2.teacher)===target){
+              if(s2 && s2.template && (s2.needsScores ?? s2.scored) && normalizeName(s2.teacher)===target){
                 mks.push({ mkKey:idx+'_'+half+'_'+sub+'_2_tAB', name:s2.template, theme:s2.theme||'', time:times[2]||'', troops:[tA,tB], comm:isCommMk(s2) });
               }
             });
           } else {
             // rot4: станция, 4 шага. На шаге k у станции st сидит отряд ((st-k)%4+4)%4.
             (multi.stations||[]).forEach((s,st)=>{
-              if(!s||!s.template||!s.scored) return;
+              if(!s||!s.template||!(s.needsScores ?? s.scored)) return;
               if(normalizeName(s.teacher)!==target) return;
               for(let k=0;k<4;k++){
                 const troopIdx = ((st-k)%4+4)%4;       // 0-based
@@ -387,17 +387,17 @@
           const tA = (sg==='A')?1:3, tB = (sg==='A')?2:4;
           const chain = multi.chainA||[];
           const s0 = chain[0];
-          if(s0 && s0.template && s0.scored && normalizeName(s0.teacher)===target){
+          if(s0 && s0.template && (s0.needsScores ?? s0.scored) && normalizeName(s0.teacher)===target){
             mks.push({ mkKey:idx+'_'+half+'_chainA_0_t'+tA, name:s0.template, theme:s0.theme||'', time:times[0]||'', troops:[tA], comm:isCommMk(s0) });
             mks.push({ mkKey:idx+'_'+half+'_chainA_0_t'+tB, name:s0.template, theme:s0.theme||'', time:times[1]||'', troops:[tB], comm:isCommMk(s0) });
           }
           const s1 = chain[1];
-          if(s1 && s1.template && s1.scored && normalizeName(s1.teacher)===target){
+          if(s1 && s1.template && (s1.needsScores ?? s1.scored) && normalizeName(s1.teacher)===target){
             mks.push({ mkKey:idx+'_'+half+'_chainA_1_t'+tB, name:s1.template, theme:s1.theme||'', time:times[0]||'', troops:[tB], comm:isCommMk(s1) });
             mks.push({ mkKey:idx+'_'+half+'_chainA_1_t'+tA, name:s1.template, theme:s1.theme||'', time:times[1]||'', troops:[tA], comm:isCommMk(s1) });
           }
           const s2 = chain[2];
-          if(s2 && s2.template && s2.scored && normalizeName(s2.teacher)===target){
+          if(s2 && s2.template && (s2.needsScores ?? s2.scored) && normalizeName(s2.teacher)===target){
             mks.push({ mkKey:idx+'_'+half+'_chainA_2_tAB', name:s2.template, theme:s2.theme||'', time:times[2]||'', troops:[tA,tB], comm:isCommMk(s2) });
           }
           return;
@@ -408,7 +408,7 @@
         if(!Array.isArray(arr)) return;
         const time = half==='am' ? TIME_AM : TIME_PM;
         arr.forEach((s,i)=>{
-          if(!s||!s.template||!s.scored) return;
+          if(!s||!s.template||!(s.needsScores ?? s.scored)) return;
           if(normalizeName(s.teacher)!==target) return;
           mks.push({ mkKey:idx+'_'+half+'_'+i+'_t'+(i+1), name:s.template, theme:s.theme||'', time:time, troops:[i+1], comm:isCommMk(s) });
         });

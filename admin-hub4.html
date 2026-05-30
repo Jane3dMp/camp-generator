@@ -1177,7 +1177,9 @@ pages.join('')+
   }
 
   // Перебирает день и зовёт cb(slot) для КАЖДОГО педагогового захода.
-  // slot = { teacher, template, theme, scored, troop, mkKey }
+  // slot = { teacher, template, theme, scored, needsReport, needsScores, troop, mkKey }
+  // scored остаётся как алиас для обратной совместимости со старыми экранами.
+  // needsReport (🎤) и needsScores (📊) — два независимых флага задач педагога.
   // Покрывает все режимы: normal, trip*, seq3, rot4, seq3trip.
   function _walkDay(day, idx, cb){
     ['am','pm'].forEach(half => {
@@ -1191,17 +1193,17 @@ pages.join('')+
             const chain = multi[sub] || [];
             const s0 = chain[0];
             if (s0 && s0.template && s0.teacher) {
-              cb({teacher:s0.teacher, template:s0.template, theme:s0.theme||'', scored:!!s0.scored, troop:tA, mkKey: idx+'_'+half+'_'+sub+'_0_t'+tA});
-              cb({teacher:s0.teacher, template:s0.template, theme:s0.theme||'', scored:!!s0.scored, troop:tB, mkKey: idx+'_'+half+'_'+sub+'_0_t'+tB});
+              cb({teacher:s0.teacher, template:s0.template, theme:s0.theme||'', scored:!!s0.scored, needsReport:!!(s0.needsReport ?? s0.scored), needsScores:!!(s0.needsScores ?? s0.scored), troop:tA, mkKey: idx+'_'+half+'_'+sub+'_0_t'+tA});
+              cb({teacher:s0.teacher, template:s0.template, theme:s0.theme||'', scored:!!s0.scored, needsReport:!!(s0.needsReport ?? s0.scored), needsScores:!!(s0.needsScores ?? s0.scored), troop:tB, mkKey: idx+'_'+half+'_'+sub+'_0_t'+tB});
             }
             const s1 = chain[1];
             if (s1 && s1.template && s1.teacher) {
-              cb({teacher:s1.teacher, template:s1.template, theme:s1.theme||'', scored:!!s1.scored, troop:tB, mkKey: idx+'_'+half+'_'+sub+'_1_t'+tB});
-              cb({teacher:s1.teacher, template:s1.template, theme:s1.theme||'', scored:!!s1.scored, troop:tA, mkKey: idx+'_'+half+'_'+sub+'_1_t'+tA});
+              cb({teacher:s1.teacher, template:s1.template, theme:s1.theme||'', scored:!!s1.scored, needsReport:!!(s1.needsReport ?? s1.scored), needsScores:!!(s1.needsScores ?? s1.scored), troop:tB, mkKey: idx+'_'+half+'_'+sub+'_1_t'+tB});
+              cb({teacher:s1.teacher, template:s1.template, theme:s1.theme||'', scored:!!s1.scored, needsReport:!!(s1.needsReport ?? s1.scored), needsScores:!!(s1.needsScores ?? s1.scored), troop:tA, mkKey: idx+'_'+half+'_'+sub+'_1_t'+tA});
             }
             const s2 = chain[2];
             if (s2 && s2.template && s2.teacher) {
-              cb({teacher:s2.teacher, template:s2.template, theme:s2.theme||'', scored:!!s2.scored, troop:tA, mkKey: idx+'_'+half+'_'+sub+'_2_tAB'});
+              cb({teacher:s2.teacher, template:s2.template, theme:s2.theme||'', scored:!!s2.scored, needsReport:!!(s2.needsReport ?? s2.scored), needsScores:!!(s2.needsScores ?? s2.scored), troop:tA, mkKey: idx+'_'+half+'_'+sub+'_2_tAB'});
             }
           });
         } else {
@@ -1209,7 +1211,7 @@ pages.join('')+
             if (!s || !s.template || !s.teacher) return;
             for (let k = 0; k < 4; k++) {
               const troopIdx = ((st - k) % 4 + 4) % 4;
-              cb({teacher:s.teacher, template:s.template, theme:s.theme||'', scored:!!s.scored, troop:troopIdx+1, mkKey: idx+'_'+half+'_stations_'+st+'_t'+(troopIdx+1)});
+              cb({teacher:s.teacher, template:s.template, theme:s.theme||'', scored:!!s.scored, needsReport:!!(s.needsReport ?? s.scored), needsScores:!!(s.needsScores ?? s.scored), troop:troopIdx+1, mkKey: idx+'_'+half+'_stations_'+st+'_t'+(troopIdx+1)});
             }
           });
         }
@@ -1224,17 +1226,17 @@ pages.join('')+
         const chain = multi.chainA || [];
         const s0 = chain[0];
         if (s0 && s0.template && s0.teacher) {
-          cb({teacher:s0.teacher, template:s0.template, theme:s0.theme||'', scored:!!s0.scored, troop:tA, mkKey: idx+'_'+half+'_chainA_0_t'+tA});
-          cb({teacher:s0.teacher, template:s0.template, theme:s0.theme||'', scored:!!s0.scored, troop:tB, mkKey: idx+'_'+half+'_chainA_0_t'+tB});
+          cb({teacher:s0.teacher, template:s0.template, theme:s0.theme||'', scored:!!s0.scored, needsReport:!!(s0.needsReport ?? s0.scored), needsScores:!!(s0.needsScores ?? s0.scored), troop:tA, mkKey: idx+'_'+half+'_chainA_0_t'+tA});
+          cb({teacher:s0.teacher, template:s0.template, theme:s0.theme||'', scored:!!s0.scored, needsReport:!!(s0.needsReport ?? s0.scored), needsScores:!!(s0.needsScores ?? s0.scored), troop:tB, mkKey: idx+'_'+half+'_chainA_0_t'+tB});
         }
         const s1 = chain[1];
         if (s1 && s1.template && s1.teacher) {
-          cb({teacher:s1.teacher, template:s1.template, theme:s1.theme||'', scored:!!s1.scored, troop:tB, mkKey: idx+'_'+half+'_chainA_1_t'+tB});
-          cb({teacher:s1.teacher, template:s1.template, theme:s1.theme||'', scored:!!s1.scored, troop:tA, mkKey: idx+'_'+half+'_chainA_1_t'+tA});
+          cb({teacher:s1.teacher, template:s1.template, theme:s1.theme||'', scored:!!s1.scored, needsReport:!!(s1.needsReport ?? s1.scored), needsScores:!!(s1.needsScores ?? s1.scored), troop:tB, mkKey: idx+'_'+half+'_chainA_1_t'+tB});
+          cb({teacher:s1.teacher, template:s1.template, theme:s1.theme||'', scored:!!s1.scored, needsReport:!!(s1.needsReport ?? s1.scored), needsScores:!!(s1.needsScores ?? s1.scored), troop:tA, mkKey: idx+'_'+half+'_chainA_1_t'+tA});
         }
         const s2 = chain[2];
         if (s2 && s2.template && s2.teacher) {
-          cb({teacher:s2.teacher, template:s2.template, theme:s2.theme||'', scored:!!s2.scored, troop:tA, mkKey: idx+'_'+half+'_chainA_2_tAB'});
+          cb({teacher:s2.teacher, template:s2.template, theme:s2.theme||'', scored:!!s2.scored, needsReport:!!(s2.needsReport ?? s2.scored), needsScores:!!(s2.needsScores ?? s2.scored), troop:tA, mkKey: idx+'_'+half+'_chainA_2_tAB'});
         }
         return;
       }
@@ -1245,7 +1247,7 @@ pages.join('')+
         const s = arr[a.idx];
         if (!s || !s.template || !s.teacher) return;
         if (a.isTrip) return; // выезды отчётом не закрываем
-        cb({teacher:s.teacher, template:s.template, theme:s.theme||'', scored:!!s.scored, troop:a.idx+1, mkKey: idx+'_'+half+'_'+a.idx+'_t'+(a.idx+1)});
+        cb({teacher:s.teacher, template:s.template, theme:s.theme||'', scored:!!s.scored, needsReport:!!(s.needsReport ?? s.scored), needsScores:!!(s.needsScores ?? s.scored), troop:a.idx+1, mkKey: idx+'_'+half+'_'+a.idx+'_t'+(a.idx+1)});
       });
     });
   }
@@ -1280,17 +1282,18 @@ pages.join('')+
     if (upToIdx < 0) { box.innerHTML = ''; return; }
 
     // Собираем занятия за все прошедшие дни смены включительно (плюс сегодня, если идёт).
-    const buckets = {}; // noteGroupId → {teacher, dayIdx, mkName, mkKeys[], scored}
+    const buckets = {}; // noteGroupId → {teacher, dayIdx, mkName, mkKeys[], needsReport, needsScores}
     const dayIdxs = [];
     for (let i = 0; i <= upToIdx; i++) dayIdxs.push(i);
     dayIdxs.forEach(i => {
       _walkDay(state.schedule[i], i, slot => {
         const gid = SEASON_ID + '|' + i + '|' + _normName(slot.teacher) + '|' + _normName(slot.template);
         if (!buckets[gid]) {
-          buckets[gid] = {gid, teacher: slot.teacher, dayIdx: i, mkName: slot.template, mkKeys: [], scored: false};
+          buckets[gid] = {gid, teacher: slot.teacher, dayIdx: i, mkName: slot.template, mkKeys: [], needsReport: false, needsScores: false};
         }
         buckets[gid].mkKeys.push(slot.mkKey);
-        if (slot.scored) buckets[gid].scored = true;
+        if (slot.needsReport) buckets[gid].needsReport = true;
+        if (slot.needsScores) buckets[gid].needsScores = true;
       });
     });
 
@@ -1310,16 +1313,18 @@ pages.join('')+
     ]);
 
     // Для каждой группы решаем, что не сделано.
-    // ВАЖНО: если у группы нет галки scored — её педагог не должен сдавать отчёт и баллы,
-    // в штрафники не попадает. Так отрезаются кураторы, админы и любые неоценочные слоты.
+    // ВАЖНО: группа попадает в трекер только если у неё есть хотя бы один из двух
+    // флагов задач — needsReport (🎤) или needsScores (📊). Так отрезаются кураторы,
+    // админы и любые слоты, по которым админ не задал ни одной задачи.
+    // missReport проверяем только если needsReport === true; аналогично для баллов.
     const byTeacher = {}; // teacher → [{dayIdx, mkName, missReport, missScores}]
     Object.keys(buckets).forEach(gid => {
       const g = buckets[gid];
-      if (!g.scored) return; // без галки — пропускаем целиком
+      if (!g.needsReport && !g.needsScores) return; // ни одной задачи на группу — пропускаем
       const reportDone = g.mkKeys.some(k => notes[k] && notes[k].hasText);
       const scoresDone = g.mkKeys.some(k => mkScored[k]);
-      const missReport = !reportDone;
-      const missScores = !scoresDone;
+      const missReport = g.needsReport && !reportDone;
+      const missScores = g.needsScores && !scoresDone;
       if (!missReport && !missScores) return;
       const t = g.teacher;
       (byTeacher[t] = byTeacher[t] || []).push({
