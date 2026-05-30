@@ -81,6 +81,27 @@
   .rep-copy{background:var(--green);color:#fff}
   .rep-copy:hover{background:var(--green-deep)}
   .rep-regen{background:#fff;border:1px solid var(--line);color:var(--muted)}
+
+  /* ── МОДАЛКА «КАК ПОЛЬЗОВАТЬСЯ» ── */
+  .help-btn{padding:8px 12px;font-size:14px;border:2px solid var(--green);background:#f3f7ee;color:var(--green-deep);border-radius:10px;cursor:pointer;font-family:inherit;font-weight:600}
+  .help-btn:hover{background:#e8efe0}
+  .help-overlay{position:fixed;inset:0;background:rgba(31,28,20,0.45);display:none;align-items:flex-start;justify-content:center;z-index:950;padding:24px 16px;overflow-y:auto}
+  .help-overlay.open{display:flex}
+  .help-modal{background:var(--paper);max-width:640px;width:100%;border-radius:16px;padding:24px 26px 28px;box-shadow:0 12px 40px rgba(0,0,0,0.25);margin:auto;font-family:'Inter',sans-serif}
+  .help-modal h2{font-size:20px;margin:0 0 4px;padding-right:30px}
+  .help-modal h2 em{font-family:'Caveat',cursive;font-style:normal;font-weight:600;color:var(--ink);background:var(--yellow);padding:0 6px;border-radius:4px;font-size:1em}
+  .help-modal .help-close{position:absolute;top:18px;right:22px;background:none;border:none;font-size:24px;cursor:pointer;color:var(--muted);line-height:1;padding:0 4px}
+  .help-modal .help-close:hover{color:var(--ink)}
+  .help-modal h4{font-family:'Geologica',sans-serif;font-size:13px;font-weight:700;color:var(--green-deep);margin:18px 0 8px;letter-spacing:0.04em}
+  .help-modal h4:first-of-type{margin-top:14px}
+  .help-modal p{font-size:14.5px;margin:0 0 8px;line-height:1.55;color:var(--ink)}
+  .help-modal ol,.help-modal ul{font-size:14.5px;margin:0 0 8px;padding-left:22px;line-height:1.55}
+  .help-modal li{margin:6px 0}
+  .help-modal strong{font-weight:700}
+  .help-modal .help-key{display:inline-block;background:#fff;border:1px solid var(--line);padding:1px 7px;border-radius:6px;font-size:13px;font-weight:600;white-space:nowrap}
+  .help-modal .help-note{background:#f3f7ee;border-left:3px solid var(--green);padding:10px 14px;margin:14px 0;font-size:13.5px;border-radius:0 6px 6px 0}
+  .help-modal .help-warn{background:#fbede6;border-left:3px solid #9A4B30;padding:10px 14px;margin:14px 0;font-size:13.5px;border-radius:0 6px 6px 0}
+  .help-modal-inner{position:relative}
 </style>
 </head>
 <body>
@@ -102,6 +123,7 @@
       <div class="sub" id="subhead">Загрузка…</div>
     </div>
     <div class="toolbar">
+      <button class="help-btn" onclick="openHelp()" title="Как пользоваться этой страницей">❓ Инструкция</button>
       <button class="btn" id="all-btn" onclick="generateAll()">✍️ Сформировать всем</button>
       <button class="btn" id="export-btn" onclick="exportForPdf()" style="border-color:var(--yellow-deep);background:rgba(254,214,52,0.15);color:var(--ink)">📦 Скачать для PDF</button>
       <button class="prompt-toggle" onclick="togglePrompt()">⚙️ Настройка промта</button>
@@ -130,6 +152,56 @@
     <button class="rep-close" onclick="closeRep()" title="Закрыть">×</button>
     <h2 id="rep-title">Письмо</h2>
     <div id="rep-body"></div>
+  </div>
+</div>
+
+<!-- МОДАЛКА «КАК ПОЛЬЗОВАТЬСЯ» -->
+<div class="help-overlay" id="help-overlay" onclick="if(event.target===this)closeHelp()">
+  <div class="help-modal">
+    <div class="help-modal-inner">
+      <button class="help-close" onclick="closeHelp()" title="Закрыть">×</button>
+      <h2>❓ Как пользоваться <em>этой страницей</em></h2>
+
+      <h4>Что это за окно</h4>
+      <p>Генератор писем родителям после смены. ИИ собирает тёплый отчёт для каждого ребёнка — на основе баллов педагогов из scores4 и голосовых отчётов педагогов из view4 (что было на занятиях отряда). На выходе — готовые письма + красивый PDF с именными конвертами.</p>
+
+      <h4>Что делать (типичный путь смены)</h4>
+      <ol>
+        <li><strong>Подожди, пока педагоги выставят баллы в scores4 и наговорят отчёты в view4.</strong> Лучше после последнего дня смены или близко к нему — тогда у ИИ полная картина.</li>
+        <li><strong>Сгенерируй письмо одному ребёнку</strong> кнопкой <span class="help-key">✍️ Письмо</span> у его строки (10–20 сек). Не нравится — <span class="help-key">↻ Сгенерировать заново</span> в модалке письма.</li>
+        <li><strong>Или сразу всем</strong> — <span class="help-key">✍️ Сформировать всем</span>. Соберёт письма для всех детей, у кого есть оценки. Это может занять несколько минут.</li>
+        <li><strong>Когда все письма готовы — экспорт в PDF.</strong> Нажми <span class="help-key">📦 Скачать для PDF</span> — скачается JSON-файл со всеми письмами + ФИО + отряды. Передай этот JSON Жене (или тому, кто запускает <code>make_from_export.py</code> в Claude-среде). На выходе — 3 PDF: письма, именные конверты «в край» 15×10 и конверты на A4 для печати.</li>
+      </ol>
+
+      <div class="help-note">
+        <strong>Новое:</strong> голосовые отчёты педагогов из view4 теперь автоматически подмешиваются в контекст ИИ — письма становятся конкретнее («лепили шар», «делали проект в Scratch»). Это происходит само, ничего настраивать не надо.
+      </div>
+
+      <h4>Настройка промта (опционально)</h4>
+      <ul>
+        <li><span class="help-key">⚙️ Настройка промта</span> — открывает блок с системным промтом (тон, структура, метод «Лестница Ханта») и вводной (что подставляется перед оценками; <span class="help-key">{имя}</span> и <span class="help-key">{тема}</span> — плейсхолдеры, заменятся для каждого ребёнка).</li>
+        <li>Поправь руками — <span class="help-key">Сохранить</span>. Будет использоваться вместо дефолта.</li>
+        <li><span class="help-key">✨ Пересобрать под смену</span> — ИИ переписывает оба блока под тему смены и список МК. Покажет результат в модалке, чтобы ты проверила и сама нажала «Вставить в поля» → потом <span class="help-key">Сохранить</span>.</li>
+        <li><span class="help-key">Вернуть стандартный</span> — откатит к дефолтному. Но не сохранит автоматически — нужно ещё нажать «Сохранить».</li>
+      </ul>
+
+      <h4>Куда уходит то, что ты делаешь здесь</h4>
+      <ul>
+        <li><strong>Промт</strong> сохраняется в Google Sheets (лист «Реквизиты», ключи Промт_письма_system / Промт_письма_intro). Один на смену, общий для всех писем.</li>
+        <li><strong>Сами письма пока в кэше сессии</strong> — на сервер постоянно не сохраняются. Если закроешь вкладку до экспорта — нужно генерить заново. <strong>Решение:</strong> сначала <span class="help-key">✍️ Сформировать всем</span>, потом сразу <span class="help-key">📦 Скачать для PDF</span>. Постоянное хранилище писем (для контекста между сменами — «3-я смена подряд» и т.п.) появится после первой реальной смены.</li>
+      </ul>
+
+      <h4>Что важно</h4>
+      <ul>
+        <li>Если у ребёнка нет оценок — кнопка <span class="help-key">✍️ Письмо</span> серая, недоступна. Это нормально: без баллов письма не из чего собрать.</li>
+        <li>Письма используют ту же логику, что и цифровой паспорт в passport4. То есть текст письма и текст «живой характеристики» в паспорте — одно и то же. Если изменишь промт — изменятся оба.</li>
+        <li>Если педагог не оценил какой-то критерий — ИИ это видит как «был, но критерий не проявился ярко» и упоминает мягко. Это уже в промте.</li>
+      </ul>
+
+      <div class="help-warn">
+        <strong>Не нажимай «📦 Скачать для PDF», если письма ещё не у всех сгенерированы.</strong> Кнопка догенерит недостающее на лету, но это долго: 10–20 сек × N детей. Если детей много — это десятки минут. Лучше сначала «✍️ Сформировать всем», убедиться что все готовы (в списке должно быть число оценок у каждого), потом экспорт.
+      </div>
+    </div>
   </div>
 </div>
 
@@ -538,6 +610,11 @@
   window.closeRep=closeRep;
   window.copyRep=copyRep;
   window.regen=regen;
+
+  function openHelp(){ document.getElementById('help-overlay').classList.add('open'); }
+  function closeHelp(){ document.getElementById('help-overlay').classList.remove('open'); }
+  window.openHelp=openHelp;
+  window.closeHelp=closeHelp;
 </script>
 </body>
 </html>
