@@ -195,7 +195,7 @@
     body{background:#fff}
     #lockscreen,header,.att-bar,.att-hint,#toast{display:none !important}
     main{max-width:none;padding:0}
-    .pane:not(#pane-lists){display:none !important}
+    .pane:not(#pane-attendance){display:none !important}
     .att-wrap{border:none;overflow:visible}
     table.att{font-size:12px}
     table.att .att-cell{width:auto}
@@ -264,6 +264,7 @@
     <div class="tabs">
       <button class="tab active" id="tab-links" onclick="switchPane('links')">🔗 Ссылки</button>
       <button class="tab" id="tab-troops" onclick="switchPane('troops')">👦 Отряды</button>
+      <button class="tab" id="tab-attendance" onclick="switchPane('attendance')">📒 Табель</button>
       <button class="tab" id="tab-lists" onclick="switchPane('lists')">📋 Списки</button>
     </div>
   </header>
@@ -297,16 +298,23 @@
       <p class="troops-hint">Перетащи карточку между колонками. 🔒 закрепляет ребёнка — при «Переразбить» закреплённые не двигаются. Дата рождения определяет, в какой отряд попадёт ребёнок (1 — младшие, 4 — старшие).</p>
     </div>
 
-    <!-- СПИСКИ — таблица посещаемости -->
-    <div class="pane" id="pane-lists">
+    <!-- ТАБЕЛЬ ПОСЕЩЕНИЯ -->
+    <div class="pane" id="pane-attendance">
       <div class="att-bar">
         <button class="btn" onclick="printAttendance(false)">🖨 Печать таблицы (с отметками)</button>
         <button class="btn" onclick="printAttendance(true)">🖨 Печать таблицы (пустой)</button>
-        <button class="btn btn-primary" onclick="openPrintGenerator()">🏷 Печать имён (наклейки/бирки)</button>
         <span class="att-status" id="att-status"></span>
       </div>
       <div class="att-wrap"><div id="att-table"></div></div>
       <p class="att-hint">Клик по ячейке: пусто → <b style="color:#3B6D11">+</b> (был) → <b style="color:#993C1D">−</b> (не был) → пусто. Сохраняется автоматически. Столбцы — дни смены.</p>
+    </div>
+
+    <!-- СПИСКИ — генератор печати имён -->
+    <div class="pane" id="pane-lists">
+      <div class="att-bar">
+        <button class="btn btn-primary" onclick="openPrintGenerator()">🏷 Печать имён (наклейки/бирки)</button>
+      </div>
+      <p class="att-hint">Генератор печатных имён для смены: мини-наклейки 6×2 см, бирки на прищепку, наклейки ФИО ×3. Открой кнопку выше — соберёшь список из детей смены или впишешь руками.</p>
     </div>
   </main>
 </div>
@@ -355,11 +363,12 @@
     </div>
     <div class="help-content">
       <h4>Что это за окно</h4>
-      <p>Пульт администратора смены. Три вкладки сверху:</p>
+      <p>Пульт администратора смены. Четыре вкладки сверху:</p>
       <ul>
         <li><span class="help-key">🔗 Ссылки</span> — все ссылки на инструменты смены (педагогам, родителям, кураторам, табель, баллы, письма, паспорта) + блок «штрафников».</li>
         <li><span class="help-key">👦 Отряды</span> — импорт детей из CRM, разбивка по отрядам, проверка актуальности. То же окно, что в index4 — синхрон через общий лист «Дети».</li>
-        <li><span class="help-key">📋 Списки</span> — таблица посещаемости + универсальный генератор печатных имён (мини-наклейки, бирки, наклейки ФИО).</li>
+        <li><span class="help-key">📒 Табель</span> — таблица посещаемости день × ребёнок. Отметки «был / не был / договор» по каждому ребёнку и дню. Печать журнала с отметками или пустого.</li>
+        <li><span class="help-key">📋 Списки</span> — универсальный генератор печатных имён (мини-наклейки, бирки, наклейки ФИО ×3).</li>
       </ul>
 
       <h4>Вкладка «🔗 Ссылки»</h4>
@@ -377,7 +386,7 @@
       </ol>
       <p>Важно: это <strong>тот же экран</strong>, что у тебя в index4 (где составляется расписание). Один лист «Дети» на оба окна. Изменил тут — изменилось там. Last write wins.</p>
 
-      <h4>Вкладка «📋 Списки» — посещаемость</h4>
+      <h4>Вкладка «📒 Табель»</h4>
       <ol>
         <li>Таблица: столбец <span class="help-key">Договор</span> + дни смены (например «1 июн, 2 июн…») + строки детей по отрядам. В конце каждого отряда есть 2 пустые строки для ручного дописывания.</li>
         <li><strong>Ячейка кликается циклом:</strong> пусто → <span class="help-key">+</span> (зелёный, был) → <span class="help-key">−</span> (терракота, не был) → пусто.</li>
@@ -389,7 +398,7 @@
         «<span class="help-key">−</span> в посещаемости» влияет на письма родителям: если ребёнок отмечен как отсутствующий в день D, то голосовой отчёт педагога за этот день <strong>НЕ попадёт</strong> в его письмо/паспорт. Это защита от «ИИ написал про действия ребёнка, которого там не было».
       </div>
 
-      <h4>Вкладка «📋 Списки» — генератор печати имён</h4>
+      <h4>Вкладка «📋 Списки»</h4>
       <p>Одна кнопка <span class="help-key">🏷 Печать имён</span> → модалка с тремя вариантами оформления:</p>
       <ul>
         <li><strong>🔖 Мини-наклейки 6×2 см</strong> — на рулон/резку, плотно без зазоров. Имя крупно, фамилия мельче.</li>
@@ -406,7 +415,7 @@
       </ul>
 
       <div class="help-warn">
-        <strong>Не печатай таблицу посещаемости со скриншотом ссылки этой страницы — телефоны родителей видны в окне «Отряды».</strong> Если делишься скриншотами или раздаёшь распечатки команде — открывай только вкладку «📋 Списки», там телефонов нет.
+        <strong>Не печатай таблицу посещаемости со скриншотом ссылки этой страницы — телефоны родителей видны в окне «Отряды».</strong> Если делишься скриншотами или раздаёшь распечатки команде — открывай только вкладку «📒 Табель», там телефонов нет.
       </div>
     </div>
   </div>
@@ -461,12 +470,12 @@
   function dobSortKey4_(dob){ const m=String(dob||'').trim().match(/^(\d{2})\.(\d{2})\.(\d{4})$/); if(!m) return 0; return new Date(+m[3],+m[2]-1,+m[1]).getTime(); }
 
   function switchPane(which){
-    ['links','troops','lists'].forEach(p=>{
+    ['links','troops','attendance','lists'].forEach(p=>{
       document.getElementById('pane-'+p).classList.toggle('active', p===which);
       document.getElementById('tab-'+p).classList.toggle('active', p===which);
     });
     if(which==='troops' && _troopsKids.length===0) loadTroopsChildren();
-    if(which==='lists' && !_attLoaded) loadAttendance();
+    if(which==='attendance' && !_attLoaded) loadAttendance();
   }
 
   // ── BOOTSTRAP ──
@@ -982,7 +991,7 @@
   function closePrintGenerator(){ document.getElementById('pg-ov').classList.remove('show'); }
   function renderPgKids(){
     const box=document.getElementById('pg-kids');
-    if(!_attKids.length){ box.innerHTML='<div style="color:var(--muted);padding:6px 0;font-size:12px">Дети ещё не загружены. Открой вкладку «Списки» или импортируй на «Отряды».</div>'; return; }
+    if(!_attKids.length){ box.innerHTML='<div style="color:var(--muted);padding:6px 0;font-size:12px">Дети ещё не загружены. Открой вкладку «Табель» или импортируй на «Отряды».</div>'; return; }
     const ROMAN=['','I','II','III','IV'];
     let html='';
     for(let t=1;t<=4;t++){
