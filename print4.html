@@ -170,6 +170,28 @@
     font-family: Inter; font-size: 12px; font-weight: 700; letter-spacing: 0.08em;
     text-transform: uppercase; color: var(--ink); opacity: 0.75; margin: 0 0 8px;
   }
+  /* Свёрнутый/развёрнутый блок «Состав отряда» */
+  .troop-children-details { margin: 0 0 18px; }
+  .troop-children-summary {
+    cursor: pointer; user-select: none;
+    font-family: Inter; font-size: 12px; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink); opacity: 0.75;
+    padding: 6px 0; list-style: none;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .troop-children-summary::-webkit-details-marker { display: none; }
+  .troop-children-summary:hover { opacity: 1; }
+  .troop-children-summary .td-arrow {
+    display: inline-block; transition: transform 0.15s ease; font-size: 14px; opacity: 0.6;
+  }
+  details.troop-children-details[open] .troop-children-summary .td-arrow { transform: rotate(180deg); }
+  /* Строка «Куратор: ФИО» под шапкой отряда */
+  .troop-curator-line {
+    font-family: Inter; font-size: 13px; color: rgba(21,22,23,0.75);
+    padding: 6px 0 4px 4px; margin-bottom: 6px;
+  }
+  .troop-curator-line strong { color: var(--ink); font-weight: 600; }
+
   .troop-children-table {
     width: 100%; border-collapse: collapse; font-family: Inter; font-size: 13px;
   }
@@ -1038,6 +1060,14 @@
         const dc = await rc.json();
         if (dc.ok && Array.isArray(dc.children)) troopsChildren = dc.children;
       } catch(_) { troopsChildren = []; }
+      // Кураторы отрядов — отдельный лёгкий запрос
+      try {
+        const rcur = await fetch(LIBRARY_URL + '?action=getTroopsCurators&seasonId=' + encodeURIComponent(publishedId));
+        const dcur = await rcur.json();
+        if (dcur.ok && dcur.result && dcur.result.curators) {
+          publishedState.troopsCurators = dcur.result.curators;
+        }
+      } catch(_) { /* без кураторов норм */ }
       renderHeader();
       renderCurrentView();
     } catch(e) {
@@ -1156,11 +1186,17 @@
   }
 
   function renderTroopHeader(troop) {
+    const curators = (publishedState && publishedState.troopsCurators) || {};
+    const curatorName = String(curators[String(troop)] || '').trim();
+    const curatorHtml = curatorName
+      ? `<div class="troop-curator-line">Куратор: <strong>${escapeHtml(curatorName)}</strong></div>`
+      : '';
     return `<div class="week-wrap" style="padding-bottom:0;margin-bottom:0">
       <div class="troop-header t${troop}">
         <span class="troop-num">Отряд ${troop}</span>
         <span class="troop-meta">расписание для куратора · смена «${escapeHtml(publishedState.theme || '')}»</span>
       </div>
+      ${curatorHtml}
       ${renderTroopChildren(troop)}
     </div>`;
   }
@@ -1182,13 +1218,15 @@
         <td class="tc-phone">${phone}</td>
       </tr>`;
     }).join('');
-    return `<div class="troop-children">
-      <div class="troop-children-title">Состав отряда — ${kids.length} ${pluralKids_(kids.length)}</div>
-      <table class="troop-children-table">
-        <thead><tr><th class="tc-num">№</th><th class="tc-fio">Ф. И. О.</th><th class="tc-yo">возраст</th><th class="tc-phone">телефон родителя</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`;
+    return `<details class="troop-children-details" open>
+      <summary class="troop-children-summary">Состав отряда — ${kids.length} ${pluralKids_(kids.length)} <span class="td-arrow">▾</span></summary>
+      <div class="troop-children">
+        <table class="troop-children-table">
+          <thead><tr><th class="tc-num">№</th><th class="tc-fio">Ф. И. О.</th><th class="tc-yo">возраст</th><th class="tc-phone">телефон родителя</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </details>`;
   }
 
   function pluralKids_(n) {
@@ -1802,6 +1840,21 @@
     if (publishedId) location.href = 'view4.html?id=' + encodeURIComponent(publishedId);
     else history.back();
   };
+
+  // Раскрываем все <details> перед печатью, чтобы состав отрядов попал на бумагу,
+  // даже если на экране пользователь его свернул. После печати — восстанавливаем.
+  window.addEventListener('beforeprint', () => {
+    document.querySelectorAll('details.troop-children-details').forEach(d => {
+      d.dataset._wasOpen = d.open ? '1' : '0';
+      d.open = true;
+    });
+  });
+  window.addEventListener('afterprint', () => {
+    document.querySelectorAll('details.troop-children-details').forEach(d => {
+      if (d.dataset._wasOpen === '0') d.open = false;
+      delete d.dataset._wasOpen;
+    });
+  });
 
   // Если уже разблокировано — стартуем сразу
   if (document.body.classList.contains('unlocked')) init();

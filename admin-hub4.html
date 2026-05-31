@@ -114,6 +114,10 @@
   .kid-board{display:grid;grid-template-columns:1.1fr 1fr 1fr 1fr 1fr;gap:8px;align-items:start}
   .kid-col{border-radius:8px;border:1px solid rgba(21,22,23,0.12);padding:8px;min-height:200px}
   .kid-col-title{font-family:Inter,sans-serif;font-size:12px;font-weight:600;margin-bottom:8px;padding:0 2px}
+  .troop-curator-wrap{margin-bottom:8px;padding:0 2px}
+  .troop-curator-input{width:100%;padding:5px 8px;font-family:Inter,sans-serif;font-size:12px;border:1px solid rgba(21,22,23,0.18);border-radius:5px;background:rgba(255,255,255,0.85);color:var(--ink);box-sizing:border-box}
+  .troop-curator-input::placeholder{color:rgba(21,22,23,0.4);font-style:italic}
+  .troop-curator-input:focus{outline:none;border-color:var(--ink);background:#fff}
   .kid-card{background:var(--white);border:1px solid rgba(21,22,23,0.15);border-radius:5px;padding:6px 8px;margin-bottom:5px;cursor:grab;font-family:Inter,sans-serif;font-size:12px;display:flex;justify-content:space-between;align-items:center;gap:6px}
   .kid-card:active{cursor:grabbing}
   .kid-card .tc-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -560,6 +564,7 @@
     { key: 4, name: 'Отряд 4 · старшие', color: '#534AB7', bg: '#EEEDFE' }
   ];
   let _troopsKids = [];
+  let _troopsCurators = {'1':'','2':'','3':'','4':''};
   let _troopsSaveTimer = null;
   let _attKids = [];      // дети для посещаемости (по отрядам)
   let _attMap = {};       // 'childId|dateIdx' -> '+'|'-'
@@ -709,10 +714,14 @@
     if(!sid){ board.innerHTML='<div style="padding:20px;color:var(--muted)">Нет ID смены.</div>'; return; }
     board.innerHTML='<div style="padding:20px;font-size:13px;color:rgba(21,22,23,0.5)">Загружаю детей…</div>';
     try{
-      const r=await fetch(LIBRARY_URL+'?action=getChildren&seasonId='+encodeURIComponent(sid));
-      const j=await r.json();
+      const [chR, curR] = await Promise.all([
+        fetch(LIBRARY_URL+'?action=getChildren&seasonId='+encodeURIComponent(sid)).then(r=>r.json()),
+        fetch(LIBRARY_URL+'?action=getTroopsCurators&seasonId='+encodeURIComponent(sid)).then(r=>r.json()).catch(()=>({ok:false}))
+      ]);
+      const j = chR;
       if(!j.ok) throw new Error(j.error||'Ошибка загрузки');
       _troopsKids=(j.children||[]).map(c=>({crmId:String(c.crmId),name:c.name||'',dob:c.dob||'',age:c.age,gender:c.gender,parentName:c.parentName||'',parentPhone:c.parentPhone||'',troop:c.troop||0,locked:!!c.locked}));
+      _troopsCurators = (curR && curR.ok && curR.result && curR.result.curators) || {'1':'','2':'','3':'','4':''};
       renderTroopsBoard();
     }catch(e){ board.innerHTML='<div style="padding:20px;font-size:13px;color:#c0392b">Ошибка: '+escapeHtml(e.message)+'</div>'; }
   }
@@ -760,6 +769,27 @@
   function troopsAutoSave_(){ troopsSetStatus_(false); if(_troopsSaveTimer) clearTimeout(_troopsSaveTimer); _troopsSaveTimer=setTimeout(async()=>{ try{ await saveTroopsToServer_(); troopsSetStatus_(true); }catch(e){ toast('Не сохранилось: '+e.message); } },800); }
   async function saveTroopsManual(){ troopsSetStatus_(false); try{ await saveTroopsToServer_(); troopsSetStatus_(true); toast('Отряды сохранены'); }catch(e){ toast('Ошибка: '+e.message); } }
 
+  // ── ФИО КУРАТОРА ОТРЯДА — debounced autosave ──
+  const _curatorSaveTimers = {};
+  function onTroopCuratorInput_(e){
+    const t = e.target.dataset.troop;
+    const val = e.target.value;
+    _troopsCurators[t] = val;
+    troopsSetStatus_(false);
+    if (_curatorSaveTimers[t]) clearTimeout(_curatorSaveTimers[t]);
+    _curatorSaveTimers[t] = setTimeout(async () => {
+      try {
+        const sid = troopsSeasonId_();
+        await fetch(LIBRARY_URL, {
+          method:'POST',
+          headers:{'Content-Type':'text/plain;charset=utf-8'},
+          body: JSON.stringify({ action:'saveTroopCurator', seasonId: sid, troop: parseInt(t,10), name: val })
+        });
+        troopsSetStatus_(true);
+      } catch(err) { toast('Не сохранилось: '+err.message); }
+    }, 700);
+  }
+
   function renderTroopsBoard(){
     const board=document.getElementById('troops-board'); board.innerHTML='';
     const counts=[0,0,0,0,0]; _troopsKids.forEach(k=>{ counts[k.troop||0]++; });
@@ -768,6 +798,16 @@
       const list=_troopsKids.filter(k=>(k.troop||0)===tr.key).sort((a,b)=>dobSortKey4_(b.dob)-dobSortKey4_(a.dob));
       const title=document.createElement('div'); title.className='kid-col-title'; title.style.color=tr.color;
       title.innerHTML=escapeHtml(tr.name)+' <span style="opacity:0.6">('+list.length+')</span>'; col.appendChild(title);
+
+      // Поле «Куратор отряда» — над списком детей, всегда видно
+      const curWrap=document.createElement('div');
+      curWrap.className='troop-curator-wrap';
+      const curKey=String(tr.key);
+      const curVal=_troopsCurators[curKey]||'';
+      curWrap.innerHTML='<input type="text" class="troop-curator-input" data-troop="'+curKey+'" placeholder="ФИО куратора отряда" value="'+escapeHtml(curVal).replace(/"/g,'&quot;')+'">';
+      curWrap.querySelector('input').addEventListener('input', onTroopCuratorInput_);
+      col.appendChild(curWrap);
+
       list.forEach(k=>{
         const card=document.createElement('div'); card.className='kid-card'+(k.locked?' is-locked':''); card.draggable=true; card.dataset.id=k.crmId;
         const ageStr=(k.age===''||k.age==null)?'':' <span class="tc-age">'+k.age+'</span>';
