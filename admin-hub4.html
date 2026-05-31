@@ -1437,17 +1437,35 @@ pages.join('')+
     info.textContent = 'Тяну данные из Альфы (это может занять до минуты)…';
     info.className = 'pay-sync-info';
     try {
+      // Шаг 1 — платежи
       const r = await fetch(LIBRARY_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ action: 'syncPayments', seasonId: SEASON_ID })
       }).then(r => r.json());
-      if (!r.ok) throw new Error(r.error || 'Не удалось синхронизировать');
+      if (!r.ok) throw new Error(r.error || 'Не удалось синхронизировать платежи');
       const s = r.result;
-      toast('Синхронизировано: ' + s.ok + ' ок' +
+
+      // Шаг 2 — ФИО, дата рождения, телефон родителя (обновление БЕЗ переразбивки по отрядам)
+      let childInfo = null;
+      try {
+        const rc = await fetch(LIBRARY_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'refreshChildrenInfo', seasonId: SEASON_ID })
+        }).then(r => r.json());
+        if (rc.ok) childInfo = rc.result;
+      } catch (_) { /* не критично, но не блокируем синк платежей */ }
+
+      let msg = 'Платежи: ' + s.ok + ' ок' +
         (s.multiple_ctts ? ', ' + s.multiple_ctts + '⚠' : '') +
         (s.no_ctt ? ', ' + s.no_ctt + '❌' : '') +
-        (s.errors ? ', ' + s.errors + ' ошибок' : ''));
+        (s.errors ? ', ' + s.errors + ' ошибок' : '');
+      if (childInfo && (childInfo.updated || childInfo.added)) {
+        msg += ' · Дети: обновлено ' + (childInfo.updated || 0) +
+               (childInfo.added ? ', добавлено ' + childInfo.added : '');
+      }
+      toast(msg);
       // Перечитываем кэш + показываем плашку изменений
       await loadPayments();
       _payRenderChangesBanner();
