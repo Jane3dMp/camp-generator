@@ -1264,6 +1264,10 @@
       <label>Тема смены</label>
       <input type="text" id="theme" value="Лесная лаборатория">
     </div>
+    <div class="field" style="max-width:140px">
+      <label title="Номер смены в системе документов Cognito Forms (1 = «1 Комплект…», 2 = «2 Комплект…» и т.д.)">Номер смены</label>
+      <input type="number" id="shift-number" min="1" max="9" value="1">
+    </div>
     <div class="field">
       <label>Возраст детей</label>
       <input type="text" id="ages" value="6–11 лет">
@@ -1577,6 +1581,7 @@ function halfModeLabel(mode) {
 
 let state = {
   theme: 'Лесная лаборатория',
+  shiftNumber: 1,
   ages: '6–11 лет',
   startDate: '2026-06-01',
   anchors: 'картинг, вечеринка, ярмарка',
@@ -1592,6 +1597,9 @@ function syncConfig() {
   state.ages = document.getElementById('ages').value;
   state.startDate = document.getElementById('start-date').value;
   state.anchors = document.getElementById('anchors').value;
+  // Номер смены для системы документов (Cognito Forms «N Комплект…»). Дефолт 1.
+  const sn = parseInt(document.getElementById('shift-number').value, 10);
+  state.shiftNumber = (sn > 0) ? sn : 1;
 }
 
 // ============================================================
@@ -3693,6 +3701,9 @@ function _fillConfigInputs() {
   set('ages', state.ages);
   set('start-date', state.startDate);
   set('anchors', state.anchors);
+  // Номер смены: если в state не задан — оставляем 1 (дефолт инпута / совместимость со старыми сменами)
+  const sn = parseInt(state.shiftNumber, 10);
+  set('shift-number', (sn > 0) ? sn : 1);
 }
 
 // Гарантирует, что у state правильная форма (am/pm длиной 4 в каждом дне).
