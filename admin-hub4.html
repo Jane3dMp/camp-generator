@@ -1314,12 +1314,11 @@ pages.join('')+
       '<th>№</th>' +
       '<th>ФИО</th>' +
       '<th style="text-align:center">Отряд</th>' +
-      '<th style="text-align:right">Стоимость</th>' +
-      '<th>Даты предоплат</th>' +
+      '<th style="text-align:right">Доплата</th>' +
       '<th style="text-align:right">Нал</th>' +
       '<th style="text-align:right">Терминал</th>' +
       '<th style="text-align:right">ЕРИП</th>' +
-      '<th style="text-align:right">Остаток</th>' +
+      '<th style="text-align:right">Стоимость</th>' +
       '<th>Телефон</th>' +
       '<th>ДР</th>' +
       '</tr></thead><tbody>';
@@ -1357,12 +1356,11 @@ pages.join('')+
         '<td class="idx">' + (i + 1) + '</td>' +
         '<td class="name">' + escapeHtml(r.name || '—') + warnTag + '</td>' +
         '<td class="troop"><span class="pay-troop-pill">' + (r.troop || '—') + '</span></td>' +
-        '<td class="num">' + priceCell + '</td>' +
-        '<td class="dates">' + (r.paymentDates && r.paymentDates.length ? escapeHtml(r.paymentDates.join(', ')) : dash) + '</td>' +
+        '<td class="num debt">' + debtCell + '</td>' +
         '<td class="num">' + cashCell + '</td>' +
         '<td class="num">' + termCell + '</td>' +
         '<td class="num">' + eripCell + '</td>' +
-        '<td class="num debt">' + debtCell + '</td>' +
+        '<td class="num">' + priceCell + '</td>' +
         '<td class="phone">' + escapeHtml(r.parentPhone || '') + '</td>' +
         '<td>' + escapeHtml(r.dob || '') + '</td>' +
         '</tr>';
@@ -1373,12 +1371,11 @@ pages.join('')+
       '<td></td>' +
       '<td>Итого</td>' +
       '<td></td>' +
-      '<td class="num">' + totals.price + '</td>' +
-      '<td></td>' +
+      '<td class="num debt">' + totals.debt + '</td>' +
       '<td class="num">' + totals.cash + '</td>' +
       '<td class="num">' + totals.terminal + '</td>' +
       '<td class="num">' + totals.erip + '</td>' +
-      '<td class="num debt">' + totals.debt + '</td>' +
+      '<td class="num">' + totals.price + '</td>' +
       '<td></td><td></td>' +
       '</tr></tfoot>' +
       '</table></div>';
