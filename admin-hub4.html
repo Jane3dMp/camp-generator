@@ -1697,7 +1697,7 @@ pages.join('')+
     '5 минут — и можно выдыхать. До встречи!\n\n' +
     '— команда Прознание + Coddy';
 
-  function openContractMessage(rawPhone) {
+  async function openContractMessage(rawPhone) {
     if (!rawPhone) { toast('Нет телефона у этого ребёнка'); return; }
     // Нормализуем номер: оставляем только цифры; если начинается с 80 — заменяем на 375;
     // если 9 цифр — добавляем 375 спереди.
@@ -1708,8 +1708,33 @@ pages.join('')+
       toast('Не понял формат телефона: ' + rawPhone);
       return;
     }
-    // Viber deep-link: открывает чат с этим контактом и подставляет текст
-    const url = 'viber://chat?number=%2B' + digits + '&text=' + encodeURIComponent(CONTRACT_MESSAGE_TEXT);
+    // Viber Desktop игнорирует параметр &text= в viber://chat?number=... — он
+    // только открывает чат, текст не подставляется. Поэтому копируем текст в
+    // буфер заранее, пользователь в открывшемся чате нажимает Ctrl+V → отправить.
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(CONTRACT_MESSAGE_TEXT);
+      copied = true;
+    } catch (e) {
+      // Fallback на старый execCommand для совсем старых браузеров
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = CONTRACT_MESSAGE_TEXT;
+        ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        copied = document.execCommand('copy');
+        document.body.removeChild(ta);
+      } catch (_) { copied = false; }
+    }
+    if (copied) {
+      toast('Текст скопирован — нажми Ctrl+V в открывшемся чате Viber и отправь');
+    } else {
+      toast('Не получилось скопировать текст автоматически — скопируй сама из консоли');
+      console.log('=== Текст для Viber ===\n' + CONTRACT_MESSAGE_TEXT);
+    }
+    // Открываем Viber (попробуем оба формата — chat и contact — первый чаще работает)
+    const url = 'viber://chat?number=%2B' + digits;
     window.location.href = url;
   }
 
