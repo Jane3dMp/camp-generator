@@ -192,6 +192,20 @@
   }
   .att-hint{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5}
 
+  /* ─── ДОГОВОРЫ (Cognito + ручная отметка) ─── */
+  .contract-tick{display:inline-block;font-weight:700;text-decoration:none;font-size:15px;line-height:1}
+  .contract-tick.contract-cognito{color:#3f5028}   /* зелёный — заявка из Cognito */
+  .contract-tick.contract-manual{color:#185FA5}    /* синий — отметка вручную */
+  a.contract-tick:hover{text-decoration:none;opacity:0.7}
+  .contracts-badge{font-size:12px;color:var(--muted);padding:4px 10px;border-radius:8px;background:rgba(143,163,112,0.15)}
+  .contracts-badge:empty{display:none}
+  table.pay td.contract-col{text-align:center;width:80px}
+  /* В печати — галочки тоже видны, но без подсветки */
+  @media print{
+    body.printing-payments .contract-tick.contract-cognito,
+    body.printing-payments .contract-tick.contract-manual{color:#000}
+  }
+
   /* ─── ВКЛАДКА «ДОПЛАТЫ» ─── */
   .pay-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
   .pay-sync-info{font-size:12px;color:var(--muted);margin-left:6px}
@@ -231,6 +245,17 @@
   table.pay tfoot td{font-weight:600;background:#f8f7f3;border-top:2px solid var(--ink)}
   table.pay tfoot td.debt{color:#7a1a10}
 
+  /* Дельты «было/стало» в ячейках после обновления из Альфы */
+  .pay-delta{display:inline-block;margin-left:5px;padding:1px 6px;border-radius:6px;font-size:10px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;vertical-align:1px}
+  .pay-delta-good{background:rgba(143,163,112,0.22);color:#3f5028}
+  .pay-delta-bad{background:rgba(192,57,43,0.18);color:#7a1a10}
+
+  /* Плашка «что изменилось с прошлого синка» */
+  .pay-changes-banner{display:flex;align-items:center;gap:10px;background:rgba(143,163,112,0.18);border:1px solid rgba(143,163,112,0.45);color:#3f5028;padding:10px 14px;border-radius:10px;margin-bottom:14px;font-size:13px;font-weight:500}
+  .pay-banner-text{flex:1}
+  .pay-banner-close{background:none;border:none;color:#3f5028;font-size:20px;line-height:1;cursor:pointer;padding:0 4px;opacity:0.6}
+  .pay-banner-close:hover{opacity:1}
+
   @media print{
     @page payments { size: A4 landscape; margin: 8mm 10mm; }
     body{background:#fff}
@@ -239,6 +264,8 @@
     body.printing-payments header,
     body.printing-payments .pay-bar,
     body.printing-payments .pay-summary,
+    body.printing-payments .pay-changes-banner,
+    body.printing-payments .pay-delta,
     body.printing-payments #toast{display:none !important}
     body.printing-payments main{max-width:none;padding:0;margin:0}
     body.printing-payments .pane:not(#pane-payments){display:none !important}
@@ -374,10 +401,12 @@
       <div class="att-bar">
         <button class="btn" onclick="printAttendance(false)">🖨 Печать таблицы (с отметками)</button>
         <button class="btn" onclick="printAttendance(true)">🖨 Печать таблицы (пустой)</button>
+        <button class="btn contracts-sync-btn" onclick="syncContractsFromCognito()">📋 Обновить из Cognito</button>
         <span class="att-status" id="att-status"></span>
+        <span class="contracts-badge"></span>
       </div>
       <div class="att-wrap"><div id="att-table"></div></div>
-      <p class="att-hint">Клик по ячейке: пусто → <b style="color:#3B6D11">+</b> (был) → <b style="color:#993C1D">−</b> (не был) → пусто. Сохраняется автоматически. Столбцы — дни смены.</p>
+      <p class="att-hint">Клик по ячейке: пусто → <b style="color:#3B6D11">+</b> (был) → <b style="color:#993C1D">−</b> (не был) → пусто. Сохраняется автоматически. Столбец «Договор»: ✓ синим — отмечено вручную, ✓ зелёным — заявка через Cognito (кликни на зелёную галку → откроется заявка).</p>
     </div>
 
     <!-- СПИСКИ — генератор печати имён -->
@@ -396,8 +425,10 @@
     <div class="pane" id="pane-payments">
       <div class="pay-bar">
         <button class="btn btn-primary" id="pay-sync-btn" onclick="paySyncFromAlfa()">🔄 Обновить из Альфы</button>
+        <button class="btn contracts-sync-btn" onclick="syncContractsFromCognito()">📋 Обновить из Cognito</button>
         <button class="btn" onclick="payPrint()">🖨 Печать</button>
         <span class="pay-sync-info" id="pay-sync-info">—</span>
+        <span class="contracts-badge"></span>
       </div>
       <div id="pay-content"><div class="soon">Загружаю данные…</div></div>
     </div>
@@ -563,6 +594,8 @@
     if(which==='troops' && _troopsKids.length===0) loadTroopsChildren();
     if(which==='attendance' && !_attLoaded) loadAttendance();
     if(which==='payments' && !_payLoaded) loadPayments();
+    // Контракты нужны и в табеле и в доплатах — лениво грузим при первом открытии
+    if((which==='attendance' || which==='payments') && !_contractsLoaded) loadContracts();
   }
 
   // ── BOOTSTRAP ──
@@ -858,8 +891,26 @@
     html+='</tr></thead><tbody>';
     const renderKid=(k)=>{
       const dv=_attMap[k.crmId+'|dogovor']||'';
+      const c = _contractsByCrm[String(k.crmId)];
+      const hasCog = !!(c && c.hasContract);
+      const cls = (dv==='✓' || hasCog) ? 'v-dog' : '';
+      // Содержимое: если есть совпадение Cognito — показываем галочку как ссылку на admin-link.
+      // Если нет — ручная галочка ✓ (управляется кликом).
+      let inner;
+      if (hasCog) {
+        const title = 'Заявка через Cognito · ' +
+          escapeHtml(c.parentName || '') +
+          (c.submittedAt ? ' · ' + String(c.submittedAt).slice(0,10) : '') +
+          (c.confidence === 'high' ? ' · совпадение тел.+ФИО+ДР' : ' · совпадение тел.+ФИО');
+        const link = c.adminLink || c.documentLink || '';
+        inner = link
+          ? '<a href="' + escapeHtml(link) + '" target="_blank" class="contract-tick contract-cognito" title="' + title + '" onclick="event.stopPropagation()">✓</a>'
+          : '<span class="contract-tick contract-cognito" title="' + title + '">✓</span>';
+      } else {
+        inner = (dv || '');
+      }
       let row='<tr><td class="att-name">'+escapeHtml(shortName_(k.name))+'</td>'+
-        '<td class="att-cell att-dog '+(dv==='✓'?'v-dog':'')+'" data-cid="'+escapeHtml(k.crmId)+'" data-di="dogovor" onclick="cycleDog(this)">'+(dv||'')+'</td>';
+        '<td class="att-cell att-dog '+cls+'" data-cid="'+escapeHtml(k.crmId)+'" data-di="dogovor" onclick="cycleDog(this)">'+inner+'</td>';
       _attDates.forEach((d,di)=>{ const v=_attMap[k.crmId+'|'+di]||''; const cls=v==='+'?'v-plus':(v==='-'?'v-minus':''); row+='<td class="att-cell '+cls+'" data-cid="'+escapeHtml(k.crmId)+'" data-di="'+di+'" onclick="cycleAtt(this)">'+(v||'')+'</td>'; });
       return row+'</tr>';
     };
@@ -1208,6 +1259,95 @@ pages.join('')+
   window.openPrintGenerator=openPrintGenerator; window.closePrintGenerator=closePrintGenerator; window.pgToggleAll=pgToggleAll; window.pgSetFmt=pgSetFmt; window.updatePgCount=updatePgCount; window.pgPrint=pgPrint;
 
   // ────────────────────────────────────────────────
+  // ДОГОВОРЫ ИЗ COGNITO FORMS
+  // ────────────────────────────────────────────────
+  // _contractsByCrm[crmId] = { hasContract, adminLink, documentLink, parentName, submittedAt, confidence }
+  // Если ребёнка нет в объекте — значит совпадения по Cognito нет.
+  // (Отдельно может стоять ручная галка в attendance — это отдельный источник.)
+  let _contractsLoaded = false;
+  let _contractsSyncing = false;
+  let _contractsByCrm = {};
+  let _contractsSyncedAt = '';
+
+  async function loadContracts(){
+    _contractsLoaded = true;
+    try {
+      const r = await fetch(LIBRARY_URL + '?action=getContracts&seasonId=' +
+        encodeURIComponent(SEASON_ID) + '&_t=' + Date.now()).then(r=>r.json());
+      if (!r.ok) throw new Error(r.error || 'Не удалось загрузить договоры');
+      _contractsByCrm = r.result.contracts || {};
+      _contractsSyncedAt = r.result.syncedAt || '';
+      // Перерисовать открытые таблицы (тихо)
+      if (_attLoaded) renderAttendance && renderAttendance();
+      if (_payData) renderPayments();
+      _updateContractsBadges();
+    } catch(e) {
+      console.warn('loadContracts:', e);
+    }
+  }
+
+  async function syncContractsFromCognito(){
+    if (_contractsSyncing) return;
+    _contractsSyncing = true;
+    document.querySelectorAll('.contracts-sync-btn').forEach(b => {
+      b.disabled = true;
+      b.textContent = '⏳ Тяну из Cognito…';
+    });
+    try {
+      const r = await fetch(LIBRARY_URL, {
+        method:'POST',
+        headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body: JSON.stringify({ action:'syncContracts' })
+      }).then(r=>r.json());
+      if (!r.ok) throw new Error(r.error || 'Ошибка синхронизации');
+      toast('Cognito: подгружено ' + r.result.total + ' заявок');
+      await loadContracts();
+    } catch(e) {
+      toast('Ошибка: ' + (e.message || e));
+    } finally {
+      _contractsSyncing = false;
+      document.querySelectorAll('.contracts-sync-btn').forEach(b => {
+        b.disabled = false;
+        b.textContent = '📋 Обновить из Cognito';
+      });
+    }
+  }
+
+  // Маленькие сводки «Договоры N/M» в обеих вкладках
+  function _updateContractsBadges() {
+    const total = (_payData && _payData.rows) ? _payData.rows.length : 0;
+    const matched = Object.keys(_contractsByCrm).length;
+    document.querySelectorAll('.contracts-badge').forEach(el => {
+      el.textContent = matched && total
+        ? 'Договоры: ' + matched + ' / ' + total
+        : (matched ? 'Договоры: ' + matched : '');
+    });
+  }
+
+  // Утилита: HTML галочки договора для ребёнка по crmId
+  function contractMarkHtml(crmId, manualMark) {
+    const c = _contractsByCrm[String(crmId)];
+    if (c && c.hasContract) {
+      const title = 'Заявка через Cognito · ' +
+        (c.parentName || '') +
+        (c.submittedAt ? ' · подано ' + String(c.submittedAt).slice(0,10) : '') +
+        (c.confidence === 'high' ? ' · совпадение по тел.+ФИО+ДР' : ' · совпадение по тел.+ФИО');
+      const link = c.adminLink || c.documentLink || '';
+      const inner = '✓';
+      return link
+        ? '<a href="' + escapeHtml(link) + '" target="_blank" class="contract-tick contract-cognito" title="' + escapeHtml(title) + '">' + inner + '</a>'
+        : '<span class="contract-tick contract-cognito" title="' + escapeHtml(title) + '">' + inner + '</span>';
+    }
+    if (manualMark === '✓') {
+      return '<span class="contract-tick contract-manual" title="Отмечено вручную">✓</span>';
+    }
+    return '';
+  }
+
+  window.loadContracts = loadContracts;
+  window.syncContractsFromCognito = syncContractsFromCognito;
+
+  // ────────────────────────────────────────────────
   // ВКЛАДКА «ДОПЛАТЫ»
   // ────────────────────────────────────────────────
   let _payLoaded = false;     // первая ленивая загрузка случилась?
@@ -1275,8 +1415,9 @@ pages.join('')+
         (s.multiple_ctts ? ', ' + s.multiple_ctts + '⚠' : '') +
         (s.no_ctt ? ', ' + s.no_ctt + '❌' : '') +
         (s.errors ? ', ' + s.errors + ' ошибок' : ''));
-      // Перечитываем кэш
+      // Перечитываем кэш + показываем плашку изменений
       await loadPayments();
+      _payRenderChangesBanner();
     } catch (e) {
       toast('Ошибка: ' + (e.message || e));
       info.textContent = 'Ошибка синхронизации: ' + (e.message || e);
@@ -1286,6 +1427,63 @@ pages.join('')+
       btn.disabled = false;
       btn.textContent = '🔄 Обновить из Альфы';
     }
+  }
+
+  // Считает что изменилось со снапшота prev_* и рисует плашку сверху таблицы.
+  // Плашка пропадает по клику или при следующей синхронизации.
+  function _payRenderChangesBanner() {
+    if (!_payData || !_payData.rows) return;
+    const changes = _payData.rows.filter(r =>
+      r.prevDebt !== null && r.prevDebt !== undefined &&
+      Math.abs((r.debt || 0) - r.prevDebt) > 0.01
+    );
+    // Старый баннер если был — удаляем
+    const old = document.getElementById('pay-changes-banner');
+    if (old) old.remove();
+    if (changes.length === 0) {
+      toast('Обновлено. Изменений нет с прошлого синка.');
+      return;
+    }
+
+    // Считаем дельты
+    let debtDecreased = 0;   // сколько детей доплатили
+    let debtIncreased = 0;   // сколько детей долг вырос (редко)
+    let totalDebtDiff = 0;   // суммарное изменение долга
+    changes.forEach(r => {
+      const diff = (r.debt || 0) - r.prevDebt;
+      totalDebtDiff += diff;
+      if (diff < 0) debtDecreased++;
+      else if (diff > 0) debtIncreased++;
+    });
+
+    const pluralRu = (n, one, few, many) => {
+      const m = n % 10, t = n % 100;
+      if (t >= 11 && t <= 14) return many;
+      if (m === 1) return one;
+      if (m >= 2 && m <= 4) return few;
+      return many;
+    };
+
+    const parts = [];
+    if (debtDecreased > 0) {
+      parts.push(debtDecreased + ' ' + pluralRu(debtDecreased, 'ребёнок доплатил', 'ребёнка доплатили', 'детей доплатили'));
+    }
+    if (debtIncreased > 0) {
+      parts.push('у ' + debtIncreased + ' ' + pluralRu(debtIncreased, 'ребёнка долг вырос', 'детей долг вырос', 'детей долг вырос'));
+    }
+    const sumStr = totalDebtDiff > 0
+      ? ('всего долг +' + totalDebtDiff.toFixed(2) + ' BYN')
+      : ('всего −' + Math.abs(totalDebtDiff).toFixed(2) + ' BYN');
+
+    const banner = document.createElement('div');
+    banner.id = 'pay-changes-banner';
+    banner.className = 'pay-changes-banner';
+    banner.innerHTML =
+      '<span class="pay-banner-text">✨ Обновлено: ' + parts.join(', ') + ', ' + sumStr + '</span>' +
+      '<button class="pay-banner-close" onclick="this.parentElement.remove()" title="Скрыть">×</button>';
+
+    const content = document.getElementById('pay-content');
+    content.insertBefore(banner, content.firstChild);
   }
 
   // Рендер таблицы + итоги
@@ -1319,6 +1517,7 @@ pages.join('')+
       '<th>№</th>' +
       '<th>ФИО</th>' +
       '<th style="text-align:center">Отряд</th>' +
+      '<th style="text-align:center">Договор</th>' +
       '<th style="text-align:right">Доплата</th>' +
       '<th style="text-align:right">Нал</th>' +
       '<th style="text-align:right">Терминал</th>' +
@@ -1341,15 +1540,38 @@ pages.join('')+
       const isNum = (r.status === 'ok' || r.status === 'multiple_ctts');
       const dash = '<span style="color:#999">—</span>';
       const priceCell = isNum ? r.price : dash;
-      const cashCell = isNum ? (r.cash || 0) : dash;
-      const termCell = isNum ? (r.terminal || 0) : dash;
-      const eripCell = isNum ? (r.erip || 0) : dash;
+
+      // Дельта между текущим и предыдущим значением (рисуется рядом с числом).
+      // type='money' (Нал/Терм/ЕРИП): больше = хорошо (приход); меньше = плохо (откат).
+      // type='debt' (Доплата): меньше = хорошо (доплатили); больше = плохо (долг вырос).
+      function deltaHtml(curr, prev, type) {
+        if (prev === null || prev === undefined) return '';
+        const diff = +(curr - prev).toFixed(2);
+        if (Math.abs(diff) < 0.01) return '';
+        const arrow = diff > 0 ? '▲' : '▼';
+        const sign  = diff > 0 ? '+' : '−';
+        const abs   = Math.abs(diff);
+        const good  = (type === 'debt') ? (diff < 0) : (diff > 0);
+        const cls   = good ? 'pay-delta-good' : 'pay-delta-bad';
+        return '<span class="pay-delta ' + cls + '">' + arrow + ' ' + sign + abs + '</span>';
+      }
+
+      const cashCell = isNum
+        ? (r.cash || 0) + deltaHtml(r.cash, r.prevCash, 'money')
+        : dash;
+      const termCell = isNum
+        ? (r.terminal || 0) + deltaHtml(r.terminal, r.prevTerminal, 'money')
+        : dash;
+      const eripCell = isNum
+        ? (r.erip || 0) + deltaHtml(r.erip, r.prevErip, 'money')
+        : dash;
+
       let debtCell;
       if (r.status === 'no_ctt') debtCell = 'нет абонемента в Альфе';
       else if (r.status === 'not_synced') debtCell = 'не синхронизировано';
-      else if (r.debt > 0.01) debtCell = r.debt + ' BYN';
-      else if (r.debt < -0.01) debtCell = '+' + (-r.debt) + ' BYN';
-      else debtCell = '✓';
+      else if (r.debt > 0.01) debtCell = r.debt + ' BYN' + deltaHtml(r.debt, r.prevDebt, 'debt');
+      else if (r.debt < -0.01) debtCell = '+' + (-r.debt) + ' BYN' + deltaHtml(r.debt, r.prevDebt, 'debt');
+      else debtCell = '✓' + deltaHtml(r.debt, r.prevDebt, 'debt');
 
       // ⚠ для multiple_ctts — подсказка какой абонемент взят
       const warnTag = (r.status === 'multiple_ctts')
@@ -1361,6 +1583,7 @@ pages.join('')+
         '<td class="idx">' + (i + 1) + '</td>' +
         '<td class="name">' + escapeHtml(r.name || '—') + warnTag + '</td>' +
         '<td class="troop"><span class="pay-troop-pill">' + (r.troop || '—') + '</span></td>' +
+        '<td class="contract-col">' + contractMarkHtml(r.crmId, '') + '</td>' +
         '<td class="num debt">' + debtCell + '</td>' +
         '<td class="num">' + cashCell + '</td>' +
         '<td class="num">' + termCell + '</td>' +
@@ -1375,6 +1598,7 @@ pages.join('')+
     html += '</tbody><tfoot><tr>' +
       '<td></td>' +
       '<td>Итого</td>' +
+      '<td></td>' +
       '<td></td>' +
       '<td class="num debt">' + totals.debt + '</td>' +
       '<td class="num">' + totals.cash + '</td>' +
