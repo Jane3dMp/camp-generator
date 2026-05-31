@@ -194,7 +194,8 @@
 
   /* ─── ДОГОВОРЫ (Cognito + ручная отметка) ─── */
   .contract-tick{display:inline-block;font-weight:700;text-decoration:none;font-size:15px;line-height:1}
-  .contract-tick.contract-cognito{color:#3f5028}   /* зелёный — заявка из Cognito */
+  .contract-tick.contract-cognito{color:#3f5028}   /* зелёный — заявка из Cognito (точный матч) */
+  .contract-tick.contract-fuzzy{color:#C77E5E;text-shadow:0 0 0 #C77E5E}  /* терракотовый — fuzzy-матч (опечатки в имени, требует проверки) */
   .contract-tick.contract-manual{color:#185FA5}    /* синий — отметка вручную */
   a.contract-tick:hover{text-decoration:none;opacity:0.7}
   .contracts-badge{font-size:12px;color:var(--muted);padding:4px 10px;border-radius:8px;background:rgba(143,163,112,0.15)}
@@ -914,14 +915,21 @@
       // Колонка "Заполнен" — только Cognito (только отображение)
       let filledCell;
       if (hasCog) {
-        const title = 'Заявка через Cognito · ' +
+        let confText, confClass;
+        if (c.confidence === 'high')      { confText = 'совпадение тел.+ФИО+ДР';           confClass = 'contract-cognito'; }
+        else if (c.confidence === 'low')  { confText = 'fuzzy-match: имя с опечатками ⚠'; confClass = 'contract-fuzzy'; }
+        else                              { confText = 'совпадение тел.+ФИО';              confClass = 'contract-cognito'; }
+        let title = 'Заявка через Cognito · ' +
           escapeHtml(c.parentName || '') +
           (c.submittedAt ? ' · ' + String(c.submittedAt).slice(0,10) : '') +
-          (c.confidence === 'high' ? ' · совпадение тел.+ФИО+ДР' : ' · совпадение тел.+ФИО');
+          ' · ' + confText;
+        if (c.confidence === 'low' && c.matchInfo) {
+          title += ' (Альфа: «' + escapeHtml(c.matchInfo.childNameInAlfa) + '» ↔ Cognito: «' + escapeHtml(c.matchInfo.childNameInCognito) + '»)';
+        }
         const link = c.adminLink || c.documentLink || '';
         const inner = link
-          ? '<a href="' + escapeHtml(link) + '" target="_blank" class="contract-tick contract-cognito" title="' + title + '">✓</a>'
-          : '<span class="contract-tick contract-cognito" title="' + title + '">✓</span>';
+          ? '<a href="' + escapeHtml(link) + '" target="_blank" class="contract-tick ' + confClass + '" title="' + title + '">✓</a>'
+          : '<span class="contract-tick ' + confClass + '" title="' + title + '">✓</span>';
         filledCell = '<td class="att-cell att-dog v-dog">' + inner + '</td>';
       } else {
         filledCell = '<td class="att-cell att-dog"></td>';
@@ -1346,15 +1354,22 @@ pages.join('')+
   function contractMarkHtml(crmId, manualMark) {
     const c = _contractsByCrm[String(crmId)];
     if (c && c.hasContract) {
-      const title = 'Заявка через Cognito · ' +
+      let confText, confClass;
+      if (c.confidence === 'high')      { confText = 'совпадение по тел.+ФИО+ДР';        confClass = 'contract-cognito'; }
+      else if (c.confidence === 'low')  { confText = 'fuzzy-match: имя с опечатками ⚠'; confClass = 'contract-fuzzy'; }
+      else                              { confText = 'совпадение по тел.+ФИО';           confClass = 'contract-cognito'; }
+      let title = 'Заявка через Cognito · ' +
         (c.parentName || '') +
         (c.submittedAt ? ' · подано ' + String(c.submittedAt).slice(0,10) : '') +
-        (c.confidence === 'high' ? ' · совпадение по тел.+ФИО+ДР' : ' · совпадение по тел.+ФИО');
+        ' · ' + confText;
+      if (c.confidence === 'low' && c.matchInfo) {
+        title += ' (Альфа: «' + (c.matchInfo.childNameInAlfa || '') + '» ↔ Cognito: «' + (c.matchInfo.childNameInCognito || '') + '»)';
+      }
       const link = c.adminLink || c.documentLink || '';
       const inner = '✓';
       return link
-        ? '<a href="' + escapeHtml(link) + '" target="_blank" class="contract-tick contract-cognito" title="' + escapeHtml(title) + '">' + inner + '</a>'
-        : '<span class="contract-tick contract-cognito" title="' + escapeHtml(title) + '">' + inner + '</span>';
+        ? '<a href="' + escapeHtml(link) + '" target="_blank" class="contract-tick ' + confClass + '" title="' + escapeHtml(title) + '">' + inner + '</a>'
+        : '<span class="contract-tick ' + confClass + '" title="' + escapeHtml(title) + '">' + inner + '</span>';
     }
     if (manualMark === '✓') {
       return '<span class="contract-tick contract-manual" title="Отмечено вручную">✓</span>';
