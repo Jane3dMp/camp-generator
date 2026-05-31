@@ -232,8 +232,9 @@
   table.pay tfoot td.debt{color:#7a1a10}
 
   @media print{
+    @page payments { size: A4 landscape; margin: 8mm 10mm; }
     body{background:#fff}
-    body.printing-payments{margin:0;padding:0}
+    body.printing-payments{margin:0;padding:0;page: payments}
     body.printing-payments #lockscreen,
     body.printing-payments header,
     body.printing-payments .pay-bar,
@@ -258,13 +259,17 @@
 
   @media print{
     body{background:#fff}
-    #lockscreen,header,.att-bar,.att-hint,#toast{display:none !important}
-    main{max-width:none;padding:0}
-    .pane:not(#pane-attendance){display:none !important}
-    .att-wrap{border:none;overflow:visible}
-    table.att{font-size:12px}
-    table.att .att-cell{width:auto}
-    body.print-blank .att-cell{color:transparent !important;background:#fff !important}
+    body:not(.printing-payments) #lockscreen,
+    body:not(.printing-payments) header,
+    body:not(.printing-payments) .att-bar,
+    body:not(.printing-payments) .att-hint,
+    body:not(.printing-payments) #toast{display:none !important}
+    body:not(.printing-payments) main{max-width:none;padding:0}
+    body:not(.printing-payments) .pane:not(#pane-attendance){display:none !important}
+    body:not(.printing-payments) .att-wrap{border:none;overflow:visible}
+    body:not(.printing-payments) table.att{font-size:12px}
+    body:not(.printing-payments) table.att .att-cell{width:auto}
+    body.print-blank:not(.printing-payments) .att-cell{color:transparent !important;background:#fff !important}
   }
 
   .soon h3{font-family:'Geologica';font-size:16px;color:var(--ink);margin-bottom:8px}
