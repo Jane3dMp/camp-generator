@@ -783,9 +783,15 @@
   }
   function dateForDay(state, idx) {
     // Смены всегда начинаются с понедельника; первый день = startDate (понедельник).
+    // idx — индекс РАБОЧЕГО дня смены (0..N-1). Пропускаем сб/вс при подсчёте.
     const start = new Date(state.startDate || new Date());
     const d = new Date(start);
-    d.setDate(d.getDate() + idx);
+    while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+    let added = 0;
+    while (added < idx) {
+      d.setDate(d.getDate() + 1);
+      if (d.getDay() !== 0 && d.getDay() !== 6) added++;
+    }
     return d;
   }
 
@@ -1054,9 +1060,9 @@
   function renderHeader() {
     const t = publishedState.theme || publishedMeta.theme || '';
     document.getElementById('view-title').innerHTML = t ? ('Смена <em>' + escapeHtml(t) + '</em>') : 'Расписание для кураторов';
-    const start = new Date(publishedState.startDate || new Date());
     const totalDays = Math.min(publishedState.schedule.length, NUM_DAYS);
-    const last = new Date(start); last.setDate(last.getDate() + totalDays - 1);
+    const start = dateForDay(publishedState, 0);
+    const last = dateForDay(publishedState, totalDays - 1);
     const range = start.getDate() + ' ' + MONTHS[start.getMonth()] + ' — ' + last.getDate() + ' ' + MONTHS[last.getMonth()];
     document.getElementById('view-subhead').textContent = range + ' · 4 отряда · ' + totalDays + ' дней';
     document.getElementById('troop-switch').style.display = '';
