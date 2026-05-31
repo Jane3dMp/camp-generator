@@ -1,0 +1,1803 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Расписание (6 отрядов) · Прознание</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --yellow:      #FED634;
+    --yellow-deep: #C9A800;
+    --ink:         #151617;
+    --paper:       #F5F5F0;
+    --paper-warm:  #FFFBEC;
+    --white:       #FFFFFF;
+    --moss:        #6F8754;
+    --terra:       #C77E5E;
+    --terra-deep:  #9A4B30;
+    /* Цвета отрядов — синхронно с index6.html */
+    --troop-1: #41BEEA;
+    --troop-2: #FF8A3D;
+    --troop-3: #8FA370;
+    --troop-4: #C879D8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    color: var(--ink);
+    line-height: 1.5;
+  }
+
+  /* === ЛОКСКРИН === */
+  body:not(.unlocked) #app,
+  body:not(.unlocked) #lock-logout-btn { display: none !important; }
+  body.unlocked #lockscreen { display: none !important; }
+  #lockscreen {
+    position: fixed; inset: 0;
+    background: var(--paper);
+    z-index: 99999;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  #lockscreen .lock-card {
+    background: var(--white);
+    border: 1px solid var(--ink);
+    padding: 32px 28px;
+    max-width: 360px; width: 100%;
+    box-shadow: 0 12px 40px rgba(21,22,23,0.08);
+  }
+  #lockscreen .lock-eyebrow {
+    font-size: 11px; letter-spacing: 0.25em; text-transform: uppercase;
+    color: rgba(21,22,23,0.55); font-weight: 600; margin-bottom: 6px;
+  }
+  #lockscreen h1 { font-family: Geologica, system-ui, sans-serif; font-size: 24px; font-weight: 700; margin: 0 0 4px; }
+  #lockscreen h1 em { font-family: Caveat, cursive; font-style: normal; font-weight: 600; background: var(--yellow); padding: 0 8px; border-radius: 4px; }
+  #lockscreen .lock-sub { font-family: Geologica, serif; font-style: italic; font-size: 13px; color: rgba(21,22,23,0.6); margin: 0 0 18px; }
+  #lockscreen input[type="password"] {
+    font-size: 16px; border: 1px solid var(--ink); background: var(--white);
+    padding: 12px 14px; color: var(--ink); outline: none; width: 100%;
+    margin-bottom: 10px; letter-spacing: 0.05em; border-radius: 0; -webkit-appearance: none;
+  }
+  #lockscreen input[type="password"]:focus { border-color: var(--yellow-deep); }
+  #lockscreen .lock-error { font-size: 12px; color: #c0392b; margin: -4px 0 10px; min-height: 14px; }
+  #lockscreen .lock-btn {
+    font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase;
+    border: 1px solid var(--ink); background: var(--yellow); color: var(--ink);
+    padding: 12px 18px; cursor: pointer; font-weight: 700; width: 100%;
+  }
+  #lockscreen .lock-btn:hover { background: var(--yellow-deep); }
+  #lock-logout-btn {
+    position: fixed; bottom: 12px; left: 12px; z-index: 9998;
+    font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+    border: 1px solid rgba(21,22,23,0.25); background: rgba(255,255,255,0.85);
+    color: rgba(21,22,23,0.55); padding: 6px 10px; cursor: pointer;
+    font-weight: 500; border-radius: 3px; backdrop-filter: blur(4px);
+  }
+  #lock-logout-btn:hover { background: var(--ink); color: var(--paper); }
+
+  /* === ОСНОВНОЕ === */
+  #app { max-width: 920px; margin: 0 auto; padding: 24px 18px 80px; }
+  .view-header { text-align: center; margin-bottom: 24px; }
+  .view-eyebrow { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(21,22,23,0.55); font-weight: 600; margin-bottom: 4px; }
+  .view-header h1 { font-family: Geologica, sans-serif; font-size: 26px; font-weight: 700; margin: 0; line-height: 1.15; }
+  .view-header h1 em { font-family: Caveat, cursive; font-style: normal; font-weight: 600; background: var(--yellow); padding: 0 6px; border-radius: 4px; }
+  .view-subhead { font-family: Geologica, serif; font-style: italic; font-size: 13px; color: rgba(21,22,23,0.65); margin-top: 4px; }
+
+  .view-controls {
+    background: var(--paper-warm); border: 1px solid var(--ink);
+    padding: 14px 16px; margin-bottom: 18px;
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+  }
+  .view-controls label { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(21,22,23,0.55); font-weight: 600; }
+  .view-controls select {
+    font-size: 14px; border: 1px solid var(--ink); background: var(--white);
+    padding: 7px 10px; color: var(--ink); outline: none; min-width: 160px; flex: 1;
+    border-radius: 0; -webkit-appearance: none;
+  }
+  .view-refresh {
+    border: 1px solid var(--ink); background: var(--white); padding: 7px 12px;
+    cursor: pointer; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+    font-weight: 600; color: var(--ink); font-family: Inter, sans-serif;
+  }
+  .view-refresh:hover { background: var(--yellow); }
+  .view-loading, .view-error {
+    text-align: center; padding: 40px 20px;
+    font-family: Geologica, serif; font-style: italic; color: rgba(21,22,23,0.55);
+  }
+  .view-error { color: var(--terra-deep); }
+
+  .vday { background: var(--white); border: 1px solid var(--ink); margin-bottom: 12px; overflow: hidden; }
+  .vday-head {
+    background: var(--ink); color: var(--paper); padding: 10px 14px;
+    display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 6px;
+  }
+  .vday-num { font-family: Geologica, sans-serif; font-size: 16px; font-weight: 700; color: var(--yellow); }
+  .vday-meta { font-family: Caveat, cursive; font-size: 16px; color: var(--white); font-weight: 600; }
+  .vday-body { padding: 10px 14px; }
+  .vday-rest { font-family: Geologica, serif; font-style: italic; color: rgba(21,22,23,0.4); font-size: 13px; padding: 6px 0; }
+
+  /* Заголовок блока (завтрак/обед/время) */
+  .vmeal {
+    font-family: Inter, sans-serif; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: rgba(21,22,23,0.55); font-weight: 600;
+    padding: 6px 0; border-bottom: 1px dashed rgba(21,22,23,0.12); margin-bottom: 8px;
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .vmeal .vmeal-time { font-family: Geologica, serif; font-style: italic; text-transform: none; letter-spacing: 0; color: var(--yellow-deep); font-size: 13px; }
+
+  .vslot { padding: 8px 0; border-bottom: 1px dotted rgba(21,22,23,0.12); }
+  .vslot:last-child { border-bottom: none; }
+  .vslot-row { display: grid; grid-template-columns: 100px 1fr; gap: 12px; align-items: baseline; }
+  .vslot-time { font-size: 12px; font-weight: 600; color: var(--ink); }
+  .vslot.is-trip .vslot-time { color: var(--yellow-deep); }
+  .vslot-name { font-family: Geologica, sans-serif; font-size: 14px; font-weight: 500; line-height: 1.25; }
+  .vslot-trip-badge {
+    display: inline-block; background: var(--yellow); color: var(--ink);
+    font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 2px; margin-right: 6px;
+    text-transform: uppercase; letter-spacing: 0.05em; vertical-align: middle;
+  }
+  .vslot-scored-badge {
+    display: inline-block; background: #8FA370; color: #fff;
+    font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 2px; margin-right: 6px;
+    text-transform: uppercase; letter-spacing: 0.05em; vertical-align: middle;
+  }
+  .vslot.is-scored { background: rgba(143,163,112,0.07); border-radius: 6px; padding-left: 8px; padding-right: 8px; }
+  .vslot-scored-btn {
+    display: inline-block; margin-top: 8px; background: #8FA370; color: #fff;
+    font-size: 13px; font-weight: 600; padding: 7px 14px; border-radius: 9px;
+    text-decoration: none; transition: background 0.15s;
+  }
+  .vslot-scored-btn:hover { background: #6f8052; }
+  .vslot-btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .vslot-btn-row .vslot-scored-btn { margin-top: 0; }
+  .vslot-lesson-btn {
+    display: inline-block; background: #C8714B; color: #fff; border: none; cursor: pointer;
+    font-family: Inter, sans-serif; font-size: 13px; font-weight: 600; padding: 7px 14px;
+    border-radius: 9px; transition: background 0.15s;
+  }
+  .vslot-lesson-btn:hover { background: #a9572f; }
+  .ln-badge {
+    display: inline-flex; align-items: center; font-family: Inter, sans-serif;
+    font-size: 11px; font-weight: 600; padding: 4px 9px; border-radius: 8px; align-self: center;
+  }
+  .ln-badge.saved { background: rgba(143,163,112,0.18); color: #5e7042; }
+  .ln-badge.sent  { background: rgba(115,96,242,0.16); color: #5b49d6; }
+  .ln-cover-box {
+    background: rgba(200,113,75,0.10); border: 1px solid rgba(200,113,75,0.30);
+    border-radius: 10px; padding: 10px 12px; margin: 4px 0 14px; font-size: 13px; line-height: 1.45;
+  }
+  .ln-cover-hint { font-size: 12px; color: rgba(21,22,23,0.6); margin-top: 4px; }
+  .ln-troopnotes-body { display: none; margin-top: 6px; }
+  .ln-troopnotes-body.open { display: block; }
+  .ln-troop-label { display: flex; align-items: center; gap: 8px; }
+  .ln-troop-rec {
+    border: none; cursor: pointer; width: 30px; height: 30px; border-radius: 50%;
+    background: #C8714B; color: #fff; font-size: 14px; line-height: 1; flex: none; padding: 0;
+  }
+  .ln-troop-rec.recording { background: #c0392b; animation: ln-pulse 1.2s infinite; }
+
+  .ln-overlay {
+    position: fixed; inset: 0; background: rgba(21,22,23,0.55); z-index: 9999;
+    display: none; align-items: flex-start; justify-content: center; padding: 16px; overflow-y: auto;
+  }
+  .ln-overlay.open { display: flex; }
+  .ln-modal {
+    background: var(--white, #fff); width: 100%; max-width: 520px; margin-top: 24px;
+    border-radius: 16px; padding: 20px; box-shadow: 0 18px 50px rgba(0,0,0,0.3);
+    font-family: Inter, sans-serif; color: var(--ink, #151617);
+  }
+  .ln-title { font-size: 17px; font-weight: 700; margin: 0 0 2px; }
+  .ln-sub { font-size: 12px; color: rgba(21,22,23,0.6); margin: 0 0 14px; }
+  .ln-rec-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .ln-rec-btn {
+    border: none; cursor: pointer; width: 56px; height: 56px; border-radius: 50%;
+    background: #C8714B; color: #fff; font-size: 22px; flex: none; transition: background 0.15s;
+  }
+  .ln-rec-btn.recording { background: #c0392b; animation: ln-pulse 1.2s infinite; }
+  @keyframes ln-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(192,57,43,0.5);} 50% { box-shadow: 0 0 0 10px rgba(192,57,43,0);} }
+  .ln-timer { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .ln-hint { font-size: 12px; color: rgba(21,22,23,0.6); }
+  .ln-status { font-size: 13px; margin: 10px 0; min-height: 18px; color: var(--ink); }
+  .ln-status.err { color: #c0392b; }
+  .ln-label { font-size: 12px; font-weight: 600; margin: 12px 0 4px; }
+  .ln-textarea {
+    width: 100%; box-sizing: border-box; min-height: 120px; padding: 10px;
+    border: 1.5px solid rgba(21,22,23,0.18); border-radius: 10px; font-family: Inter, sans-serif;
+    font-size: 14px; line-height: 1.5; resize: vertical;
+  }
+  .ln-raw { font-size: 12px; color: rgba(21,22,23,0.55); white-space: pre-wrap;
+    background: rgba(21,22,23,0.04); border-radius: 8px; padding: 8px 10px; margin-top: 6px; display: none; }
+  .ln-raw.open { display: block; }
+  .ln-toggle-raw { background: none; border: none; color: #C8714B; cursor: pointer; font-size: 12px; padding: 4px 0; }
+  .ln-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .ln-btn { border: none; cursor: pointer; font-family: Inter, sans-serif; font-size: 13px;
+    font-weight: 600; padding: 9px 16px; border-radius: 9px; }
+  .ln-btn.primary { background: #8FA370; color: #fff; }
+  .ln-btn.primary:hover { background: #6f8052; }
+  .ln-btn.viber { background: #7360f2; color: #fff; }
+  .ln-btn.viber:hover { background: #5b49d6; }
+  .ln-btn.ghost { background: rgba(21,22,23,0.07); color: var(--ink); }
+  .ln-btn.ghost:hover { background: rgba(21,22,23,0.13); }
+  .ln-btn:disabled { opacity: 0.5; cursor: default; }
+  .ln-close { float: right; background: none; border: none; font-size: 22px; cursor: pointer; color: rgba(21,22,23,0.5); line-height: 1; }
+  .vslot-theme { font-family: Caveat, cursive; font-size: 16px; color: var(--yellow-deep); font-weight: 600; line-height: 1.1; margin-top: 2px; }
+  .vslot-comment {
+    font-family: Inter, sans-serif; font-size: 12px; color: var(--ink);
+    background: rgba(254,214,52,0.22); border-left: 3px solid var(--yellow-deep);
+    padding: 5px 9px; margin-top: 6px; line-height: 1.4; border-radius: 0 3px 3px 0; white-space: pre-wrap;
+  }
+  .vslot-meta { font-size: 11px; color: rgba(21,22,23,0.65); margin-top: 4px; }
+  .pill-troop {
+    color: var(--ink); padding: 1px 6px; font-weight: 700; border-radius: 2px;
+    margin-right: 4px; font-size: 10px;
+  }
+  .pill-troop.t1 { background: var(--troop-1); color: var(--white); }
+  .pill-troop.t2 { background: var(--troop-2); color: var(--white); }
+  .pill-troop.t3 { background: var(--troop-3); color: var(--white); }
+  .pill-troop.t4 { background: var(--troop-4); color: var(--white); }
+
+  .vslot-refs-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .vslot-refs-grid a {
+    border: 1px solid rgba(21,22,23,0.15); border-radius: 3px; overflow: hidden;
+    display: block; background: rgba(21,22,23,0.04); text-decoration: none; color: var(--ink);
+  }
+  .vslot-refs-grid a:hover { box-shadow: 0 4px 12px rgba(21,22,23,0.15); }
+  .vslot-refs-img { width: 80px; height: 56px; object-fit: cover; display: block; }
+
+  .view-published-at { font-family: Geologica, serif; font-style: italic; font-size: 11px; color: rgba(21,22,23,0.5); text-align: center; margin-top: 14px; }
+
+  /* === МОБИЛЬНАЯ === */
+  @media (max-width: 720px) {
+    #app { padding: 18px 14px 60px; }
+    .view-header h1 { font-size: 24px; }
+  }
+  @media (max-width: 560px) {
+    #app { padding: 14px 10px 70px; }
+    .view-header { margin-bottom: 18px; }
+    .view-header h1 { font-size: 22px; }
+    .view-eyebrow { font-size: 10px; letter-spacing: 0.18em; }
+    .view-subhead { font-size: 12px; }
+    .view-controls { flex-direction: column; align-items: stretch; gap: 8px; padding: 12px; }
+    .view-controls select { width: 100%; min-width: 0; font-size: 16px; padding: 10px 12px; }
+    .view-refresh { width: 100%; padding: 10px 14px; font-size: 12px; }
+    .vday-head { padding: 10px 12px; }
+    .vday-num { font-size: 15px; }
+    .vday-meta { font-size: 15px; }
+    .vday-body { padding: 10px 12px; }
+    .vslot { padding: 10px 0; }
+    .vslot-row { display: block; }
+    .vslot-time {
+      display: inline-block; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+      background: rgba(21,22,23,0.05); padding: 2px 6px; border-radius: 2px; margin-bottom: 6px; color: rgba(21,22,23,0.65);
+    }
+    .vslot-name { font-size: 15px; }
+    .vslot-theme { font-size: 18px; }
+    .vslot-meta { font-size: 12px; }
+    .vslot-refs-grid { gap: 8px; }
+    .vslot-refs-img { width: 96px; height: 96px; object-fit: contain; background: var(--white); }
+    #lockscreen { padding: 24px 14px; }
+    .lock-card { padding: 28px 22px; }
+    #lock-logout-btn { bottom: 10px; left: 10px; padding: 8px 12px; font-size: 11px; }
+  }
+  @media (max-width: 380px) {
+    .view-header h1 { font-size: 20px; }
+    .vslot-refs-img { width: 80px; height: 80px; }
+    .vday-head { flex-direction: column; align-items: flex-start; gap: 4px; }
+  }
+
+  /* ── ПОПАП «СОСТАВ ОТРЯДОВ» (педагог) ── */
+  .roster-popup {
+    display: none; position: fixed; inset: 0; z-index: 1000;
+    background: rgba(21,22,23,0.55); padding: 20px;
+    align-items: flex-start; justify-content: center; overflow-y: auto;
+  }
+  .roster-popup.open { display: flex; }
+  .roster-popup-box {
+    background: var(--white); border-radius: 10px; max-width: 920px; width: 100%;
+    margin: 0 auto; padding: 22px; box-shadow: 0 18px 60px rgba(0,0,0,0.3);
+  }
+  .roster-popup-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .roster-popup-title { font-family: Inter, sans-serif; font-weight: 700; font-size: 18px; }
+  .roster-popup-close {
+    background: none; border: none; font-size: 22px; cursor: pointer; color: rgba(21,22,23,0.5);
+    line-height: 1; padding: 0 4px;
+  }
+  .roster-popup-close:hover { color: var(--ink); }
+  .roster-popup-empty { font-family: Inter, sans-serif; color: rgba(21,22,23,0.5); padding: 12px 0; }
+  .roster-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;
+  }
+  .roster-tile { border: 1px solid rgba(21,22,23,0.12); border-radius: 8px; padding: 12px 14px; border-top: 4px solid var(--ink); }
+  .roster-tile.roster-t1 { border-top-color: var(--troop-1); }
+  .roster-tile.roster-t2 { border-top-color: var(--troop-2); }
+  .roster-tile.roster-t3 { border-top-color: var(--troop-3); }
+  .roster-tile.roster-t4 { border-top-color: var(--troop-4); }
+  .roster-tile-head {
+    font-family: Inter, sans-serif; font-weight: 700; font-size: 14px; margin-bottom: 8px;
+    display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  }
+  .roster-tile-head .rc-count { font-weight: 400; font-size: 12px; color: rgba(21,22,23,0.5); }
+  .roster-tile-list {
+    list-style: none; margin: 0; padding: 0; font-family: Inter, sans-serif; font-size: 13.5px;
+  }
+  .roster-tile-list li {
+    padding: 4px 0; border-bottom: 1px solid rgba(21,22,23,0.06);
+    display: flex; align-items: baseline; gap: 8px;
+  }
+  .roster-tile-list li:last-child { border-bottom: none; }
+  .roster-tile-list .rc-num { color: rgba(21,22,23,0.4); min-width: 18px; text-align: right; font-size: 12px; }
+  .roster-tile-list .rc-age { margin-left: auto; color: rgba(21,22,23,0.5); font-size: 12px; white-space: nowrap; }
+  .roster-tile-list .rc-empty { color: rgba(21,22,23,0.4); font-style: italic; }
+  @media (max-width: 640px) {
+    .roster-grid { grid-template-columns: 1fr; }
+    .roster-popup { padding: 10px; }
+    .roster-popup-box { padding: 16px; }
+  }
+
+  /* === МОДАЛКА «КАК ПОЛЬЗОВАТЬСЯ» === */
+  .help-popup {
+    display: none; position: fixed; inset: 0; z-index: 1100;
+    background: rgba(21,22,23,0.55); padding: 20px;
+    align-items: flex-start; justify-content: center; overflow-y: auto;
+  }
+  .help-popup.open { display: flex; }
+  .help-popup-box {
+    background: var(--white); border-radius: 10px; max-width: 620px; width: 100%;
+    margin: 0 auto; padding: 24px 26px; box-shadow: 0 18px 60px rgba(0,0,0,0.3);
+    font-family: Inter, sans-serif;
+  }
+  .help-popup-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; gap: 12px; }
+  .help-popup-title { font-family: Geologica, sans-serif; font-weight: 700; font-size: 18px; line-height: 1.25; }
+  .help-popup-title em { font-family: Caveat, cursive; font-style: normal; font-weight: 600; background: var(--yellow); padding: 0 6px; border-radius: 4px; }
+  .help-popup-close {
+    background: none; border: none; font-size: 22px; cursor: pointer; color: rgba(21,22,23,0.5);
+    line-height: 1; padding: 0 4px; flex-shrink: 0;
+  }
+  .help-popup-close:hover { color: var(--ink); }
+  .help-content { font-size: 14.5px; color: var(--ink); line-height: 1.55; }
+  .help-content h4 {
+    font-family: Geologica, sans-serif; font-size: 13px; font-weight: 700;
+    margin: 18px 0 8px; letter-spacing: 0.04em;
+  }
+  .help-content h4:first-child { margin-top: 0; }
+  .help-content p { margin: 8px 0; }
+  .help-content ol, .help-content ul { margin: 8px 0; padding-left: 22px; }
+  .help-content li { margin: 6px 0; }
+  .help-content strong { font-weight: 700; }
+  .help-content .help-key {
+    display: inline-block; background: var(--paper-warm); border: 1px solid rgba(21,22,23,0.2);
+    padding: 1px 7px; border-radius: 4px; font-size: 13px; font-weight: 600; white-space: nowrap;
+  }
+  .help-content .help-note {
+    background: var(--paper-warm); border-left: 3px solid var(--yellow-deep);
+    padding: 10px 14px; margin: 14px 0; font-size: 13.5px;
+  }
+  @media (max-width: 640px) {
+    .help-popup { padding: 10px; }
+    .help-popup-box { padding: 18px 18px; }
+    .help-popup-title { font-size: 16px; }
+    .help-content { font-size: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="lockscreen">
+  <div class="lock-card">
+    <div class="lock-eyebrow">Прознание · Coddy</div>
+    <h1>Расписание <em>смены</em></h1>
+    <p class="lock-sub">Введи пароль для просмотра. Запомнится в браузере.</p>
+    <input type="password" id="lock-password-input" placeholder="••••••••" autofocus
+           onkeydown="if(event.key==='Enter') tryUnlock()">
+    <div class="lock-error" id="lock-error"></div>
+    <button class="lock-btn" onclick="tryUnlock()">Войти</button>
+  </div>
+</div>
+<button id="lock-logout-btn" onclick="lockLogout()">🔓 Выйти</button>
+
+<div id="app">
+  <div class="view-header">
+    <div class="view-eyebrow">Прознание · Coddy · смена на 6 отрядов</div>
+    <h1 id="view-title">Расписание <em>смены</em></h1>
+    <div class="view-subhead" id="view-subhead"></div>
+  </div>
+
+  <div class="view-controls" id="view-controls" style="display:none">
+    <label for="teacher-pick">Педагог:</label>
+    <select id="teacher-pick" onchange="onTeacherChange()">
+      <option value="__all__">— выбери себя —</option>
+    </select>
+    <button class="view-refresh" onclick="reloadFromServer()" title="Обновить — взять последнюю опубликованную версию">↻</button>
+    <button class="view-refresh" onclick="openRosterPopup()" title="Показать состав всех отрядов">👦 состав</button>
+    <button class="view-refresh" onclick="openHelp()" title="Как пользоваться этой страницей">❓ инструкция</button>
+  </div>
+
+  <div id="view-content">
+    <div class="view-loading">Загружаю расписание…</div>
+  </div>
+
+  <div class="view-published-at" id="view-published-at"></div>
+
+  <div class="roster-popup" id="roster-popup" onclick="if(event.target===this)closeRosterPopup()">
+    <div class="roster-popup-box">
+      <div class="roster-popup-head">
+        <span class="roster-popup-title">Состав отрядов</span>
+        <button class="roster-popup-close" onclick="closeRosterPopup()" title="Закрыть">✕</button>
+      </div>
+      <div class="roster-grid" id="roster-grid"></div>
+      <div class="roster-popup-empty" id="roster-popup-empty" style="display:none">Список детей не загружен.</div>
+    </div>
+  </div>
+
+  <!-- МОДАЛКА «КАК ПОЛЬЗОВАТЬСЯ» -->
+  <div class="help-popup" id="help-popup" onclick="if(event.target===this)closeHelp()">
+    <div class="help-popup-box">
+      <div class="help-popup-head">
+        <span class="help-popup-title">❓ Как пользоваться <em>этой страницей</em></span>
+        <button class="help-popup-close" onclick="closeHelp()" title="Закрыть">✕</button>
+      </div>
+      <div class="help-content">
+        <h4>Что это за окно</h4>
+        <p>Здесь ты видишь своё расписание на смену — все занятия, которые ведёшь, по дням и отрядам.</p>
+
+        <h4>Что делать</h4>
+        <ol>
+          <li><strong>Выбери себя</strong> в селекте <span class="help-key">Педагог</span> сверху страницы.</li>
+          <li><strong>После каждого занятия</strong> нажми <span class="help-key">🎤 Запись урока</span> — наговори голосом, что было. ИИ расшифрует и причешет текст, ты сможешь его поправить.</li>
+          <li><strong>Один отчёт = одно занятие в день.</strong> Если ты вёл один и тот же МК сразу нескольким отрядам — пиши один отчёт, он покроет всех. Опционально добавь отдельную заметку по конкретному отряду через <span class="help-key">➕ Добавить заметку по отряду</span>.</li>
+          <li><strong>Отправь в родительский чат:</strong> <span class="help-key">Открыть в Viber</span> (текст подставится сам) или <span class="help-key">📋 Скопировать</span> и вставить в чат вручную.</li>
+          <li>Если у занятия есть бейдж <span class="help-key">📊 оценочный</span> — нажми <span class="help-key">Проставить баллы</span> и поставь 3 оценки каждому ребёнку (Интерес / Усердие / Потенциал). Это нужно для писем родителям и цифрового паспорта ребёнка.</li>
+        </ol>
+
+        <h4>Куда уходит то, что ты записываешь</h4>
+        <p>Голосовая запись расшифровывается, причёсывается ИИ и сохраняется в общую базу клуба. Дальше используется в письмах родителям после смены и в цифровом паспорте ребёнка.</p>
+
+        <h4>Что важно</h4>
+        <ul>
+          <li>Не дублируй отчёты по отрядам — <strong>один отчёт на занятие в день</strong>.</li>
+          <li>Текст после расшифровки можно править перед отправкой.</li>
+          <li>Кнопка <span class="help-key">👦 состав</span> показывает детей твоего занятия (ФИО + возраст, без телефонов — телефоны только у куратора).</li>
+          <li>Если что-то не получилось — закрой и открой модалку заново, ничего не потеряется.</li>
+        </ul>
+
+        <div class="help-note">
+          Если кнопка <span class="help-key">🎤 Запись урока</span> не появилась — проверь, что выбрал себя в селекте «Педагог».
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const LIBRARY_URL = 'https://script.google.com/macros/s/AKfycbxb6EEzzl-FguxjpIO5YthGLj-QXh7puCD_DO4HL4wVPziHL1pEtVeuo3uNEi2i2yXq/exec';
+  const LOCK_PASSWORD_HASH = '45e5a3f82cc81679d006c8d2f6e3cce87c89ec2059fe13a2d79438f0368b226a';
+  const LOCK_TOKEN_KEY = 'camp_lock_token_v1';
+  const MONTHS = ['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
+  const WEEKDAYS = ['вс','пн','вт','ср','чт','пт','сб'];
+  const NUM_TROOPS = 6;
+  let troopsChildren = [];   // [{crmId, name, age, troop, ...}] — для попапа «состав»
+  const TIME_AM = '9:30 – 13:30';
+  const TIME_PM = '14:00 – 17:30';
+  const BREAKFAST = { name: 'Завтрак', time: '9:00 – 9:30' };
+  const LUNCH     = { name: 'Обед',    time: '13:30 – 14:00' };
+
+  // === ЛОКСКРИН ===
+  async function sha256Hex(text) {
+    const enc = new TextEncoder().encode(text);
+    const buf = await crypto.subtle.digest('SHA-256', enc);
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+  async function tryUnlock() {
+    const inputEl = document.getElementById('lock-password-input');
+    const errEl = document.getElementById('lock-error');
+    const pwd = (inputEl.value || '').trim();
+    errEl.textContent = '';
+    if (!pwd) { errEl.textContent = 'Введи пароль'; return; }
+    try {
+      const hex = await sha256Hex(pwd);
+      if (hex === LOCK_PASSWORD_HASH) {
+        localStorage.setItem(LOCK_TOKEN_KEY, hex);
+        document.body.classList.add('unlocked');
+        bootstrap();
+      } else {
+        errEl.textContent = 'Неверный пароль';
+        inputEl.value = ''; inputEl.focus();
+      }
+    } catch(e) { errEl.textContent = 'Ошибка: ' + e.message; }
+  }
+  function lockLogout() {
+    if (!confirm('Выйти? Пароль будет забыт на этом устройстве.')) return;
+    localStorage.removeItem(LOCK_TOKEN_KEY);
+    location.reload();
+  }
+  (function checkLockOnLoad() {
+    try {
+      const tok = localStorage.getItem(LOCK_TOKEN_KEY);
+      if (tok && tok === LOCK_PASSWORD_HASH) {
+        document.body.classList.add('unlocked');
+        bootstrap();
+      }
+    } catch(e) {}
+  })();
+
+  // === ДАННЫЕ ===
+  let publishedState = null;
+  let publishedMeta = null;
+  let LIBRARY = [];
+
+  // Кэш серверных превью: запрашиваем у Apps Script og:image / Pinterest oembed для ссылок,
+  // у которых нет прямой картинки (страницы pinterest.com, pin.it, chatgpt.com и т.п.).
+  // Сервер сам кэширует на 24 часа, мы — на всю сессию страницы.
+  const refPreviewCache = {};
+  const refPreviewInFlight = {};
+  function fetchServerPreview(url) {
+    if (refPreviewCache[url] !== undefined) return Promise.resolve(refPreviewCache[url]);
+    if (refPreviewInFlight[url]) return refPreviewInFlight[url];
+    const p = fetch(LIBRARY_URL + '?action=previewUrl&url=' + encodeURIComponent(url))
+      .then(r => r.json())
+      .then(data => {
+        const thumb = (data && data.ok && data.preview && data.preview.thumbnail) ? data.preview.thumbnail : '';
+        refPreviewCache[url] = thumb;
+        delete refPreviewInFlight[url];
+        return thumb;
+      })
+      .catch(() => { refPreviewCache[url] = ''; delete refPreviewInFlight[url]; return ''; });
+    refPreviewInFlight[url] = p;
+    return p;
+  }
+  // Запустить фоновую подгрузку для всех <a data-ref-url> в документе.
+  function hydrateAllRefPreviews() {
+    document.querySelectorAll('a[data-ref-url]').forEach(a => {
+      const url = a.getAttribute('data-ref-url');
+      if (!url) return;
+      fetchServerPreview(url).then(thumb => {
+        if (!thumb || !a.isConnected) return;
+        // Заменяем содержимое ссылки на <img>
+        const img = document.createElement('img');
+        img.className = 'vslot-refs-img';
+        img.src = thumb;
+        img.alt = '';
+        img.onerror = () => { a.style.display = 'none'; };
+        a.innerHTML = '';
+        a.appendChild(img);
+        a.removeAttribute('style');
+        a.removeAttribute('data-ref-url');
+      });
+    });
+  }
+
+  function getQueryParam(name) {
+    const m = new RegExp('[?&]' + name + '=([^&#]*)').exec(window.location.search);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function normalizeName(s) {
+    if (!s) return '';
+    return String(s).toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
+  }
+  // Дата N-го рабочего дня (выходные пропускаем).
+  function dateForDay(state, dayIdx) {
+    const start = new Date(state.startDate + 'T00:00:00');
+    let d = new Date(start);
+    let workDays = 0;
+    while (workDays < dayIdx + 1) {
+      if (d.getDay() !== 0 && d.getDay() !== 6) workDays++;
+      if (workDays < dayIdx + 1) d.setDate(d.getDate() + 1);
+      else break;
+    }
+    return d;
+  }
+
+  async function bootstrap() {
+    const id = getQueryParam('id');
+    if (!id) {
+      document.getElementById('view-content').innerHTML =
+        '<div class="view-error">В ссылке не указан ID публикации. Попроси у администратора актуальную ссылку.</div>';
+      return;
+    }
+    await loadAll(id);
+    const teacherFromUrl = getQueryParam('teacher');
+    if (teacherFromUrl) {
+      const sel = document.getElementById('teacher-pick');
+      const opt = Array.from(sel.options).find(o => o.value.toLowerCase() === teacherFromUrl.toLowerCase());
+      if (opt) { sel.value = opt.value; renderForCurrentTeacher(); }
+    }
+  }
+
+  async function reloadFromServer() {
+    const id = getQueryParam('id');
+    if (!id) return;
+    // Берём только первую .view-refresh (саму кнопку перезагрузки, не «печать»)
+    const btn = document.querySelector('.view-controls .view-refresh');
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    try { await loadAll(id); }
+    finally { if (btn) { btn.disabled = false; btn.textContent = '↻'; } }
+  }
+  function openPrintVersion() {
+    const id = getQueryParam('id');
+    if (!id) return;
+    window.open('print6.html?id=' + encodeURIComponent(id), '_blank');
+  }
+  window.openPrintVersion = openPrintVersion;
+
+  // ── ПОПАП «СОСТАВ ОТРЯДОВ» (для педагога) ──
+  // Все 6 отрядов плиткой, только ФИО и возраст (без телефонов).
+  function dobSortKey4_(dob) {
+    const m = String(dob || '').trim().match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+    if (!m) return 0;
+    return new Date(+m[3], +m[2] - 1, +m[1]).getTime();
+  }
+  function pluralKids_(n) {
+    const m10 = n % 10, m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return 'ребёнок';
+    if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return 'ребёнка';
+    return 'детей';
+  }
+  function openRosterPopup() {
+    const grid = document.getElementById('roster-grid');
+    const empty = document.getElementById('roster-popup-empty');
+    if (!troopsChildren || troopsChildren.length === 0) {
+      grid.innerHTML = '';
+      empty.style.display = '';
+    } else {
+      empty.style.display = 'none';
+      let html = '';
+      for (let t = 1; t <= NUM_TROOPS; t++) {
+        const kids = troopsChildren
+          .filter(k => Number(k.troop) === t)
+          .sort((a, b) => dobSortKey4_(b.dob) - dobSortKey4_(a.dob));
+        const labels = ['младшие', '', '', 'старшие'];
+        const sub = labels[t - 1] ? ' · ' + labels[t - 1] : '';
+        let items = kids.length
+          ? kids.map((k, i) => {
+              const age = (k.age === '' || k.age == null) ? '' : '<span class="rc-age">' + k.age + '</span>';
+              return '<li><span class="rc-num">' + (i + 1) + '</span>' + escapeHtml(k.name) + age + '</li>';
+            }).join('')
+          : '<li class="rc-empty">пусто</li>';
+        html += '<div class="roster-tile roster-t' + t + '">' +
+          '<div class="roster-tile-head">Отряд ' + t + sub +
+            ' <span class="rc-count">' + kids.length + ' ' + pluralKids_(kids.length) + '</span></div>' +
+          '<ol class="roster-tile-list">' + items + '</ol>' +
+          '</div>';
+      }
+      grid.innerHTML = html;
+    }
+    document.getElementById('roster-popup').classList.add('open');
+  }
+  function closeRosterPopup() {
+    document.getElementById('roster-popup').classList.remove('open');
+  }
+  window.openRosterPopup = openRosterPopup;
+  window.closeRosterPopup = closeRosterPopup;
+
+  function openHelp() {
+    document.getElementById('help-popup').classList.add('open');
+  }
+  function closeHelp() {
+    document.getElementById('help-popup').classList.remove('open');
+  }
+  window.openHelp = openHelp;
+  window.closeHelp = closeHelp;
+
+  async function loadAll(id) {
+    document.getElementById('view-content').innerHTML = '<div class="view-loading">Загружаю расписание…</div>';
+    try {
+      const [pubResp, libResp] = await Promise.all([
+        fetch(LIBRARY_URL + '?action=getPublished&id=' + encodeURIComponent(id)).then(r => r.json()),
+        fetch(LIBRARY_URL + '?action=library').then(r => r.json()).catch(() => ({ ok: false }))
+      ]);
+      if (!pubResp.ok) throw new Error(pubResp.error || 'Не удалось загрузить публикацию');
+      LIBRARY = (libResp && libResp.ok && libResp.activities) ? libResp.activities : [];
+      // Подтягиваем состав отрядов (для попапа «состав»). Не критично для расписания.
+      fetch(LIBRARY_URL + '?action=getChildren&seasonId=' + encodeURIComponent(id))
+        .then(r => r.json())
+        .then(d => { if (d && d.ok && Array.isArray(d.children)) troopsChildren = d.children; })
+        .catch(() => {});
+      const pub = pubResp.publication;
+      if (!pub) throw new Error('Публикация с этим id не найдена. Возможно, ссылка устарела.');
+      if (!pub.id) throw new Error('Сервер вернул некорректную публикацию (нет id).');
+      publishedMeta = { id: pub.id, name: pub.name || '', theme: pub.theme || '', publishedAt: pub.publishedAt || '' };
+      try { publishedState = JSON.parse(pub.stateJson || '{}'); }
+      catch(e) { throw new Error('Не удалось распарсить расписание: ' + e.message); }
+      // Проверка формы: 4-отрядная публикация должна иметь am/pm массивы.
+      if (!Array.isArray(publishedState.schedule) || publishedState.schedule.length === 0
+          || !publishedState.schedule[0] || !Array.isArray(publishedState.schedule[0].am)) {
+        throw new Error('Это не похоже на смену на 6 отрядов. Для 6-отрядных смен используй view.html.');
+      }
+      onPublishedLoaded();
+    } catch(e) {
+      document.getElementById('view-content').innerHTML = '<div class="view-error">Ошибка: ' + escapeHtml(e.message) + '</div>';
+    }
+  }
+
+  function onPublishedLoaded() {
+    document.getElementById('view-controls').style.display = '';
+    if (publishedState.theme) {
+      document.getElementById('view-title').innerHTML = 'Смена <em>' + escapeHtml(publishedState.theme) + '</em>';
+    }
+    document.getElementById('view-subhead').textContent = publishedMeta.name || ('смена «' + (publishedState.theme || '') + '»');
+    if (publishedMeta.publishedAt) {
+      const d = new Date(publishedMeta.publishedAt);
+      document.getElementById('view-published-at').textContent =
+        'Опубликовано ' + d.toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    }
+    populateTeacherSelect();
+    renderForCurrentTeacher();
+  }
+
+  // Именованный педагог: есть пробел (Фамилия Имя), не куратор/админ/тренер, без запятых.
+  function isNamedTeacher(name) {
+    if (!name) return false;
+    const n = String(name).trim().toLowerCase();
+    if (!n) return false;
+    if (n.includes('куратор') || n.includes('админ') || n.includes('вожат') || n.includes('тренер')) return false;
+    if (n.includes(',')) return false;
+    return /\s/.test(n.trim());
+  }
+
+  // Все именованные педагоги из расписания (am/pm × 6 отрядов), без дублей.
+  function getNamedTeachers() {
+    const seen = new Set();
+    const result = [];
+    const tryAdd = (t) => {
+      if (!isNamedTeacher(t)) return;
+      const norm = normalizeName(t);
+      if (seen.has(norm)) return;
+      seen.add(norm);
+      result.push(t);
+    };
+    const collect = (s) => { if (s) tryAdd(String(s.teacher || '').trim()); };
+    if (!publishedState || !Array.isArray(publishedState.schedule)) return [];
+    publishedState.schedule.forEach(d => {
+      if (!d) return;
+      ['am','pm'].forEach(half => {
+        const mode = halfMode6(d, half);
+        // Универсально собираем cluster/outside (могут быть и в trip3, и в normal)
+        (d[half + '_cluster'] || []).forEach(collect);
+        (d[half + '_outside'] || []).forEach(collect);
+        if (mode === 'trip3') {
+          collect(d[half === 'am' ? 'trip_full_am' : 'trip_full_pm']);
+        }
+        if (mode === 'trip6') {
+          collect(d[half === 'am' ? 'trip6_am' : 'trip6_pm']);
+        }
+        if (mode === 'trip6_split') {
+          collect(d[half === 'am' ? 'trip6_am_a' : 'trip6_pm_a']);
+          collect(d[half === 'am' ? 'trip6_am_b' : 'trip6_pm_b']);
+        }
+      });
+      // Дополнительные педагоги выездов (если админ дописал руками)
+      const extra = String(d.extraTripTeachers || '').trim();
+      if (extra) extra.split(',').forEach(x => tryAdd(x.trim()));
+    });
+    return result.sort((a, b) => a.localeCompare(b, 'ru'));
+  }
+
+  function populateTeacherSelect() {
+    const sel = document.getElementById('teacher-pick');
+    const teachers = getNamedTeachers();
+    const current = sel.value;
+    sel.innerHTML = '<option value="__all__">— выбери себя —</option>'
+      + '<option value="__compact__">Всё расписание (общий вид)</option>'
+      + teachers.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+    if (current && Array.from(sel.options).some(o => o.value === current)) sel.value = current;
+  }
+
+  function onTeacherChange() { renderForCurrentTeacher(); }
+
+  // Активные рефы слота:
+  // - slot.selectedRefs — массив, НЕПУСТОЙ → явный выбор админа (использовать именно эти).
+  // - slot.selectedRefs — пустой массив (или нет) → использовать все рефы шаблона (из libraryRefs/LIBRARY).
+  // ВАЖНО: пустой [] считается «по умолчанию», а не «нет ни одного». Иначе ни один слот никогда
+  // не покажет рефы, потому что defaultSlot() инициализирует selectedRefs пустым массивом.
+  function getActiveRefsForSlot(slot) {
+    if (!slot || !slot.template) return [];
+    if (slot.refsNone) return []; // педагог явно отключил рефы в этом слоте
+    if (Array.isArray(slot.selectedRefs) && slot.selectedRefs.length > 0) return slot.selectedRefs.slice();
+    // Дефолт — все рефы шаблона. Сначала из снимка (libraryRefs), потом из библиотеки.
+    const tpl = String(slot.template).trim();
+    const snapRefs = publishedState.libraryRefs && publishedState.libraryRefs[tpl];
+    if (Array.isArray(snapRefs)) return snapRefs.slice();
+    const target = tpl.toLowerCase();
+    const lib = LIBRARY.find(a => String(a.template || '').trim().toLowerCase() === target);
+    return (lib && Array.isArray(lib.refs)) ? lib.refs.slice() : [];
+  }
+
+  // По типу дня и половине возвращает массив «активных» слотов с подписью отрядов:
+  // [{ idx, troopsLabel, isTrip, timeOverride? }]. Мусорные слоты выездных раскладок пропускаются.
+  // ============================================================
+  // ФИЗИКА 6 ОТРЯДОВ
+  // Группы: A = [1, 2, 3], B = [4, 5, 6]
+  // Типы дней:
+  //   normal              — обычный (3 МК × 3 уличных, группы свопаются утро↔день)
+  //   trip3_am            — утром выезд одной группы, после обеда normal
+  //   trip3_pm            — утром normal, после обеда выезд одной группы
+  //   trip3_full          — оба полудня выезд одной группы (другая на МК всегда)
+  //   trip6_am            — утром все 6 на одном объекте, после обеда normal
+  //   trip6_pm            — утром normal, после обеда все 6 на одном объекте
+  //   trip6_am_split      — утром обе группы на параллельных выездах, после обеда normal
+  //   trip6_pm_split      — утром normal, после обеда обе группы на параллельных выездах
+  //   trip6_full          — оба полудня выезд (trip6)
+  // ============================================================
+  const TROOPS_GROUP_A = [1, 2, 3];
+  const TROOPS_GROUP_B = [4, 5, 6];
+
+  // Возвращает {trip:[…], cluster:[…]} — какие отряды на выезде, какие на МК
+  // для дней с trip3_*. trip3_outside по умолчанию 'B' (значит B на выезде).
+  function trip3GroupsFor(day) {
+    const inv = day && day.trip3_outside === 'A';
+    return inv
+      ? { trip: TROOPS_GROUP_A.slice(), cluster: TROOPS_GROUP_B.slice() }
+      : { trip: TROOPS_GROUP_B.slice(), cluster: TROOPS_GROUP_A.slice() };
+  }
+
+  // halfMode для 6 отрядов: какой режим в этой половине дня
+  // Возвращает: 'normal' | 'trip3' | 'trip6' | 'trip6_split'
+  function halfMode6(day, half) {
+    const t = String(day && day.type || 'normal');
+    const isAM = half === 'am';
+    switch (t) {
+      case 'trip3_am':       return isAM ? 'trip3' : 'normal';
+      case 'trip3_pm':       return isAM ? 'normal' : 'trip3';
+      case 'trip3_full':     return 'trip3';
+      case 'trip6_am':       return isAM ? 'trip6' : 'normal';
+      case 'trip6_pm':       return isAM ? 'normal' : 'trip6';
+      case 'trip6_am_split': return isAM ? 'trip6_split' : 'normal';
+      case 'trip6_pm_split': return isAM ? 'normal' : 'trip6_split';
+      case 'trip6_full':     return 'trip6';
+      default:               return 'normal';
+    }
+  }
+
+  // Времена шагов внутри половины (упрощённо — для отображения времени педагогу)
+  // В 6-отрядной модели обычно 3 шага по ~1 часу. Завтрак 9:00–9:30, обед 13:30–14:00.
+  function multiStepTimes6(half) {
+    // AM: 9:30–13:30 → 3 шага по ~80 мин
+    // PM: 14:00–18:00 → 3 шага по ~80 мин
+    if (half === 'am') return ['9:30 – 10:50', '10:50 – 12:10', '12:10 – 13:30'];
+    return ['14:00 – 15:20', '15:20 – 16:40', '16:40 – 18:00'];
+  }
+  // Полное время полу-дня — для выездов/общих
+  function fullHalfTime(half) {
+    return half === 'am' ? '9:30 – 13:30' : '14:00 – 18:00';
+  }
+
+  // Совместимость со старыми вызовами в коде view (halfMode4 / activeSlotsForHalf).
+  // Делегируем на 6-отрядные функции. activeSlotsForHalf в новой модели мы не используем
+  // в buildScheduleForTeacher (там собственная логика), но какие-то другие места могут её
+  // вызывать (например, отображение шапки) — возвращаем разумный массив.
+  function halfMode4(day, half) { return halfMode6(day, half); }
+  function activeSlotsForHalf(dayType, half) {
+    const day = (typeof dayType === 'object') ? dayType : { type: dayType };
+    const mode = halfMode6(day, half);
+    if (mode === 'trip6')       return [{ idx: 0, troopsLabel: 'все 6 отрядов', isTrip: true }];
+    if (mode === 'trip6_split') return [
+      { idx: 'a', troopsLabel: 'отряды 1, 2, 3 (выезд A)', isTrip: true },
+      { idx: 'b', troopsLabel: 'отряды 4, 5, 6 (выезд B)', isTrip: true }
+    ];
+    if (mode === 'trip3') {
+      const g = trip3GroupsFor(day);
+      const tripLabel = 'отряды ' + g.trip.join(', ') + ' (выезд)';
+      const clusterLabel = 'отряды ' + g.cluster.join(', ') + ' (МК/улица)';
+      return [
+        { idx: 0, troopsLabel: clusterLabel, isTrip: false },
+        { idx: 1, troopsLabel: clusterLabel, isTrip: false },
+        { idx: 2, troopsLabel: clusterLabel, isTrip: false },
+        { idx: 'trip', troopsLabel: tripLabel, isTrip: true }
+      ];
+    }
+    // normal — 3 МК × 3 уличных активности для двух групп
+    return [
+      { idx: 0, troopsLabel: 'отряды ' + TROOPS_GROUP_A.join(', '), isTrip: false },
+      { idx: 1, troopsLabel: 'отряды ' + TROOPS_GROUP_A.join(', '), isTrip: false },
+      { idx: 2, troopsLabel: 'отряды ' + TROOPS_GROUP_A.join(', '), isTrip: false },
+      { idx: 0, troopsLabel: 'отряды ' + TROOPS_GROUP_B.join(', '), isTrip: false },
+      { idx: 1, troopsLabel: 'отряды ' + TROOPS_GROUP_B.join(', '), isTrip: false },
+      { idx: 2, troopsLabel: 'отряды ' + TROOPS_GROUP_B.join(', '), isTrip: false }
+    ];
+  }
+  // Совместимость
+  function multiStepTimes4(half, _mode) { return multiStepTimes6(half); }
+
+
+  // ============================================================
+  // СБОР СЛОТОВ ПЕДАГОГА (6-отрядная модель)
+  // Проходит по schedule, для каждого дня определяет тип, собирает слоты
+  // где slot.teacher == teacherName с правильным временем и лейблом отрядов.
+  // Лейбл отрядов:
+  //   • normal: am_cluster → группа A (отряды 1, 2, 3); am_outside → группа B (4, 5, 6).
+  //              pm_cluster → группа B; pm_outside → группа A. (Группы свопаются.)
+  //   • trip3:  trip_full_* → "отряды X, Y, Z (выезд)" по trip3GroupsFor(day).
+  //              cluster/outside остаётся для другой группы (если правит другая половина).
+  //   • trip6:  trip6_am/pm → "все 6 отрядов".
+  //   • trip6_split: trip6_am_a/b или trip6_pm_a/b → "отряды 1-2-3" и "отряды 4-5-6".
+  // ============================================================
+  function buildScheduleForTeacher(teacherName) {
+    const target = normalizeName(teacherName);
+    const result = [];
+    publishedState.schedule.forEach((d, idx) => {
+      const date = dateForDay(publishedState, idx);
+      const dateStr = date.getDate() + ' ' + MONTHS[date.getMonth()];
+      const weekday = WEEKDAYS[date.getDay()];
+      const slots = [];
+
+      // Какие группы в какой половине стоят на МК (для normal-частей дня)
+      // Базово: AM — A в кабинетах (cluster), B на улице (outside).
+      //         PM — группы свопаются: B в кабинетах, A на улице.
+      // ВНИМАНИЕ: это упрощение. Реальная физика может варьироваться через
+      // настройки в state.outside_mode и др. Для MVP — фиксированный своп.
+      const groupForHalf = (half, source) => {
+        // source: 'cluster' | 'outside'
+        if (half === 'am') return source === 'cluster' ? TROOPS_GROUP_A : TROOPS_GROUP_B;
+        return source === 'cluster' ? TROOPS_GROUP_B : TROOPS_GROUP_A;
+      };
+
+      ['am','pm'].forEach(half => {
+        const mode = halfMode6(d, half);
+        const times = multiStepTimes6(half);
+        const fullT = fullHalfTime(half);
+
+        // Универсальный пушер слота
+        const pushSlot = (s, opts) => {
+          if (!s || !s.template) return;
+          if (normalizeName(s.teacher) !== target) return;
+          slots.push({
+            time: opts.time || fullT,
+            template: s.template,
+            theme: s.theme || '',
+            comment: s.comment || '',
+            room: s.room || '—',
+            troopsLabel: opts.troopsLabel || '',
+            troop: opts.troop || 0,
+            isTrip: !!opts.isTrip,
+            refs: getActiveRefsForSlot(s),
+            scored: !!s.scored,
+            needsReport: !!(s.needsReport ?? s.scored),
+            needsScores: !!(s.needsScores ?? s.scored),
+            mkKey: opts.mkKey || ''
+          });
+        };
+
+        if (mode === 'trip6') {
+          // Все 6 отрядов на одном объекте (trip6_am или trip6_pm)
+          const s = d[half === 'am' ? 'trip6_am' : 'trip6_pm'];
+          pushSlot(s, {
+            time: fullT,
+            troopsLabel: 'все 6 отрядов',
+            isTrip: true,
+            mkKey: idx + '_' + half + '_trip6'
+          });
+          return;
+        }
+
+        if (mode === 'trip6_split') {
+          // Параллельные выезды: a (отряды 1,2,3) и b (отряды 4,5,6)
+          const sA = d[half === 'am' ? 'trip6_am_a' : 'trip6_pm_a'];
+          const sB = d[half === 'am' ? 'trip6_am_b' : 'trip6_pm_b'];
+          pushSlot(sA, {
+            time: fullT,
+            troopsLabel: 'отряды ' + TROOPS_GROUP_A.join(', '),
+            isTrip: true,
+            mkKey: idx + '_' + half + '_trip6_a'
+          });
+          pushSlot(sB, {
+            time: fullT,
+            troopsLabel: 'отряды ' + TROOPS_GROUP_B.join(', '),
+            isTrip: true,
+            mkKey: idx + '_' + half + '_trip6_b'
+          });
+          return;
+        }
+
+        if (mode === 'trip3') {
+          // Одна группа на выезде (trip_full_*), другая на МК (cluster + outside)
+          const g = trip3GroupsFor(d);
+          const sTrip = d[half === 'am' ? 'trip_full_am' : 'trip_full_pm'];
+          pushSlot(sTrip, {
+            time: fullT,
+            troopsLabel: 'отряды ' + g.trip.join(', ') + ' (выезд)',
+            isTrip: true,
+            mkKey: idx + '_' + half + '_trip3'
+          });
+          // Другая группа (cluster) занимается МК. Берём cluster + outside как массивы.
+          // (cluster и outside для этой группы оба используются — обычно 3 МК внутри + улица)
+          const cluster = d[half + '_cluster'] || [];
+          const outside = d[half + '_outside'] || [];
+          const labelCl = 'отряды ' + g.cluster.join(', ');
+          cluster.forEach((s, i) => {
+            pushSlot(s, {
+              time: times[i] || fullT,
+              troopsLabel: labelCl,
+              isTrip: false,
+              mkKey: idx + '_' + half + '_cluster_' + i
+            });
+          });
+          outside.forEach((s, i) => {
+            pushSlot(s, {
+              time: times[i] || fullT,
+              troopsLabel: labelCl + ' (улица)',
+              isTrip: false,
+              mkKey: idx + '_' + half + '_outside_' + i
+            });
+          });
+          return;
+        }
+
+        // mode === 'normal' — обычный полудень: 3 МК + 3 уличных активности.
+        // Cluster (МК в кабинетах) — для одной группы; Outside (улица) — для другой.
+        const cluster = d[half + '_cluster'] || [];
+        const outside = d[half + '_outside'] || [];
+        const clusterGroup = groupForHalf(half, 'cluster');
+        const outsideGroup = groupForHalf(half, 'outside');
+        cluster.forEach((s, i) => {
+          pushSlot(s, {
+            time: times[i] || fullT,
+            troopsLabel: 'отряды ' + clusterGroup.join(', '),
+            isTrip: false,
+            mkKey: idx + '_' + half + '_cluster_' + i
+          });
+        });
+        outside.forEach((s, i) => {
+          pushSlot(s, {
+            time: times[i] || fullT,
+            troopsLabel: 'отряды ' + outsideGroup.join(', ') + ' (улица)',
+            isTrip: false,
+            mkKey: idx + '_' + half + '_outside_' + i
+          });
+        });
+      });
+
+      result.push({ idx, dateStr, weekday, slots });
+    });
+    return result;
+  }
+
+  function renderForCurrentTeacher() {
+    const sel = document.getElementById('teacher-pick');
+    const v = sel.value;
+    if (v === '__all__' || !v) {
+      document.getElementById('view-content').innerHTML =
+        '<div class="view-loading">Выбери себя в списке выше — увидишь свои занятия на 10 дней.</div>';
+      return;
+    }
+    if (v === '__compact__') { renderCompactAllView(); return; }
+    renderTeacherView(v);
+  }
+
+  function renderSlotInner(s) {
+    const tripBadge = s.isTrip ? '<span class="vslot-trip-badge">🚌 выезд</span>' : '';
+    const scoredBadge = (s.needsScores && s.mkKey) ? '<span class="vslot-scored-badge">📊 оценочный</span>' : '';
+    let scoredBtn = '';
+    if (s.needsScores && s.mkKey) {
+      const id = getQueryParam('id');
+      const t = document.getElementById('teacher-pick') ? document.getElementById('teacher-pick').value : '';
+      const url = 'scores6.html?id=' + encodeURIComponent(id) + (t ? '&teacher=' + encodeURIComponent(t) : '') + '&mk=' + encodeURIComponent(s.mkKey);
+      scoredBtn = `<a class="vslot-scored-btn" href="${url}" target="_blank" rel="noopener">📊 Проставить баллы</a>`;
+    }
+    let lessonBtn = '';
+    if (s.mkKey && s.needsReport) {
+      const t = document.getElementById('teacher-pick') ? document.getElementById('teacher-pick').value : '';
+      lessonBtn = `<button type="button" class="vslot-lesson-btn" data-mkkey="${escapeHtml(s.mkKey)}"
+        onclick='LessonNotes.open(${JSON.stringify(JSON.stringify({ mkKey: s.mkKey, teacher: t, mkName: s.template || '', troopsLabel: s.troopsLabel || ('отряд ' + s.troop), time: s.time || '' }))})'>🎤 Запись урока</button>`;
+    }
+    return `
+      <div class="vslot${s.isTrip ? ' is-trip' : ''}${(s.needsScores && s.mkKey) ? ' is-scored' : ''}">
+        <div class="vslot-row">
+          <div class="vslot-time">${escapeHtml(s.time)}</div>
+          <div>
+            <div class="vslot-name">${tripBadge}${scoredBadge}${escapeHtml(s.template)}</div>
+            ${s.theme ? `<div class="vslot-theme">«${escapeHtml(s.theme)}»</div>` : ''}
+            ${s.comment ? `<div class="vslot-comment">💬 ${escapeHtml(s.comment)}</div>` : ''}
+            <div class="vslot-meta">
+              <span class="pill-troop t${s.troop}">${escapeHtml(s.troopsLabel || ('отряд ' + s.troop))}</span>${escapeHtml(s.room)}
+            </div>
+            ${renderRefsForSlot(s.refs)}
+            <div class="vslot-btn-row">${scoredBtn}${lessonBtn}</div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function renderTeacherView(teacherName) {
+    const days = buildScheduleForTeacher(teacherName);
+    const totalSlots = days.reduce((s, d) => s + d.slots.length, 0);
+    const tripSlots = days.reduce((s, d) => s + d.slots.filter(x => x.isTrip).length, 0);
+
+    let html = `
+      <div style="margin-bottom:14px;font-size:12px;color:rgba(21,22,23,0.65);text-align:center">
+        <strong style="color:var(--ink)">${escapeHtml(teacherName)}</strong> · ${totalSlots} занятий${tripSlots > 0 ? ' · ' + tripSlots + ' выездн.' : ''}
+      </div>`;
+
+    days.forEach(d => {
+      html += `
+        <div class="vday">
+          <div class="vday-head">
+            <div class="vday-num">День ${d.idx + 1}</div>
+            <div class="vday-meta">${d.dateStr} · ${d.weekday}</div>
+          </div>
+          <div class="vday-body">`;
+      if (d.slots.length === 0) {
+        html += `<div class="vday-rest">— свободный день —</div>`;
+      } else {
+        d.slots.forEach(s => { html += renderSlotInner(s); });
+      }
+      html += `</div></div>`;
+    });
+    document.getElementById('view-content').innerHTML = html;
+    hydrateAllRefPreviews();
+    if (window.LessonNotes) LessonNotes.loadStatuses();
+  }
+
+  function renderRefsForSlot(refs) {
+    if (!refs || refs.length === 0) return '';
+    let html = '<div class="vslot-refs-grid">';
+    refs.forEach(url => {
+      let host = '';
+      try { host = new URL(url).hostname.replace(/^www\./, ''); } catch(e) {}
+      const icon = host.includes('pinterest') ? '📌' : (host.includes('youtube') || host.includes('youtu.be')) ? '🎬' : host.includes('google') ? '🖼' : '🔗';
+      let previewSrc = null;
+      const ytId = extractYouTubeId(url);
+      if (ytId) previewSrc = 'https://img.youtube.com/vi/' + ytId + '/hqdefault.jpg';
+      else if (/\.(jpg|jpeg|png|webp|gif|svg|avif)(\?|$)/i.test(url)) previewSrc = url;
+      // Если прямого превью нет — проверяем кэш (если страница уже была спрошена у сервера ранее).
+      else if (refPreviewCache[url]) previewSrc = refPreviewCache[url];
+
+      if (previewSrc) {
+        html += `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" title="${escapeHtml(host)}">
+          <img class="vslot-refs-img" src="${escapeHtml(previewSrc)}" alt="" onerror="this.style.display='none'">
+        </a>`;
+      } else {
+        // Ссылка-плейсхолдер с пометкой data-ref-url — её подхватит hydrateAllRefPreviews().
+        html += `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" data-ref-url="${escapeHtml(url)}" style="padding:5px 10px;font-size:11px;background:rgba(254,214,52,0.18);border-color:rgba(254,214,52,0.5)" title="${escapeHtml(host)}">${icon} ${escapeHtml(host)}</a>`;
+      }
+    });
+    html += '</div>';
+    return html;
+  }
+
+  function extractYouTubeId(url) {
+    const patterns = [
+      /youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
+      /youtu\.be\/([a-zA-Z0-9_-]{11})/,
+      /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
+      /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/
+    ];
+    for (const p of patterns) { const m = url.match(p); if (m) return m[1]; }
+    return null;
+  }
+
+  // Общий вид: все 6 отрядов по дням (завтрак → утро ×4 → обед → вечер ×4).
+  function renderCompactAllView() {
+    let html = `
+      <div style="font-family:Geologica,serif;font-style:italic;font-size:12px;color:rgba(21,22,23,0.55);text-align:center;margin-bottom:14px">
+        Полное расписание смены · 6 отрядов
+      </div>`;
+    publishedState.schedule.forEach((d, idx) => {
+      const date = dateForDay(publishedState, idx);
+      const dateStr = date.getDate() + ' ' + MONTHS[date.getMonth()];
+      const weekday = WEEKDAYS[date.getDay()];
+      html += `
+        <div class="vday">
+          <div class="vday-head">
+            <div class="vday-num">День ${idx + 1}</div>
+            <div class="vday-meta">${dateStr} · ${weekday}</div>
+          </div>
+          <div class="vday-body">`;
+
+      const renderHalf = (half, time, label) => {
+        const mode = halfMode4(d, half);
+        // Режим «много МК»: показываем цепочки/станции со временами шагов.
+        if (mode === 'seq3' || mode === 'rot4') {
+          const multi = d[half + 'Multi'];
+          if (!multi) return '';
+          const times = multiStepTimes4(half, mode);
+          let h = `<div class="vmeal"><span>${label}${mode==='rot4'?' · ротация 4':' · 3 МК'}</span><span class="vmeal-time">${time}</span></div>`;
+          const card = (s, when, who) => {
+            if (!s || !s.template) return '';
+            return `<div class="vslot"><div class="vslot-row">
+                <div class="vslot-time">${escapeHtml(when)}</div>
+                <div>
+                  <div class="vslot-name">${escapeHtml(s.template)}</div>
+                  ${s.theme ? `<div class="vslot-theme">«${escapeHtml(s.theme)}»</div>` : ''}
+                  <div class="vslot-meta">${escapeHtml(who)} · ${escapeHtml(s.teacher || '—')} · ${escapeHtml(s.room || '—')}</div>
+                </div></div></div>`;
+          };
+          let body = '';
+          if (mode === 'seq3') {
+            // Новая модель: chainA[0]/[1] — два МК в ротации между отрядами пары, chainA[2] — общий слот.
+            [['chainA', 1, 2], ['chainB', 3, 4]].forEach(([sub, tropA, tropB]) => {
+              const chain = multi[sub] || [];
+              if (chain[0]) {
+                body += card(chain[0], times[0] || '', 'отряд ' + tropA);
+                body += card(chain[0], times[1] || '', 'отряд ' + tropB);
+              }
+              if (chain[1]) {
+                body += card(chain[1], times[0] || '', 'отряд ' + tropB);
+                body += card(chain[1], times[1] || '', 'отряд ' + tropA);
+              }
+              if (chain[2]) {
+                body += card(chain[2], times[2] || '', 'отряды ' + tropA + ', ' + tropB);
+              }
+            });
+          } else {
+            // rot4: подпись «отряды 1, 4, 3, 2» = в каком порядке они приходят к этой станции
+            (multi.stations || []).forEach((s, st) => {
+              const order = [0,1,2,3].map(k => ((st - k) % 4 + 4) % 4 + 1).join(', ');
+              body += card(s, 'станция ' + (st+1), 'отряды ' + order);
+            });
+          }
+          return body ? h + body : '';
+        }
+        // «3 МК + выезд 2»: одна пара учится (цепочка), другая едет
+        if (mode === 'seq3trip') {
+          const multi = d[half + 'Multi'];
+          if (!multi) return '';
+          const sg = multi.studyGroup || 'A';
+          const studyLabel = (sg === 'A') ? 'отряды 1, 2' : 'отряды 3, 4';
+          const tripLabel  = (sg === 'A') ? 'отряды 3, 4 (выезд)' : 'отряды 1, 2 (выезд)';
+          const tripIdx    = (sg === 'A') ? 2 : 0;
+          const times = multiStepTimes4(half, 'seq3');
+          let h = `<div class="vmeal"><span>${label} · 3 МК + выезд 2</span><span class="vmeal-time">${time}</span></div>`;
+          const card = (s, when, who, trip) => {
+            if (!s || !s.template) return '';
+            const tripBadge = trip ? '<span class="vslot-trip-badge">🚌 выезд</span>' : '';
+            return `<div class="vslot${trip?' is-trip':''}"><div class="vslot-row">
+                <div class="vslot-time">${escapeHtml(when)}</div>
+                <div>
+                  <div class="vslot-name">${tripBadge}${escapeHtml(s.template)}</div>
+                  ${s.theme ? `<div class="vslot-theme">«${escapeHtml(s.theme)}»</div>` : ''}
+                  <div class="vslot-meta">${escapeHtml(who)} · ${escapeHtml(s.teacher || '—')} · ${escapeHtml(s.room || '—')}</div>
+                </div></div></div>`;
+          };
+          let body = '';
+          const tropA = (sg === 'A') ? 1 : 3;
+          const tropB = (sg === 'A') ? 2 : 4;
+          const chain = multi.chainA || [];
+          if (chain[0]) {
+            body += card(chain[0], times[0] || '', 'отряд ' + tropA, false);
+            body += card(chain[0], times[1] || '', 'отряд ' + tropB, false);
+          }
+          if (chain[1]) {
+            body += card(chain[1], times[0] || '', 'отряд ' + tropB, false);
+            body += card(chain[1], times[1] || '', 'отряд ' + tropA, false);
+          }
+          if (chain[2]) {
+            body += card(chain[2], times[2] || '', 'отряды ' + tropA + ', ' + tropB, false);
+          }
+          const ts = (d[half] || [])[tripIdx];
+          body += card(ts, time, tripLabel, true);
+          return body ? h + body : '';
+        }
+        const arr = d[half];
+        if (!Array.isArray(arr)) return '';
+        const active = activeSlotsForHalf(d, half);
+        const filled = active.map(a => ({ s: arr[a.idx], troop: a.idx + 1, label: a.troopsLabel, isTrip: a.isTrip, timeOverride: a.timeOverride }))
+                             .filter(x => x.s && x.s.template);
+        if (filled.length === 0) return '';
+        let h = `<div class="vmeal"><span>${label}</span><span class="vmeal-time">${time}</span></div>`;
+        filled.forEach(({ s, troop, label: troopsLabel, isTrip, timeOverride }) => {
+          const trip = isTrip || !!s.isTrip;
+          const tripBadge = trip ? '<span class="vslot-trip-badge">🚌 выезд</span>' : '';
+          const timeBadge = timeOverride ? `<span class="vslot-time-inline">${escapeHtml(timeOverride)}</span> ` : '';
+          h += `
+            <div class="vslot${trip ? ' is-trip' : ''}">
+              <div class="vslot-row">
+                <div class="vslot-time"><span class="pill-troop t${troop}">${escapeHtml(troopsLabel || ('отряд ' + troop))}</span>${timeOverride ? '<br><span style="font-size:10px;color:var(--yellow-deep);font-style:italic">'+escapeHtml(timeOverride)+'</span>' : ''}</div>
+                <div>
+                  <div class="vslot-name">${tripBadge}${escapeHtml(s.template)}</div>
+                  ${s.theme ? `<div class="vslot-theme">«${escapeHtml(s.theme)}»</div>` : ''}
+                  ${s.comment ? `<div class="vslot-comment">💬 ${escapeHtml(s.comment)}</div>` : ''}
+                  <div class="vslot-meta">${escapeHtml(s.teacher || '—')} · ${escapeHtml(s.room || '—')}</div>
+                </div>
+              </div>
+            </div>`;
+        });
+        return h;
+      };
+
+      let body = '';
+      body += renderHalf('am', TIME_AM, 'До обеда');
+      body += renderHalf('pm', TIME_PM, 'После обеда');
+      html += body || `<div class="vday-rest">— расписание не задано —</div>`;
+      html += `</div></div>`;
+    });
+    document.getElementById('view-content').innerHTML = html;
+    hydrateAllRefPreviews();
+  }
+
+  /* ===== Запись урока: диктофон → транскрибация → правка → Viber ===== */
+  var LessonNotes = (function () {
+    var ctx = null;            // данные текущего слота
+    var mediaRecorder = null;
+    var chunks = [];
+    var stream = null;
+    var timerId = null;
+    var seconds = 0;
+    var MAX_SECONDS = 300;     // мягкий лимит 5 минут
+    var statusCache = {};      // { mkKey: {hasText, sent} } — для бейджей в расписании
+    var recTarget = 'main';    // куда писать результат: 'main' или 'troop:<метка>'
+
+    function el(id) { return document.getElementById(id); }
+
+    function ensureModal() {
+      if (el('ln-overlay')) return;
+      var ov = document.createElement('div');
+      ov.id = 'ln-overlay';
+      ov.className = 'ln-overlay';
+      ov.innerHTML =
+        '<div class="ln-modal">' +
+          '<button type="button" class="ln-close" onclick="LessonNotes.close()">×</button>' +
+          '<div class="ln-title">🎤 Запись урока</div>' +
+          '<div class="ln-sub" id="ln-sub"></div>' +
+          '<div id="ln-cover"></div>' +
+          '<div class="ln-rec-row">' +
+            '<button type="button" class="ln-rec-btn" id="ln-rec" onclick="LessonNotes.toggleRec()">●</button>' +
+            '<div><div class="ln-timer" id="ln-timer">0:00</div>' +
+            '<div class="ln-hint" id="ln-hint">Нажми и наговори, что было на занятии</div></div>' +
+          '</div>' +
+          '<div class="ln-status" id="ln-status"></div>' +
+          '<div id="ln-result" style="display:none">' +
+            '<div class="ln-label">Текст для родительского чата (можно поправить):</div>' +
+            '<textarea class="ln-textarea" id="ln-text"></textarea>' +
+            '<button type="button" class="ln-toggle-raw" onclick="LessonNotes.toggleRaw()">Показать исходную расшифровку</button>' +
+            '<div class="ln-raw" id="ln-raw"></div>' +
+            '<div id="ln-troopnotes"></div>' +
+            '<div class="ln-actions">' +
+              '<button type="button" class="ln-btn primary" id="ln-save" onclick="LessonNotes.save()">💾 Сохранить</button>' +
+              '<button type="button" class="ln-btn viber" onclick="LessonNotes.toViber()">📲 Открыть в Viber</button>' +
+              '<button type="button" class="ln-btn ghost" onclick="LessonNotes.copy()">📋 Скопировать</button>' +
+              '<button type="button" class="ln-btn ghost" onclick="LessonNotes.again()">🔄 Записать заново</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(ov);
+      ov.addEventListener('click', function (e) { if (e.target === ov) LessonNotes.close(); });
+    }
+
+    function setStatus(msg, isErr) {
+      var s = el('ln-status');
+      s.textContent = msg || '';
+      s.className = 'ln-status' + (isErr ? ' err' : '');
+    }
+
+    function fmt(t) { var m = Math.floor(t / 60), s = t % 60; return m + ':' + (s < 10 ? '0' : '') + s; }
+
+    function dayIdxFromKey(mkKey) {
+      var n = parseInt(String(mkKey).split('_')[0], 10);
+      return isNaN(n) ? '' : n;
+    }
+
+    function open(payloadJson) {
+      ensureModal();
+      ctx = JSON.parse(payloadJson);
+      // Собираем охват: все слоты этого дня с тем же названием МК у этого педагога.
+      computeCoverage();
+      var sub = (ctx.mkName || 'занятие');
+      el('ln-sub').textContent = sub + (ctx.coverLabel ? ' · ' + ctx.coverLabel : (ctx.time ? ' · ' + ctx.time : ''));
+      el('ln-result').style.display = 'none';
+      el('ln-text').value = '';
+      el('ln-raw').textContent = '';
+      el('ln-raw').className = 'ln-raw';
+      el('ln-cover').innerHTML = renderCoverInfo();
+      seconds = 0; el('ln-timer').textContent = '0:00';
+      el('ln-rec').className = 'ln-rec-btn'; el('ln-rec').textContent = '●';
+      el('ln-hint').textContent = 'Нажми и наговори, что было на занятии';
+      setStatus('');
+      el('ln-overlay').classList.add('open');
+      loadExisting();
+    }
+
+    // Находит все mkKey этого же МК этого педагога в этот день + список отрядов.
+    function computeCoverage() {
+      ctx.dayIdx = dayIdxFromKey(ctx.mkKey);
+      ctx.noteGroupId = getQueryParam('id') + '|' + ctx.dayIdx + '|' +
+        normalizeName(ctx.teacher || '') + '|' + normalizeName(ctx.mkName || '');
+      var mkKeys = [ctx.mkKey];
+      var troops = [];
+      try {
+        var days = buildScheduleForTeacher(ctx.teacher || '');
+        var day = days.find(function (d) { return d.idx === ctx.dayIdx; });
+        // у объекта дня в buildScheduleForTeacher idx может не лежать — fallback по слотам
+        var pool = [];
+        days.forEach(function (d) { (d.slots || []).forEach(function (s) { pool.push(s); }); });
+        pool.forEach(function (s) {
+          if (!s.mkKey) return;
+          if (dayIdxFromKey(s.mkKey) !== ctx.dayIdx) return;
+          if (normalizeName(s.template || '') !== normalizeName(ctx.mkName || '')) return;
+          if (mkKeys.indexOf(s.mkKey) < 0) mkKeys.push(s.mkKey);
+          var tl = troopLabelOf(s);
+          if (tl && troops.indexOf(tl) < 0) troops.push(tl);
+        });
+      } catch (e) {}
+      ctx.mkKeys = mkKeys;
+      ctx.troops = sortTroops(troops);
+      ctx.coverLabel = ctx.troops.length > 1 ? ctx.troops.join(', ') : (troopLabelOf(ctx) || ctx.troopsLabel || '');
+    }
+
+    // Чистая метка отряда: «отряд N» (без «станция …»). Берём s.troop, иначе вытаскиваем из mkKey.
+    function troopLabelOf(s) {
+      var tr = s.troop;
+      if (tr == null && s.mkKey) {
+        var mm = String(s.mkKey).match(/_t(\d+)$/);
+        if (mm) tr = mm[1];
+      }
+      if (tr == null) {
+        // общий слот вида ...tAB — несколько отрядов
+        if (s.troopsLabel) return String(s.troopsLabel).replace(/станц[^,·]*[·,]?\s*/gi, '').trim();
+        return '';
+      }
+      return 'отряд ' + tr;
+    }
+
+    function sortTroops(arr) {
+      return arr.slice().sort(function (a, b) {
+        var na = parseInt((a.match(/\d+/) || [99])[0], 10);
+        var nb = parseInt((b.match(/\d+/) || [99])[0], 10);
+        return na - nb;
+      });
+    }
+
+    function renderCoverInfo() {
+      if (!ctx.troops || ctx.troops.length <= 1) return '';
+      return '<div class="ln-cover-box">📋 Один отчёт на занятие. Он закроет: <b>' +
+        ctx.troops.map(escapeHtml).join(', ') + '</b><div class="ln-cover-hint">' +
+        'Текст уйдёт во все эти отряды. Ниже можно добавить отдельную заметку по отряду, если где-то было иначе.</div></div>';
+    }
+
+    function renderTroopNotes() {
+      var box = el('ln-troopnotes');
+      if (!box) return;
+      if (!ctx.troops || ctx.troops.length <= 1) { box.innerHTML = ''; return; }
+      ctx.troopNotes = ctx.troopNotes || {};
+      var html = '<button type="button" class="ln-toggle-raw" onclick="LessonNotes.toggleTroopNotes()">' +
+        '➕ Добавить отдельную заметку по отряду (если где-то было иначе)</button>' +
+        '<div id="ln-troopnotes-body" class="ln-troopnotes-body">';
+      ctx.troops.forEach(function (t) {
+        var val = ctx.troopNotes[t] || '';
+        var tgt = 'troop:' + t;
+        html += '<div class="ln-label ln-troop-label">' + escapeHtml(t) +
+          '<button type="button" class="ln-troop-rec" data-target="' + escapeHtml(tgt) + '" ' +
+          'onclick="LessonNotes.toggleRec(\'' + escapeHtml(tgt).replace(/'/g, "\\'") + '\')" ' +
+          'title="Записать заметку голосом">🎤</button></div>' +
+          '<textarea class="ln-textarea ln-troop-ta" data-troop="' + escapeHtml(t) + '" ' +
+          'style="min-height:54px" placeholder="Необязательно — только если отличалось">' + escapeHtml(val) + '</textarea>';
+      });
+      html += '</div>';
+      box.innerHTML = html;
+    }
+
+    function toggleTroopNotes() {
+      var b = el('ln-troopnotes-body');
+      if (b) b.classList.toggle('open');
+    }
+
+    function collectTroopNotes() {
+      var out = {};
+      var tas = document.querySelectorAll('.ln-troop-ta');
+      Array.prototype.forEach.call(tas, function (ta) {
+        var v = ta.value.trim();
+        if (v) out[ta.getAttribute('data-troop')] = v;
+      });
+      return out;
+    }
+
+    function loadExisting() {
+      var id = getQueryParam('id');
+      if (!id || !ctx) return;
+      fetch(LIBRARY_URL + '?action=getLessonNote&seasonId=' + encodeURIComponent(id) +
+            '&noteGroupId=' + encodeURIComponent(ctx.noteGroupId))
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d && d.found && d.textClean) {
+            el('ln-text').value = d.textClean;
+            el('ln-raw').textContent = d.textRaw || '';
+            ctx.troopNotes = d.troopNotes || {};
+            el('ln-result').style.display = 'block';
+            renderTroopNotes();
+            setStatus('Найдена прежняя запись — можно переписать или поправить.');
+          }
+        })
+        .catch(function () {});
+    }
+
+    function close() {
+      stopTracks();
+      if (timerId) { clearInterval(timerId); timerId = null; }
+      var ov = el('ln-overlay');
+      if (ov) ov.classList.remove('open');
+    }
+
+    function stopTracks() {
+      if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
+    }
+
+    function pickMime() {
+      var cand = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'];
+      for (var i = 0; i < cand.length; i++) {
+        if (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(cand[i])) return cand[i];
+      }
+      return '';
+    }
+
+    // Кнопка-индикатор записи для текущей цели: главная или мини-кнопка отряда.
+    function recBtnEl() {
+      if (recTarget && recTarget.indexOf('troop:') === 0) {
+        return document.querySelector('.ln-troop-rec[data-target="' + cssEsc(recTarget) + '"]');
+      }
+      return el('ln-rec');
+    }
+    function cssEsc(s) { return String(s).replace(/"/g, '\\"'); }
+
+    function setRecBtnRecording(on) {
+      var b = recBtnEl();
+      if (!b) return;
+      if (b.id === 'ln-rec') {
+        b.className = on ? 'ln-rec-btn recording' : 'ln-rec-btn';
+        b.textContent = on ? '■' : '●';
+      } else {
+        b.className = on ? 'ln-troop-rec recording' : 'ln-troop-rec';
+        b.textContent = on ? '■' : '🎤';
+      }
+    }
+
+    function toggleRec(target) {
+      // Если идёт запись и нажали ту же цель — стоп; если другую — игнор (сначала останови текущую).
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        if (!target || target === recTarget) { stopRec(); }
+        return;
+      }
+      recTarget = target || 'main';
+      startRec();
+    }
+
+    function startRec() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setStatus('Браузер не поддерживает запись звука.', true); return;
+      }
+      setStatus('');
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(function (s) {
+        stream = s;
+        var mime = pickMime();
+        chunks = [];
+        try {
+          mediaRecorder = mime ? new MediaRecorder(s, { mimeType: mime }) : new MediaRecorder(s);
+        } catch (e) { mediaRecorder = new MediaRecorder(s); }
+        mediaRecorder.ondataavailable = function (ev) { if (ev.data && ev.data.size) chunks.push(ev.data); };
+        mediaRecorder.onstop = onStopped;
+        mediaRecorder.start();
+        setRecBtnRecording(true);
+        if (recTarget === 'main') {
+          el('ln-hint').textContent = 'Идёт запись… нажми ■ чтобы остановить';
+          seconds = 0; el('ln-timer').textContent = '0:00';
+        } else {
+          setStatus('🎙 Запись заметки по отряду… нажми ■ у поля, чтобы остановить.');
+        }
+        seconds = 0; if (el('ln-timer')) el('ln-timer').textContent = '0:00';
+        timerId = setInterval(function () {
+          seconds++; if (recTarget === 'main') el('ln-timer').textContent = fmt(seconds);
+          if (seconds >= MAX_SECONDS) stopRec();
+        }, 1000);
+      }).catch(function () {
+        setStatus('Нет доступа к микрофону. Разреши доступ в настройках браузера.', true);
+      });
+    }
+
+    function stopRec() {
+      if (timerId) { clearInterval(timerId); timerId = null; }
+      if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+      setRecBtnRecording(false);
+      if (recTarget === 'main') el('ln-hint').textContent = 'Готово. Обрабатываю…';
+    }
+
+    function onStopped() {
+      stopTracks();
+      var blob = new Blob(chunks, { type: (mediaRecorder && mediaRecorder.mimeType) || 'audio/webm' });
+      if (!blob.size) { setStatus('Пустая запись, попробуй ещё раз.', true); return; }
+      setStatus('⏳ Расшифровываю и причёсываю текст (это занимает 10–40 сек)…');
+      var reader = new FileReader();
+      reader.onloadend = function () {
+        var b64 = String(reader.result).split(',')[1];
+        sendAudio(b64, blob.type);
+      };
+      reader.readAsDataURL(blob);
+    }
+
+    function sendAudio(b64, mime) {
+      var target = recTarget; // фиксируем цель этой записи
+      var body = { action: 'transcribeLesson', audioBase64: b64, mime: mime, mkName: ctx.mkName || '' };
+      fetch(LIBRARY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // обходит CORS-preflight Apps Script
+        body: JSON.stringify(body)
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (!d || !d.ok) { setStatus('Не удалось расшифровать: ' + ((d && d.error) || 'ошибка сервера'), true); return; }
+          var txt = d.textClean || d.textRaw || '';
+          if (target && target.indexOf('troop:') === 0) {
+            var label = target.slice(6);
+            var ta = document.querySelector('.ln-troop-ta[data-troop="' + cssEsc(label) + '"]');
+            if (ta) {
+              ta.value = (ta.value.trim() ? ta.value.trim() + ' ' : '') + txt;
+              ctx.troopNotes = ctx.troopNotes || {};
+              ctx.troopNotes[label] = ta.value;
+            }
+            setStatus('Готово — заметка по «' + label + '» добавлена.');
+          } else {
+            el('ln-text').value = txt;
+            el('ln-raw').textContent = d.textRaw || '';
+            el('ln-result').style.display = 'block';
+            renderTroopNotes();
+            setStatus('Готово. Проверь текст и при желании поправь.');
+          }
+        })
+        .catch(function (e) { setStatus('Ошибка сети: ' + e.message, true); });
+    }
+
+    function toggleRaw() { el('ln-raw').classList.toggle('open'); }
+
+    function save() {
+      return doSave(false);
+    }
+
+    // silent=true — не трогаем кнопку/статус так шумно (используется перед отправкой).
+    function doSave(silent) {
+      var id = getQueryParam('id');
+      var text = el('ln-text').value.trim();
+      if (!text) { setStatus('Текст пустой.', true); return Promise.reject(); }
+      var btn = el('ln-save'); if (!silent) btn.disabled = true;
+      var body = {
+        action: 'saveLessonNote', seasonId: id, noteGroupId: ctx.noteGroupId,
+        teacher: ctx.teacher || '', dayIdx: ctx.dayIdx,
+        mkName: ctx.mkName || '', mkKeys: ctx.mkKeys || [ctx.mkKey],
+        textRaw: el('ln-raw').textContent || '', textClean: text,
+        troopNotes: collectTroopNotes()
+      };
+      return fetch(LIBRARY_URL, {
+        method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(body)
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (!silent) btn.disabled = false;
+          if (d && d.ok) {
+            markCache(false);
+            if (!silent) setStatus('✅ Сохранено для: ' + (ctx.troops || []).join(', '));
+          } else if (!silent) {
+            setStatus('Не удалось сохранить.', true);
+          }
+          return d;
+        })
+        .catch(function (e) {
+          if (!silent) { btn.disabled = false; setStatus('Ошибка сети: ' + e.message, true); }
+          throw e;
+        });
+    }
+
+    // Обновить кэш статусов по всем mkKey группы.
+    function markCache(sent) {
+      (ctx.mkKeys || [ctx.mkKey]).forEach(function (k) {
+        statusCache[k] = statusCache[k] || {};
+        statusCache[k].hasText = true;
+        if (sent) statusCache[k].sent = true;
+      });
+      refreshBadges();
+    }
+
+    function markSent() {
+      var id = getQueryParam('id');
+      return fetch(LIBRARY_URL, {
+        method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'markLessonSent', seasonId: id, noteGroupId: ctx.noteGroupId })
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (d) { if (d && d.ok) markCache(true); return d; })
+        .catch(function () {});
+    }
+
+    // Полный текст для отправки: шапка + текст + (если есть) заметки по отрядам.
+    function buildFullText() {
+      var head = '**Отчёт о проведённых занятиях педагога ' + (ctx.teacher || '') +
+        ' по «' + (ctx.mkName || 'занятие') + '»**';
+      var parts = [head, '', el('ln-text').value.trim()];
+      var tn = collectTroopNotes();
+      var keys = Object.keys(tn);
+      if (keys.length) {
+        parts.push('');
+        keys.forEach(function (t) { parts.push(t + ': ' + tn[t]); });
+      }
+      return parts.join('\n');
+    }
+
+    function again() {
+      // Вернуть к экрану записи, текст оставить (вдруг захотят дозаписать поверх).
+      el('ln-result').style.display = 'none';
+      seconds = 0; el('ln-timer').textContent = '0:00';
+      el('ln-rec').className = 'ln-rec-btn'; el('ln-rec').textContent = '●';
+      el('ln-hint').textContent = 'Нажми и наговори заново';
+      setStatus('Прежний текст сохранён. Новая запись заменит его после обработки.');
+    }
+
+    function toViber() {
+      var text = el('ln-text').value.trim();
+      if (!text) { setStatus('Сначала наговори или впиши текст.', true); return; }
+      var full = buildFullText();
+      doSave(true).then(markSent).then(function () {
+        window.location.href = 'viber://forward?text=' + encodeURIComponent(full);
+        setStatus('Открываю Viber… Если текст не подставился — нажми «Скопировать» и вставь вручную.');
+      }).catch(function () {
+        window.location.href = 'viber://forward?text=' + encodeURIComponent(full);
+      });
+    }
+
+    function copy() {
+      var text = el('ln-text').value.trim();
+      if (!text) { setStatus('Текст пустой.', true); return; }
+      var full = buildFullText();
+      doSave(true).then(markSent);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(full).then(
+          function () { setStatus('📋 Скопировано (с заголовком) — вставь в нужный чат Viber.'); },
+          function () { fallbackCopy(full); }
+        );
+      } else { fallbackCopy(full); }
+    }
+
+    function fallbackCopy(text) {
+      var tmp = document.createElement('textarea');
+      tmp.value = text; tmp.style.position = 'fixed'; tmp.style.opacity = '0';
+      document.body.appendChild(tmp); tmp.focus(); tmp.select();
+      try { document.execCommand('copy'); setStatus('📋 Скопировано (с заголовком) — вставь в нужный чат Viber.'); }
+      catch (e) { setStatus('Скопируй текст вручную.', true); }
+      document.body.removeChild(tmp);
+    }
+
+    // Подтянуть статусы всех записей смены и расставить бейджи. Зовётся после отрисовки расписания.
+    function loadStatuses() {
+      var id = getQueryParam('id');
+      if (!id) return;
+      fetch(LIBRARY_URL + '?action=listLessonNotes&seasonId=' + encodeURIComponent(id))
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d && d.ok && d.notes) { statusCache = d.notes; refreshBadges(); }
+        })
+        .catch(function () {});
+    }
+
+    // Обновить бейджи на кнопках записи в расписании по statusCache.
+    function refreshBadges() {
+      var btns = document.querySelectorAll('.vslot-lesson-btn[data-mkkey]');
+      Array.prototype.forEach.call(btns, function (btn) {
+        var key = btn.getAttribute('data-mkkey');
+        var st = statusCache[key];
+        var label = btn.parentNode ? btn.parentNode.querySelector('.ln-badge[data-mkkey="' + key + '"]') : null;
+        if (!st || (!st.hasText && !st.sent)) { if (label) label.remove(); return; }
+        var txt = st.sent ? '✅ отправлено' : '💾 сохранено';
+        var cls = st.sent ? 'ln-badge sent' : 'ln-badge saved';
+        if (!label) {
+          label = document.createElement('span');
+          label.setAttribute('data-mkkey', key);
+          btn.parentNode.insertBefore(label, btn.nextSibling);
+        }
+        label.className = cls;
+        label.textContent = txt;
+      });
+    }
+
+    return { open: open, close: close, toggleRec: toggleRec, toggleRaw: toggleRaw,
+             save: save, toViber: toViber, copy: copy, again: again,
+             toggleTroopNotes: toggleTroopNotes,
+             loadStatuses: loadStatuses, refreshBadges: refreshBadges };
+  })();
+</script>
+</body>
+</html>
