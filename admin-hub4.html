@@ -191,6 +191,71 @@
     .help-content{font-size:14px}
   }
   .att-hint{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5}
+
+  /* ─── ВКЛАДКА «ДОПЛАТЫ» ─── */
+  .pay-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  .pay-sync-info{font-size:12px;color:var(--muted);margin-left:6px}
+  .pay-sync-info.fresh{color:#3f5028}
+  .pay-sync-info.stale{color:#7a1a10;font-weight:600}
+  #pay-sync-btn:disabled{opacity:0.65;cursor:wait}
+
+  .pay-summary{display:flex;flex-wrap:wrap;gap:8px 14px;margin-bottom:14px;font-size:13px}
+  .pay-summary span{padding:4px 10px;border-radius:8px;background:rgba(21,22,23,0.04)}
+  .pay-summary .sum-debt{background:rgba(192,57,43,0.12);color:#7a1a10;font-weight:600}
+  .pay-summary .sum-paid{background:rgba(143,163,112,0.18);color:#3f5028}
+
+  .pay-wrap{border:1px solid rgba(21,22,23,0.08);border-radius:10px;overflow:auto;background:#fff}
+  table.pay{border-collapse:collapse;width:100%;font-family:Inter,sans-serif;font-size:13px}
+  table.pay th,table.pay td{padding:7px 9px;border-bottom:1px solid rgba(21,22,23,0.06);text-align:left;vertical-align:top}
+  table.pay th{background:#f8f7f3;font-weight:600;color:var(--ink);position:sticky;top:0;z-index:2;font-size:12px}
+  table.pay td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  table.pay td.idx{text-align:center;color:var(--muted);width:32px}
+  table.pay td.troop{text-align:center;width:48px}
+  table.pay td.name{font-weight:500;min-width:200px}
+  table.pay td.dates{font-size:11px;color:var(--muted);max-width:140px;white-space:normal}
+  table.pay td.phone{font-variant-numeric:tabular-nums;white-space:nowrap;font-size:12px}
+  table.pay td.debt{font-weight:600}
+  table.pay tr.row-paid{background:rgba(143,163,112,0.08)}
+  table.pay tr.row-paid td.debt{color:#3f5028}
+  table.pay tr.row-debt{background:rgba(192,57,43,0.06)}
+  table.pay tr.row-debt td.debt{color:#7a1a10}
+  table.pay tr.row-overpaid{background:rgba(143,163,112,0.14)}
+  table.pay tr.row-overpaid td.debt{color:#3f5028}
+  table.pay tr.row-no-ctt{background:rgba(254,214,52,0.20)}
+  table.pay tr.row-no-ctt td.debt{color:#6a4d00;font-weight:500;font-size:11px;font-style:italic}
+  table.pay tr.row-not-synced{background:rgba(21,22,23,0.05);color:var(--muted)}
+  .pay-warn-tag{display:inline-block;color:#6a4d00;cursor:help;margin-left:4px}
+  .pay-troop-pill{display:inline-block;min-width:22px;padding:2px 7px;border-radius:99px;background:rgba(21,22,23,0.06);font-weight:600;font-size:11px}
+  tr.row-paid .pay-troop-pill{background:rgba(143,163,112,0.25)}
+  tr.row-debt .pay-troop-pill{background:rgba(192,57,43,0.15)}
+  table.pay tfoot td{font-weight:600;background:#f8f7f3;border-top:2px solid var(--ink)}
+  table.pay tfoot td.debt{color:#7a1a10}
+
+  @media print{
+    body{background:#fff}
+    body.printing-payments{margin:0;padding:0}
+    body.printing-payments #lockscreen,
+    body.printing-payments header,
+    body.printing-payments .pay-bar,
+    body.printing-payments .pay-summary,
+    body.printing-payments #toast{display:none !important}
+    body.printing-payments main{max-width:none;padding:0;margin:0}
+    body.printing-payments .pane:not(#pane-payments){display:none !important}
+    body.printing-payments #pane-payments{display:block !important}
+    body.printing-payments .pay-wrap{border:none;overflow:visible}
+    body.printing-payments table.pay{font-size:9.5pt;width:100%}
+    body.printing-payments table.pay th,
+    body.printing-payments table.pay td{padding:3px 5px;border-bottom:1px solid #888}
+    body.printing-payments table.pay thead{display:table-header-group}
+    body.printing-payments table.pay tfoot{display:table-footer-group}
+    body.printing-payments table.pay tr{background:#fff !important;page-break-inside:avoid}
+    body.printing-payments table.pay tr.row-debt td.debt{color:#000;font-weight:700;background:rgba(0,0,0,0.05)}
+    body.printing-payments table.pay tr.row-paid td.debt{color:#444}
+    body.printing-payments table.pay tr.row-no-ctt td{background:rgba(0,0,0,0.07);font-style:italic}
+    body.printing-payments table.pay td.dates{font-size:8pt;color:#444}
+    body.printing-payments .pay-troop-pill{background:transparent;font-weight:700}
+  }
+
   @media print{
     body{background:#fff}
     #lockscreen,header,.att-bar,.att-hint,#toast{display:none !important}
@@ -266,6 +331,7 @@
       <button class="tab" id="tab-troops" onclick="switchPane('troops')">👦 Состав отрядов</button>
       <button class="tab" id="tab-attendance" onclick="switchPane('attendance')">📒 Табель посещения детей</button>
       <button class="tab" id="tab-lists" onclick="switchPane('lists')">📋 Списки</button>
+      <button class="tab" id="tab-payments" onclick="switchPane('payments')">💰 Доплаты</button>
     </div>
   </header>
 
@@ -319,6 +385,16 @@
         <strong>🏷 Печать имён</strong> — модалка с тремя видами (мини-наклейки, бирки, наклейки ФИО ×3). Соберёшь список из детей смены или впишешь руками.<br>
         <strong>🗒 Лист куратора</strong> — 4 листа A4 (горизонтально), по одному отряду на лист. Дети сверху (12 пронумерованных строк, лишние пустые — под новеньких), справа 5 пустых колонок для отметок куратора (баллы за МК).
       </p>
+    </div>
+
+    <!-- ДОПЛАТЫ — список долгов по смене с цифрами из AlfaCRM -->
+    <div class="pane" id="pane-payments">
+      <div class="pay-bar">
+        <button class="btn btn-primary" id="pay-sync-btn" onclick="paySyncFromAlfa()">🔄 Обновить из Альфы</button>
+        <button class="btn" onclick="payPrint()">🖨 Печать</button>
+        <span class="pay-sync-info" id="pay-sync-info">—</span>
+      </div>
+      <div id="pay-content"><div class="soon">Загружаю данные…</div></div>
     </div>
   </main>
 </div>
@@ -475,12 +551,13 @@
   function dobSortKey4_(dob){ const m=String(dob||'').trim().match(/^(\d{2})\.(\d{2})\.(\d{4})$/); if(!m) return 0; return new Date(+m[3],+m[2]-1,+m[1]).getTime(); }
 
   function switchPane(which){
-    ['links','troops','attendance','lists'].forEach(p=>{
+    ['links','troops','attendance','lists','payments'].forEach(p=>{
       document.getElementById('pane-'+p).classList.toggle('active', p===which);
       document.getElementById('tab-'+p).classList.toggle('active', p===which);
     });
     if(which==='troops' && _troopsKids.length===0) loadTroopsChildren();
     if(which==='attendance' && !_attLoaded) loadAttendance();
+    if(which==='payments' && !_payLoaded) loadPayments();
   }
 
   // ── BOOTSTRAP ──
@@ -1124,6 +1201,207 @@ pages.join('')+
   window.checkTroopsActuality=checkTroopsActuality; window.removeLeftChildren_=removeLeftChildren_; window.addNewChildren_=addNewChildren_;
   window.cycleAtt=cycleAtt; window.cycleDog=cycleDog; window.printAttendance=printAttendance; window.openStickers=openStickers; window.openTags=openTags; window.openMiniStickers=openMiniStickers;
   window.openPrintGenerator=openPrintGenerator; window.closePrintGenerator=closePrintGenerator; window.pgToggleAll=pgToggleAll; window.pgSetFmt=pgSetFmt; window.updatePgCount=updatePgCount; window.pgPrint=pgPrint;
+
+  // ────────────────────────────────────────────────
+  // ВКЛАДКА «ДОПЛАТЫ»
+  // ────────────────────────────────────────────────
+  let _payLoaded = false;     // первая ленивая загрузка случилась?
+  let _paySyncing = false;    // идёт ли сейчас sync (защита от двойного клика)
+  let _payData = null;        // последний ответ getPayments
+
+  // Форматирование времени синка в "30 мая, 23:32"
+  function _payFormatSyncedAt(iso) {
+    if (!iso) return 'никогда';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return 'неизвестно';
+    const months = ['янв','фев','мар','апр','мая','июня','июля','авг','сен','окт','ноя','дек'];
+    return d.getDate() + ' ' + months[d.getMonth()] + ', ' +
+      String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+  }
+
+  // Подпись «Обновлено: ...» + цвет (стух если ≥6 часов)
+  function _payUpdateSyncInfo() {
+    const el = document.getElementById('pay-sync-info');
+    if (!el) return;
+    if (!_payData || !_payData.syncedAt) {
+      el.textContent = 'Никогда не синхронизировалось — нажми «Обновить из Альфы»';
+      el.className = 'pay-sync-info stale';
+      return;
+    }
+    const ageHours = (Date.now() - new Date(_payData.syncedAt).getTime()) / 3600000;
+    el.textContent = 'Обновлено: ' + _payFormatSyncedAt(_payData.syncedAt);
+    el.className = 'pay-sync-info ' + (ageHours > 6 ? 'stale' : 'fresh');
+  }
+
+  // Грузим из кэша (быстро)
+  async function loadPayments() {
+    _payLoaded = true;
+    try {
+      const r = await fetch(LIBRARY_URL + '?action=getPayments&seasonId=' +
+        encodeURIComponent(SEASON_ID) + '&_t=' + Date.now()).then(r => r.json());
+      if (!r.ok) throw new Error(r.error || 'Не удалось загрузить');
+      _payData = r.result;
+      renderPayments();
+    } catch (e) {
+      document.getElementById('pay-content').innerHTML =
+        '<div class="ah-card danger">Ошибка загрузки: ' + escapeHtml(String(e.message || e)) + '</div>';
+    }
+  }
+
+  // Полная пересинхронизация с Альфой (~30-60 сек на 60 детей)
+  async function paySyncFromAlfa() {
+    if (_paySyncing) return;
+    _paySyncing = true;
+    const btn = document.getElementById('pay-sync-btn');
+    const info = document.getElementById('pay-sync-info');
+    btn.disabled = true;
+    btn.textContent = '⏳ Синхронизация…';
+    info.textContent = 'Тяну данные из Альфы (это может занять до минуты)…';
+    info.className = 'pay-sync-info';
+    try {
+      const r = await fetch(LIBRARY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'syncPayments', seasonId: SEASON_ID })
+      }).then(r => r.json());
+      if (!r.ok) throw new Error(r.error || 'Не удалось синхронизировать');
+      const s = r.result;
+      toast('Синхронизировано: ' + s.ok + ' ок' +
+        (s.multiple_ctts ? ', ' + s.multiple_ctts + '⚠' : '') +
+        (s.no_ctt ? ', ' + s.no_ctt + '❌' : '') +
+        (s.errors ? ', ' + s.errors + ' ошибок' : ''));
+      // Перечитываем кэш
+      await loadPayments();
+    } catch (e) {
+      toast('Ошибка: ' + (e.message || e));
+      info.textContent = 'Ошибка синхронизации: ' + (e.message || e);
+      info.className = 'pay-sync-info stale';
+    } finally {
+      _paySyncing = false;
+      btn.disabled = false;
+      btn.textContent = '🔄 Обновить из Альфы';
+    }
+  }
+
+  // Рендер таблицы + итоги
+  function renderPayments() {
+    if (!_payData) return;
+    _payUpdateSyncInfo();
+    const rows = _payData.rows || [];
+    const totals = _payData.totals || {price:0,cash:0,terminal:0,erip:0,paid:0,debt:0};
+
+    if (!rows.length) {
+      document.getElementById('pay-content').innerHTML =
+        '<div class="ah-card warn">В этой смене пока нет детей. Сначала импортируй их через «Состав отрядов».</div>';
+      return;
+    }
+
+    // Сводка сверху (на экране, при печати скрыта)
+    const summary =
+      '<div class="pay-summary">' +
+      '<span>Всего: <b>' + rows.length + '</b> детей</span>' +
+      '<span>Стоимость: <b>' + totals.price + '</b> BYN</span>' +
+      '<span class="sum-paid">Собрано: <b>' + totals.paid + '</b> BYN</span>' +
+      '<span class="sum-debt">К доплате: <b>' + totals.debt + '</b> BYN</span>' +
+      '<span>Нал: ' + totals.cash + '</span>' +
+      '<span>Терминал: ' + totals.terminal + '</span>' +
+      '<span>ЕРИП: ' + totals.erip + '</span>' +
+      '</div>';
+
+    // Таблица
+    let html = '<div class="pay-wrap"><table class="pay">' +
+      '<thead><tr>' +
+      '<th>№</th>' +
+      '<th>ФИО</th>' +
+      '<th style="text-align:center">Отряд</th>' +
+      '<th style="text-align:right">Стоимость</th>' +
+      '<th>Даты предоплат</th>' +
+      '<th style="text-align:right">Нал</th>' +
+      '<th style="text-align:right">Терминал</th>' +
+      '<th style="text-align:right">ЕРИП</th>' +
+      '<th style="text-align:right">Остаток</th>' +
+      '<th>Телефон</th>' +
+      '<th>ДР</th>' +
+      '</tr></thead><tbody>';
+
+    rows.forEach((r, i) => {
+      // CSS-класс строки по статусу/долгу
+      let rowClass = '';
+      if (r.status === 'no_ctt') rowClass = 'row-no-ctt';
+      else if (r.status === 'not_synced') rowClass = 'row-not-synced';
+      else if (r.debt > 0.01) rowClass = 'row-debt';
+      else if (r.debt < -0.01) rowClass = 'row-overpaid';
+      else rowClass = 'row-paid';
+
+      // Цифры или прочерки
+      const isNum = (r.status === 'ok' || r.status === 'multiple_ctts');
+      const dash = '<span style="color:#999">—</span>';
+      const priceCell = isNum ? r.price : dash;
+      const cashCell = isNum ? (r.cash || 0) : dash;
+      const termCell = isNum ? (r.terminal || 0) : dash;
+      const eripCell = isNum ? (r.erip || 0) : dash;
+      let debtCell;
+      if (r.status === 'no_ctt') debtCell = 'нет абонемента в Альфе';
+      else if (r.status === 'not_synced') debtCell = 'не синхронизировано';
+      else if (r.debt > 0.01) debtCell = r.debt + ' BYN';
+      else if (r.debt < -0.01) debtCell = '+' + (-r.debt) + ' BYN';
+      else debtCell = '✓';
+
+      // ⚠ для multiple_ctts — подсказка какой абонемент взят
+      const warnTag = (r.status === 'multiple_ctts')
+        ? '<span class="pay-warn-tag" title="У ребёнка несколько абонементов в Альфе, взят с e_date=' +
+          escapeHtml(r.cttEdate) + (r.cttNote ? ' («' + escapeHtml(r.cttNote) + '»)' : '') + '">⚠</span>'
+        : '';
+
+      html += '<tr class="' + rowClass + '">' +
+        '<td class="idx">' + (i + 1) + '</td>' +
+        '<td class="name">' + escapeHtml(r.name || '—') + warnTag + '</td>' +
+        '<td class="troop"><span class="pay-troop-pill">' + (r.troop || '—') + '</span></td>' +
+        '<td class="num">' + priceCell + '</td>' +
+        '<td class="dates">' + (r.paymentDates && r.paymentDates.length ? escapeHtml(r.paymentDates.join(', ')) : dash) + '</td>' +
+        '<td class="num">' + cashCell + '</td>' +
+        '<td class="num">' + termCell + '</td>' +
+        '<td class="num">' + eripCell + '</td>' +
+        '<td class="num debt">' + debtCell + '</td>' +
+        '<td class="phone">' + escapeHtml(r.parentPhone || '') + '</td>' +
+        '<td>' + escapeHtml(r.dob || '') + '</td>' +
+        '</tr>';
+    });
+
+    // Итоговая строка
+    html += '</tbody><tfoot><tr>' +
+      '<td></td>' +
+      '<td>Итого</td>' +
+      '<td></td>' +
+      '<td class="num">' + totals.price + '</td>' +
+      '<td></td>' +
+      '<td class="num">' + totals.cash + '</td>' +
+      '<td class="num">' + totals.terminal + '</td>' +
+      '<td class="num">' + totals.erip + '</td>' +
+      '<td class="num debt">' + totals.debt + '</td>' +
+      '<td></td><td></td>' +
+      '</tr></tfoot>' +
+      '</table></div>';
+
+    document.getElementById('pay-content').innerHTML = summary + html;
+  }
+
+  // Печать: ставим body class, печатаем, снимаем
+  function payPrint() {
+    if (!_payData || !_payData.rows || !_payData.rows.length) {
+      toast('Сначала загрузи данные'); return;
+    }
+    document.body.classList.add('printing-payments');
+    setTimeout(() => {
+      window.print();
+      // class снимаем после возврата — Safari/iOS иногда не вернёт фокус
+      setTimeout(() => document.body.classList.remove('printing-payments'), 500);
+    }, 50);
+  }
+
+  window.loadPayments = loadPayments;
+  window.paySyncFromAlfa = paySyncFromAlfa;
+  window.payPrint = payPrint;
 
   function openHelp(){ document.getElementById('help-popup').classList.add('open'); }
   function closeHelp(){ document.getElementById('help-popup').classList.remove('open'); }
