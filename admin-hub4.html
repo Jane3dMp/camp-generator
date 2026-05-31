@@ -200,6 +200,10 @@
   .contracts-badge{font-size:12px;color:var(--muted);padding:4px 10px;border-radius:8px;background:rgba(143,163,112,0.15)}
   .contracts-badge:empty{display:none}
   table.pay td.contract-col{text-align:center;width:80px}
+  /* Чекбокс «Подписан» в Доплатах — кликабельный кружок/галка */
+  .contract-tick-signed{display:inline-block;width:18px;height:18px;line-height:16px;text-align:center;border-radius:50%;border:1.5px solid rgba(21,22,23,0.25);color:rgba(21,22,23,0.35);cursor:pointer;font-size:11px;font-weight:700;user-select:none}
+  .contract-tick-signed:hover{border-color:#185FA5;color:#185FA5}
+  .contract-tick-signed.is-on{background:#185FA5;border-color:#185FA5;color:#fff;font-size:13px}
   /* В печати — галочки тоже видны, но без подсветки */
   @media print{
     body.printing-payments .contract-tick.contract-cognito,
@@ -406,7 +410,7 @@
         <span class="contracts-badge"></span>
       </div>
       <div class="att-wrap"><div id="att-table"></div></div>
-      <p class="att-hint">Клик по ячейке: пусто → <b style="color:#3B6D11">+</b> (был) → <b style="color:#993C1D">−</b> (не был) → пусто. Сохраняется автоматически. Столбец «Договор»: ✓ синим — отмечено вручную, ✓ зелёным — заявка через Cognito (кликни на зелёную галку → откроется заявка).</p>
+      <p class="att-hint">Клик по ячейке: пусто → <b style="color:#3B6D11">+</b> (был) → <b style="color:#993C1D">−</b> (не был) → пусто. Сохраняется автоматически. <br/><b>Заполнен</b> — зелёная ✓ если родитель отправил заявку через Cognito (клик откроет заявку). <b>Подписан</b> — синяя ✓ ставится вручную после получения бумажного экземпляра.</p>
     </div>
 
     <!-- СПИСКИ — генератор печати имён -->
@@ -594,8 +598,9 @@
     if(which==='troops' && _troopsKids.length===0) loadTroopsChildren();
     if(which==='attendance' && !_attLoaded) loadAttendance();
     if(which==='payments' && !_payLoaded) loadPayments();
-    // Контракты нужны и в табеле и в доплатах — лениво грузим при первом открытии
+    // Контракты и attendance нужны и в табеле и в доплатах (Подписан читается из _attMap)
     if((which==='attendance' || which==='payments') && !_contractsLoaded) loadContracts();
+    if(which==='payments' && !_attLoaded) loadAttendance(); // нужны для ячеек «Подписан» в доплатах
   }
 
   // ── BOOTSTRAP ──
@@ -879,6 +884,8 @@
       _attMap=(atR&&atR.ok&&atR.attendance&&atR.attendance.attendance)?atR.attendance.attendance:((atR&&atR.attendance)||{});
       _attLoaded=true;
       renderAttendance();
+      // Если Доплаты уже отрисованы — обновить ячейки "Подписан"
+      if (_payData) renderPayments();
     }catch(e){ box.innerHTML='<div style="padding:20px;font-size:13px;color:#c0392b">Ошибка: '+escapeHtml(e.message)+'</div>'; }
   }
 
@@ -886,38 +893,38 @@
     const box=document.getElementById('att-table');
     if(!_attKids.length){ box.innerHTML='<div style="padding:20px;font-size:13px;color:var(--muted)">Нет детей. Импортируй на вкладке «Состав отрядов».</div>'; return; }
     const ROMAN=['','I','II','III','IV'];
-    let html='<table class="att"><thead><tr><th class="att-name">Ребёнок</th><th class="att-dog">Договор</th>';
+    let html='<table class="att"><thead><tr><th class="att-name">Ребёнок</th><th class="att-dog">Заполнен</th><th class="att-dog">Подписан</th>';
     _attDates.forEach(d=>{ html+='<th>'+escapeHtml(d)+'</th>'; });
     html+='</tr></thead><tbody>';
     const renderKid=(k)=>{
       const dv=_attMap[k.crmId+'|dogovor']||'';
       const c = _contractsByCrm[String(k.crmId)];
       const hasCog = !!(c && c.hasContract);
-      const cls = (dv==='✓' || hasCog) ? 'v-dog' : '';
-      // Содержимое: если есть совпадение Cognito — показываем галочку как ссылку на admin-link.
-      // Если нет — ручная галочка ✓ (управляется кликом).
-      let inner;
+      // Колонка "Заполнен" — только Cognito (только отображение)
+      let filledCell;
       if (hasCog) {
         const title = 'Заявка через Cognito · ' +
           escapeHtml(c.parentName || '') +
           (c.submittedAt ? ' · ' + String(c.submittedAt).slice(0,10) : '') +
           (c.confidence === 'high' ? ' · совпадение тел.+ФИО+ДР' : ' · совпадение тел.+ФИО');
         const link = c.adminLink || c.documentLink || '';
-        inner = link
-          ? '<a href="' + escapeHtml(link) + '" target="_blank" class="contract-tick contract-cognito" title="' + title + '" onclick="event.stopPropagation()">✓</a>'
+        const inner = link
+          ? '<a href="' + escapeHtml(link) + '" target="_blank" class="contract-tick contract-cognito" title="' + title + '">✓</a>'
           : '<span class="contract-tick contract-cognito" title="' + title + '">✓</span>';
+        filledCell = '<td class="att-cell att-dog v-dog">' + inner + '</td>';
       } else {
-        inner = (dv || '');
+        filledCell = '<td class="att-cell att-dog"></td>';
       }
-      let row='<tr><td class="att-name">'+escapeHtml(shortName_(k.name))+'</td>'+
-        '<td class="att-cell att-dog '+cls+'" data-cid="'+escapeHtml(k.crmId)+'" data-di="dogovor" onclick="cycleDog(this)">'+inner+'</td>';
+      // Колонка "Подписан" — ручная отметка (бывший `dogovor`)
+      const signedCell = '<td class="att-cell att-dog '+(dv==='✓'?'v-dog':'')+'" data-cid="'+escapeHtml(k.crmId)+'" data-di="dogovor" onclick="cycleDog(this)">'+(dv||'')+'</td>';
+      let row='<tr><td class="att-name">'+escapeHtml(shortName_(k.name))+'</td>'+ filledCell + signedCell;
       _attDates.forEach((d,di)=>{ const v=_attMap[k.crmId+'|'+di]||''; const cls=v==='+'?'v-plus':(v==='-'?'v-minus':''); row+='<td class="att-cell '+cls+'" data-cid="'+escapeHtml(k.crmId)+'" data-di="'+di+'" onclick="cycleAtt(this)">'+(v||'')+'</td>'; });
       return row+'</tr>';
     };
     const emptyRows=(n)=>{
       let rows='';
       for(let i=0;i<n;i++){
-        rows+='<tr><td class="att-name">&nbsp;</td><td class="att-cell att-dog"></td>';
+        rows+='<tr><td class="att-name">&nbsp;</td><td class="att-cell att-dog"></td><td class="att-cell att-dog"></td>';
         _attDates.forEach(()=>{ rows+='<td class="att-cell"></td>'; });
         rows+='</tr>';
       }
@@ -1517,7 +1524,8 @@ pages.join('')+
       '<th>№</th>' +
       '<th>ФИО</th>' +
       '<th style="text-align:center">Отряд</th>' +
-      '<th style="text-align:center">Договор</th>' +
+      '<th style="text-align:center">Заполнен</th>' +
+      '<th style="text-align:center">Подписан</th>' +
       '<th style="text-align:right">Доплата</th>' +
       '<th style="text-align:right">Нал</th>' +
       '<th style="text-align:right">Терминал</th>' +
@@ -1579,11 +1587,33 @@ pages.join('')+
           escapeHtml(r.cttEdate) + (r.cttNote ? ' («' + escapeHtml(r.cttNote) + '»)' : '') + '">⚠</span>'
         : '';
 
+      // Колонки «Заполнен» (Cognito) и «Подписан» (ручная отметка _attMap)
+      const c = _contractsByCrm[String(r.crmId)];
+      const hasCog = !!(c && c.hasContract);
+      let filledCell;
+      if (hasCog) {
+        const title = 'Заявка через Cognito · ' +
+          (c.parentName || '') +
+          (c.submittedAt ? ' · ' + String(c.submittedAt).slice(0,10) : '') +
+          (c.confidence === 'high' ? ' · совпадение тел.+ФИО+ДР' : ' · совпадение тел.+ФИО');
+        const link = c.adminLink || c.documentLink || '';
+        filledCell = link
+          ? '<a href="' + escapeHtml(link) + '" target="_blank" class="contract-tick contract-cognito" title="' + escapeHtml(title) + '">✓</a>'
+          : '<span class="contract-tick contract-cognito" title="' + escapeHtml(title) + '">✓</span>';
+      } else {
+        filledCell = '';
+      }
+      const signed = (_attMap && _attMap[r.crmId+'|dogovor']) || '';
+      const signedCell = '<span class="contract-tick-signed' + (signed === '✓' ? ' is-on' : '') +
+        '" data-cid="' + escapeHtml(r.crmId) + '" onclick="payToggleSigned(this)" title="Клик: отметить договор подписан">' +
+        (signed === '✓' ? '✓' : '○') + '</span>';
+
       html += '<tr class="' + rowClass + '">' +
         '<td class="idx">' + (i + 1) + '</td>' +
         '<td class="name">' + escapeHtml(r.name || '—') + warnTag + '</td>' +
         '<td class="troop"><span class="pay-troop-pill">' + (r.troop || '—') + '</span></td>' +
-        '<td class="contract-col">' + contractMarkHtml(r.crmId, '') + '</td>' +
+        '<td class="contract-col">' + filledCell + '</td>' +
+        '<td class="contract-col">' + signedCell + '</td>' +
         '<td class="num debt">' + debtCell + '</td>' +
         '<td class="num">' + cashCell + '</td>' +
         '<td class="num">' + termCell + '</td>' +
@@ -1598,6 +1628,7 @@ pages.join('')+
     html += '</tbody><tfoot><tr>' +
       '<td></td>' +
       '<td>Итого</td>' +
+      '<td></td>' +
       '<td></td>' +
       '<td></td>' +
       '<td class="num debt">' + totals.debt + '</td>' +
@@ -1625,9 +1656,24 @@ pages.join('')+
     }, 50);
   }
 
+  // Клик по ячейке «Подписан» в Доплатах — переключает значение, сохраняет
+  // через тот же бэкенд (saveAttendance с dateIdx='dogovor'). Состояние общее
+  // с Табелем посещаемости.
+  function payToggleSigned(el) {
+    const cid = el.dataset.cid;
+    const key = cid + '|dogovor';
+    const cur = _attMap[key] || '';
+    const next = (cur === '✓') ? '' : '✓';
+    if (next === '') delete _attMap[key]; else _attMap[key] = next;
+    el.classList.toggle('is-on', next === '✓');
+    el.textContent = next === '✓' ? '✓' : '○';
+    saveAtt_(cid, 'dogovor', next);
+  }
+
   window.loadPayments = loadPayments;
   window.paySyncFromAlfa = paySyncFromAlfa;
   window.payPrint = payPrint;
+  window.payToggleSigned = payToggleSigned;
 
   function openHelp(){ document.getElementById('help-popup').classList.add('open'); }
   function closeHelp(){ document.getElementById('help-popup').classList.remove('open'); }
