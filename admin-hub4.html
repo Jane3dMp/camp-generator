@@ -917,14 +917,29 @@
       if (hasCog) {
         let confText, confClass;
         if (c.confidence === 'high')      { confText = 'совпадение тел.+ФИО+ДР';           confClass = 'contract-cognito'; }
-        else if (c.confidence === 'low')  { confText = 'fuzzy-match: имя с опечатками ⚠'; confClass = 'contract-fuzzy'; }
+        else if (c.confidence === 'low')  {
+          // Уточняем тип low-матча
+          if (c.matchInfo && c.matchInfo.foundBy === 'dob+name') {
+            confText = (c.matchInfo.nameMatch === 'exact')
+              ? 'разные телефоны, но ФИО+ДР совпали ⚠'
+              : 'разные телефоны, ФИО с опечаткой, ДР совпала ⚠';
+          } else {
+            confText = 'fuzzy-match: имя с опечатками ⚠';
+          }
+          confClass = 'contract-fuzzy';
+        }
         else                              { confText = 'совпадение тел.+ФИО';              confClass = 'contract-cognito'; }
         let title = 'Заявка через Cognito · ' +
           escapeHtml(c.parentName || '') +
           (c.submittedAt ? ' · ' + String(c.submittedAt).slice(0,10) : '') +
           ' · ' + confText;
         if (c.confidence === 'low' && c.matchInfo) {
-          title += ' (Альфа: «' + escapeHtml(c.matchInfo.childNameInAlfa) + '» ↔ Cognito: «' + escapeHtml(c.matchInfo.childNameInCognito) + '»)';
+          if (c.matchInfo.childNameInAlfa !== c.matchInfo.childNameInCognito) {
+            title += ' (Альфа: «' + escapeHtml(c.matchInfo.childNameInAlfa) + '» ↔ Cognito: «' + escapeHtml(c.matchInfo.childNameInCognito) + '»)';
+          }
+          if (c.matchInfo.foundBy === 'dob+name') {
+            title += ' [телефоны: Альфа ' + escapeHtml(c.matchInfo.phoneInAlfa || '?') + ' ↔ Cognito ' + escapeHtml(c.matchInfo.phoneInCognito || '?') + ']';
+          }
         }
         const link = c.adminLink || c.documentLink || '';
         const inner = link
@@ -1356,14 +1371,28 @@ pages.join('')+
     if (c && c.hasContract) {
       let confText, confClass;
       if (c.confidence === 'high')      { confText = 'совпадение по тел.+ФИО+ДР';        confClass = 'contract-cognito'; }
-      else if (c.confidence === 'low')  { confText = 'fuzzy-match: имя с опечатками ⚠'; confClass = 'contract-fuzzy'; }
+      else if (c.confidence === 'low')  {
+        if (c.matchInfo && c.matchInfo.foundBy === 'dob+name') {
+          confText = (c.matchInfo.nameMatch === 'exact')
+            ? 'разные телефоны, но ФИО+ДР совпали ⚠'
+            : 'разные телефоны, ФИО с опечаткой, ДР совпала ⚠';
+        } else {
+          confText = 'fuzzy-match: имя с опечатками ⚠';
+        }
+        confClass = 'contract-fuzzy';
+      }
       else                              { confText = 'совпадение по тел.+ФИО';           confClass = 'contract-cognito'; }
       let title = 'Заявка через Cognito · ' +
         (c.parentName || '') +
         (c.submittedAt ? ' · подано ' + String(c.submittedAt).slice(0,10) : '') +
         ' · ' + confText;
       if (c.confidence === 'low' && c.matchInfo) {
-        title += ' (Альфа: «' + (c.matchInfo.childNameInAlfa || '') + '» ↔ Cognito: «' + (c.matchInfo.childNameInCognito || '') + '»)';
+        if (c.matchInfo.childNameInAlfa !== c.matchInfo.childNameInCognito) {
+          title += ' (Альфа: «' + (c.matchInfo.childNameInAlfa || '') + '» ↔ Cognito: «' + (c.matchInfo.childNameInCognito || '') + '»)';
+        }
+        if (c.matchInfo.foundBy === 'dob+name') {
+          title += ' [телефоны: Альфа ' + (c.matchInfo.phoneInAlfa || '?') + ' ↔ Cognito ' + (c.matchInfo.phoneInCognito || '?') + ']';
+        }
       }
       const link = c.adminLink || c.documentLink || '';
       const inner = '✓';
