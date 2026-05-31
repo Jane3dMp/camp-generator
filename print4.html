@@ -191,6 +191,7 @@
     padding: 6px 0 4px 4px; margin-bottom: 6px;
   }
   .troop-curator-line strong { color: var(--ink); font-weight: 600; }
+  .troop-curator-line .tcl-phone { font-variant-numeric: tabular-nums; color: rgba(21,22,23,0.7); }
 
   .troop-children-table {
     width: 100%; border-collapse: collapse; font-family: Inter; font-size: 13px;
@@ -1060,14 +1061,28 @@
         const dc = await rc.json();
         if (dc.ok && Array.isArray(dc.children)) troopsChildren = dc.children;
       } catch(_) { troopsChildren = []; }
-      // Кураторы отрядов — отдельный лёгкий запрос
-      try {
-        const rcur = await fetch(LIBRARY_URL + '?action=getTroopsCurators&seasonId=' + encodeURIComponent(publishedId));
-        const dcur = await rcur.json();
-        if (dcur.ok && dcur.result && dcur.result.curators) {
-          publishedState.troopsCurators = dcur.result.curators;
-        }
-      } catch(_) { /* без кураторов норм */ }
+      // Кураторы отрядов — приоритет: state публикации. Если их там нет
+      // (старая публикация до правки) — fallback на старый отдельный лист.
+      const hasInState = !!(publishedState.troopsCurators &&
+        Object.keys(publishedState.troopsCurators).some(k => {
+          const v = publishedState.troopsCurators[k];
+          return v && (typeof v === 'string' ? v.trim() : (v.name || v.phone));
+        }));
+      if (!hasInState) {
+        try {
+          const rcur = await fetch(LIBRARY_URL + '?action=getTroopsCurators&seasonId=' + encodeURIComponent(publishedId));
+          const dcur = await rcur.json();
+          if (dcur.ok && dcur.result && dcur.result.curators) {
+            // Старый формат — строки ФИО. Преобразуем в новый {name, phone}.
+            const old = dcur.result.curators;
+            publishedState.troopsCurators = {};
+            for (let t = 1; t <= 4; t++) {
+              const v = String(old[String(t)] || '').trim();
+              publishedState.troopsCurators[String(t)] = { name: v, phone: '' };
+            }
+          }
+        } catch(_) { /* без кураторов норм */ }
+      }
       renderHeader();
       renderCurrentView();
     } catch(e) {
@@ -1187,10 +1202,24 @@
 
   function renderTroopHeader(troop) {
     const curators = (publishedState && publishedState.troopsCurators) || {};
-    const curatorName = String(curators[String(troop)] || '').trim();
-    const curatorHtml = curatorName
-      ? `<div class="troop-curator-line">Куратор: <strong>${escapeHtml(curatorName)}</strong></div>`
-      : '';
+    const c = curators[String(troop)] || {};
+    // Поддержка двух форматов:
+    //   новый: { name: 'Иванова И.И.', phone: '+375 (29) ...' }
+    //   старый: просто строка с ФИО (если попадётся от старых смен/миграции)
+    let curatorName = '', curatorPhone = '';
+    if (typeof c === 'string') {
+      curatorName = c.trim();
+    } else if (c && typeof c === 'object') {
+      curatorName = String(c.name || '').trim();
+      curatorPhone = String(c.phone || '').trim();
+    }
+    let curatorHtml = '';
+    if (curatorName || curatorPhone) {
+      const parts = [];
+      if (curatorName) parts.push('<strong>' + escapeHtml(curatorName) + '</strong>');
+      if (curatorPhone) parts.push('<span class="tcl-phone">' + escapeHtml(curatorPhone) + '</span>');
+      curatorHtml = '<div class="troop-curator-line">Куратор: ' + parts.join(' · ') + '</div>';
+    }
     return `<div class="week-wrap" style="padding-bottom:0;margin-bottom:0">
       <div class="troop-header t${troop}">
         <span class="troop-num">Отряд ${troop}</span>

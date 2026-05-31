@@ -115,6 +115,79 @@
     gap: 16px;
     align-items: end;
   }
+
+  /* ─── Кураторы отрядов ─── */
+  .curators-section {
+    background: var(--paper-warm);
+    border: 1px solid rgba(21,22,23,0.18);
+    padding: 0 24px;
+    margin-bottom: 20px;
+  }
+  .curators-summary {
+    cursor: pointer; user-select: none; list-style: none;
+    font-family: Inter, sans-serif; font-size: 14px; font-weight: 600;
+    padding: 14px 0; display: flex; align-items: center; gap: 8px;
+    color: var(--ink);
+  }
+  .curators-summary::-webkit-details-marker { display: none; }
+  .curators-summary .cs-arrow { transition: transform 0.15s ease; opacity: 0.5; font-size: 16px; }
+  details.curators-section[open] .cs-arrow { transform: rotate(180deg); }
+  .curators-rows {
+    padding: 0 0 14px;
+    display: grid; grid-template-columns: 1fr; gap: 10px;
+  }
+  .curator-row {
+    display: grid;
+    grid-template-columns: 90px 1fr 220px;
+    gap: 12px;
+    align-items: center;
+  }
+  .curator-troop-label {
+    font-family: Inter, sans-serif; font-size: 13px; font-weight: 600;
+    padding: 6px 10px; border-radius: 4px; text-align: center;
+    background: rgba(21,22,23,0.05);
+  }
+  .curator-troop-label.troop-1 { background: #BDE3F0; }
+  .curator-troop-label.troop-2 { background: #FFE7B5; }
+  .curator-troop-label.troop-3 { background: #D9E5BC; }
+  .curator-troop-label.troop-4 { background: #E6DBF0; }
+  .curator-name-wrap { position: relative; }
+  .curator-name-input, .curator-phone-input {
+    width: 100%; box-sizing: border-box;
+    font-family: Inter, sans-serif; font-size: 14px;
+    padding: 8px 12px; border: 1px solid rgba(21,22,23,0.18); border-radius: 4px;
+    background: #fff;
+  }
+  .curator-name-input:focus, .curator-phone-input:focus {
+    outline: none; border-color: var(--ink);
+  }
+  .curator-phone-input { font-variant-numeric: tabular-nums; }
+  .curator-ac-dropdown {
+    position: absolute; left: 0; right: 0; top: calc(100% + 2px);
+    background: #fff; border: 1px solid rgba(21,22,23,0.2); border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    max-height: 240px; overflow-y: auto;
+    z-index: 50;
+  }
+  .curator-ac-item {
+    padding: 8px 12px; cursor: pointer;
+    display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid rgba(21,22,23,0.06);
+    font-family: Inter, sans-serif; font-size: 13px;
+  }
+  .curator-ac-item:last-child { border-bottom: none; }
+  .curator-ac-item:hover, .curator-ac-item.active { background: var(--yellow); }
+  .curator-ac-item .ac-name { font-weight: 500; flex: 1 1 auto; }
+  .curator-ac-item .ac-phone { color: rgba(21,22,23,0.6); font-variant-numeric: tabular-nums; font-size: 12px; }
+  .curators-hint {
+    padding: 0 0 14px;
+    font-family: Inter, sans-serif; font-size: 11px;
+    color: rgba(21,22,23,0.5);
+  }
+  @media (max-width: 720px) {
+    .curator-row { grid-template-columns: 1fr; gap: 6px; }
+    .curator-troop-label { text-align: left; padding-left: 0; background: transparent; }
+  }
   .field { display: flex; flex-direction: column; gap: 4px; }
   .field label {
     font-family: Inter, system-ui, sans-serif;
@@ -1282,6 +1355,46 @@
     </div>
   </div>
 
+  <!-- ─── КУРАТОРЫ ОТРЯДОВ ─── -->
+  <details class="curators-section" id="curators-section">
+    <summary class="curators-summary">👥 Кураторы отрядов <span class="cs-arrow">▾</span></summary>
+    <div class="curators-rows">
+      <div class="curator-row" data-troop="1">
+        <span class="curator-troop-label troop-1">Отряд 1</span>
+        <div class="curator-name-wrap">
+          <input type="text" id="curator-name-1" class="curator-name-input" placeholder="ФИО куратора" autocomplete="off">
+          <div class="curator-ac-dropdown" id="curator-ac-1" hidden></div>
+        </div>
+        <input type="tel" id="curator-phone-1" class="curator-phone-input" placeholder="+375 (29) 000-00-00" maxlength="19" autocomplete="off">
+      </div>
+      <div class="curator-row" data-troop="2">
+        <span class="curator-troop-label troop-2">Отряд 2</span>
+        <div class="curator-name-wrap">
+          <input type="text" id="curator-name-2" class="curator-name-input" placeholder="ФИО куратора" autocomplete="off">
+          <div class="curator-ac-dropdown" id="curator-ac-2" hidden></div>
+        </div>
+        <input type="tel" id="curator-phone-2" class="curator-phone-input" placeholder="+375 (29) 000-00-00" maxlength="19" autocomplete="off">
+      </div>
+      <div class="curator-row" data-troop="3">
+        <span class="curator-troop-label troop-3">Отряд 3</span>
+        <div class="curator-name-wrap">
+          <input type="text" id="curator-name-3" class="curator-name-input" placeholder="ФИО куратора" autocomplete="off">
+          <div class="curator-ac-dropdown" id="curator-ac-3" hidden></div>
+        </div>
+        <input type="tel" id="curator-phone-3" class="curator-phone-input" placeholder="+375 (29) 000-00-00" maxlength="19" autocomplete="off">
+      </div>
+      <div class="curator-row" data-troop="4">
+        <span class="curator-troop-label troop-4">Отряд 4</span>
+        <div class="curator-name-wrap">
+          <input type="text" id="curator-name-4" class="curator-name-input" placeholder="ФИО куратора" autocomplete="off">
+          <div class="curator-ac-dropdown" id="curator-ac-4" hidden></div>
+        </div>
+        <input type="tel" id="curator-phone-4" class="curator-phone-input" placeholder="+375 (29) 000-00-00" maxlength="19" autocomplete="off">
+      </div>
+    </div>
+    <div class="curators-hint">Начни печатать ФИО — подскажу из справочника. При выборе подставлю и телефон. Новый куратор автоматически попадёт в справочник при сохранении смены.</div>
+  </details>
+
   <div class="config-actions-row">
     <button class="btn btn-primary" onclick="generateAll()">⚡ Сгенерировать всё</button>
     <button class="btn" onclick="openDraftsPanel()" title="Черновики смен в Google Sheets">📁 Черновики</button>
@@ -1585,6 +1698,7 @@ let state = {
   ages: '6–11 лет',
   startDate: '2026-06-01',
   anchors: 'картинг, вечеринка, ярмарка',
+  troopsCurators: { '1':{name:'',phone:''}, '2':{name:'',phone:''}, '3':{name:'',phone:''}, '4':{name:'',phone:''} },
   schedule: [],   // заполняется в init()
   workWithoutThemes: false,
   campType: null,
@@ -1600,6 +1714,16 @@ function syncConfig() {
   // Номер смены для системы документов (Cognito Forms «N Комплект…»). Дефолт 1.
   const sn = parseInt(document.getElementById('shift-number').value, 10);
   state.shiftNumber = (sn > 0) ? sn : 1;
+  // Кураторы 4 отрядов: { '1': {name, phone}, '2': ..., '3': ..., '4': ... }
+  state.troopsCurators = {};
+  for (let t = 1; t <= 4; t++) {
+    const nameEl = document.getElementById('curator-name-' + t);
+    const phoneEl = document.getElementById('curator-phone-' + t);
+    if (!nameEl || !phoneEl) continue;
+    const name = String(nameEl.value || '').trim();
+    const phone = String(phoneEl.value || '').trim();
+    state.troopsCurators[String(t)] = { name: name, phone: phone };
+  }
 }
 
 // ============================================================
@@ -3580,6 +3704,8 @@ async function saveDraftToSheets(name, id) {
   state._draftId = data.draft.id;
   state._draftName = data.draft.name;
   saveLocal();
+  // Кураторы → справочник (фоном, не критично)
+  pushCuratorsToDirectory_();
   return data.draft;
 }
 async function deleteDraftById(id) {
@@ -3680,6 +3806,8 @@ async function loadDraftAndApply(id) {
     closeModal();
     render();
     toast('Загружено: ' + draft.name);
+    // Миграция кураторов из старого формата (если в state ничего нет, но в листе есть)
+    migrateOldTroopsCurators_(draft.id);
   } catch(e) { toast('Ошибка: ' + e.message); }
 }
 async function deleteDraftAndRefresh(id, name) {
@@ -3704,6 +3832,13 @@ function _fillConfigInputs() {
   // Номер смены: если в state не задан — оставляем 1 (дефолт инпута / совместимость со старыми сменами)
   const sn = parseInt(state.shiftNumber, 10);
   set('shift-number', (sn > 0) ? sn : 1);
+  // Кураторы отрядов: state.troopsCurators = { '1': {name, phone}, ... }
+  const cur = state.troopsCurators || {};
+  for (let t = 1; t <= 4; t++) {
+    const c = cur[String(t)] || {};
+    set('curator-name-' + t, c.name);
+    set('curator-phone-' + t, c.phone);
+  }
 }
 
 // Гарантирует, что у state правильная форма (am/pm длиной 4 в каждом дне).
@@ -4189,6 +4324,212 @@ function exportTSV() {
   if (el) el.addEventListener('change', () => { syncConfig(); render(); });
 });
 
+// ============================================================
+// КУРАТОРЫ ОТРЯДОВ — автоформат телефона + автокомплит + миграция
+// ============================================================
+let _curatorsDirectory = [];   // [{name, phone, usageCount}]
+let _curatorsACIndex = -1;     // активный элемент в выпадающем (для клавиатуры)
+
+// Извлекает «9 значащих цифр» из любого ввода и форматирует «+375 (XX) XXX-XX-XX».
+function formatBYPhone_(value) {
+  let digits = String(value || '').replace(/\D/g, '');
+  if (digits.startsWith('375')) digits = digits.slice(3);
+  else if (digits.startsWith('80')) digits = digits.slice(2);
+  digits = digits.slice(0, 9);
+  if (!digits) return '';
+  let out = '+375';
+  if (digits.length >= 1) out += ' (' + digits.slice(0, Math.min(2, digits.length));
+  if (digits.length >= 2) out += ')';
+  if (digits.length >= 3) out += ' ' + digits.slice(2, Math.min(5, digits.length));
+  if (digits.length >= 6) out += '-' + digits.slice(5, Math.min(7, digits.length));
+  if (digits.length >= 8) out += '-' + digits.slice(7, 9);
+  return out;
+}
+
+function onCuratorPhoneInput_(e) {
+  const formatted = formatBYPhone_(e.target.value);
+  if (e.target.value !== formatted) {
+    e.target.value = formatted;
+  }
+  syncConfig();
+  saveLocal();
+}
+
+// Подгружаем справочник кураторов (для автокомплита) с бэкенда.
+async function loadCuratorsDirectory_() {
+  try {
+    const r = await fetch(LIBRARY_URL + '?action=getCuratorsDirectory&_t=' + Date.now());
+    const j = await r.json();
+    if (j.ok && j.result && Array.isArray(j.result.items)) {
+      _curatorsDirectory = j.result.items;
+    }
+  } catch (e) { /* нет связи — справочник пустой, не критично */ }
+}
+
+// Открыть автокомплит для конкретного отряда. Фильтрует по подстроке.
+function showCuratorAC_(troop, query) {
+  const dd = document.getElementById('curator-ac-' + troop);
+  if (!dd) return;
+  const q = String(query || '').trim().toLowerCase();
+  if (!q || _curatorsDirectory.length === 0) {
+    dd.hidden = true; dd.innerHTML = ''; return;
+  }
+  const items = _curatorsDirectory
+    .filter(c => c.name.toLowerCase().includes(q))
+    .slice(0, 8);
+  if (!items.length) { dd.hidden = true; dd.innerHTML = ''; return; }
+  dd.innerHTML = items.map((c, i) => {
+    const phoneStr = c.phone ? '<span class="ac-phone">' + escapeHtml(c.phone) + '</span>' : '';
+    return '<div class="curator-ac-item" data-i="' + i + '" data-name="' + escapeHtml(c.name).replace(/"/g,'&quot;') + '" data-phone="' + escapeHtml(c.phone||'').replace(/"/g,'&quot;') + '">' +
+      '<span class="ac-name">' + escapeHtml(c.name) + '</span>' + phoneStr +
+    '</div>';
+  }).join('');
+  dd.hidden = false;
+  _curatorsACIndex = -1;
+  dd.querySelectorAll('.curator-ac-item').forEach(el => {
+    el.addEventListener('mousedown', (ev) => { ev.preventDefault(); /* чтобы blur не сработал раньше */ });
+    el.addEventListener('click', () => {
+      pickCuratorAC_(troop, el.dataset.name, el.dataset.phone);
+    });
+  });
+}
+
+function hideCuratorAC_(troop) {
+  const dd = document.getElementById('curator-ac-' + troop);
+  if (dd) { dd.hidden = true; dd.innerHTML = ''; }
+  _curatorsACIndex = -1;
+}
+
+function pickCuratorAC_(troop, name, phone) {
+  const nameEl = document.getElementById('curator-name-' + troop);
+  const phoneEl = document.getElementById('curator-phone-' + troop);
+  if (nameEl) nameEl.value = name || '';
+  if (phoneEl) phoneEl.value = phone || '';
+  hideCuratorAC_(troop);
+  syncConfig();
+  saveLocal();
+}
+
+function onCuratorNameInput_(e) {
+  const troop = e.target.closest('.curator-row').dataset.troop;
+  showCuratorAC_(troop, e.target.value);
+  syncConfig();
+  saveLocal();
+}
+
+function onCuratorNameKeydown_(e) {
+  const troop = e.target.closest('.curator-row').dataset.troop;
+  const dd = document.getElementById('curator-ac-' + troop);
+  if (!dd || dd.hidden) return;
+  const items = dd.querySelectorAll('.curator-ac-item');
+  if (!items.length) return;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    _curatorsACIndex = Math.min(items.length - 1, _curatorsACIndex + 1);
+    items.forEach((el, i) => el.classList.toggle('active', i === _curatorsACIndex));
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    _curatorsACIndex = Math.max(0, _curatorsACIndex - 1);
+    items.forEach((el, i) => el.classList.toggle('active', i === _curatorsACIndex));
+  } else if (e.key === 'Enter') {
+    if (_curatorsACIndex >= 0 && items[_curatorsACIndex]) {
+      e.preventDefault();
+      const el = items[_curatorsACIndex];
+      pickCuratorAC_(troop, el.dataset.name, el.dataset.phone);
+    }
+  } else if (e.key === 'Escape') {
+    hideCuratorAC_(troop);
+  }
+}
+
+function onCuratorNameBlur_(e) {
+  const troop = e.target.closest('.curator-row').dataset.troop;
+  // Чуть отложить, чтобы клик по элементу dropdown успел сработать
+  setTimeout(() => hideCuratorAC_(troop), 120);
+}
+
+// При сохранении черновика/публикации — пополняем справочник всеми
+// введёнными в этой смене кураторами (только если у пары есть и имя и телефон).
+async function pushCuratorsToDirectory_() {
+  const cur = state.troopsCurators || {};
+  const toAdd = [];
+  for (let t = 1; t <= 4; t++) {
+    const c = cur[String(t)] || {};
+    const name = String(c.name || '').trim();
+    const phone = String(c.phone || '').trim();
+    if (name) toAdd.push({ name, phone });
+  }
+  if (!toAdd.length) return;
+  // Не блокируем, просто отправляем в фоне
+  for (const c of toAdd) {
+    try {
+      await fetch(LIBRARY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'addCuratorToDirectory', name: c.name, phone: c.phone })
+      });
+    } catch (_) { /* фоновая операция, не критично */ }
+  }
+}
+
+// Миграция: если у смены в state нет troopsCurators, но в старом листе «Кураторы
+// отрядов» что-то введено для этого seasonId — подтянуть ФИО (без телефонов).
+async function migrateOldTroopsCurators_(seasonId) {
+  if (!seasonId) return;
+  const cur = state.troopsCurators || {};
+  const anyFilled = Object.keys(cur).some(k => (cur[k] && (cur[k].name || cur[k].phone)));
+  if (anyFilled) return; // в state уже есть кураторы — миграция не нужна
+  try {
+    const r = await fetch(LIBRARY_URL + '?action=getTroopsCurators&seasonId=' + encodeURIComponent(seasonId));
+    const j = await r.json();
+    if (!j.ok || !j.result || !j.result.curators) return;
+    const old = j.result.curators;
+    let migrated = false;
+    state.troopsCurators = state.troopsCurators || {};
+    for (let t = 1; t <= 4; t++) {
+      const oldName = String(old[String(t)] || '').trim();
+      if (oldName) {
+        state.troopsCurators[String(t)] = { name: oldName, phone: '' };
+        migrated = true;
+      }
+    }
+    if (migrated) {
+      _fillConfigInputs();
+      toast('Перенесены ФИО кураторов из старой версии — добавь телефоны и сохрани смену');
+    }
+  } catch (_) { /* не критично */ }
+}
+
+// Привязка обработчиков ко всем 4 строкам. Вызывается один раз в init.
+function bindCuratorsHandlers_() {
+  for (let t = 1; t <= 4; t++) {
+    const nameEl = document.getElementById('curator-name-' + t);
+    const phoneEl = document.getElementById('curator-phone-' + t);
+    if (nameEl) {
+      nameEl.addEventListener('input', onCuratorNameInput_);
+      nameEl.addEventListener('keydown', onCuratorNameKeydown_);
+      nameEl.addEventListener('blur', onCuratorNameBlur_);
+      nameEl.addEventListener('focus', (e) => {
+        if (e.target.value) showCuratorAC_(t, e.target.value);
+      });
+    }
+    if (phoneEl) {
+      phoneEl.addEventListener('input', onCuratorPhoneInput_);
+      phoneEl.addEventListener('focus', (e) => {
+        // если пусто — подставим заготовку
+        if (!e.target.value) e.target.value = '+375 (';
+      });
+      phoneEl.addEventListener('blur', (e) => {
+        // если ничего не ввели — очищаем заготовку
+        if (e.target.value === '+375 (' || e.target.value === '+375') {
+          e.target.value = '';
+          syncConfig();
+        }
+      });
+    }
+  }
+}
+
 async function init() {
   try { document.getElementById('screen-btn-sched').classList.add('btn-primary'); } catch(_) {}
   toast('Загружаю библиотеку…');
@@ -4198,6 +4539,10 @@ async function init() {
       '<div style="padding:40px;text-align:center;color:var(--terra-deep);font-family:Geologica, sans-serif;font-style:italic;font-size:18px">Библиотека не загрузилась. Проверь интернет или адрес Apps Script.</div>';
     return;
   }
+
+  // Кураторы: привязываем обработчики, фоном грузим справочник для автокомплита
+  bindCuratorsHandlers_();
+  loadCuratorsDirectory_();  // не ждём — справочник появится через секунду
 
   const saved = loadLocal();
   if (saved && saved.state && _isFourTroopState(saved.state)) {
@@ -4630,6 +4975,7 @@ async function publishSmena4() {
   });
   const stateForPublish = {
     theme: state.theme,
+    shiftNumber: state.shiftNumber || 1,
     ages: state.ages,
     startDate: state.startDate,
     anchors: state.anchors,
@@ -4640,8 +4986,12 @@ async function publishSmena4() {
     publishId: state.publishId,
     publishedAt: new Date().toISOString(),
     libraryRefs: libraryRefs,
-    parentLibraryRefs: parentLibraryRefs
+    parentLibraryRefs: parentLibraryRefs,
+    troopsCurators: state.troopsCurators || {}
   };
+
+  // Пополняем справочник кураторов (фоном)
+  pushCuratorsToDirectory_();
 
   const expectedFp = computeScheduleFingerprint4_(stateForPublish);
   const body = JSON.stringify({ action: 'publish', id, name, stateJson: stateForPublish });
