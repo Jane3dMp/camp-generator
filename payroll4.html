@@ -142,8 +142,16 @@
   .payroll-table tr.is-paid-day td:not(.col-day):not(.col-paid) { text-decoration: line-through; color: rgba(21,22,23,0.45); }
   .payroll-table tr.is-paid-day td.col-day::after { content: ' ✓'; color: var(--moss); }
   .payroll-table td.col-teacher-paid { background: var(--paid-bg); }
+  .payroll-table td.is-paid-cell { background: var(--paid-bg); }
+  .payroll-table td.is-paid-cell .cell-input,
+  .payroll-table td.is-paid-cell .rate-input { text-decoration: line-through; color: rgba(21,22,23,0.45); }
+  .payroll-table .cell-itog-val.val-paid { text-decoration: line-through; color: rgba(21,22,23,0.45); }
   .payroll-table .paid-checkbox {
     cursor: pointer; transform: scale(1.15); accent-color: var(--moss);
+  }
+  /* Поячеечный мини-чекбокс внутри col-itog — меньше, рядом со значением */
+  .payroll-table .cell-paid-checkbox {
+    transform: scale(0.85); margin-right: 4px; vertical-align: middle;
   }
 
   /* ── Состояния загрузки ── */
@@ -348,8 +356,9 @@
     teachers: [],
     cells: {},                    // 'YYYY-MM-DD::Имя' -> {lessons, rate, locked}
     meals: {},                    // 'YYYY-MM-DD' -> count
-    paidDays: {},                 // 'YYYY-MM-DD' -> true
-    paidTeachers: {}              // 'Имя' -> true
+    paidDays: {},                 // 'YYYY-MM-DD' -> true (вся строка)
+    paidTeachers: {},             // 'Имя' -> true (вся колонка)
+    paidCells: {}                 // 'YYYY-MM-DD::Имя' -> true (точечно, день × педагог)
   };
 
   // ── УТИЛИТЫ ──
@@ -420,6 +429,8 @@
       if (!pubResp.ok || !pubResp.publication) throw new Error(pubResp.error || 'Смена не найдена');
       publishedState = JSON.parse(pubResp.publication.stateJson || '{}');
       if (payrollResp.ok && payrollResp.payroll) payroll = payrollResp.payroll;
+      // Защита от старой версии бэкенда (где ещё нет paidCells)
+      if (!payroll.paidCells) payroll.paidCells = {};
       renderHeader(pubResp.publication);
       render();
     } catch (e) {
@@ -497,20 +508,31 @@
         '<td>' + (mealCount != null ? mealSum + ' ₽' : '') + '</td>';
       let dayTotal = 0;
       teachers.forEach(t => {
-        const cell = payroll.cells[d.key + '::' + t] || {};
+        const cellKey = d.key + '::' + t;
+        const cell = payroll.cells[cellKey] || {};
         const locked = !!cell.locked;
         const teacherPaid = !!payroll.paidTeachers[t];
+        const cellPaid = !!payroll.paidCells[cellKey];
+        const effectivePaid = cellPaid || isPaidDay || teacherPaid;
         const itog = (cell.lessons != null && cell.rate != null) ? cell.lessons * cell.rate : 0;
         if (itog) dayTotal += itog;
-        const cellCls = (locked ? ' is-locked-cell' : '') + (teacherPaid ? ' col-teacher-paid' : '');
+        // Класс col-teacher-paid даёт фон при выплате на уровне педагога/ячейки.
+        // is-paid-cell — отдельный точечный класс для зачёркивания только данной ячейки.
+        const cellCls = (locked ? ' is-locked-cell' : '')
+                      + (teacherPaid ? ' col-teacher-paid' : '')
+                      + (cellPaid ? ' is-paid-cell' : '');
+        const tEsc = escapeHtml(t).replace(/"/g,'&quot;');
         html += '<td class="col-cell' + cellCls + '">' +
           '<div class="cell-row">' +
-          '<input class="cell-input" type="number" min="0" data-day="' + d.key + '" data-teacher="' + escapeHtml(t).replace(/"/g,'&quot;') + '" data-field="lessons" value="' + (cell.lessons != null ? cell.lessons : '') + '">' +
-          '<button class="lock-btn ' + (locked ? 'is-locked' : '') + '" data-day="' + d.key + '" data-teacher="' + escapeHtml(t).replace(/"/g,'&quot;') + '" title="' + (locked ? 'Закреплено — «Подтянуть» не перезапишет' : 'Закрепить ячейку') + '">' + (locked ? '🔒' : '🔓') + '</button>' +
+          '<input class="cell-input" type="number" min="0" data-day="' + d.key + '" data-teacher="' + tEsc + '" data-field="lessons" value="' + (cell.lessons != null ? cell.lessons : '') + '">' +
+          '<button class="lock-btn ' + (locked ? 'is-locked' : '') + '" data-day="' + d.key + '" data-teacher="' + tEsc + '" title="' + (locked ? 'Закреплено — «Подтянуть» не перезапишет' : 'Закрепить ячейку') + '">' + (locked ? '🔒' : '🔓') + '</button>' +
           '</div>' +
           '</td>' +
-          '<td class="col-cell' + cellCls + '"><input class="rate-input" type="number" min="0" data-day="' + d.key + '" data-teacher="' + escapeHtml(t).replace(/"/g,'&quot;') + '" data-field="rate" value="' + (cell.rate != null ? cell.rate : '') + '"></td>' +
-          '<td class="col-itog' + (teacherPaid ? ' col-teacher-paid' : '') + '">' + (itog ? itog : '') + '</td>';
+          '<td class="col-cell' + cellCls + '"><input class="rate-input" type="number" min="0" data-day="' + d.key + '" data-teacher="' + tEsc + '" data-field="rate" value="' + (cell.rate != null ? cell.rate : '') + '"></td>' +
+          '<td class="col-itog' + (teacherPaid ? ' col-teacher-paid' : '') + (cellPaid ? ' is-paid-cell' : '') + '">' +
+            '<input type="checkbox" class="paid-checkbox cell-paid-checkbox" data-paid-cell="' + d.key + '::' + tEsc + '"' + (cellPaid ? ' checked' : '') + ' title="Выплачено за этот слот">' +
+            '<span class="cell-itog-val' + (effectivePaid && itog ? ' val-paid' : '') + '">' + (itog ? itog : '') + '</span>' +
+          '</td>';
       });
       html += '<td class="col-total">' + (dayTotal || '') + '</td>' +
         '<td class="col-paid"><input type="checkbox" class="paid-checkbox" data-paid-day="' + d.key + '"' + (isPaidDay ? ' checked' : '') + '></td>' +
@@ -571,6 +593,9 @@
     });
     document.querySelectorAll('input.paid-checkbox[data-paid-teacher]').forEach(cb => {
       cb.addEventListener('change', onPaidTeacherChange);
+    });
+    document.querySelectorAll('input.paid-checkbox[data-paid-cell]').forEach(cb => {
+      cb.addEventListener('change', onPaidCellChange);
     });
   }
 
@@ -696,6 +721,17 @@
     if (paid) payroll.paidTeachers[teacher] = true; else delete payroll.paidTeachers[teacher];
     render();
     scheduleSave('paidTeacher::' + teacher, () => postAction('savePayrollTeacherPaid', { seasonId: seasonId, teacher: teacher, paid: paid }));
+  }
+
+  function onPaidCellChange(e) {
+    const key = e.target.dataset.paidCell; // 'YYYY-MM-DD::Имя'
+    const sep = key.indexOf('::');
+    const day = key.slice(0, sep);
+    const teacher = key.slice(sep + 2);
+    const paid = e.target.checked;
+    if (paid) payroll.paidCells[key] = true; else delete payroll.paidCells[key];
+    render();
+    scheduleSave('paidCell::' + key, () => postAction('savePayrollCellPaid', { seasonId: seasonId, day: day, teacher: teacher, paid: paid }));
   }
 
   // ── ДОБАВИТЬ ПЕДАГОГА ВРУЧНУЮ ──
@@ -1010,7 +1046,7 @@
     setSaveStatus('saving');
     try {
       const r = await postAction('clearPayrollAll', { seasonId: seasonId });
-      payroll = { teachers: [], cells: {}, meals: {}, paidDays: {}, paidTeachers: {} };
+      payroll = { teachers: [], cells: {}, meals: {}, paidDays: {}, paidTeachers: {}, paidCells: {} };
       render();
       setSaveStatus('ok');
       toast('Табель удалён, записей удалено: ' + (r.result.removed || 0));
