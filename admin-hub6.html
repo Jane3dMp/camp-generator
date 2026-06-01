@@ -221,6 +221,17 @@
 
   /* ─── ВКЛАДКА «ДОПЛАТЫ» ─── */
   .pay-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+
+  /* ───── Вкладка «На уход» ───── */
+  .leave-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  .leave-period{font-size:13px;color:#666;margin-left:auto}
+  table.leave-tbl{width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;font-size:13px}
+  table.leave-tbl th{background:#FAFAFA;padding:10px 14px;text-align:left;border-bottom:1px solid #E8E5DD;font-weight:600;color:#444;font-size:12px;text-transform:uppercase;letter-spacing:0.4px}
+  table.leave-tbl td{padding:9px 14px;border-bottom:1px solid #F5F2EA}
+  table.leave-tbl tr:hover td{background:#FFFCF2}
+  table.leave-tbl td.leave-troop{font-weight:600;color:#999}
+  table.leave-tbl td.leave-missing{color:#C77E5E;font-style:italic;font-size:12px}
+  .leave-chk{width:18px;height:18px;cursor:pointer}
   .pay-sync-info{font-size:12px;color:var(--muted);margin-left:6px}
   .pay-sync-info.fresh{color:#3f5028}
   .pay-sync-info.stale{color:#7a1a10;font-weight:600}
@@ -377,6 +388,7 @@
       <button class="tab" id="tab-attendance" onclick="switchPane('attendance')">📒 Табель посещения детей</button>
       <button class="tab" id="tab-lists" onclick="switchPane('lists')">📋 Списки</button>
       <button class="tab" id="tab-payments" onclick="switchPane('payments')">💰 Доплаты</button>
+      <button class="tab" id="tab-leave" onclick="switchPane('leave')">🚪 На уход</button>
     </div>
   </header>
 
@@ -444,6 +456,16 @@
         <span class="contracts-badge"></span>
       </div>
       <div id="pay-content"><div class="soon">Загружаю данные…</div></div>
+    </div>
+
+    <!-- НА УХОД: заявления родителей на самостоятельный уход после смены -->
+    <div class="pane" id="pane-leave">
+      <div class="leave-bar">
+        <button class="btn" onclick="toggleAllLeave()">☑ Все / Снять</button>
+        <button class="btn btn-primary" onclick="printLeaveSelected()">🖨 Печать выбранных <span id="leave-count">(0)</span></button>
+        <span class="leave-period" id="leave-period">—</span>
+      </div>
+      <div id="leave-content"><div class="soon">Загружаю детей…</div></div>
     </div>
   </main>
 </div>
@@ -602,7 +624,7 @@
   function dobSortKey4_(dob){ const m=String(dob||'').trim().match(/^(\d{2})\.(\d{2})\.(\d{4})$/); if(!m) return 0; return new Date(+m[3],+m[2]-1,+m[1]).getTime(); }
 
   function switchPane(which){
-    ['links','troops','attendance','lists','payments'].forEach(p=>{
+    ['links','troops','attendance','lists','payments','leave'].forEach(p=>{
       document.getElementById('pane-'+p).classList.toggle('active', p===which);
       document.getElementById('tab-'+p).classList.toggle('active', p===which);
     });
@@ -612,6 +634,7 @@
     // Контракты и attendance нужны и в табеле и в доплатах (Подписан читается из _attMap)
     if((which==='attendance' || which==='payments') && !_contractsLoaded) loadContracts();
     if(which==='payments' && !_attLoaded) loadAttendance(); // нужны для ячеек «Подписан» в доплатах
+    if(which==='leave') loadLeave();
   }
 
   // ── BOOTSTRAP ──
@@ -2043,6 +2066,193 @@ pages.join('')+
 
     box.innerHTML = html;
   }
+
+  // ============================================================
+  // ВКЛАДКА «НА УХОД» — заявления родителей на самостоятельный уход
+  // ============================================================
+  // Концепция: список детей смены + чекбоксы выбора. По «Печать выбранных» —
+  // открывается окно с N заявлениями (один шаблон на страницу A4) и window.print().
+  // Шаблон жёстко повторяет печатную форму PDF от Жанны.
+  // Даты смены берутся из publishedState (старт + последний рабочий день, выходные пропускаются).
+
+  let _leaveLoaded = false;
+  let _leaveKids = [];
+  let _leaveDates = null;
+
+  async function loadLeave(){
+    const box = document.getElementById('leave-content');
+    if (_leaveLoaded) { renderLeave(); return; }
+    box.innerHTML = '<div class="soon">Загружаю детей…</div>';
+    try{
+      const chR = await fetch(LIBRARY_URL+'?action=getChildren&seasonId='+encodeURIComponent(SEASON_ID)+'&_t='+Date.now())
+        .then(r=>r.json());
+      if(!chR.ok) throw new Error(chR.error||'Не удалось загрузить детей');
+      _leaveKids = (chR.children||[]).map(c=>({
+        crmId: String(c.crmId),
+        name: String(c.name||''),
+        parentName: String(c.parentName||''),
+        parentPhone: String(c.parentPhone||''),
+        gender: (c.gender===0||c.gender===1) ? c.gender : null,
+        troop: Number(c.troop)||0,
+        selected: true
+      }));
+      _leaveKids.sort((a,b)=>{
+        if((a.troop||99)!==(b.troop||99)) return (a.troop||99)-(b.troop||99);
+        return a.name.localeCompare(b.name,'ru');
+      });
+      _leaveDates = computeLeaveDates_();
+      _leaveLoaded = true;
+      renderLeave();
+    } catch(e){
+      box.innerHTML = '<div class="ah-card danger">Ошибка: '+escapeHtml(String(e.message||e))+'</div>';
+    }
+  }
+
+  function computeLeaveDates_(){
+    const MONTHS_RU = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+    let state = null;
+    try { state = JSON.parse(seasonMeta.stateJson||'{}'); } catch(e){}
+    if (!state || !state.startDate || !Array.isArray(state.schedule) || !state.schedule.length) {
+      return { fromStr:'__________', toStr:'__________', yearStr: new Date().getFullYear() };
+    }
+    const start = new Date(state.startDate+'T00:00:00');
+    let d = new Date(start);
+    let lastWorking = new Date(start);
+    let workDays = 0;
+    while (workDays < state.schedule.length) {
+      if (d.getDay()!==0 && d.getDay()!==6) { workDays++; lastWorking = new Date(d); }
+      if (workDays < state.schedule.length) d.setDate(d.getDate()+1);
+    }
+    const fmt = dt => dt.getDate()+' '+MONTHS_RU[dt.getMonth()];
+    return {
+      fromStr: fmt(start),
+      toStr: fmt(lastWorking),
+      yearStr: String(lastWorking.getFullYear())
+    };
+  }
+
+  function renderLeave(){
+    document.getElementById('leave-period').textContent =
+      _leaveDates ? ('Период смены: '+_leaveDates.fromStr+' — '+_leaveDates.toStr+' '+_leaveDates.yearStr+' года') : '';
+    const box = document.getElementById('leave-content');
+    if (!_leaveKids.length) {
+      box.innerHTML = '<div class="ah-card warn">В смене пока нет детей. Импортируй из Альфы во вкладке «Состав отрядов».</div>';
+      return;
+    }
+    let html = '<table class="leave-tbl">';
+    html += '<thead><tr><th style="width:36px"></th><th>Ребёнок</th><th style="width:80px">Отряд</th><th>Родитель</th><th style="width:140px">Телефон</th></tr></thead><tbody>';
+    _leaveKids.forEach((k,i)=>{
+      const missingParent = !k.parentName.trim();
+      html += '<tr>'+
+        '<td><input type="checkbox" class="leave-chk" '+(k.selected?'checked':'')+' onchange="toggleLeaveOne('+i+', this.checked)"></td>'+
+        '<td>'+escapeHtml(k.name)+'</td>'+
+        '<td class="leave-troop">'+(k.troop||'—')+'</td>'+
+        '<td'+(missingParent?' class="leave-missing"':'')+'>'+(missingParent?'нет ФИО родителя':escapeHtml(k.parentName))+'</td>'+
+        '<td>'+escapeHtml(k.parentPhone||'')+'</td>'+
+        '</tr>';
+    });
+    html += '</tbody></table>';
+    box.innerHTML = html;
+    updateLeaveCount_();
+  }
+
+  function toggleLeaveOne(i, checked){
+    if (_leaveKids[i]) _leaveKids[i].selected = !!checked;
+    updateLeaveCount_();
+  }
+
+  function toggleAllLeave(){
+    const anyUnchecked = _leaveKids.some(k => !k.selected);
+    const newVal = anyUnchecked;
+    _leaveKids.forEach(k => k.selected = newVal);
+    renderLeave();
+  }
+
+  function updateLeaveCount_(){
+    const n = _leaveKids.filter(k => k.selected).length;
+    const el = document.getElementById('leave-count');
+    if (el) el.textContent = '('+n+')';
+  }
+
+  function printLeaveSelected(){
+    const selected = _leaveKids.filter(k => k.selected);
+    if (!selected.length) { alert('Никто не выбран. Поставь галочки.'); return; }
+    if (!_leaveDates) _leaveDates = computeLeaveDates_();
+    const pages = selected.map(k => renderLeaveOne_(k)).join('');
+    const html = buildLeavePrintDoc_(pages);
+    const w = window.open('', '_blank', 'width=900,height=1000');
+    if (!w) { alert('Браузер заблокировал окно. Разреши попапы для этого сайта.'); return; }
+    w.document.open(); w.document.write(html); w.document.close();
+    w.onload = () => { setTimeout(()=>{ w.focus(); w.print(); }, 200); };
+  }
+
+  function renderLeaveOne_(k){
+    const d = _leaveDates || {};
+    const childPron = (k.gender===0) ? 'сыну' : (k.gender===1 ? 'дочери' : 'сыну/дочери');
+    const parentNameDisplay = k.parentName.trim() || '_______________________________';
+    const phoneDisplay      = k.parentPhone.trim() || '_______________________________';
+    const childNameDisplay  = k.name.trim();
+    return ''+
+      '<section class="lv-page">'+
+      '  <div class="lv-head">'+
+      '    <div class="lv-head-line">Директору ООО «Прознание клуб»</div>'+
+      '    <div class="lv-head-line">Могильной Ж.А.</div>'+
+      '    <div class="lv-blank">'+escapeHtml(parentNameDisplay)+'</div>'+
+      '    <div class="lv-blank-label">ФИО</div>'+
+      '    <div class="lv-blank">_______________________________</div>'+
+      '    <div class="lv-blank-label">адрес</div>'+
+      '    <div class="lv-blank">'+escapeHtml(phoneDisplay)+'</div>'+
+      '    <div class="lv-blank-label">телефон</div>'+
+      '  </div>'+
+      '  <h1 class="lv-title">Заявление</h1>'+
+      '  <p class="lv-body">'+
+      '    Я, <span class="lv-fill">'+escapeHtml(parentNameDisplay)+'</span>, '+
+      '    прошу разрешить уходить самостоятельно из ООО «Прознание клуб» в '+
+      '    период с <span class="lv-fill">'+escapeHtml(d.fromStr||'__________')+' '+escapeHtml(d.yearStr||'')+' года</span> '+
+      '    по <span class="lv-fill">'+escapeHtml(d.toStr||'__________')+' '+escapeHtml(d.yearStr||'')+' года</span> после 17:00 '+
+      '    моему/моей '+childPron+' <span class="lv-fill">'+escapeHtml(childNameDisplay)+'</span>.'+
+      '  </p>'+
+      '  <p class="lv-body">Ответственность за жизнь и здоровье ребёнка беру на себя.</p>'+
+      '  <div class="lv-sign">'+
+      '    <div class="lv-sign-cell">'+
+      '      <div class="lv-blank">__________________</div>'+
+      '      <div class="lv-blank-label">Дата</div>'+
+      '    </div>'+
+      '    <div class="lv-sign-cell">'+
+      '      <div class="lv-blank">__________________</div>'+
+      '      <div class="lv-blank-label">Подпись</div>'+
+      '    </div>'+
+      '  </div>'+
+      '</section>';
+  }
+
+  function buildLeavePrintDoc_(pagesHtml){
+    return '<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><title>Заявления на самостоятельный уход</title>'+
+'<style>'+
+'@page { size: A4; margin: 2cm; }'+
+'html, body { margin: 0; padding: 0; }'+
+'body { font-family: "Times New Roman", Times, serif; font-size: 14pt; color: #000; line-height: 1.5; }'+
+'.lv-page { padding: 0; page-break-after: always; }'+
+'.lv-page:last-child { page-break-after: auto; }'+
+'.lv-head { text-align: right; margin-bottom: 40px; line-height: 1.4; }'+
+'.lv-head-line { font-size: 14pt; }'+
+'.lv-blank { font-size: 14pt; padding-top: 4px; min-height: 1.2em; }'+
+'.lv-blank-label { font-size: 10pt; color: #555; margin-top: -2px; margin-bottom: 6px; }'+
+'.lv-title { text-align: center; font-size: 18pt; font-weight: bold; margin: 20px 0 30px; }'+
+'.lv-body { text-align: justify; font-size: 14pt; line-height: 1.7; margin: 16px 0; text-indent: 30px; }'+
+'.lv-fill { white-space: nowrap; }'+
+'.lv-sign { display: flex; justify-content: space-between; margin-top: 60px; }'+
+'.lv-sign-cell { width: 40%; text-align: center; }'+
+'.lv-sign-cell .lv-blank-label { text-align: center; }'+
+'@media screen { body { background: #f0f0f0; padding: 20px; } .lv-page { background: #fff; padding: 2cm; max-width: 21cm; min-height: 29.7cm; margin: 0 auto 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); box-sizing: border-box; } }'+
+'</style></head><body>'+
+pagesHtml+
+'</body></html>';
+  }
+
+  window.toggleAllLeave = toggleAllLeave;
+  window.toggleLeaveOne = toggleLeaveOne;
+  window.printLeaveSelected = printLeaveSelected;
 </script>
 </body>
 </html>
