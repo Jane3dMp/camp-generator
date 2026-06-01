@@ -629,6 +629,43 @@
     border-radius: 4px;
   }
 
+  /* Метка роли (для педагогов / для родителей / ...) */
+  .publish-role-label {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(21,22,23,0.5);
+    margin: 10px 0 4px;
+    font-weight: 600;
+  }
+
+  /* Выделенный блок «страница администратора» — тёмный фон с жёлтыми кнопками */
+  .publish-admin-hub {
+    background: var(--ink, #151617);
+    border-radius: 6px;
+    padding: 11px 13px;
+    margin: 10px 0 8px;
+  }
+  .publish-admin-hub-label {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.65);
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+  .publish-link-row-dark input[type="text"] {
+    border: 1px solid rgba(255,255,255,0.25) !important;
+    background: rgba(255,255,255,0.08) !important;
+    color: #fff !important;
+    border-radius: 4px;
+  }
+  .publish-btn-yellow {
+    background: var(--yellow, #FED634) !important;
+    border-color: var(--yellow, #FED634) !important;
+    color: var(--ink, #151617) !important;
+  }
+
   /* Архив всех публикаций — список карточек */
   .archive-item {
     display: flex;
@@ -11556,24 +11593,65 @@ async function openPublishPanel() {
   const baseUrl = getPublishedViewBaseUrl_();
   const currentUrl = currentId ? `${baseUrl}?id=${currentId}` : '';
 
-  document.getElementById('modal-title').innerHTML = 'Публикация для педагогов';
+  // Все 9 ссылок на 6-страницы. Базу для view6.html переиспользуем для остальных.
+  const view6Base    = getPublishedViewBaseUrl_();  // ...view6.html
+  const parents6Base = view6Base.replace(/view6\.html$/, 'parents6.html');
+  const print6Base   = view6Base.replace(/view6\.html$/, 'print6.html');
+  const admin6Base   = view6Base.replace(/view6\.html$/, 'admin6.html');
+  const payroll6Base = view6Base.replace(/view6\.html$/, 'payroll6.html');
+  const scores6Base  = view6Base.replace(/view6\.html$/, 'scores6.html');
+  const reports6Base = view6Base.replace(/view6\.html$/, 'reports6.html');
+  const passport6Base= view6Base.replace(/view6\.html$/, 'passport6.html');
+  const adminHubBase = view6Base.replace(/view6\.html$/, 'admin-hub6.html');
+
+  const viewUrl     = currentId ? `${view6Base}?id=${currentId}`     : '';
+  const parentsUrl  = currentId ? `${parents6Base}?id=${currentId}`  : '';
+  const printUrl    = currentId ? `${print6Base}?id=${currentId}`    : '';
+  const adminUrl    = currentId ? `${admin6Base}?id=${currentId}`    : '';
+  const payrollUrl  = currentId ? `${payroll6Base}?id=${currentId}`  : '';
+  const scoresUrl   = currentId ? `${scores6Base}?id=${currentId}`   : '';
+  const reportsUrl  = currentId ? `${reports6Base}?id=${currentId}`  : '';
+  const passportUrl = currentId ? `${passport6Base}?id=${currentId}` : '';
+  const adminHubUrl = currentId ? `${adminHubBase}?id=${currentId}`  : '';
+
+  // Хелпер для строки ссылки: label + URL-инпут + кнопки copy/open
+  const linkRow = (label, url) => !url ? '' : `
+    <div class="publish-role-label">${label}</div>
+    <div class="publish-link-row">
+      <input type="text" readonly value="${escapeHtml(url)}" onclick="this.select()">
+      <button class="btn btn-sm" onclick="copyToClipboard('${escapeJs(url)}', this)" title="Скопировать">📋</button>
+      <a class="btn btn-sm" href="${escapeHtml(url)}" target="_blank" rel="noopener" style="text-decoration:none" title="Открыть в новой вкладке">↗</a>
+    </div>`;
+
+  document.getElementById('modal-title').innerHTML = 'Публикация <em>(6 отрядов)</em>';
   document.getElementById('modal-body').innerHTML = `
     <div style="font-family:Geologica,serif;font-style:italic;font-size:13px;color:rgba(21,22,23,0.7);margin-bottom:14px;line-height:1.5">
-      Сохраняет текущее состояние смены в Google Sheets под уникальным ID. Педагоги открывают эту ссылку и видят актуальную программу. При повторной публикации URL остаётся тот же — обновляется содержимое.
+      Сохраняет снимок смены в Google Sheets под уникальным ID. По одной публикации доступны страницы для всех ролей: педагоги, родители, кураторы, админ. Повторная публикация обновляет содержимое по тому же URL.
     </div>
 
     ${currentId ? `
       <div class="publish-current-block">
         <div class="publish-section-title">Текущая публикация</div>
         <div class="publish-current-id">ID: <code>${escapeHtml(currentId)}</code></div>
-        <div class="publish-link-row">
-          <input type="text" readonly id="publish-url-input" value="${escapeHtml(currentUrl)}" onclick="this.select()">
-          <button class="btn" onclick="copyPublishUrl()">📋 Копировать</button>
+
+        <!-- Страница администратора — выделена тёмным с жёлтыми кнопками -->
+        <div class="publish-admin-hub">
+          <div class="publish-admin-hub-label">🧭 страница администратора (все ссылки + отряды):</div>
+          <div class="publish-link-row publish-link-row-dark">
+            <input type="text" readonly value="${escapeHtml(adminHubUrl)}" onclick="this.select()">
+            <button class="btn btn-sm publish-btn-yellow" onclick="copyToClipboard('${escapeJs(adminHubUrl)}', this)">📋</button>
+            <a class="btn btn-sm publish-btn-yellow" href="${escapeHtml(adminHubUrl)}" target="_blank" rel="noopener" style="text-decoration:none">↗</a>
+          </div>
         </div>
-        <div class="publish-link-row" style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px">
-          <a href="${escapeHtml(currentUrl)}" target="_blank" rel="noopener" class="btn btn-ghost" style="text-decoration:none">👁 Открыть как педагог</a>
-          <a href="${escapeHtml(currentUrl.replace('/view6.html?', '/parents6.html?'))}" target="_blank" rel="noopener" class="btn btn-ghost" style="text-decoration:none">👨‍👩‍👧 Открыть как родитель</a>
-        </div>
+
+        ${linkRow('👁 для педагогов', viewUrl)}
+        ${linkRow('👨‍👩‍👧 для родителей', parentsUrl)}
+        ${linkRow('📄 для кураторов (по отрядам + игры)', printUrl)}
+        ${linkRow('🗂 для админа (дни × блоки + выезды)', adminUrl)}
+        ${linkRow('📊 табель работы педагогов', payrollUrl)}
+        ${linkRow('⭐ баллы детям (после оценочных МК)', scoresUrl)}
+        ${linkRow('✍️ письма родителям (ИИ по баллам)', reportsUrl)}
+        ${linkRow('🪪 цифровой паспорт ребёнка', passportUrl)}
       </div>
 
       <div style="margin-top:14px;padding:12px 14px;background:rgba(21,22,23,0.04);border-left:3px solid var(--yellow);border-radius:4px;font-family:Inter,sans-serif;font-size:12px;line-height:1.45">
