@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Табель работы педагогов · Прознание</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+
+<!-- SheetJS для экспорта в .xlsx — подключаем с CDN -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<style>
+  :root {
+    --yellow:      #FED634;
+    --yellow-deep: #C9A800;
+    --ink:         #151617;
+    --paper:       #F5F5F0;
+    --paper-warm:  #FFFBEC;
+    --white:       #FFFFFF;
+    --moss:        #5C7A2E;
+    --green:       #3B6D11;
+    --red:         #c0392b;
+    --paid-bg:     #F0F0EC;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    color: var(--ink);
+    font-size: 14px;
+  }
+
+  /* ── Шапка ── */
+  .top-bar {
+    background: var(--ink); color: var(--white);
+    padding: 18px 24px 14px;
+  }
+  .top-bar-inner {
+    max-width: 1600px; margin: 0 auto;
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+  }
+  .brand { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255,255,255,0.55); font-weight: 600; }
+  .title { font-family: Geologica, sans-serif; font-weight: 700; font-size: 30px; margin: 4px 0 2px; }
+  .title em { font-family: Caveat, cursive; font-weight: 600; font-style: normal; background: var(--yellow); color: var(--ink); padding: 0 12px; border-radius: 4px; }
+  .subhead { font-size: 13px; color: rgba(255,255,255,0.65); }
+
+  .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .actions button, .actions a {
+    background: transparent; color: var(--white); border: 1px solid rgba(255,255,255,0.3);
+    padding: 7px 14px; font-family: Inter; font-size: 12px;
+    text-decoration: none; cursor: pointer; border-radius: 4px;
+    transition: background 0.15s, color 0.15s;
+  }
+  .actions button:hover, .actions a:hover { background: var(--yellow); color: var(--ink); border-color: var(--yellow); }
+
+  /* ── Статусбар автосохранения ── */
+  .statusbar {
+    max-width: 1600px; margin: 0 auto; padding: 10px 24px;
+    display: flex; gap: 18px; align-items: center; font-size: 12px; color: rgba(21,22,23,0.65); flex-wrap: wrap;
+  }
+  .save-status .dot { font-size: 14px; vertical-align: middle; }
+  .save-status .dot.ok { color: var(--moss); }
+  .save-status .dot.saving { color: var(--yellow-deep); }
+  .save-status .dot.err { color: var(--red); }
+  .statusbar code { background: var(--white); padding: 2px 7px; border-radius: 3px; font-size: 11px; border: 1px solid rgba(21,22,23,0.15); }
+
+  /* ── Карточки и контейнеры ── */
+  .wrap { max-width: 1600px; margin: 0 auto; padding: 4px 24px 40px; }
+  .card { background: var(--white); border: 1px solid rgba(21,22,23,0.12); border-radius: 6px; padding: 16px 18px; margin-bottom: 16px; }
+  .card-title { font-weight: 700; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(21,22,23,0.65); margin: 0 0 10px; }
+
+  /* ── Блок: список педагогов ── */
+  .teachers-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .teacher-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--paper); border: 1px solid rgba(21,22,23,0.15); border-radius: 4px;
+    padding: 6px 10px; font-size: 13px;
+  }
+  .teacher-chip .chip-name { font-weight: 500; }
+  .teacher-chip .chip-paid { background: var(--moss); color: var(--white); padding: 1px 6px; border-radius: 2px; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; }
+  .teacher-chip button {
+    background: transparent; border: none; color: rgba(21,22,23,0.45); cursor: pointer; font-size: 14px; padding: 0 2px;
+  }
+  .teacher-chip button:hover { color: var(--red); }
+  .teachers-actions { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn {
+    background: var(--white); border: 1px solid rgba(21,22,23,0.25); color: var(--ink);
+    padding: 7px 14px; font-family: Inter; font-size: 12px; cursor: pointer; border-radius: 4px;
+    transition: background 0.15s;
+  }
+  .btn:hover { background: var(--paper); }
+  .btn-primary { background: var(--yellow); border-color: var(--yellow-deep); font-weight: 700; }
+  .btn-primary:hover { background: var(--yellow-deep); color: var(--white); }
+  .btn-sm { padding: 4px 9px; font-size: 11px; }
+
+  /* ── Основная таблица табеля ── */
+  .payroll-wrap { overflow-x: auto; }
+  .payroll-table { border-collapse: collapse; width: 100%; min-width: 800px; font-size: 13px; }
+  .payroll-table th, .payroll-table td {
+    border: 1px solid rgba(21,22,23,0.12); padding: 4px 6px; text-align: center; vertical-align: middle;
+    background: var(--white);
+  }
+  .payroll-table thead th { background: var(--paper-warm); font-weight: 700; font-size: 11px; padding: 6px 6px; }
+  .payroll-table thead th.teacher-head { font-size: 13px; background: var(--yellow); color: var(--ink); }
+  .payroll-table .col-day { font-weight: 600; background: var(--paper); white-space: nowrap; text-align: left; padding-left: 8px; min-width: 110px; }
+  .payroll-table .col-meals input,
+  .payroll-table .col-cell input.cell-input {
+    width: 56px; padding: 4px 4px; border: 1px solid rgba(21,22,23,0.15); border-radius: 3px;
+    font-family: Inter; font-size: 13px; text-align: center; background: var(--white);
+  }
+  .payroll-table .col-cell input.rate-input {
+    width: 44px; padding: 4px 4px; border: 1px solid rgba(21,22,23,0.1); border-radius: 3px;
+    font-family: Inter; font-size: 12px; text-align: center; color: rgba(21,22,23,0.7); background: rgba(0,0,0,0.02);
+  }
+  .payroll-table input:focus { outline: 2px solid var(--yellow); outline-offset: -2px; border-color: var(--yellow-deep); }
+  .payroll-table .col-itog { background: rgba(254,214,52,0.15); font-weight: 600; }
+  .payroll-table .col-total { background: var(--yellow); font-weight: 700; }
+  .payroll-table tfoot td { background: var(--paper-warm); font-weight: 700; border-top: 2px solid var(--ink); }
+  .payroll-table tfoot tr.paid-row td { background: var(--paper); font-weight: 500; }
+  .payroll-table .pull-btn {
+    background: transparent; border: 1px solid rgba(21,22,23,0.2); color: rgba(21,22,23,0.7);
+    padding: 2px 6px; font-size: 11px; cursor: pointer; border-radius: 3px; margin-left: 6px;
+  }
+  .payroll-table .pull-btn:hover { background: var(--yellow); border-color: var(--yellow-deep); color: var(--ink); }
+  .payroll-table .lock-btn {
+    background: transparent; border: none; cursor: pointer; font-size: 12px; padding: 0 2px; line-height: 1;
+    color: rgba(21,22,23,0.4);
+  }
+  .payroll-table .lock-btn.is-locked { color: var(--yellow-deep); }
+  .payroll-table td.is-locked-cell { background: #FFF6D8; }
+  .payroll-table .col-cell {
+    position: relative; padding-top: 4px; padding-bottom: 4px;
+  }
+  .payroll-table .cell-row {
+    display: flex; gap: 3px; align-items: center; justify-content: center;
+  }
+
+  /* Выплачено — зачёркивание */
+  .payroll-table tr.is-paid-day td:not(.col-day):not(.col-paid) { text-decoration: line-through; color: rgba(21,22,23,0.45); }
+  .payroll-table tr.is-paid-day td.col-day::after { content: ' ✓'; color: var(--moss); }
+  .payroll-table td.col-teacher-paid { background: var(--paid-bg); }
+  .payroll-table td.is-paid-cell { background: var(--paid-bg); }
+  .payroll-table td.is-paid-cell .cell-input,
+  .payroll-table td.is-paid-cell .rate-input { text-decoration: line-through; color: rgba(21,22,23,0.45); }
+  .payroll-table .cell-itog-val.val-paid { text-decoration: line-through; color: rgba(21,22,23,0.45); }
+  .payroll-table .paid-checkbox {
+    cursor: pointer; transform: scale(1.15); accent-color: var(--moss);
+  }
+  /* Поячеечный мини-чекбокс внутри col-itog — меньше, рядом со значением */
+  .payroll-table .cell-paid-checkbox {
+    transform: scale(0.85); margin-right: 4px; vertical-align: middle;
+  }
+
+  /* ── Состояния загрузки ── */
+  .loading, .empty { padding: 40px 20px; text-align: center; color: rgba(21,22,23,0.5); font-style: italic; }
+
+  /* ── Модалка добавления педагога ── */
+  .modal-bg {
+    display: none; position: fixed; inset: 0; background: rgba(21,22,23,0.55); z-index: 500;
+    align-items: center; justify-content: center; padding: 20px;
+  }
+  .modal-bg.open { display: flex; }
+  .modal-box { background: var(--white); border-radius: 8px; padding: 20px; max-width: 480px; width: 100%; }
+  .modal-title { font-weight: 700; font-size: 16px; margin-bottom: 12px; }
+  .modal-box input[type=text] {
+    width: 100%; padding: 8px 10px; font-size: 14px; border: 1px solid rgba(21,22,23,0.2); border-radius: 4px;
+    font-family: Inter;
+  }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+  .pull-list { list-style: none; padding: 0; margin: 8px 0 0; max-height: 260px; overflow-y: auto; }
+  .pull-list li {
+    display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-bottom: 1px solid rgba(21,22,23,0.08);
+  }
+  .pull-list label { font-size: 13px; cursor: pointer; flex: 1; }
+  .pull-list .already { color: rgba(21,22,23,0.4); font-size: 12px; font-style: italic; }
+
+  /* ── Модалка-инструкция ── */
+  .modal-bg.modal-help { align-items: flex-start; overflow-y: auto; padding: 20px; z-index: 600; }
+  .modal-bg.modal-help .modal-box { max-width: 640px; padding: 24px 26px; margin: 0 auto; font-family: Inter, sans-serif; }
+  .help-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; gap: 12px; }
+  .help-title { font-family: Geologica, sans-serif; font-weight: 700; font-size: 18px; line-height: 1.25; }
+  .help-title em { font-family: Caveat, cursive; font-style: normal; font-weight: 600; background: var(--yellow); padding: 0 6px; border-radius: 4px; color: var(--ink); }
+  .help-close { background: none; border: none; font-size: 22px; cursor: pointer; color: rgba(21,22,23,0.5); line-height: 1; padding: 0 4px; flex-shrink: 0; }
+  .help-close:hover { color: var(--ink); }
+  .help-content { font-size: 14.5px; color: var(--ink); line-height: 1.55; }
+  .help-content h4 {
+    font-family: Geologica, sans-serif; font-size: 13px; font-weight: 700;
+    margin: 18px 0 8px; letter-spacing: 0.04em;
+  }
+  .help-content h4:first-child { margin-top: 0; }
+  .help-content p { margin: 8px 0; }
+  .help-content ol, .help-content ul { margin: 8px 0; padding-left: 22px; }
+  .help-content li { margin: 6px 0; }
+  .help-content strong { font-weight: 700; }
+  .help-content .help-key {
+    display: inline-block; background: var(--paper-warm); border: 1px solid rgba(21,22,23,0.2);
+    padding: 1px 7px; border-radius: 4px; font-size: 13px; font-weight: 600; white-space: nowrap;
+  }
+  .help-content .help-note {
+    background: var(--paper-warm); border-left: 3px solid var(--yellow-deep);
+    padding: 10px 14px; margin: 14px 0; font-size: 13.5px;
+  }
+  .help-content .help-warn {
+    background: #FBEDE6; border-left: 3px solid #9A4B30;
+    padding: 10px 14px; margin: 14px 0; font-size: 13.5px;
+  }
+  @media (max-width: 640px) {
+    .modal-bg.modal-help .modal-box { padding: 18px 18px; }
+    .help-title { font-size: 16px; }
+    .help-content { font-size: 14px; }
+  }
+
+  /* ── Тост ── */
+  .toast {
+    position: fixed; bottom: 20px; right: 20px; background: var(--ink); color: var(--white);
+    padding: 10px 16px; border-radius: 4px; font-size: 13px; opacity: 0; pointer-events: none;
+    transition: opacity 0.2s; z-index: 600;
+  }
+  .toast.show { opacity: 1; }
+
+  @media (max-width: 700px) {
+    .top-bar { padding: 14px 14px 10px; }
+    .title { font-size: 22px; }
+    .wrap { padding: 4px 12px 30px; }
+    .payroll-table .col-day { min-width: 90px; font-size: 12px; }
+    .payroll-table th, .payroll-table td { padding: 3px 4px; }
+    .payroll-table .col-meals input { width: 44px; }
+    .payroll-table .col-cell input.cell-input { width: 40px; }
+    .payroll-table .col-cell input.rate-input { width: 36px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div class="top-bar-inner">
+    <div>
+      <div class="brand">Прознание · Coddy · Табель работы педагогов</div>
+      <h1 class="title" id="title">Табель</h1>
+      <div class="subhead" id="subhead"></div>
+    </div>
+    <div class="actions">
+      <button onclick="openHelp()" id="help-btn" title="Как пользоваться этой страницей">❓ Инструкция</button>
+      <button onclick="clearCellsClick()" id="clear-cells-btn" title="Удалить все занятия и ставки. Список педагогов, питание и флаги выплат — останутся.">🧹 Очистить ячейки</button>
+      <button onclick="clearAllClick()" id="clear-all-btn" title="Удалить весь табель этой смены (включая педагогов и флаги выплат). Безвозвратно.">🗑 Удалить весь табель</button>
+      <button onclick="exportToExcel()" id="export-btn">📥 Экспорт в Excel</button>
+    </div>
+  </div>
+</div>
+
+<div class="statusbar">
+  <span class="save-status" id="save-status"><span class="dot ok">●</span> сохранено</span>
+  <span>Смена: <code id="season-id-display">—</code></span>
+  <span id="totals-summary"></span>
+</div>
+
+<div class="wrap" id="wrap">
+  <div class="card">
+    <h3 class="card-title">Педагоги смены</h3>
+    <div class="teachers-list" id="teachers-list"></div>
+    <div class="teachers-actions">
+      <button class="btn" onclick="openAddTeacherModal()">➕ Добавить педагога</button>
+      <button class="btn" onclick="openPullTeachersModal()">🔄 Подтянуть из расписания</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">Журнал работы</h3>
+    <div class="payroll-wrap">
+      <div id="payroll-content" class="loading">Загружаю табель…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Модалка: добавить педагога вручную -->
+<div class="modal-bg" id="add-teacher-modal" onclick="if(event.target===this)closeAddTeacherModal()">
+  <div class="modal-box">
+    <div class="modal-title">Добавить педагога</div>
+    <input type="text" id="new-teacher-name" placeholder="Фамилия (например, Иванова)" autocomplete="off">
+    <div class="modal-actions">
+      <button class="btn" onclick="closeAddTeacherModal()">Отмена</button>
+      <button class="btn btn-primary" onclick="confirmAddTeacher()">Добавить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Модалка: подтянуть педагогов из расписания -->
+<div class="modal-bg" id="pull-teachers-modal" onclick="if(event.target===this)closePullTeachersModal()">
+  <div class="modal-box">
+    <div class="modal-title">Педагоги из расписания смены</div>
+    <div id="pull-teachers-body" style="font-size:13px;color:rgba(21,22,23,0.7)">Загружаю…</div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closePullTeachersModal()">Отмена</button>
+      <button class="btn btn-primary" onclick="confirmPullTeachers()" id="confirm-pull-btn">Добавить выбранных</button>
+    </div>
+  </div>
+</div>
+
+<!-- МОДАЛКА «КАК ПОЛЬЗОВАТЬСЯ» -->
+<div class="modal-bg modal-help" id="help-modal" onclick="if(event.target===this)closeHelp()">
+  <div class="modal-box">
+    <div class="help-head">
+      <span class="help-title">❓ Как пользоваться <em>этой страницей</em></span>
+      <button class="help-close" onclick="closeHelp()" title="Закрыть">✕</button>
+    </div>
+    <div class="help-content">
+      <h4>Что это за окно</h4>
+      <p>Табель работы педагогов на смене: дни × педагоги, для каждой пары — сколько занятий было, ставка, итого. Система сама считает занятия из расписания. Питание (детей × 14 ₽ за порцию) — отдельная общая колонка для сверки со столовой.</p>
+
+      <h4>Что делать</h4>
+      <ol>
+        <li><strong>Подтяни педагогов смены.</strong> Нажми <span class="help-key">🔄 Подтянуть из расписания</span> — увидишь всех педагогов смены, отметь нужных и подтверди. Или добавь вручную через <span class="help-key">➕ Добавить педагога</span> (например, если ведёт без расписания).</li>
+        <li><strong>Подтяни занятия по дням.</strong> В каждой строке дня есть кнопка <span class="help-key">📥</span> — нажми, и в строку проставятся занятия по педагогам с ставкой 35 ₽ по умолчанию. Делать это надо отдельно для каждого дня — это защита от случайной перезаписи всего табеля одним кликом.</li>
+        <li><strong>Поправь, если нужно.</strong> Ставку или количество занятий можно отредактировать вручную в любой ячейке. Если особая ячейка не должна перезаписаться при следующих «📥 Подтянуть» — нажми <span class="help-key">🔒</span> рядом с ней.</li>
+        <li><strong>Отмечай выплаты галочками.</strong> «выплачено» можно отмечать по дню (все педагоги этого дня зачёркнуты) или по педагогу целиком (все его дни зачёркнуты). Как в Excel.</li>
+        <li><strong>Питание</strong> вписывается в общую колонку числом детей на дне. Сумма по столбцу — для сверки со столовой.</li>
+        <li><strong>Когда табель готов</strong> — <span class="help-key">📥 Экспорт в Excel</span>. Файл уходит в стандартном формате, его можно отдать бухгалтерии.</li>
+      </ol>
+
+      <div class="help-note">
+        Логика подсчёта занятий: каждое МК cluster или outside засчитывается × 3 (вся группа из 3 отрядов проходит ротацию). Выезд группы (trip3_full) — тоже × 3 отряда. Выезд всех 6 (trip6) — × 6. Это всё уже зашито — считать руками не надо, просто доверяй кнопке <span class="help-key">📥</span>.
+      </div>
+
+      <h4>Куда уходит то, что ты здесь меняешь</h4>
+      <p>Все правки автоматически сохраняются в Google Sheets (лист «Табель»). Индикатор <span class="help-key">● сохранено</span> сверху показывает статус. Бухгалтерия получает данные через файл Excel — экспорт делай вручную, когда смена закроется.</p>
+
+      <h4>Что важно</h4>
+      <ul>
+        <li><span class="help-key">🧹 Очистить ячейки</span> удаляет занятия и ставки, но <strong>оставляет</strong> список педагогов, питание и галочки выплат. Удобно, если ошибся при подтягивании, но не хочешь начинать с нуля.</li>
+        <li><span class="help-key">🗑 Удалить весь табель</span> — <strong>необратимо</strong>. Удаляет всё, включая педагогов и выплаты. Двойное подтверждение защищает от случайного клика.</li>
+        <li>🔒 на ячейке защищает её от перезаписи при следующих «📥 Подтянуть». «Очистить ячейки» замки игнорирует.</li>
+        <li>Перезагрузка страницы ничего не теряет — табель тянется с сервера при каждом открытии.</li>
+      </ul>
+
+      <div class="help-warn">
+        <strong>Не нажимай «🗑 Удалить весь табель», если хочешь просто переподтянуть данные.</strong> Для этого есть «🧹 Очистить ячейки» — она оставит структуру (педагогов и выплаты), а ячейки опустит. Потом нажмёшь 📥 по каждому дню.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const LIBRARY_URL = 'https://script.google.com/macros/s/AKfycbxb6EEzzl-FguxjpIO5YthGLj-QXh7puCD_DO4HL4wVPziHL1pEtVeuo3uNEi2i2yXq/exec';
+  const MEALS_PRICE = 14; // ₽ за порцию (для умножения)
+  const MONTHS = ['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
+  const WEEKDAYS_SHORT = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+
+  let seasonId = '';
+  let publishedState = null;     // расписание (для «Подтянуть из расписания»)
+  let payroll = {                 // данные табеля с сервера
+    teachers: [],
+    cells: {},                    // 'YYYY-MM-DD::Имя' -> {lessons, rate, locked}
+    meals: {},                    // 'YYYY-MM-DD' -> count
+    paidDays: {},                 // 'YYYY-MM-DD' -> true (вся строка)
+    paidTeachers: {},             // 'Имя' -> true (вся колонка)
+    paidCells: {}                 // 'YYYY-MM-DD::Имя' -> true (точечно, день × педагог)
+  };
+
+  // ── УТИЛИТЫ ──
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, m =>
+      ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]
+    );
+  }
+  function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2200);
+  }
+  function dayKey(date) {
+    // Date -> 'YYYY-MM-DD' в локальном поясе
+    const y = date.getFullYear();
+    const m = String(date.getMonth()+1).padStart(2,'0');
+    const d = String(date.getDate()).padStart(2,'0');
+    return y + '-' + m + '-' + d;
+  }
+  function fmtDateLabel(date) {
+    return date.getDate() + ' ' + MONTHS[date.getMonth()] + ' · ' + WEEKDAYS_SHORT[date.getDay()].toLowerCase();
+  }
+  function getShiftDays() {
+    // Возвращает массив РАБОЧИХ дней смены ([{date, key, label}]) из publishedState.
+    // Сб/вс пропускаются, потому что схема расписания живёт по рабочим дням.
+    if (!publishedState || !Array.isArray(publishedState.schedule)) return [];
+    const start = new Date(publishedState.startDate || new Date());
+    const cursor = new Date(start);
+    while (cursor.getDay() === 0 || cursor.getDay() === 6) cursor.setDate(cursor.getDate() + 1);
+    const out = [];
+    for (let i = 0; i < publishedState.schedule.length; i++) {
+      const d = new Date(cursor);
+      out.push({ date: d, key: dayKey(d), label: fmtDateLabel(d) });
+      // следующий рабочий день
+      cursor.setDate(cursor.getDate() + 1);
+      while (cursor.getDay() === 0 || cursor.getDay() === 6) cursor.setDate(cursor.getDate() + 1);
+    }
+    return out;
+  }
+
+  // ── СТАТУС АВТОСОХРАНЕНИЯ ──
+  function setSaveStatus(state, msg) {
+    const el = document.getElementById('save-status');
+    if (state === 'saving') {
+      el.innerHTML = '<span class="dot saving">⏳</span> сохраняю…';
+    } else if (state === 'err') {
+      el.innerHTML = '<span class="dot err">●</span> ошибка: ' + escapeHtml(msg || '');
+    } else {
+      el.innerHTML = '<span class="dot ok">●</span> сохранено';
+    }
+  }
+
+  // ── ЗАГРУЗКА ДАННЫХ ──
+  async function init() {
+    seasonId = (new URLSearchParams(location.search).get('id') || '').trim();
+    if (!seasonId) {
+      document.getElementById('payroll-content').innerHTML = '<div class="empty">Не передан id смены. Откройте табель из админки.</div>';
+      return;
+    }
+    document.getElementById('season-id-display').textContent = seasonId;
+    try {
+      // Грузим параллельно: публикацию (для дней смены и расписания) и табель.
+      const [pubResp, payrollResp] = await Promise.all([
+        fetch(LIBRARY_URL + '?action=getPublished&id=' + encodeURIComponent(seasonId)).then(r => r.json()),
+        fetch(LIBRARY_URL + '?action=getPayroll&seasonId=' + encodeURIComponent(seasonId)).then(r => r.json())
+      ]);
+      if (!pubResp.ok || !pubResp.publication) throw new Error(pubResp.error || 'Смена не найдена');
+      publishedState = JSON.parse(pubResp.publication.stateJson || '{}');
+      if (payrollResp.ok && payrollResp.payroll) payroll = payrollResp.payroll;
+      // Защита от старой версии бэкенда (где ещё нет paidCells)
+      if (!payroll.paidCells) payroll.paidCells = {};
+      renderHeader(pubResp.publication);
+      render();
+    } catch (e) {
+      document.getElementById('payroll-content').innerHTML =
+        '<div class="empty" style="color:var(--red)">Ошибка: ' + escapeHtml(e.message) + '</div>';
+    }
+  }
+
+  function renderHeader(pub) {
+    const theme = publishedState.theme || pub.theme || '';
+    document.getElementById('title').innerHTML = theme ? ('Табель · <em>' + escapeHtml(theme) + '</em>') : 'Табель';
+    const days = getShiftDays();
+    if (days.length > 0) {
+      const first = days[0].date, last = days[days.length-1].date;
+      document.getElementById('subhead').textContent =
+        first.getDate() + ' ' + MONTHS[first.getMonth()] + ' — ' +
+        last.getDate() + ' ' + MONTHS[last.getMonth()] + ' · ' + days.length + ' дней';
+    }
+  }
+
+  // ── РЕНДЕР ОСНОВНОЙ ТАБЛИЦЫ ──
+  function render() {
+    const days = getShiftDays();
+    if (days.length === 0) {
+      document.getElementById('payroll-content').innerHTML = '<div class="empty">У смены нет дней расписания.</div>';
+      renderTeachersList();
+      return;
+    }
+    renderTeachersList();
+    renderTable(days);
+    renderTotalsSummary(days);
+  }
+
+  function renderTeachersList() {
+    const box = document.getElementById('teachers-list');
+    if (!payroll.teachers.length) {
+      box.innerHTML = '<div style="color:rgba(21,22,23,0.45);font-size:13px">Педагогов пока нет. Подтяни из расписания или добавь вручную.</div>';
+      return;
+    }
+    box.innerHTML = payroll.teachers.map(t => {
+      const paid = payroll.paidTeachers[t] ? '<span class="chip-paid">выплачено</span>' : '';
+      return '<div class="teacher-chip">' +
+        '<span class="chip-name">' + escapeHtml(t) + '</span>' + paid +
+        '<button title="Удалить педагога" onclick="removeTeacher(\'' + escapeHtml(t).replace(/'/g,"\\'") + '\')">✕</button>' +
+        '</div>';
+    }).join('');
+  }
+
+  function renderTable(days) {
+    const teachers = payroll.teachers;
+    let html = '<table class="payroll-table"><thead>';
+    // Шапка: 2 ряда (педагоги в верхнем ряду через colspan=3, в нижнем — занятий/ставка/итого)
+    html += '<tr><th rowspan="2" class="col-day">Дата</th>' +
+            '<th colspan="2">Питание</th>';
+    teachers.forEach(t => {
+      const paidCls = payroll.paidTeachers[t] ? ' col-teacher-paid' : '';
+      html += '<th colspan="3" class="teacher-head' + paidCls + '">' + escapeHtml(t) + '</th>';
+    });
+    html += '<th rowspan="2">Итого день</th><th rowspan="2">Выпл.</th></tr>';
+
+    html += '<tr><th>детей</th><th>× 14 ₽</th>';
+    teachers.forEach(() => {
+      html += '<th>занят.</th><th>ставка</th><th>итого</th>';
+    });
+    html += '</tr></thead><tbody>';
+
+    days.forEach(d => {
+      const isPaidDay = !!payroll.paidDays[d.key];
+      const mealCount = payroll.meals[d.key];
+      const mealSum = (mealCount != null && !isNaN(mealCount)) ? mealCount * MEALS_PRICE : 0;
+      html += '<tr class="' + (isPaidDay ? 'is-paid-day' : '') + '">' +
+        '<td class="col-day">' + escapeHtml(d.label) +
+        ' <button class="pull-btn" onclick="pullDayFromSchedule(\'' + d.key + '\')" title="Подтянуть занятия педагогов из расписания этого дня">📥</button></td>' +
+        '<td class="col-meals"><input type="number" min="0" data-meals-day="' + d.key + '" value="' + (mealCount != null ? mealCount : '') + '"></td>' +
+        '<td>' + (mealCount != null ? mealSum + ' ₽' : '') + '</td>';
+      let dayTotal = 0;
+      teachers.forEach(t => {
+        const cellKey = d.key + '::' + t;
+        const cell = payroll.cells[cellKey] || {};
+        const locked = !!cell.locked;
+        const teacherPaid = !!payroll.paidTeachers[t];
+        const cellPaid = !!payroll.paidCells[cellKey];
+        const effectivePaid = cellPaid || isPaidDay || teacherPaid;
+        const itog = (cell.lessons != null && cell.rate != null) ? cell.lessons * cell.rate : 0;
+        if (itog) dayTotal += itog;
+        // Класс col-teacher-paid даёт фон при выплате на уровне педагога/ячейки.
+        // is-paid-cell — отдельный точечный класс для зачёркивания только данной ячейки.
+        const cellCls = (locked ? ' is-locked-cell' : '')
+                      + (teacherPaid ? ' col-teacher-paid' : '')
+                      + (cellPaid ? ' is-paid-cell' : '');
+        const tEsc = escapeHtml(t).replace(/"/g,'&quot;');
+        html += '<td class="col-cell' + cellCls + '">' +
+          '<div class="cell-row">' +
+          '<input class="cell-input" type="number" min="0" data-day="' + d.key + '" data-teacher="' + tEsc + '" data-field="lessons" value="' + (cell.lessons != null ? cell.lessons : '') + '">' +
+          '<button class="lock-btn ' + (locked ? 'is-locked' : '') + '" data-day="' + d.key + '" data-teacher="' + tEsc + '" title="' + (locked ? 'Закреплено — «Подтянуть» не перезапишет' : 'Закрепить ячейку') + '">' + (locked ? '🔒' : '🔓') + '</button>' +
+          '</div>' +
+          '</td>' +
+          '<td class="col-cell' + cellCls + '"><input class="rate-input" type="number" min="0" data-day="' + d.key + '" data-teacher="' + tEsc + '" data-field="rate" value="' + (cell.rate != null ? cell.rate : '') + '"></td>' +
+          '<td class="col-itog' + (teacherPaid ? ' col-teacher-paid' : '') + (cellPaid ? ' is-paid-cell' : '') + '">' +
+            '<input type="checkbox" class="paid-checkbox cell-paid-checkbox" data-paid-cell="' + d.key + '::' + tEsc + '"' + (cellPaid ? ' checked' : '') + ' title="Выплачено за этот слот">' +
+            '<span class="cell-itog-val' + (effectivePaid && itog ? ' val-paid' : '') + '">' + (itog ? itog : '') + '</span>' +
+          '</td>';
+      });
+      html += '<td class="col-total">' + (dayTotal || '') + '</td>' +
+        '<td class="col-paid"><input type="checkbox" class="paid-checkbox" data-paid-day="' + d.key + '"' + (isPaidDay ? ' checked' : '') + '></td>' +
+        '</tr>';
+    });
+
+    // ── ИТОГО ─
+    html += '</tbody><tfoot>';
+    // Сумма за смену
+    let totalMeals = 0, totalAll = 0;
+    days.forEach(d => {
+      const m = payroll.meals[d.key];
+      if (m != null && !isNaN(m)) totalMeals += m;
+    });
+    const teacherTotals = teachers.map(t => {
+      let sum = 0;
+      days.forEach(d => {
+        const c = payroll.cells[d.key + '::' + t];
+        if (c && c.lessons != null && c.rate != null) sum += c.lessons * c.rate;
+      });
+      totalAll += sum;
+      return sum;
+    });
+    html += '<tr><td class="col-day">Итого ₽</td>' +
+      '<td>' + totalMeals + '</td>' +
+      '<td>' + (totalMeals * MEALS_PRICE) + ' ₽</td>';
+    teachers.forEach((t, i) => {
+      const paidCls = payroll.paidTeachers[t] ? ' col-teacher-paid' : '';
+      const itog = teacherTotals[i];
+      const txt = payroll.paidTeachers[t] ? '<s>' + itog + '</s>' : itog;
+      html += '<td colspan="3" class="col-itog' + paidCls + '">' + (itog ? txt + ' ₽' : '') + '</td>';
+    });
+    html += '<td class="col-total">' + totalAll + ' ₽</td><td></td></tr>';
+
+    // Галочки «выплачено педагогу за всю смену»
+    html += '<tr class="paid-row"><td class="col-day">Выплачено педагогу</td><td colspan="2"></td>';
+    teachers.forEach(t => {
+      html += '<td colspan="3"><input type="checkbox" class="paid-checkbox" data-paid-teacher="' + escapeHtml(t).replace(/"/g,'&quot;') + '"' + (payroll.paidTeachers[t] ? ' checked' : '') + '></td>';
+    });
+    html += '<td colspan="2"></td></tr>';
+
+    html += '</tfoot></table>';
+    document.getElementById('payroll-content').className = '';
+    document.getElementById('payroll-content').innerHTML = html;
+
+    // Привязываем обработчики ввода
+    document.querySelectorAll('input[data-meals-day]').forEach(inp => {
+      inp.addEventListener('input', onMealsInput);
+    });
+    document.querySelectorAll('input[data-day][data-teacher][data-field]').forEach(inp => {
+      inp.addEventListener('input', onCellInput);
+    });
+    document.querySelectorAll('.lock-btn[data-day][data-teacher]').forEach(btn => {
+      btn.addEventListener('click', onLockClick);
+    });
+    document.querySelectorAll('input.paid-checkbox[data-paid-day]').forEach(cb => {
+      cb.addEventListener('change', onPaidDayChange);
+    });
+    document.querySelectorAll('input.paid-checkbox[data-paid-teacher]').forEach(cb => {
+      cb.addEventListener('change', onPaidTeacherChange);
+    });
+    document.querySelectorAll('input.paid-checkbox[data-paid-cell]').forEach(cb => {
+      cb.addEventListener('change', onPaidCellChange);
+    });
+  }
+
+  function renderTotalsSummary(days) {
+    let totalAll = 0;
+    payroll.teachers.forEach(t => {
+      days.forEach(d => {
+        const c = payroll.cells[d.key + '::' + t];
+        if (c && c.lessons != null && c.rate != null) totalAll += c.lessons * c.rate;
+      });
+    });
+    let totalMeals = 0;
+    days.forEach(d => { const m = payroll.meals[d.key]; if (m != null) totalMeals += m; });
+    document.getElementById('totals-summary').textContent =
+      'Педагоги: ' + payroll.teachers.length + ' · ФОТ: ' + totalAll + ' ₽ · Питание: ' + (totalMeals * MEALS_PRICE) + ' ₽';
+  }
+
+  // ── АВТОСОХРАНЕНИЕ (debounce) ──
+  const _saveQueue = {};
+  function scheduleSave(key, fn) {
+    if (_saveQueue[key]) clearTimeout(_saveQueue[key]);
+    setSaveStatus('saving');
+    _saveQueue[key] = setTimeout(async () => {
+      try {
+        await fn();
+        setSaveStatus('ok');
+      } catch (e) {
+        setSaveStatus('err', e.message);
+      }
+    }, 600);
+  }
+  async function postAction(action, body) {
+    const r = await fetch(LIBRARY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(Object.assign({ action: action }, body))
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'Ошибка сервера');
+    return j;
+  }
+
+  // ── ОБРАБОТЧИКИ ──
+  function onMealsInput(e) {
+    const day = e.target.dataset.mealsDay;
+    const raw = e.target.value.trim();
+    const count = raw === '' ? null : Number(raw);
+    if (count === null) delete payroll.meals[day]; else payroll.meals[day] = count;
+    // Пересчёт ячейки × 14 ₽ и итогов
+    const days = getShiftDays();
+    renderTotalsSummary(days);
+    // Обновим конкретную строку (соседнюю td с суммой)
+    const tr = e.target.closest('tr');
+    if (tr) {
+      const sumTd = tr.querySelector('.col-meals + td');
+      if (sumTd) sumTd.textContent = (count != null && !isNaN(count)) ? (count * MEALS_PRICE) + ' ₽' : '';
+    }
+    scheduleSave('meals::' + day, () => postAction('savePayrollMeals', { seasonId: seasonId, day: day, count: count }));
+  }
+
+  function onCellInput(e) {
+    const day = e.target.dataset.day;
+    const teacher = e.target.dataset.teacher;
+    const field = e.target.dataset.field; // 'lessons' | 'rate'
+    const raw = e.target.value.trim();
+    const val = raw === '' ? null : Number(raw);
+    const key = day + '::' + teacher;
+    if (!payroll.cells[key]) payroll.cells[key] = { lessons: null, rate: null, locked: false };
+    payroll.cells[key][field] = val;
+    // Подсчитать итог ячейки
+    const cell = payroll.cells[key];
+    const itog = (cell.lessons != null && cell.rate != null) ? cell.lessons * cell.rate : 0;
+    // Обновить визуально только колонку «итого» в строке
+    const tr = e.target.closest('tr');
+    if (tr) {
+      const itogTds = tr.querySelectorAll('.col-itog');
+      // Найти нужный td-итог: считаем индекс педагога
+      const tIdx = payroll.teachers.indexOf(teacher);
+      if (tIdx >= 0 && itogTds[tIdx]) itogTds[tIdx].textContent = itog ? itog : '';
+      // Пересчёт итога дня
+      let dayTotal = 0;
+      payroll.teachers.forEach(t => {
+        const c = payroll.cells[day + '::' + t];
+        if (c && c.lessons != null && c.rate != null) dayTotal += c.lessons * c.rate;
+      });
+      const totalTd = tr.querySelector('.col-total');
+      if (totalTd) totalTd.textContent = dayTotal || '';
+    }
+    renderTotalsSummary(getShiftDays());
+    scheduleSave('cell::' + key, () => postAction('savePayrollCell', {
+      seasonId: seasonId, day: day, teacher: teacher,
+      lessons: cell.lessons, rate: cell.rate, locked: cell.locked
+    }));
+  }
+
+  function onLockClick(e) {
+    const btn = e.currentTarget;
+    const day = btn.dataset.day;
+    const teacher = btn.dataset.teacher;
+    const key = day + '::' + teacher;
+    if (!payroll.cells[key]) payroll.cells[key] = { lessons: null, rate: null, locked: false };
+    payroll.cells[key].locked = !payroll.cells[key].locked;
+    const cell = payroll.cells[key];
+    // Если ячейка совсем пустая и сняли замок — удалим запись
+    scheduleSave('cell::' + key, () => postAction('savePayrollCell', {
+      seasonId: seasonId, day: day, teacher: teacher,
+      lessons: cell.lessons, rate: cell.rate, locked: cell.locked
+    }));
+    render(); // перерисуем, чтобы обновить визуал замка и фон
+  }
+
+  function onPaidDayChange(e) {
+    const day = e.target.dataset.paidDay;
+    const paid = e.target.checked;
+    if (paid) payroll.paidDays[day] = true; else delete payroll.paidDays[day];
+    render();
+    scheduleSave('paidDay::' + day, () => postAction('savePayrollDayPaid', { seasonId: seasonId, day: day, paid: paid }));
+  }
+
+  function onPaidTeacherChange(e) {
+    const teacher = e.target.dataset.paidTeacher;
+    const paid = e.target.checked;
+    if (paid) payroll.paidTeachers[teacher] = true; else delete payroll.paidTeachers[teacher];
+    render();
+    scheduleSave('paidTeacher::' + teacher, () => postAction('savePayrollTeacherPaid', { seasonId: seasonId, teacher: teacher, paid: paid }));
+  }
+
+  function onPaidCellChange(e) {
+    const key = e.target.dataset.paidCell; // 'YYYY-MM-DD::Имя'
+    const sep = key.indexOf('::');
+    const day = key.slice(0, sep);
+    const teacher = key.slice(sep + 2);
+    const paid = e.target.checked;
+    if (paid) payroll.paidCells[key] = true; else delete payroll.paidCells[key];
+    render();
+    scheduleSave('paidCell::' + key, () => postAction('savePayrollCellPaid', { seasonId: seasonId, day: day, teacher: teacher, paid: paid }));
+  }
+
+  // ── ДОБАВИТЬ ПЕДАГОГА ВРУЧНУЮ ──
+  function openAddTeacherModal() {
+    document.getElementById('new-teacher-name').value = '';
+    document.getElementById('add-teacher-modal').classList.add('open');
+    setTimeout(() => document.getElementById('new-teacher-name').focus(), 50);
+  }
+  function closeAddTeacherModal() {
+    document.getElementById('add-teacher-modal').classList.remove('open');
+  }
+  async function confirmAddTeacher() {
+    const name = document.getElementById('new-teacher-name').value.trim();
+    if (!name) return;
+    if (payroll.teachers.indexOf(name) >= 0) { toast('Такой педагог уже есть'); return; }
+    closeAddTeacherModal();
+    setSaveStatus('saving');
+    try {
+      await postAction('addPayrollTeacher', { seasonId: seasonId, teacher: name });
+      payroll.teachers.push(name);
+      render();
+      setSaveStatus('ok');
+      toast('Педагог добавлен');
+    } catch (e) { setSaveStatus('err', e.message); }
+  }
+  window.openAddTeacherModal = openAddTeacherModal;
+  window.closeAddTeacherModal = closeAddTeacherModal;
+  window.confirmAddTeacher = confirmAddTeacher;
+
+  // ── УДАЛИТЬ ПЕДАГОГА ──
+  async function removeTeacher(name) {
+    if (!confirm('Удалить педагога «' + name + '» и все его записи в табеле?')) return;
+    setSaveStatus('saving');
+    try {
+      await postAction('removePayrollTeacher', { seasonId: seasonId, teacher: name });
+      payroll.teachers = payroll.teachers.filter(t => t !== name);
+      // Локально вычистим связанные ячейки
+      Object.keys(payroll.cells).forEach(k => {
+        if (k.endsWith('::' + name)) delete payroll.cells[k];
+      });
+      delete payroll.paidTeachers[name];
+      render();
+      setSaveStatus('ok');
+      toast('Педагог удалён');
+    } catch (e) { setSaveStatus('err', e.message); }
+  }
+  window.removeTeacher = removeTeacher;
+
+  // ── ПОДТЯНУТЬ ПЕДАГОГОВ ИЗ РАСПИСАНИЯ ──
+  // Извлекаем имена педагогов из публикации (та же логика, что в view4: isNamedTeacher).
+  function isNamedTeacher(name) {
+    if (!name) return false;
+    const n = String(name).trim().toLowerCase();
+    if (!n) return false;
+    if (n.includes('куратор') || n.includes('админ') || n.includes('вожат') || n.includes('тренер')) return false;
+    if (n.includes(',')) return false;
+    return /\s/.test(n.trim());
+  }
+  function normalizeTeacherName(s) {
+    return String(s || '').trim().replace(/\s+/g, ' ');
+  }
+
+  // Возвращает { 'Имя педагога': {days: {dayKey: count}, total: N} } — где встречается в расписании.
+  function scanScheduleTeachers() {
+    const result = {};
+    if (!publishedState || !Array.isArray(publishedState.schedule)) return result;
+    const days = getShiftDays();
+    publishedState.schedule.forEach((d, i) => {
+      if (!d || !days[i]) return;
+      const dk = days[i].key;
+      const dayCounts = countTeachersInDay_(d);
+      Object.keys(dayCounts).forEach(name => {
+        if (!result[name]) result[name] = { days: {}, total: 0 };
+        result[name].days[dk] = (result[name].days[dk] || 0) + dayCounts[name];
+        result[name].total += dayCounts[name];
+      });
+    });
+    return result;
+  }
+
+  let _pullCandidates = [];
+  function openPullTeachersModal() {
+    const scanned = scanScheduleTeachers();
+    _pullCandidates = Object.keys(scanned).sort();
+    const body = document.getElementById('pull-teachers-body');
+    if (_pullCandidates.length === 0) {
+      body.innerHTML = '<em>В расписании не найдено именованных педагогов.</em>';
+      document.getElementById('confirm-pull-btn').disabled = true;
+    } else {
+      document.getElementById('confirm-pull-btn').disabled = false;
+      body.innerHTML = '<ul class="pull-list">' + _pullCandidates.map(name => {
+        const already = payroll.teachers.indexOf(name) >= 0;
+        const sc = scanned[name];
+        const totalText = sc.total + ' зан. в ' + Object.keys(sc.days).length + ' дн.';
+        return '<li>' +
+          (already
+            ? '<input type="checkbox" disabled checked> <label class="already">' + escapeHtml(name) + ' — уже в списке (' + totalText + ')</label>'
+            : '<input type="checkbox" data-pull-name="' + escapeHtml(name).replace(/"/g,'&quot;') + '" checked> <label>' + escapeHtml(name) + ' <span style="color:rgba(21,22,23,0.5);font-size:11px">— ' + totalText + '</span></label>'
+          ) + '</li>';
+      }).join('') + '</ul>';
+    }
+    document.getElementById('pull-teachers-modal').classList.add('open');
+  }
+  function closePullTeachersModal() {
+    document.getElementById('pull-teachers-modal').classList.remove('open');
+  }
+  async function confirmPullTeachers() {
+    const checks = document.querySelectorAll('#pull-teachers-body input[data-pull-name]:checked');
+    const toAdd = Array.from(checks).map(c => c.dataset.pullName);
+    if (toAdd.length === 0) { closePullTeachersModal(); return; }
+    closePullTeachersModal();
+    setSaveStatus('saving');
+    try {
+      for (const name of toAdd) {
+        await postAction('addPayrollTeacher', { seasonId: seasonId, teacher: name });
+        if (payroll.teachers.indexOf(name) < 0) payroll.teachers.push(name);
+      }
+      render();
+      setSaveStatus('ok');
+      toast('Добавлено: ' + toAdd.length);
+    } catch (e) { setSaveStatus('err', e.message); }
+  }
+  window.openPullTeachersModal = openPullTeachersModal;
+  window.closePullTeachersModal = closePullTeachersModal;
+  window.confirmPullTeachers = confirmPullTeachers;
+
+  // ── ПОДСЧЁТ ЗАНЯТИЙ В РАСПИСАНИИ (6-ОТРЯДНАЯ ФИЗИКА) ──
+  // «Занятие» = педагог × один отряд через его МК.
+  // Группы: A = [1,2,3], B = [4,5,6]. В normal каждое МК cluster/outside проводится с группой
+  // (3 отряда проходят через него за полу-день). Своп между AM↔PM.
+  // Cluster может присутствовать и в normal, и в trip3 (для второй группы в кабинетах).
+  // outside_mode='single' заменяет ротацию outside[] одной активностью outside_single.
+  // Кураторы/админы/тренеры отсеются через isNamedTeacher.
+  //
+  // Возвращает объект { 'Имя педагога': число_занятий за день, ... }.
+  function countTeachersInDay_(d) {
+    const counts = {};
+    function add(name, times) {
+      if (!isNamedTeacher(name)) return;
+      const n = normalizeTeacherName(name);
+      counts[n] = (counts[n] || 0) + (times || 1);
+    }
+    if (!d) return counts;
+
+    function halfMode6(day, half) {
+      const t = String(day && day.type || 'normal');
+      const isAM = half === 'am';
+      switch (t) {
+        case 'trip3_am':       return isAM ? 'trip3'       : 'normal';
+        case 'trip3_pm':       return isAM ? 'normal'      : 'trip3';
+        case 'trip3_full':     return 'trip3';
+        case 'trip6_am':       return isAM ? 'trip6'       : 'normal';
+        case 'trip6_pm':       return isAM ? 'normal'      : 'trip6';
+        case 'trip6_am_split': return isAM ? 'trip6_split' : 'normal';
+        case 'trip6_pm_split': return isAM ? 'normal'      : 'trip6_split';
+        case 'trip6_full':     return 'trip6';
+        default:               return 'normal';
+      }
+    }
+
+    ['am', 'pm'].forEach(half => {
+      const mode = halfMode6(d, half);
+
+      if (mode === 'trip6') {
+        const s = d[half === 'am' ? 'trip6_am' : 'trip6_pm'];
+        if (s) add(s.teacher, 6);
+        return;
+      }
+      if (mode === 'trip6_split') {
+        const sA = d[half === 'am' ? 'trip6_am_a' : 'trip6_pm_a'];
+        const sB = d[half === 'am' ? 'trip6_am_b' : 'trip6_pm_b'];
+        if (sA) add(sA.teacher, 3);
+        if (sB) add(sB.teacher, 3);
+        return;
+      }
+      if (mode === 'trip3') {
+        // Выезд одной группы + cluster для второй (3 МК × 3 отряда)
+        const sTrip = d[half === 'am' ? 'trip_full_am' : 'trip_full_pm'];
+        if (sTrip) add(sTrip.teacher, 3);
+        (d[half + '_cluster'] || []).forEach(s => { if (s) add(s.teacher, 3); });
+        return;
+      }
+      // mode === 'normal'
+      // cluster: 3 МК × 3 отряда
+      (d[half + '_cluster'] || []).forEach(s => { if (s) add(s.teacher, 3); });
+      // outside: rotation или single (всё равно вся группа = 3 отряда проходят через него)
+      const outsideMode = String(d[half + '_outside_mode'] || 'rotation');
+      if (outsideMode === 'single') {
+        const s = d[half + '_outside_single'];
+        if (s) add(s.teacher, 3);
+      } else {
+        (d[half + '_outside'] || []).forEach(s => { if (s) add(s.teacher, 3); });
+      }
+    });
+    return counts;
+  }  // ── ПОДТЯНУТЬ ЗАНЯТИЯ ИЗ РАСПИСАНИЯ ЗА ДЕНЬ ──
+  // Считает кол-во занятий каждого педагога по правилам countTeachersInDay_,
+  // подставляет это число в ячейку (ставка по умолчанию 35), не трогает закреплённые.
+  async function pullDayFromSchedule(dayKey) {
+    const days = getShiftDays();
+    const dIdx = days.findIndex(d => d.key === dayKey);
+    if (dIdx < 0) return;
+    const d = publishedState.schedule[dIdx];
+    if (!d) return;
+    const counts = countTeachersInDay_(d);
+    // Добавим педагогов из расписания, которых ещё нет в списке (на всякий случай)
+    const newTeachers = Object.keys(counts).filter(n => payroll.teachers.indexOf(n) < 0);
+    for (const n of newTeachers) {
+      await postAction('addPayrollTeacher', { seasonId: seasonId, teacher: n });
+      payroll.teachers.push(n);
+    }
+    // Подставим в ячейки, не трогая закреплённые
+    let touched = 0, skipped = 0;
+    setSaveStatus('saving');
+    for (const teacher of payroll.teachers) {
+      const cnt = counts[teacher];
+      if (cnt == null) continue; // педагог не вёл в этот день
+      const key = dayKey + '::' + teacher;
+      const cell = payroll.cells[key];
+      if (cell && cell.locked) { skipped++; continue; }
+      const newCell = {
+        lessons: cnt,
+        rate: (cell && cell.rate != null) ? cell.rate : 35,
+        locked: false
+      };
+      payroll.cells[key] = newCell;
+      await postAction('savePayrollCell', {
+        seasonId: seasonId, day: dayKey, teacher: teacher,
+        lessons: newCell.lessons, rate: newCell.rate, locked: false
+      });
+      touched++;
+    }
+    setSaveStatus('ok');
+    toast('Подтянуто: ' + touched + (skipped ? ' (пропущено закреплённых: ' + skipped + ')' : ''));
+    render();
+  }
+  window.pullDayFromSchedule = pullDayFromSchedule;
+
+  // ── ЭКСПОРТ В EXCEL ──
+  function exportToExcel() {
+    if (typeof XLSX === 'undefined') { toast('Библиотека Excel не загружена'); return; }
+    const days = getShiftDays();
+    const teachers = payroll.teachers;
+    // Шапка как в твоём Excel: A=Дата, B=Питание (детей), C=× 14 ₽, далее на каждого педагога 3 колонки
+    const aoa = [];
+    // Заголовок 1
+    const row1 = ['', 'Питание', '', ''];
+    teachers.forEach(t => { row1.push(t, '', ''); });
+    row1.push('Итого день', 'Выпл.');
+    aoa.push(row1);
+    // Заголовок 2 (подколонки)
+    const row2 = ['Дата', 'детей', '× 14 ₽', ''];
+    teachers.forEach(() => { row2.push('занятий', 'ставка', 'итого'); });
+    row2.push('', '');
+    // (3-я ячейка после "× 14 ₽" зарезервирована для согласования с твоим Excel где есть колонка-разделитель)
+    // Сократим: уберём лишнюю «пустую» колонку
+    aoa[0] = ['Дата', 'Питание (детей)', '× 14 ₽'].concat(
+      teachers.flatMap(t => [t, '', ''])
+    ).concat(['Итого день', 'Выплачен?']);
+    aoa.push(['', '', ''].concat(
+      teachers.flatMap(() => ['занятий', 'ставка', 'итого'])
+    ).concat(['', '']));
+
+    // Данные по дням
+    let totalAll = 0, totalMeals = 0;
+    const teacherTotals = teachers.map(() => 0);
+    days.forEach(d => {
+      const meals = payroll.meals[d.key];
+      if (meals != null) totalMeals += meals;
+      const isPaid = !!payroll.paidDays[d.key];
+      const row = [d.label, (meals != null ? meals : ''), (meals != null ? meals * MEALS_PRICE : '')];
+      let dayTotal = 0;
+      teachers.forEach((t, i) => {
+        const c = payroll.cells[d.key + '::' + t] || {};
+        const itog = (c.lessons != null && c.rate != null) ? c.lessons * c.rate : '';
+        row.push(c.lessons != null ? c.lessons : '', c.rate != null ? c.rate : '', itog);
+        if (typeof itog === 'number') { dayTotal += itog; teacherTotals[i] += itog; }
+      });
+      row.push(dayTotal || '', isPaid ? 'да' : '');
+      totalAll += dayTotal;
+      aoa.push(row);
+    });
+    // Итоги
+    const totalRow = ['ИТОГО', totalMeals, totalMeals * MEALS_PRICE];
+    teachers.forEach((_, i) => totalRow.push('', '', teacherTotals[i]));
+    totalRow.push(totalAll, '');
+    aoa.push(totalRow);
+    // Выплачено педагогу
+    const paidRow = ['Выпл. педагогу', '', ''];
+    teachers.forEach(t => { paidRow.push('', '', payroll.paidTeachers[t] ? 'да' : ''); });
+    paidRow.push('', '');
+    aoa.push(paidRow);
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Табель');
+    const fname = 'tabel-' + seasonId + '.xlsx';
+    XLSX.writeFile(wb, fname);
+    toast('Скачано: ' + fname);
+  }
+  window.exportToExcel = exportToExcel;
+
+  // ── ИНСТРУКЦИЯ ──
+  function openHelp() { document.getElementById('help-modal').classList.add('open'); }
+  function closeHelp() { document.getElementById('help-modal').classList.remove('open'); }
+  window.openHelp = openHelp;
+  window.closeHelp = closeHelp;
+
+  // ── ОЧИСТКА ──
+  // «Очистить ячейки» — удаляет занятия/ставки/замки, но оставляет список педагогов,
+  // питание и флаги выплат. Самый частый сценарий: «пересчитать с нуля через Подтянуть».
+  async function clearCellsClick() {
+    if (!seasonId) return;
+    if (!confirm('Удалить ВСЕ занятия и ставки во всех ячейках?\n\n• Список педагогов — останется\n• Питание по дням — останется\n• Флаги «выплачено» — останутся\n\nЗамки игнорируются (закреплённые ячейки тоже очистятся).\n\nПродолжить?')) return;
+    setSaveStatus('saving');
+    try {
+      const r = await postAction('clearPayrollCells', { seasonId: seasonId });
+      payroll.cells = {};
+      render();
+      setSaveStatus('ok');
+      toast('Очищено ячеек: ' + (r.result.removed || 0));
+    } catch (e) { setSaveStatus('err', e.message); }
+  }
+  // «Удалить весь табель» — полная очистка: ячейки + педагоги + питание + флаги.
+  // Двойное подтверждение (пользователь должен ввести «удалить»), чтобы случайно не нажать.
+  async function clearAllClick() {
+    if (!seasonId) return;
+    const answer = prompt('УДАЛИТЬ ВЕСЬ ТАБЕЛЬ этой смены БЕЗВОЗВРАТНО?\n\nУдалится: список педагогов, все занятия и ставки, питание по дням, все галочки «выплачено».\n\nЧтобы подтвердить — введи слово «удалить» (без кавычек) и нажми OK.');
+    if (!answer || answer.trim().toLowerCase() !== 'удалить') {
+      if (answer !== null) toast('Отменено');
+      return;
+    }
+    setSaveStatus('saving');
+    try {
+      const r = await postAction('clearPayrollAll', { seasonId: seasonId });
+      payroll = { teachers: [], cells: {}, meals: {}, paidDays: {}, paidTeachers: {}, paidCells: {} };
+      render();
+      setSaveStatus('ok');
+      toast('Табель удалён, записей удалено: ' + (r.result.removed || 0));
+    } catch (e) { setSaveStatus('err', e.message); }
+  }
+  window.clearCellsClick = clearCellsClick;
+  window.clearAllClick = clearAllClick;
+
+  init();
+</script>
+</body>
+</html>
