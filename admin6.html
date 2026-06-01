@@ -1,0 +1,1710 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Печатное расписание · Прознание</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --yellow:      #FED634;
+    --yellow-deep: #C9A800;
+    --ink:         #151617;
+    --paper:       #F5F5F0;
+    --paper-warm:  #FFFBEC;
+    --white:       #FFFFFF;
+    --troop-1: #41BEEA;
+    --troop-2: #FF8A3D;
+    --troop-3: #8FA370;
+    --troop-4: #C879D8;
+    --troop-5: #E55A7E;
+    --troop-6: #B89060;
+    /* Регулируемый шрифт: меняется кнопкой ±, по умолчанию 100% = 13px */
+    --print-font-size: 13px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #2a2a2a;
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    color: var(--ink);
+    line-height: 1.45;
+    font-size: var(--print-font-size);
+  }
+  /* ── ЛОКСКРИН (тот же что в view4 / parents4) ── */
+  body:not(.unlocked) #app { display: none !important; }
+  body.unlocked #lockscreen { display: none !important; }
+  #lockscreen {
+    position: fixed; inset: 0; background: var(--ink); color: var(--paper);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000;
+  }
+  #lockscreen h1 {
+    font-family: Caveat, cursive; font-weight: 600; font-size: 38px; margin: 0 0 6px;
+    color: var(--yellow);
+  }
+  #lockscreen p { font-size: 13px; opacity: 0.7; margin: 0 0 22px; }
+  #lockscreen input {
+    background: transparent; border: none; border-bottom: 2px solid var(--yellow);
+    color: var(--paper); font-family: Inter; font-size: 18px; padding: 8px 4px;
+    width: 240px; text-align: center; letter-spacing: 0.3em; outline: none;
+  }
+  #lockscreen .lock-err { color: #ff8b8b; font-size: 12px; margin-top: 12px; min-height: 16px; }
+
+  /* ── ШАПКА ── */
+  .top-bar {
+    background: var(--ink); color: var(--white);
+    padding: 18px 24px 14px;
+    position: sticky; top: 0; z-index: 50;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+  }
+  .top-bar-inner {
+    max-width: 1600px; margin: 0 auto;
+    display: flex; align-items: baseline; justify-content: space-between; gap: 24px; flex-wrap: wrap;
+  }
+  .brand {
+    font-family: Inter; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+    opacity: 0.5;
+  }
+  .title {
+    font-family: Caveat, cursive; font-weight: 600; font-size: 32px;
+    margin: 0; line-height: 1;
+  }
+  .title em {
+    background: var(--yellow); color: var(--ink); padding: 2px 12px;
+    font-style: italic;
+  }
+  .subhead {
+    font-family: Inter; font-size: 12px; letter-spacing: 0.1em;
+    text-transform: uppercase; opacity: 0.7;
+  }
+  .actions {
+    display: flex; gap: 8px;
+  }
+  .actions button {
+    background: transparent; color: var(--white); border: 1px solid rgba(255,255,255,0.3);
+    padding: 7px 14px; font-family: Inter; font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; cursor: pointer; border-radius: 3px;
+  }
+  .actions button:hover { background: var(--yellow); color: var(--ink); border-color: var(--yellow); }
+  .actions .btn-primary { background: var(--yellow); color: var(--ink); border-color: var(--yellow); font-weight: 700; }
+  .nav-to-troops {
+    background: transparent; color: var(--white); border: 1px solid rgba(255,255,255,0.3);
+    padding: 7px 14px; font-family: Inter; font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; cursor: pointer; border-radius: 3px; text-decoration: none;
+    display: inline-flex; align-items: center;
+  }
+  .nav-to-troops:hover { background: var(--yellow); color: var(--ink); border-color: var(--yellow); }
+
+  /* Блок ссылок на PDF-материалы для кураторов */
+  .docs-links {
+    max-width: 1600px; margin: 12px auto 0; padding-top: 12px;
+    border-top: 1px solid rgba(255,255,255,0.15);
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .docs-label {
+    font-family: Inter; font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: rgba(255,255,255,0.6); font-weight: 600;
+  }
+  .doc-btn {
+    background: rgba(255,255,255,0.1); color: var(--white);
+    border: 1px solid rgba(255,255,255,0.3); border-radius: 4px;
+    padding: 7px 14px; font-family: Inter; font-size: 12px; font-weight: 600;
+    text-decoration: none; cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .doc-btn:hover { background: var(--yellow); color: var(--ink); border-color: var(--yellow); }
+
+  /* Переключатель вида (для кураторов / для админа) */
+  .view-switch {
+    display: inline-flex; gap: 0;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 4px; padding: 2px;
+  }
+  .view-switch button {
+    background: transparent; color: var(--white); border: none;
+    padding: 6px 14px; font-family: Inter; font-size: 11px; letter-spacing: 0.08em;
+    text-transform: uppercase; cursor: pointer; border-radius: 3px;
+  }
+  .view-switch button:hover { background: rgba(255,255,255,0.1); }
+  .view-switch button.active {
+    background: var(--yellow); color: var(--ink); font-weight: 700;
+  }
+
+  /* Переключатель отрядов */
+  .troop-switch {
+    display: inline-flex; gap: 0;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 4px; padding: 2px;
+  }
+  .troop-switch button {
+    background: transparent; color: var(--white); border: none;
+    padding: 6px 11px; font-family: Inter; font-size: 11px; letter-spacing: 0.06em;
+    cursor: pointer; border-radius: 3px;
+    font-weight: 500;
+  }
+  .troop-switch button:hover { background: rgba(255,255,255,0.1); }
+  .troop-switch button.active {
+    color: var(--ink); font-weight: 700;
+  }
+  .troop-switch button.t1-btn.active { background: var(--troop-1); }
+  .troop-switch button.t2-btn.active { background: var(--troop-2); }
+  .troop-switch button.t3-btn.active { background: var(--troop-3); }
+  .troop-switch button.t4-btn.active { background: var(--troop-4); }
+  .troop-switch button.t5-btn.active { background: var(--troop-5); }
+  .troop-switch button.t6-btn.active { background: var(--troop-6); }
+  .troop-switch button[data-troop="all"].active { background: var(--yellow); }
+
+  /* Большая шапка отряда — когда отфильтровали один отряд, видно крупно «ОТРЯД 1» */
+  .troop-header {
+    background: var(--ink); color: var(--white);
+    padding: 18px 24px; margin: -28px -28px 18px;
+    border-radius: 0;
+    display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap;
+  }
+  .troop-header.t1 { background: var(--troop-1); color: var(--white); }
+  .troop-header.t2 { background: var(--troop-2); color: var(--white); }
+  .troop-header.t3 { background: var(--troop-3); color: var(--white); }
+  .troop-header.t4 { background: var(--troop-4); color: var(--white); }
+  .troop-header .troop-num {
+    font-family: Caveat, cursive; font-weight: 600; font-size: 38px; line-height: 1;
+  }
+  .troop-header .troop-meta {
+    font-family: Inter; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase;
+    opacity: 0.9;
+  }
+
+  /* === АДМИНСКИЙ ВИД: «дни × блоки», компактная таблица === */
+  table.print-grid.admin-compact td, table.print-grid.admin-compact th {
+    padding: 6px 8px; font-size: 0.86em;
+  }
+  table.print-grid.admin-compact .item {
+    margin-bottom: 7px; padding-bottom: 5px;
+  }
+  table.print-grid.admin-compact .item-line { gap: 3px 5px; }
+  table.print-grid.admin-compact .item-time { font-size: 0.78em; padding: 0 4px; }
+  table.print-grid.admin-compact .item-name { font-size: 0.95em; }
+  table.print-grid.admin-compact .item-theme { font-size: 0.95em; margin: 0 0 2px; }
+  table.print-grid.admin-compact .item-meta { font-size: 0.74em; line-height: 1.35; }
+  /* Бейдж пары отрядов */
+  .badge-troops {
+    display: inline-block; background: var(--yellow); padding: 0 5px; border-radius: 2px;
+    font-weight: 700; font-size: 0.95em; color: var(--ink);
+    margin-right: 4px; letter-spacing: 0.02em;
+  }
+  /* Внутри жёлтой ячейки бейдж становится тёмный для контраста */
+  td.cell.trip .badge-troops { background: var(--ink); color: var(--white); }
+  /* Порядок прихода отрядов в ротации */
+  .item-comment {
+    font-size: 0.82em; color: #8a6d00; background: rgba(254,214,52,0.22);
+    border-radius: 3px; padding: 3px 7px; margin-top: 3px; line-height: 1.35;
+    display: block; cursor: pointer;
+  }
+  .item-comment:hover { background: rgba(254,214,52,0.4); }
+  .item-comment-full { display: none; }
+  .item-comment-short { display: inline; }
+  .item-comment-more {
+    font-size: 0.85em; opacity: 0.7; text-decoration: underline; margin-left: 2px;
+    white-space: nowrap;
+  }
+  .comment-popup .refs-popup-box { max-width: 560px; }
+  .comment-popup-text {
+    padding: 20px; font-size: 15px; line-height: 1.6; color: var(--ink);
+    white-space: pre-wrap; overflow-y: auto;
+  }
+
+  /* === МОДАЛКА «КАК ПОЛЬЗОВАТЬСЯ» === */
+  .help-popup .refs-popup-box { max-width: 620px; padding: 24px 26px; font-family: Inter, sans-serif; }
+  .help-popup .refs-popup-title em { font-family: Caveat, cursive; font-style: normal; font-weight: 600; background: var(--yellow); padding: 0 6px; border-radius: 4px; }
+  .help-content { font-size: 14.5px; color: var(--ink); line-height: 1.55; }
+  .help-content h4 {
+    font-family: Geologica, sans-serif; font-size: 13px; font-weight: 700;
+    margin: 18px 0 8px; letter-spacing: 0.04em;
+  }
+  .help-content h4:first-child { margin-top: 0; }
+  .help-content p { margin: 8px 0; }
+  .help-content ol, .help-content ul { margin: 8px 0; padding-left: 22px; }
+  .help-content li { margin: 6px 0; }
+  .help-content strong { font-weight: 700; }
+  .help-content .help-key {
+    display: inline-block; background: var(--paper-warm, #FFFBEC); border: 1px solid rgba(21,22,23,0.2);
+    padding: 1px 7px; border-radius: 4px; font-size: 13px; font-weight: 600; white-space: nowrap;
+  }
+  .help-content .help-note {
+    background: var(--paper-warm, #FFFBEC); border-left: 3px solid var(--yellow-deep, #C9A800);
+    padding: 10px 14px; margin: 14px 0; font-size: 13.5px;
+  }
+  .help-content .help-warn {
+    background: #FBEDE6; border-left: 3px solid #9A4B30;
+    padding: 10px 14px; margin: 14px 0; font-size: 13.5px;
+  }
+  .item-order {
+    font-family: Inter; font-size: 0.78em; font-weight: 600;
+    color: var(--ink); background: rgba(21,22,23,0.06);
+    padding: 1px 6px; border-radius: 2px; display: inline-block;
+    margin: 2px 0 1px; letter-spacing: 0.02em;
+  }
+  /* Ячейка «та же ротация» в строке пары 3-4 */
+  td.cell.rot-ditto {
+    background: rgba(21,22,23,0.04);
+    text-align: center; vertical-align: middle;
+  }
+  .rot-ditto-note {
+    font-family: Geologica; font-style: italic;
+    font-size: 0.9em; color: rgba(21,22,23,0.5);
+    line-height: 1.4;
+  }
+  /* Сводка выездов */
+  table.trips-grid {
+    width: 100%; border-collapse: collapse; table-layout: fixed;
+  }
+  table.trips-grid th, table.trips-grid td {
+    border: 1px solid rgba(21,22,23,0.18);
+    padding: 8px 10px; font-size: 0.88em;
+    vertical-align: top; line-height: 1.4;
+  }
+  table.trips-grid thead th {
+    background: var(--yellow); color: var(--ink);
+    font-family: Inter; font-weight: 700; font-size: 0.85em;
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  table.trips-grid td.trip-day {
+    background: rgba(254,214,52,0.18); font-weight: 600;
+    width: 130px;
+  }
+  table.trips-grid td.trip-day .trip-day-sub {
+    display: block; font-size: 0.85em; font-weight: 400; opacity: 0.7;
+    margin-top: 2px;
+  }
+  table.trips-grid td.trip-half {
+    background: rgba(254,214,52,0.08); width: 100px;
+    font-family: Inter; font-size: 0.85em;
+    letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600;
+  }
+  table.trips-grid td.trip-content {
+    background: var(--yellow); color: var(--ink);
+  }
+  table.trips-grid td.trip-content .trip-name { font-weight: 700; font-size: 1.05em; }
+  table.trips-grid td.trip-content .trip-meta { font-size: 0.85em; margin-top: 3px; opacity: 0.85; }
+  table.trips-grid .trips-empty {
+    text-align: center; color: rgba(21,22,23,0.4);
+    font-family: Geologica; font-style: italic;
+    padding: 18px;
+  }
+
+  /* ── СЕТКА ── */
+  .week-wrap {
+    background: var(--white);
+    max-width: 1600px;
+    margin: 24px auto;
+    padding: 28px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  }
+  .week-head {
+    font-family: Inter; margin-bottom: 18px;
+    display: flex; align-items: baseline; gap: 14px;
+  }
+  .week-title {
+    font-weight: 700; font-size: 18px;
+  }
+  .week-title em {
+    background: var(--yellow); padding: 1px 8px; font-style: italic;
+    font-family: Caveat; font-weight: 600; font-size: 22px;
+  }
+  .week-sub {
+    font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: rgba(21,22,23,0.55);
+  }
+
+  table.print-grid {
+    width: 100%; border-collapse: collapse;
+    table-layout: fixed;
+  }
+  table.print-grid th, table.print-grid td {
+    border: 1px solid rgba(21,22,23,0.18);
+    padding: 8px 10px; vertical-align: top;
+    font-size: 0.92em; line-height: 1.4;
+  }
+  table.print-grid thead th {
+    background: var(--ink); color: var(--white);
+    font-family: Caveat, cursive; font-size: 1.5em; font-weight: 600;
+    text-align: left; padding: 12px 14px;
+  }
+  table.print-grid thead th .day-sub {
+    display: block; font-family: Inter; font-size: 0.6em; font-weight: 500;
+    letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.7; margin-top: 2px;
+  }
+  /* Левая колонка-метка блока */
+  table.print-grid td.block-label, table.print-grid th.block-label {
+    width: 110px; background: var(--ink); color: var(--white);
+    font-family: Inter; font-weight: 700; font-size: 0.78em; letter-spacing: 0.08em;
+    text-transform: uppercase; line-height: 1.4;
+    padding: 12px 12px;
+    position: relative;
+  }
+  /* Цветная полоска слева — окрашена под цвет отряда */
+  table.print-grid td.t1-label { background: var(--troop-1); color: var(--white); }
+  table.print-grid td.t2-label { background: var(--troop-2); color: var(--white); }
+  table.print-grid td.t3-label { background: var(--troop-3); color: var(--white); }
+  table.print-grid td.t4-label { background: var(--troop-4); color: var(--white); }
+  table.print-grid td.t5-label { background: var(--troop-5); color: var(--white); }
+  table.print-grid td.t6-label { background: var(--troop-6); color: var(--white); }
+  table.print-grid td.block-label .time { display: block; font-weight: 500; opacity: 0.85; margin-top: 4px; font-size: 0.95em; }
+  /* Толстая граница сверху у первой строки отряда — визуальный разделитель отрядов */
+  table.print-grid tr.troop-group-start td { border-top: 2px solid var(--ink); }
+
+  /* Ячейка дня */
+  table.print-grid td.cell { background: var(--paper-warm); }
+  /* Жёлтая ячейка = выезд */
+  table.print-grid td.cell.trip { background: var(--yellow); }
+  table.print-grid td.cell.empty {
+    background: var(--paper); color: rgba(21,22,23,0.4);
+    font-family: Geologica; font-style: italic; font-size: 0.9em;
+    text-align: center;
+  }
+  /* ── Внутри ячейки ── */
+  .item {
+    margin-bottom: 9px; padding-bottom: 7px;
+    border-bottom: 1px dotted rgba(21,22,23,0.2);
+  }
+  .item:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+  .item-line {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 7px;
+    line-height: 1.3; margin-bottom: 2px;
+  }
+  .item-time {
+    font-family: Inter; font-weight: 600; font-style: normal;
+    color: var(--yellow-deep); font-size: 0.82em;
+    background: rgba(254,214,52,0.25); padding: 1px 6px; border-radius: 2px;
+    white-space: nowrap; letter-spacing: 0.02em;
+  }
+  .item-name { font-weight: 600; }
+  .item-trip-tag {
+    display: inline-block; background: var(--ink); color: var(--white);
+    padding: 1px 6px; border-radius: 2px;
+    font-size: 0.7em; letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .item-theme {
+    font-family: Caveat, cursive; font-style: italic; font-size: 1.05em;
+    color: var(--yellow-deep); margin: 1px 0 3px;
+    line-height: 1.2;
+  }
+  .item-meta {
+    font-size: 0.78em; color: rgba(21,22,23,0.7); line-height: 1.4;
+  }
+
+  /* ── Регулятор шрифта в углу (не печатается) ── */
+  .font-control {
+    position: fixed; bottom: 18px; left: 18px; z-index: 100;
+    background: var(--white); border: 1px solid var(--ink); padding: 4px 6px;
+    display: flex; gap: 4px; align-items: center; font-family: Inter; font-size: 11px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    border-radius: 4px;
+  }
+  .font-control label { letter-spacing: 0.1em; text-transform: uppercase; font-size: 9px; opacity: 0.55; margin-right: 4px; }
+  .font-control button {
+    background: var(--paper); border: 1px solid rgba(21,22,23,0.3);
+    width: 22px; height: 22px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; padding: 0; line-height: 1;
+  }
+  .font-control button:hover { background: var(--yellow); }
+  .font-control .size { min-width: 36px; text-align: center; font-weight: 600; font-size: 11px; }
+
+  /* ── ПЕЧАТЬ ── */
+  @page {
+    size: A4 landscape;
+    margin: 8mm 8mm 8mm 8mm;
+  }
+
+  /* ── Карточка с рефами: кликабельна, иконка 🖼 ── */
+  .item.has-refs { cursor: pointer; border-radius: 4px; transition: background 0.12s; }
+  .item.has-refs:hover { background: rgba(254,214,52,0.15); }
+  .item-ref-icon { font-size: 0.85em; margin-left: 4px; opacity: 0.7; }
+
+  /* ── ПОПАП РЕФЕРЕНСОВ ── */
+  .refs-popup {
+    display: none; position: fixed; inset: 0; z-index: 500;
+    background: rgba(21,22,23,0.6);
+    align-items: center; justify-content: center; padding: 20px;
+  }
+  .refs-popup.open { display: flex; }
+  .refs-popup-box {
+    background: var(--white); border-radius: 10px; max-width: 720px; width: 100%;
+    max-height: 85vh; display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: 0 12px 50px rgba(0,0,0,0.4);
+  }
+  .refs-popup-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px; border-bottom: 1px solid rgba(21,22,23,0.1);
+  }
+  .refs-popup-title { font-family: Geologica, sans-serif; font-weight: 600; font-size: 17px; }
+  .refs-popup-close {
+    background: transparent; border: none; font-size: 20px; cursor: pointer;
+    color: rgba(21,22,23,0.5); line-height: 1; padding: 4px 8px;
+  }
+  .refs-popup-close:hover { color: var(--ink); }
+  .refs-popup-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px; padding: 18px 20px; overflow-y: auto;
+  }
+  .refs-popup-item {
+    display: block; aspect-ratio: 4/3; border-radius: 6px; overflow: hidden;
+    background: #f0f0f0; border: 1px solid rgba(21,22,23,0.1);
+  }
+  .refs-popup-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .refs-popup-item.no-preview { display: none; }
+  .refs-popup-hint {
+    padding: 12px 20px; font-size: 12px; color: rgba(21,22,23,0.55);
+    border-top: 1px solid rgba(21,22,23,0.1); font-style: italic;
+  }
+  @media (max-width: 700px) {
+    .refs-popup { padding: 0; }
+    .refs-popup-box { max-height: 100vh; height: 100%; border-radius: 0; max-width: 100%; }
+    .refs-popup-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+  }
+  @media print {
+    .item-comment { cursor: default; }
+    .item-comment-short { display: none !important; }
+    .item-comment-full { display: inline !important; }
+    body { background: var(--white); font-size: 9.5pt; }
+    .top-bar, .font-control { display: none !important; }
+    /* docs-links внутри top-bar и так скроется, но на всякий случай */
+    .docs-links { display: none !important; }
+    .refs-popup { display: none !important; }
+    .item-ref-icon { display: none !important; }
+    /* Печатаем всегда табличный (десктоп) вид, даже если экран узкий */
+    .mobile-view { display: none !important; }
+    .desktop-view { display: block !important; }
+    .week-wrap {
+      margin: 0; padding: 0; box-shadow: none; max-width: 100%;
+      page-break-after: always;
+      page-break-inside: avoid;
+    }
+    .week-wrap:last-child { page-break-after: auto; }
+    /* В режиме «печать всех по очереди» каждый отряд — на свой набор страниц */
+    .troop-print-block { page-break-after: always; }
+    .troop-print-block:last-child { page-break-after: auto; }
+    .troop-print-block .week-wrap:last-child { page-break-after: auto; }
+    /* Большая шапка отряда не должна обрываться от первой таблицы */
+    .troop-header { page-break-after: avoid; }
+    .week-head { margin-bottom: 8pt; }
+    .week-title { font-size: 14pt; }
+    .week-title em { font-size: 16pt; }
+    table.print-grid thead th { padding: 4pt 6pt; font-size: 14pt; }
+    table.print-grid td, table.print-grid th { padding: 3pt 4pt; }
+    .item { margin-bottom: 5pt; padding-bottom: 4pt; }
+    .item-name { font-size: 9pt; }
+    .item-theme { font-size: 9pt; }
+    .item-meta { font-size: 7.5pt; }
+    /* Принтер всегда печатает цвет фона — иначе все жёлтые ячейки станут белыми */
+    body, .week-wrap, td.cell.trip {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+  }
+
+  /* ── Десктоп / мобильный: по умолчанию показываем десктоп, прячем мобильный ── */
+  .mobile-view { display: none; }
+  .desktop-view { display: block; }
+
+  /* На широких экранах слегка скроллим таблицу если не влезает */
+  @media (max-width: 1100px) and (min-width: 701px) {
+    .week-wrap { padding: 16px; overflow-x: auto; }
+    table.print-grid, table.admin-grid, table.trips-grid { min-width: 980px; }
+  }
+
+  /* ── МОБИЛЬНЫЙ ВИД (≤700px): прячем таблицы, показываем карточки ── */
+  @media (max-width: 700px) {
+    .desktop-view { display: none; }
+    .mobile-view { display: block; }
+    .top-bar { padding: 12px 14px 10px; position: static; }
+    .top-bar-inner { gap: 12px; }
+    .title { font-size: 26px; }
+    .view-switch, .troop-switch { flex-wrap: wrap; }
+    .view-switch button, .troop-switch button { padding: 7px 10px; font-size: 11px; }
+    /* На телефоне печатная версия и табель не нужны — прячем ссылки, но оставляем «Состав».
+       Регулятор шрифта тоже прячем. */
+    .actions #nav-to-troops,
+    .actions #nav-to-payroll { display: none !important; }
+    .actions { margin-top: 4px; }
+    .font-control { display: none !important; }
+
+    .m-day {
+      background: var(--white); margin: 0 0 16px; border-radius: 6px;
+      overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+    }
+    .m-day-head {
+      background: var(--ink); color: var(--white);
+      padding: 12px 16px; display: flex; align-items: baseline; justify-content: space-between;
+    }
+    .m-day-num { font-family: Caveat, cursive; font-weight: 600; font-size: 22px; color: var(--yellow); }
+    .m-day-date { font-family: Inter; font-size: 11px; letter-spacing: 0.08em; opacity: 0.85; }
+
+    .m-half { padding: 12px 14px 4px; }
+    .m-half + .m-half { border-top: 1px solid rgba(21,22,23,0.1); }
+    .m-half-label {
+      font-family: Inter; font-size: 11px; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--yellow-deep); margin-bottom: 10px;
+    }
+    /* Блок отряда / пары */
+    .m-troop-block, .m-pair-block {
+      margin-bottom: 12px; padding-left: 10px;
+      border-left: 4px solid rgba(21,22,23,0.2);
+    }
+    .m-troop-block.t1 { border-left-color: var(--troop-1); }
+    .m-troop-block.t2 { border-left-color: var(--troop-2); }
+    .m-troop-block.t3 { border-left-color: var(--troop-3); }
+    .m-troop-block.t4 { border-left-color: var(--troop-4); }
+    .m-troop-block.is-trip, .m-pair-block.is-trip { border-left-color: var(--yellow-deep); }
+    .m-pair-block { border-left-color: var(--ink); }
+
+    .m-troop-tag, .m-pair-tag {
+      display: inline-block; font-family: Inter; font-size: 11px; font-weight: 700;
+      padding: 2px 9px; border-radius: 3px; margin-bottom: 8px;
+      letter-spacing: 0.04em; color: var(--white);
+    }
+    .m-troop-tag.t1-bg { background: var(--troop-1); }
+    .m-troop-tag.t2-bg { background: var(--troop-2); }
+    .m-troop-tag.t3-bg { background: var(--troop-3); }
+    .m-troop-tag.t4-bg { background: var(--troop-4); }
+    .m-troop-tag.t5-bg { background: var(--troop-5); }
+    .m-troop-tag.t6-bg { background: var(--troop-6); }
+    .m-pair-tag { background: var(--ink); }
+
+    /* Внутри блока — те же .item, что в таблице, но крупнее под палец */
+    .m-items .item { margin-bottom: 12px; padding-bottom: 10px; }
+    .m-items .item-name { font-size: 15px; }
+    .m-items .item-theme { font-size: 15px; }
+    .m-items .item-meta { font-size: 12px; }
+    .m-items .item-time { font-size: 12px; }
+    .m-items .item-order { font-size: 12px; }
+    /* Жёлтая заливка для выездного блока */
+    .m-troop-block.is-trip .m-items, .m-pair-block.is-trip .m-items {
+      background: rgba(254,214,52,0.18); padding: 8px 10px; border-radius: 4px;
+    }
+    .m-empty { padding: 40px 20px; text-align: center; font-family: Geologica; font-style: italic; color: rgba(21,22,23,0.5); }
+  }
+
+  /* Попап «Состав отрядов» (админ) */
+  .roster-popup .refs-popup-box { max-width: 600px; }
+  #roster-popup-body { padding: 16px 20px; overflow-y: auto; -webkit-overflow-scrolling: touch; flex: 1 1 auto; min-height: 0; }
+  .roster-section { margin-bottom: 18px; border-left: 4px solid rgba(21,22,23,0.15); padding-left: 12px; }
+  .roster-section:last-child { margin-bottom: 0; }
+  .roster-section.roster-t1 { border-left-color: var(--troop-1); }
+  .roster-section.roster-t2 { border-left-color: var(--troop-2); }
+  .roster-section.roster-t3 { border-left-color: var(--troop-3); }
+  .roster-section.roster-t4 { border-left-color: var(--troop-4); }
+  .roster-section-title {
+    font-family: Inter, sans-serif; font-weight: 700; font-size: 14px; margin-bottom: 8px;
+    display: flex; align-items: baseline; gap: 8px;
+  }
+  .roster-section-title span { font-weight: 400; font-size: 12px; color: rgba(21,22,23,0.5); }
+  .roster-table { width: 100%; border-collapse: collapse; font-family: Inter, sans-serif; font-size: 14px; }
+  .roster-table th {
+    text-align: left; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
+    color: rgba(21,22,23,0.5); font-weight: 600; padding: 4px 8px;
+    border-bottom: 1.5px solid rgba(21,22,23,0.2);
+  }
+  .roster-table td { padding: 5px 8px; border-bottom: 1px solid rgba(21,22,23,0.08); vertical-align: baseline; }
+  .roster-table .tc-num { width: 30px; color: rgba(21,22,23,0.45); text-align: right; }
+  .roster-table .tc-fio { font-weight: 500; }
+  .roster-table .tc-yo { width: 52px; color: rgba(21,22,23,0.55); white-space: nowrap; }
+  .roster-table .tc-phone { white-space: nowrap; }
+  .roster-phone { color: var(--troop-3); text-decoration: none; border-bottom: 1px dotted; }
+  .roster-empty { font-family: Inter, sans-serif; font-size: 13px; color: rgba(21,22,23,0.5); padding: 8px 0; }
+</style>
+</head>
+<body>
+
+<div id="lockscreen">
+  <h1>Прознание · Coddy</h1>
+  <p>введи пароль чтобы открыть расписание</p>
+  <input type="password" id="lock-input" placeholder="••••••" autocomplete="off" autofocus>
+  <div class="lock-err" id="lock-err"></div>
+</div>
+
+<div id="app">
+  <div class="top-bar">
+    <div class="top-bar-inner">
+      <div>
+        <div class="brand">Прознание · Coddy · Расписание для админа · 6 отрядов</div>
+        <h1 class="title" id="view-title">Смена</h1>
+        <div class="subhead" id="view-subhead"></div>
+      </div>
+      <div class="actions">
+        <button class="nav-to-troops" id="help-btn" onclick="openHelp()" style="cursor:pointer" title="Как пользоваться этой страницей">❓ Инструкция</button>
+        <button class="nav-to-troops" id="roster-btn" onclick="openRosterPopup()" style="cursor:pointer">👦 Состав отрядов</button>
+        <button class="nav-to-troops" id="print-btn" onclick="window.print()" style="cursor:pointer" title="Каждая неделя на отдельном листе A4">🖨 Печать (1 неделя — 1 лист)</button>
+        <a class="nav-to-troops" id="nav-to-payroll" href="#" target="_blank" rel="noopener">📊 Табель педагогов →</a>
+        <a class="nav-to-troops" id="nav-to-troops" href="#" target="_blank" rel="noopener">👦 Версия для кураторов →</a>
+      </div>
+    </div>
+  </div>
+
+  <div id="weeks-container">
+    <div class="week-wrap"><em>Загрузка расписания…</em></div>
+  </div>
+</div>
+
+<div class="font-control">
+  <label>Шрифт</label>
+  <button onclick="changeFontSize(-1)" title="Меньше">−</button>
+  <div class="size" id="size-display">100%</div>
+  <button onclick="changeFontSize(1)" title="Больше">+</button>
+  <button onclick="resetFontSize()" title="Сбросить" style="margin-left:4px">↻</button>
+</div>
+
+<div class="refs-popup roster-popup" id="roster-popup" onclick="if(event.target===this)closeRosterPopup()">
+  <div class="refs-popup-box">
+    <div class="refs-popup-head">
+      <span class="refs-popup-title" id="roster-popup-title">Состав отрядов</span>
+      <button class="refs-popup-close" onclick="closeRosterPopup()" title="Закрыть">✕</button>
+    </div>
+    <div id="roster-popup-body"></div>
+  </div>
+</div>
+
+<div class="refs-popup" id="refs-popup" onclick="if(event.target===this)closeRefsPopup()">
+  <div class="refs-popup-box">
+    <div class="refs-popup-head">
+      <span class="refs-popup-title" id="refs-popup-title">Референсы</span>
+      <button class="refs-popup-close" onclick="closeRefsPopup()" title="Закрыть">✕</button>
+    </div>
+    <div class="refs-popup-grid" id="refs-popup-grid"></div>
+    <div class="refs-popup-hint">Это образцы-ориентиры. Нажми на картинку, чтобы открыть источник.</div>
+  </div>
+</div>
+
+<div class="refs-popup comment-popup" id="comment-popup" onclick="if(event.target===this)closeCommentPopup()">
+  <div class="refs-popup-box">
+    <div class="refs-popup-head">
+      <span class="refs-popup-title" id="comment-popup-title">Комментарий</span>
+      <button class="refs-popup-close" onclick="closeCommentPopup()" title="Закрыть">✕</button>
+    </div>
+    <div class="comment-popup-text" id="comment-popup-text"></div>
+  </div>
+</div>
+
+<!-- МОДАЛКА «КАК ПОЛЬЗОВАТЬСЯ» -->
+<div class="refs-popup help-popup" id="help-popup" onclick="if(event.target===this)closeHelp()">
+  <div class="refs-popup-box">
+    <div class="refs-popup-head">
+      <span class="refs-popup-title">❓ Как пользоваться <em>этой страницей</em></span>
+      <button class="refs-popup-close" onclick="closeHelp()" title="Закрыть">✕</button>
+    </div>
+    <div class="help-content">
+      <h4>Что это за окно</h4>
+      <p>Расписание смены глазами админа. Видишь весь календарь смены, состав отрядов с телефонами родителей, быстрые переходы к табелю работы педагогов и к версии для кураторов.</p>
+
+      <h4>Что делать</h4>
+      <ol>
+        <li>Прокрути и посмотри расписание смены. На мобильном — компактный вид; шрифт можно увеличить кнопками <span class="help-key">−</span> / <span class="help-key">+</span> / <span class="help-key">↻</span> в правом нижнем углу.</li>
+        <li>Нажми <span class="help-key">👦 Состав отрядов</span> — увидишь всех детей по отрядам с <strong>кликабельными телефонами родителей</strong>. Касание по телефону на смартфоне = звонок.</li>
+        <li>Нужен табель работы педагогов? <span class="help-key">📊 Табель педагогов →</span> откроет payroll4 в новой вкладке.</li>
+        <li>Нужно показать расписание куратору? <span class="help-key">👦 Версия для кураторов →</span> — то же расписание, но с интерфейсом куратора (печать, фильтр по отрядам, более крупный шрифт).</li>
+      </ol>
+
+      <div class="help-note">
+        Это окно <strong>не дублирует</strong> главный пульт админа — admin-hub4. Этот — про <em>чтение расписания</em>; admin-hub4 — про управление сменой (импорт детей, посещаемость, печать имён). Используй оба в зависимости от задачи.
+      </div>
+
+      <h4>Куда уходит то, что ты делаешь здесь</h4>
+      <p>Ничего не сохраняется — это окно просмотра. Само расписание берётся из последней опубликованной версии в index6.</p>
+
+      <h4>Что важно</h4>
+      <ul>
+        <li>Если что-то в расписании выглядит «не так» — проверь черновик в index6. Возможно, не нажата кнопка «Опубликовать».</li>
+        <li>На мобильном устройстве ссылки на табель и версию для кураторов скрываются, остаётся только <span class="help-key">👦 Состав отрядов</span> — это by design, эти ссылки нужны редко и на компьютере.</li>
+        <li>Если страница «застряла» или показывает старое — Ctrl+Shift+R (на телефоне — потяни вниз).</li>
+      </ul>
+
+      <div class="help-warn">
+        <strong>Телефоны родителей видны в попапе «Состав» — это конфиденциальная информация.</strong> Не делай скриншоты с открытым попапом, не пересылай ссылку этой страницы в открытые чаты. Ссылку даёт только администратор клуба и только команде.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ── ЛОКСКРИН — тот же sha256-пароль что в view4 ──
+  const PASS_HASH = '45e5a3f82cc81679d006c8d2f6e3cce87c89ec2059fe13a2d79438f0368b226a';
+  async function sha256(s) {
+    const buf = new TextEncoder().encode(s);
+    const hash = await crypto.subtle.digest('SHA-256', buf);
+    return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('');
+  }
+  function setUnlocked() {
+    document.body.classList.add('unlocked');
+    try { sessionStorage.setItem('proznanie_unlocked','1'); } catch(e) {}
+  }
+  if (sessionStorage.getItem('proznanie_unlocked') === '1') setUnlocked();
+  const lockInput = document.getElementById('lock-input');
+  const lockErr = document.getElementById('lock-err');
+  lockInput.addEventListener('keydown', async e => {
+    if (e.key === 'Enter') {
+      const v = lockInput.value;
+      if ((await sha256(v)) === PASS_HASH) { setUnlocked(); init(); }
+      else { lockErr.textContent = 'Неверный пароль'; lockInput.value=''; lockInput.focus(); }
+    }
+  });
+
+  // ── ОБЩИЕ КОНСТАНТЫ И УТИЛИТЫ ──
+  const LIBRARY_URL = 'https://script.google.com/macros/s/AKfycbxb6EEzzl-FguxjpIO5YthGLj-QXh7puCD_DO4HL4wVPziHL1pEtVeuo3uNEi2i2yXq/exec';
+  const NUM_DAYS = 10;
+  const NUM_TROOPS = 6;
+  const TIME_AM = '9:30 – 13:30';
+  const TIME_PM = '14:00 – 17:30';
+  const MONTHS = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+  const WEEKDAYS_FULL = ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
+  const WEEKDAYS_SHORT = ['вс','пн','вт','ср','чт','пт','сб'];
+
+  function escapeHtml(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function dateForDay(state, idx) {
+    // Смены идут по будням. idx — это порядковый номер РАБОЧЕГО дня (0..9),
+    // мы прибавляем idx будних дней к startDate, пропуская сб (6) и вс (0).
+    // Если startDate сам выпал на выходной — сдвигаемся к ближайшему буднему.
+    const start = new Date(state.startDate || new Date());
+    const d = new Date(start);
+    let collected = 0;
+    while (collected < idx) {
+      d.setDate(d.getDate() + 1);
+      if (d.getDay() !== 0 && d.getDay() !== 6) collected++;
+    }
+    while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+    return d;
+  }
+
+  function normalizeName(s) {
+    return String(s || '').trim().toLowerCase().replace(/\s+/g, ' ').replace(/ё/g, 'е');
+  }
+
+  // ── РЕФЕРЕНСЫ СЛОТА (как у педагога) ──
+  // Явный выбор slot.selectedRefs, иначе все рефы шаблона из снимка libraryRefs.
+  function getSlotRefs(slot) {
+    if (!slot || !slot.template) return [];
+    if (slot.refsNone) return [];
+    if (Array.isArray(slot.selectedRefs) && slot.selectedRefs.length > 0) {
+      return slot.selectedRefs.slice();
+    }
+    const snap = (publishedState.libraryRefs && typeof publishedState.libraryRefs === 'object') ? publishedState.libraryRefs : {};
+    let refs = snap[slot.template];
+    if (!Array.isArray(refs)) {
+      const norm = normalizeName(slot.template);
+      const key = Object.keys(snap).find(k => normalizeName(k) === norm);
+      if (key) refs = snap[key];
+    }
+    return Array.isArray(refs) ? refs.slice() : [];
+  }
+
+  // ── СЕРВЕРНОЕ ПРЕВЬЮ (для ссылок без прямой картинки) ──
+  const refPreviewCache = {};
+  const refPreviewInFlight = {};
+  function fetchServerPreview(url) {
+    if (refPreviewCache[url] !== undefined) return Promise.resolve(refPreviewCache[url]);
+    if (refPreviewInFlight[url]) return refPreviewInFlight[url];
+    const p = fetch(LIBRARY_URL + '?action=previewUrl&url=' + encodeURIComponent(url))
+      .then(r => r.json())
+      .then(data => {
+        const thumb = (data && data.ok && data.preview && data.preview.thumbnail) ? data.preview.thumbnail : '';
+        refPreviewCache[url] = thumb; delete refPreviewInFlight[url]; return thumb;
+      })
+      .catch(() => { refPreviewCache[url] = ''; delete refPreviewInFlight[url]; return ''; });
+    refPreviewInFlight[url] = p;
+    return p;
+  }
+  function directThumb(url) {
+    const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+    if (yt) return 'https://img.youtube.com/vi/' + yt[1] + '/hqdefault.jpg';
+    if (/\.(jpg|jpeg|png|webp|gif|svg|avif)(\?|$)/i.test(url)) return url;
+    return null;
+  }
+
+  // ── ПОПАП С РЕФЕРЕНСАМИ ──
+  // Глобальный реестр рефов по id (чтобы из onclick доставать список).
+  const _refStore = {};
+  let _refStoreSeq = 0;
+  function registerRefs(refs) {
+    const id = 'r' + (_refStoreSeq++);
+    _refStore[id] = refs;
+    return id;
+  }
+  function openRefsPopup(storeId, title) {
+    const refs = _refStore[storeId] || [];
+    const overlay = document.getElementById('refs-popup');
+    const grid = document.getElementById('refs-popup-grid');
+    const titleEl = document.getElementById('refs-popup-title');
+    titleEl.textContent = title || 'Референсы';
+    grid.innerHTML = '';
+    refs.forEach(url => {
+      const a = document.createElement('a');
+      a.href = url; a.target = '_blank'; a.rel = 'noopener';
+      a.className = 'refs-popup-item';
+      const img = document.createElement('img');
+      img.alt = '';
+      const direct = directThumb(url);
+      if (direct) {
+        img.src = direct;
+      } else {
+        // placeholder + подгрузка og:image
+        img.src = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="120"><rect width="160" height="120" fill="%23eee"/><text x="80" y="64" font-size="11" text-anchor="middle" fill="%23999">загрузка…</text></svg>');
+        fetchServerPreview(url).then(thumb => { if (thumb) img.src = thumb; else a.classList.add('no-preview'); });
+      }
+      img.onerror = () => { a.classList.add('no-preview'); };
+      a.appendChild(img);
+      grid.appendChild(a);
+    });
+    overlay.classList.add('open');
+  }
+  function closeRefsPopup() {
+    document.getElementById('refs-popup').classList.remove('open');
+  }
+  window.openRefsPopup = openRefsPopup;
+  window.closeRefsPopup = closeRefsPopup;
+
+  // ── ПОПАП «СОСТАВ ОТРЯДОВ» (админ) — с телефонами родителей ──
+  function dobSortKey4_(dob) {
+    const m = String(dob || '').trim().match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+    if (!m) return 0;
+    return new Date(+m[3], +m[2] - 1, +m[1]).getTime();
+  }
+  function pluralKids_(n) {
+    const m10 = n % 10, m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return 'ребёнок';
+    if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return 'ребёнка';
+    return 'детей';
+  }
+  function rosterListHTML_(troop) {
+    const kids = troopsChildren
+      .filter(k => Number(k.troop) === Number(troop))
+      .sort((a, b) => dobSortKey4_(b.dob) - dobSortKey4_(a.dob));
+    if (kids.length === 0) return '<div class="roster-empty">В этом отряде пока нет детей.</div>';
+    const rows = kids.map((k, i) => {
+      const age = (k.age === '' || k.age == null) ? '' : k.age + ' л';
+      const phone = k.parentPhone
+        ? '<a class="roster-phone" href="tel:' + escapeHtml(String(k.parentPhone).replace(/[^\d+]/g,'')) + '">' + escapeHtml(k.parentPhone) + '</a>'
+        : '';
+      return '<tr><td class="tc-num">' + (i + 1) + '</td><td class="tc-fio">' + escapeHtml(k.name) +
+        '</td><td class="tc-yo">' + age + '</td><td class="tc-phone">' + phone + '</td></tr>';
+    }).join('');
+    return '<table class="roster-table">' +
+      '<thead><tr><th class="tc-num">№</th><th class="tc-fio">Ф. И. О.</th><th class="tc-yo">возр.</th><th class="tc-phone">телефон</th></tr></thead>' +
+      '<tbody>' + rows + '</tbody></table>';
+  }
+  function openRosterPopup() {
+    const body = document.getElementById('roster-popup-body');
+    const title = document.getElementById('roster-popup-title');
+    if (!troopsChildren || troopsChildren.length === 0) {
+      title.textContent = 'Состав отрядов';
+      body.innerHTML = '<div class="roster-empty">Список детей не загружен.</div>';
+    } else if (currentTroop !== 'all') {
+      title.textContent = 'Состав · Отряд ' + currentTroop;
+      body.innerHTML = '<div class="roster-section roster-t' + currentTroop + '">' +
+        rosterListHTML_(parseInt(currentTroop, 10)) + '</div>';
+    } else {
+      title.textContent = 'Состав отрядов';
+      let html = '';
+      for (let t = 1; t <= NUM_TROOPS; t++) {
+        const n = troopsChildren.filter(k => Number(k.troop) === t).length;
+        html += '<div class="roster-section roster-t' + t + '">' +
+          '<div class="roster-section-title">Отряд ' + t + ' <span>' + n + ' ' + pluralKids_(n) + '</span></div>' +
+          rosterListHTML_(t) + '</div>';
+      }
+      body.innerHTML = html;
+    }
+    document.getElementById('roster-popup').classList.add('open');
+  }
+  function closeRosterPopup() {
+    document.getElementById('roster-popup').classList.remove('open');
+  }
+  window.openRosterPopup = openRosterPopup;
+  window.closeRosterPopup = closeRosterPopup;
+
+  function openHelp() {
+    document.getElementById('help-popup').classList.add('open');
+  }
+  function closeHelp() {
+    document.getElementById('help-popup').classList.remove('open');
+  }
+  window.openHelp = openHelp;
+  window.closeHelp = closeHelp;
+
+  // ── ПОПАП КОММЕНТАРИЯ (комментарии бывают длинными) ──
+  const _commentStore = {};
+  let _commentSeq = 0;
+  function registerComment(text) {
+    const id = 'c' + (_commentSeq++);
+    _commentStore[id] = text;
+    return id;
+  }
+  function openCommentPopup(storeId, title) {
+    const text = _commentStore[storeId] || '';
+    const overlay = document.getElementById('comment-popup');
+    document.getElementById('comment-popup-title').textContent = title || 'Комментарий';
+    document.getElementById('comment-popup-text').textContent = text;
+    overlay.classList.add('open');
+  }
+  function closeCommentPopup() {
+    document.getElementById('comment-popup').classList.remove('open');
+  }
+  window.openCommentPopup = openCommentPopup;
+  window.closeCommentPopup = closeCommentPopup;
+
+  // ── РЕЖИМ ПОЛОВИНЫ ДНЯ ──
+  // ============================================================
+  // ФИЗИКА 6 ОТРЯДОВ
+  // ============================================================
+  // Группы: A = [1, 2, 3] (младшие), B = [4, 5, 6] (старшие)
+  // Своп в normal-режиме: AM — A в кабинетах (cluster), B на улице (outside);
+  //                       PM — B в кабинетах, A на улице.
+  const TROOPS_GROUP_A = [1, 2, 3];
+  const TROOPS_GROUP_B = [4, 5, 6];
+
+  // halfMode6(day, half) → 'normal' | 'trip3' | 'trip6' | 'trip6_split'
+  function halfMode6(day, half) {
+    const t = String(day && day.type || 'normal');
+    const isAM = half === 'am';
+    switch (t) {
+      case 'trip3_am':       return isAM ? 'trip3'       : 'normal';
+      case 'trip3_pm':       return isAM ? 'normal'      : 'trip3';
+      case 'trip3_full':     return 'trip3';
+      case 'trip6_am':       return isAM ? 'trip6'       : 'normal';
+      case 'trip6_pm':       return isAM ? 'normal'      : 'trip6';
+      case 'trip6_am_split': return isAM ? 'trip6_split' : 'normal';
+      case 'trip6_pm_split': return isAM ? 'normal'      : 'trip6_split';
+      case 'trip6_full':     return 'trip6';
+      default:               return 'normal';
+    }
+  }
+
+  // Старая 4-отрядная обёртка — на случай если что-то её ещё вызывает.
+  // Возвращает 'normal' для всех случаев (фолбэк).
+  function halfMode4(dOrType, half) { return halfMode6(typeof dOrType === 'object' ? dOrType : { type: dOrType }, half); }
+
+  // В trip3_*: какие отряды на выезде, какие в кабинетах.
+  // day.trip3_outside = 'B' → B (4-5-6) на выезде, A (1-2-3) в кластере.
+  // day.trip3_outside = 'A' → A на выезде, B в кластере.
+  // В trip3_full: AM работают согласно trip3_outside, PM группы свопаются.
+  function trip3GroupsFor(day, half) {
+    const inv = day && day.trip3_outside === 'A';
+    const baseTrip = inv ? TROOPS_GROUP_A.slice() : TROOPS_GROUP_B.slice();
+    const baseCluster = inv ? TROOPS_GROUP_B.slice() : TROOPS_GROUP_A.slice();
+    if (String(day && day.type) === 'trip3_full' && half === 'pm') {
+      // своп: PM на выезде та группа, что утром была в кабинетах
+      return { trip: baseCluster, cluster: baseTrip };
+    }
+    return { trip: baseTrip, cluster: baseCluster };
+  }
+
+  // Группы для normal-режима с учётом свопа AM↔PM.
+  // AM: A в cluster, B в outside. PM: B в cluster, A в outside.
+  function normalGroupsFor(half) {
+    if (half === 'am') return { cluster: TROOPS_GROUP_A.slice(), outside: TROOPS_GROUP_B.slice() };
+    return { cluster: TROOPS_GROUP_B.slice(), outside: TROOPS_GROUP_A.slice() };
+  }
+
+  // Времена ротации (3 шага по часу) — для отображения внутри ячейки.
+  // AM: 9:30–10:30 / 10:30–11:30 / 11:30–12:30
+  // PM: 14:00–15:00 / 15:00–16:00 / 16:00–17:00
+  function multiStepTimes(half, _mode) {
+    if (half === 'am') return ['9:30–10:30', '10:30–11:30', '11:30–12:30'];
+    return ['14:00–15:00', '15:00–16:00', '16:00–17:00'];
+  }
+  // Полное время полу-дня — для выездов и single-режима.
+  function fullHalfTime(half) {
+    return half === 'am' ? '9:30 – 12:30' : '14:00 – 17:00';
+  }
+
+  // ── ЗАГРУЗКА ПУБЛИКАЦИИ ──
+  let publishedState = null;
+  let publishedMeta = null;
+  let troopsChildren = [];   // [{crmId, name, age, troop, parentName, parentPhone}] — для попапа «Состав»
+  let publishedId = '';
+
+  async function init() {
+    publishedId = (new URLSearchParams(location.search).get('id') || '').trim();
+    if (!publishedId) {
+      document.getElementById('weeks-container').innerHTML = '<div class="week-wrap"><em>Не передан id публикации. Откройте печать из админки или из просмотра, чтобы передать id.</em></div>';
+      return;
+    }
+    try {
+      const r = await fetch(LIBRARY_URL + '?action=getPublished&id=' + encodeURIComponent(publishedId));
+      const data = await r.json();
+      if (!data.ok || !data.publication) throw new Error(data.error || 'Не найдено');
+      publishedMeta = data.publication;
+      publishedState = JSON.parse(publishedMeta.stateJson || '{}');
+      normalizeState();
+      // Подтягиваем состав отрядов (для попапа «Состав»). Не критично для расписания.
+      try {
+        const rc = await fetch(LIBRARY_URL + '?action=getChildren&seasonId=' + encodeURIComponent(publishedId));
+        const dc = await rc.json();
+        if (dc.ok && Array.isArray(dc.children)) troopsChildren = dc.children;
+      } catch(_) { troopsChildren = []; }
+      renderHeader();
+      renderCurrentView();
+    } catch(e) {
+      document.getElementById('weeks-container').innerHTML = '<div class="week-wrap" style="color:#c0392b"><strong>Не удалось загрузить:</strong> ' + escapeHtml(e.message || e) + '</div>';
+    }
+  }
+
+  function normalizeState() {
+    if (!Array.isArray(publishedState.schedule)) publishedState.schedule = [];
+    publishedState.schedule.forEach(d => {
+      // На случай если публикация ещё в старом формате с day.type
+      if (d.type && !d.amType && !d.pmType) {
+        const am = halfMode4(d.type, 'am');
+        const pm = halfMode4(d.type, 'pm');
+        d.amType = am; d.pmType = pm;
+      }
+    });
+  }
+
+  function renderHeader() {
+    const t = publishedState.theme || publishedMeta.theme || '';
+    document.getElementById('view-title').innerHTML = t ? ('Смена <em>' + escapeHtml(t) + '</em>') : 'Расписание для админа';
+    const start = new Date(publishedState.startDate || new Date());
+    const totalDays = Math.min(publishedState.schedule.length, NUM_DAYS);
+    const last = new Date(start); last.setDate(last.getDate() + totalDays - 1);
+    const range = start.getDate() + ' ' + MONTHS[start.getMonth()] + ' — ' + last.getDate() + ' ' + MONTHS[last.getMonth()];
+    document.getElementById('view-subhead').textContent = range + ' · 6 отрядов · ' + totalDays + ' дней · вид для админа';
+    // Ссылка на кураторскую версию (print4) с тем же id
+    const nav = document.getElementById('nav-to-troops');
+    if (nav && publishedId) nav.href = 'print6.html?id=' + encodeURIComponent(publishedId);
+    // Ссылка на табель педагогов
+    const navP = document.getElementById('nav-to-payroll');
+    if (navP && publishedId) navP.href = 'payroll6.html?id=' + encodeURIComponent(publishedId);
+  }
+
+  // ── ПЕРЕКЛЮЧЕНИЕ ВИДА ──
+  let currentView = 'admin'; // admin4 всегда в админском виде
+  let currentTroop = 'all';
+  function switchView(v) {
+    currentView = v;
+    document.querySelectorAll('.view-switch button').forEach(b => {
+      b.classList.toggle('active', b.dataset.view === v);
+    });
+    // Фильтр отрядов виден только в troops-режиме
+    document.getElementById('troop-switch').style.display = (v === 'troops') ? '' : 'none';
+    document.getElementById('print-all-btn').style.display = (v === 'troops') ? '' : 'none';
+    const dl = document.getElementById('docs-links');
+    if (dl) dl.style.display = (v === 'troops') ? '' : 'none';
+    renderCurrentView();
+  }
+  window.switchView = switchView;
+
+  function switchTroop(t) {
+    currentTroop = String(t);
+    document.querySelectorAll('.troop-switch button').forEach(b => {
+      b.classList.toggle('active', b.dataset.troop === currentTroop);
+    });
+    renderCurrentView();
+  }
+  window.switchTroop = switchTroop;
+
+  // «Печать всех по очереди» — для админа: один лист на каждый отряд.
+  // Делаем спецрежим renderTroop = 'print-all', который рендерит все 6 отрядов с разрывом
+  // страниц между ними. После печати возвращаемся к текущему виду.
+  let printAllMode = false;
+  function printAllTroops() {
+    if (currentView !== 'troops') return;
+    printAllMode = true;
+    renderCurrentView();
+    // Дождёмся, пока DOM обновится, и запустим печать
+    setTimeout(() => {
+      window.print();
+      // После закрытия диалога печати возвращаемся к нормальному виду
+      printAllMode = false;
+      renderCurrentView();
+    }, 100);
+  }
+  window.printAllTroops = printAllTroops;
+
+  function renderCurrentView() {
+    const container = document.getElementById('weeks-container');
+    // Десктоп-контент (таблицы) собираем в строку через renderDesktopHTML,
+    // мобильный (карточки) — через renderMobileHTML. Оба всегда в DOM, CSS прячет ненужное.
+    const desktopHTML = renderDesktopHTML();
+    const mobileHTML = renderMobileHTML();
+    container.innerHTML =
+      '<div class="desktop-view">' + desktopHTML + '</div>' +
+      '<div class="mobile-view">' + mobileHTML + '</div>';
+    if (typeof applyFontSize === 'function') {} // шрифт применяется через CSS-переменную
+  }
+
+  // Возвращает HTML десктоп-вида (таблицы) — для текущего режима/фильтра.
+  function renderDesktopHTML() {
+    if (currentView === 'admin') return renderAdminViewHTML();
+    return renderAllWeeksHTML();
+  }
+
+  // ── РЕНДЕР: Кураторский ВИД (по отрядам × дни) ──
+  function renderAllWeeksHTML() {
+    const total = Math.min(publishedState.schedule.length, NUM_DAYS);
+    if (printAllMode) {
+      let html = '';
+      for (let t = 1; t <= NUM_TROOPS; t++) {
+        html += '<div class="troop-print-block">';
+        html += renderTroopHeader(t);
+        for (let w = 0; w < 2; w++) {
+          const startIdx = w * 5;
+          const endIdx = Math.min(startIdx + 5, total);
+          if (startIdx >= total) break;
+          html += renderWeek(w + 1, startIdx, endIdx, String(t));
+        }
+        html += '</div>';
+      }
+      return html;
+    }
+    let html = '';
+    if (currentTroop !== 'all') html += renderTroopHeader(parseInt(currentTroop, 10));
+    for (let w = 0; w < 2; w++) {
+      const startIdx = w * 5;
+      const endIdx = Math.min(startIdx + 5, total);
+      if (startIdx >= total) break;
+      html += renderWeek(w + 1, startIdx, endIdx, currentTroop);
+    }
+    return html || '<div class="week-wrap"><em>Нет дней для печати.</em></div>';
+  }
+
+  function renderTroopHeader(troop) {
+    return `<div class="week-wrap" style="padding-bottom:0;margin-bottom:0">
+      <div class="troop-header t${troop}">
+        <span class="troop-num">Отряд ${troop}</span>
+        <span class="troop-meta">расписание для куратора · смена «${escapeHtml(publishedState.theme || '')}»</span>
+      </div>
+    </div>`;
+  }
+
+  function renderWeek(weekNum, startIdx, endIdx, troopFilter) {
+    troopFilter = troopFilter || 'all';
+    const theme = publishedState.theme || '';
+    const startDate = dateForDay(publishedState, startIdx);
+    const endDate = dateForDay(publishedState, endIdx - 1);
+    const dateRange = startDate.getDate() + ' ' + MONTHS[startDate.getMonth()] + ' – ' +
+                      endDate.getDate() + ' ' + MONTHS[endDate.getMonth()];
+
+    // Шапка дней
+    let theadHtml = '<tr><th class="block-label">отряд</th>';
+    for (let i = startIdx; i < endIdx; i++) {
+      const dt = dateForDay(publishedState, i);
+      theadHtml += `<th>День ${i+1}<span class="day-sub">${dt.getDate()} ${MONTHS[dt.getMonth()]} · ${WEEKDAYS_SHORT[dt.getDay()].toUpperCase()}</span></th>`;
+    }
+    theadHtml += '</tr>';
+
+    // Тело: 12 строк = 6 отрядов × 2 половины дня, либо 2 строки если выбран один отряд.
+    const rows = [];
+    for (let troop = 1; troop <= NUM_TROOPS; troop++) {
+      if (troopFilter !== 'all' && String(troop) !== String(troopFilter)) continue;
+      rows.push({ troop, half: 'am', label: 'Отряд ' + troop + '<br>до обеда', time: '9:30–12:30' });
+      rows.push({ troop, half: 'pm', label: 'Отряд ' + troop + '<br>после обеда', time: '14:00–17:00' });
+    }
+
+    let tbodyHtml = '';
+    let lastTroop = 0;
+    rows.forEach(row => {
+      const isNewTroopGroup = row.troop !== lastTroop;
+      lastTroop = row.troop;
+      const rowClass = 't' + row.troop + (isNewTroopGroup ? ' troop-group-start' : '');
+      tbodyHtml += `<tr class="${rowClass}">`;
+      tbodyHtml += `<td class="block-label t${row.troop}-label">${row.label}<span class="time">${row.time}</span></td>`;
+      for (let i = startIdx; i < endIdx; i++) {
+        const d = publishedState.schedule[i];
+        tbodyHtml += renderTroopCell(d, row.half, row.troop);
+      }
+      tbodyHtml += '</tr>';
+    });
+
+    return `
+      <div class="week-wrap">
+        <div class="week-head">
+          <span class="week-title">Неделя <em>${weekNum}</em></span>
+          <span class="week-sub">${dateRange}${theme ? ' · смена «' + escapeHtml(theme) + '»' : ''}</span>
+        </div>
+        <table class="print-grid">
+          <thead>${theadHtml}</thead>
+          <tbody>${tbodyHtml}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  // Содержимое одной ячейки: расписание ОДНОГО отряда в этот блок дня (6-отрядная физика).
+  //   normal — отряд проходит ротацию из 3 МК (в кабинетах если он в группе cluster,
+  //            или на улице если в группе outside; либо single — одна активность весь полу-день)
+  //   trip3  — отряд либо в кабинетах (cluster, 3 МК), либо на выезде (trip_full_*, один слот)
+  //   trip6  — все 6 на одном выезде (trip6_am / trip6_pm)
+  //   trip6_split — два параллельных выезда: A на trip6_*_a, B на trip6_*_b
+  function renderTroopCell(d, half, troop) {
+    if (!d) return '<td class="cell empty">—</td>';
+    const mode = halfMode6(d, half);
+    const items = [];
+    let cellIsTrip = false;
+
+    if (mode === 'trip6') {
+      const s = d[half === 'am' ? 'trip6_am' : 'trip6_pm'];
+      if (s && s.template) { items.push({ slot: s, time: fullHalfTime(half), trip: true }); cellIsTrip = true; }
+    }
+    else if (mode === 'trip6_split') {
+      const inGroupA = TROOPS_GROUP_A.indexOf(troop) >= 0;
+      const key = (half === 'am' ? 'trip6_am_' : 'trip6_pm_') + (inGroupA ? 'a' : 'b');
+      const s = d[key];
+      if (s && s.template) { items.push({ slot: s, time: fullHalfTime(half), trip: true }); cellIsTrip = true; }
+    }
+    else if (mode === 'trip3') {
+      const g = trip3GroupsFor(d, half);
+      if (g.trip.indexOf(troop) >= 0) {
+        // на выезде
+        const s = d[half === 'am' ? 'trip_full_am' : 'trip_full_pm'];
+        if (s && s.template) { items.push({ slot: s, time: fullHalfTime(half), trip: true }); cellIsTrip = true; }
+      } else {
+        // в кабинетах — ротация из am_cluster / pm_cluster
+        const cluster = d[half + '_cluster'] || [];
+        const times = multiStepTimes(half);
+        cluster.forEach((s, i) => {
+          if (s && s.template) items.push({ slot: s, time: times[i] });
+        });
+      }
+    }
+    else {
+      // normal — отряд либо в cluster (МК в кабинетах), либо в outside (улица)
+      const groups = normalGroupsFor(half);
+      const inCluster = groups.cluster.indexOf(troop) >= 0;
+      if (inCluster) {
+        // ротация cluster
+        const cluster = d[half + '_cluster'] || [];
+        const times = multiStepTimes(half);
+        cluster.forEach((s, i) => {
+          if (s && s.template) items.push({ slot: s, time: times[i] });
+        });
+      } else {
+        // outside — режим rotation или single
+        const outsideMode = String(d[half + '_outside_mode'] || 'rotation');
+        if (outsideMode === 'single') {
+          const s = d[half + '_outside_single'];
+          if (s && s.template) {
+            const isTrip = String(s.format || '').indexOf('выезд') >= 0;
+            items.push({ slot: s, time: fullHalfTime(half), trip: isTrip });
+            if (isTrip) cellIsTrip = true;
+          }
+        } else {
+          const outside = d[half + '_outside'] || [];
+          const times = multiStepTimes(half);
+          outside.forEach((s, i) => {
+            if (s && s.template) items.push({ slot: s, time: times[i] });
+          });
+        }
+      }
+    }
+
+    if (items.length === 0) return '<td class="cell empty">—</td>';
+    const html = items.map(it => formatItem(it)).join('');
+    return '<td class="cell' + (cellIsTrip ? ' trip' : '') + '">' + html + '</td>';
+  }
+
+  // Одна строка-занятие: «10:00 · МК · педагог · кабинет», тема курсивом ниже.
+  function formatItem(it) {
+    const s = it.slot;
+    if (!s || !s.template) return '';
+    const time = it.time || '';
+    const tripTag = it.trip ? '<span class="item-trip-tag">🚌 выезд</span>' : '';
+    const timeHtml = time ? `<span class="item-time">${escapeHtml(time)}</span>` : '';
+    const theme = s.theme ? `<div class="item-theme">«${escapeHtml(s.theme)}»</div>` : '';
+    const meta = [];
+    if (s.teacher) meta.push(escapeHtml(s.teacher));
+    if (s.room) meta.push(escapeHtml(s.room));
+    const metaHtml = meta.length ? `<div class="item-meta">${meta.join(' · ')}</div>` : '';
+    const commentHtml = s.comment ? (function(){
+      var cid = registerComment(s.comment);
+      var short = s.comment.length > 40 ? escapeHtml(s.comment.slice(0,40)) + '…' : escapeHtml(s.comment);
+      var more = s.comment.length > 40 ? ' <span class="item-comment-more">развернуть</span>' : '';
+      return '<div class="item-comment" onclick="event.stopPropagation();openCommentPopup(\''+cid+'\', '+JSON.stringify(s.template).replace(/"/g,'&quot;')+')" title="Открыть комментарий полностью">'
+        + '<span class="item-comment-short">💬 '+short+more+'</span>'
+        + '<span class="item-comment-full">💬 '+escapeHtml(s.comment)+'</span>'
+        + '</div>';
+    })() : '';
+    // Референсы: иконка + клик по карточке открывает попап
+    const refs = getSlotRefs(s);
+    let refAttr = '', refIcon = '';
+    if (refs.length > 0) {
+      const sid = registerRefs(refs);
+      refAttr = ` class="item has-refs" onclick="openRefsPopup('${sid}', ${JSON.stringify(s.template).replace(/"/g,'&quot;')})" title="Посмотреть референсы"`;
+      refIcon = '<span class="item-ref-icon" title="Есть референсы">🖼</span>';
+    }
+    return `<div${refAttr || ' class="item"'}>
+      <div class="item-line">${timeHtml}${tripTag}<span class="item-name">${escapeHtml(s.template)}</span>${refIcon}</div>
+      ${theme}
+      ${metaHtml}
+      ${commentHtml}
+    </div>`;
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // АДМИНСКИЙ ВИД: «дни × блоки» (как в 6-отрядной)
+  // ─────────────────────────────────────────────────────────────
+  // 4 строки на таблицу: до обеда·1-2 / до обеда·3-4 / после·1-2 / после·3-4
+  // В каждой ячейке — список МК с временем, темой курсивом, педагогом и кабинетом.
+  // Выезды красят ячейку жёлтым. Внизу — сводка выездов (renderTripsSummary).
+
+  function renderAdminViewHTML() {
+    const total = Math.min(publishedState.schedule.length, NUM_DAYS);
+    let html = '';
+    for (let w = 0; w < 2; w++) {
+      const startIdx = w * 5;
+      const endIdx = Math.min(startIdx + 5, total);
+      if (startIdx >= total) break;
+      html += renderAdminWeek(w + 1, startIdx, endIdx);
+    }
+    html += renderTripsSummary();
+    return html || '<div class="week-wrap"><em>Нет данных для админа.</em></div>';
+  }
+
+  function renderAdminWeek(weekNum, startIdx, endIdx) {
+    const theme = publishedState.theme || '';
+    const startDate = dateForDay(publishedState, startIdx);
+    const endDate = dateForDay(publishedState, endIdx - 1);
+    const dateRange = startDate.getDate() + ' ' + MONTHS[startDate.getMonth()] + ' – ' +
+                      endDate.getDate() + ' ' + MONTHS[endDate.getMonth()];
+    let theadHtml = '<tr><th class="block-label">блок</th>';
+    for (let i = startIdx; i < endIdx; i++) {
+      const dt = dateForDay(publishedState, i);
+      theadHtml += `<th>День ${i+1}<span class="day-sub">${dt.getDate()} ${MONTHS[dt.getMonth()]} · ${WEEKDAYS_SHORT[dt.getDay()].toUpperCase()}</span></th>`;
+    }
+    theadHtml += '</tr>';
+
+    const rows = [
+      { half: 'am', troops: TROOPS_GROUP_A.slice(), groupLabel: 'A', troopsLabel: 'отряды 1, 2, 3', time: '9:30 – 12:30' },
+      { half: 'am', troops: TROOPS_GROUP_B.slice(), groupLabel: 'B', troopsLabel: 'отряды 4, 5, 6', time: '9:30 – 12:30' },
+      { half: 'pm', troops: TROOPS_GROUP_A.slice(), groupLabel: 'A', troopsLabel: 'отряды 1, 2, 3', time: '14:00 – 17:00' },
+      { half: 'pm', troops: TROOPS_GROUP_B.slice(), groupLabel: 'B', troopsLabel: 'отряды 4, 5, 6', time: '14:00 – 17:00' }
+    ];
+    let tbodyHtml = '';
+    rows.forEach(row => {
+      const halfLabel = row.half === 'am' ? 'утром' : 'после обеда';
+      tbodyHtml += '<tr>';
+      tbodyHtml += `<td class="block-label">${halfLabel}<br>${row.troopsLabel}<span class="time">${row.time}</span></td>`;
+      for (let i = startIdx; i < endIdx; i++) {
+        const d = publishedState.schedule[i];
+        tbodyHtml += renderAdminCell(d, row.half, row.troops);
+      }
+      tbodyHtml += '</tr>';
+    });
+
+    return `
+      <div class="week-wrap">
+        <div class="week-head">
+          <span class="week-title">Неделя <em>${weekNum}</em></span>
+          <span class="week-sub">${dateRange}${theme ? ' · смена «' + escapeHtml(theme) + '»' : ''} · вид для админа</span>
+        </div>
+        <table class="print-grid admin-compact">
+          <thead>${theadHtml}</thead>
+          <tbody>${tbodyHtml}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  // renderAdminCell: ячейка админ-вида. troops — массив отрядов одной группы (A или B).
+  // 6-отрядная физика: для группы определяем где она сейчас (cluster/outside/trip),
+  // выводим соответствующие активности.
+  function renderAdminCell(d, half, troops) {
+    if (!d) return '<td class="cell empty">—</td>';
+    const mode = halfMode6(d, half);
+    const items = [];
+    let cellIsTrip = false;
+    const troopsBadge = troops.join('-');
+
+    if (mode === 'trip6') {
+      const s = d[half === 'am' ? 'trip6_am' : 'trip6_pm'];
+      if (s && s.template) { items.push({ slot: s, time: fullHalfTime(half), trip: true, badge: '1-2-3-4-5-6' }); cellIsTrip = true; }
+    }
+    else if (mode === 'trip6_split') {
+      // Одна группа — на a, другая на b
+      const isGroupA = troops[0] <= 3;
+      const key = (half === 'am' ? 'trip6_am_' : 'trip6_pm_') + (isGroupA ? 'a' : 'b');
+      const s = d[key];
+      if (s && s.template) { items.push({ slot: s, time: fullHalfTime(half), trip: true, badge: troopsBadge }); cellIsTrip = true; }
+    }
+    else if (mode === 'trip3') {
+      const g = trip3GroupsFor(d, half);
+      const onTrip = troops[0] === g.trip[0]; // вся группа целиком на выезде
+      if (onTrip) {
+        const s = d[half === 'am' ? 'trip_full_am' : 'trip_full_pm'];
+        if (s && s.template) { items.push({ slot: s, time: fullHalfTime(half), trip: true, badge: troopsBadge }); cellIsTrip = true; }
+      } else {
+        // в кабинетах — ротация cluster
+        const cluster = d[half + '_cluster'] || [];
+        const times = multiStepTimes(half);
+        cluster.forEach((s, i) => {
+          if (s && s.template) items.push({ slot: s, time: times[i], trip: false, badge: troopsBadge });
+        });
+      }
+    }
+    else {
+      // normal — группа либо в cluster, либо в outside
+      const groups = normalGroupsFor(half);
+      const inCluster = (troops[0] === groups.cluster[0]);
+      if (inCluster) {
+        // ротация cluster (3 МК)
+        const cluster = d[half + '_cluster'] || [];
+        const times = multiStepTimes(half);
+        cluster.forEach((s, i) => {
+          if (s && s.template) items.push({ slot: s, time: times[i], trip: false, badge: troopsBadge });
+        });
+      } else {
+        // outside — rotation или single
+        const outsideMode = String(d[half + '_outside_mode'] || 'rotation');
+        if (outsideMode === 'single') {
+          const s = d[half + '_outside_single'];
+          if (s && s.template) {
+            const isTrip = String(s.format || '').indexOf('выезд') >= 0;
+            items.push({ slot: s, time: fullHalfTime(half), trip: isTrip, badge: troopsBadge });
+            if (isTrip) cellIsTrip = true;
+          }
+        } else {
+          const outside = d[half + '_outside'] || [];
+          const times = multiStepTimes(half);
+          outside.forEach((s, i) => {
+            if (s && s.template) items.push({ slot: s, time: times[i], trip: false, badge: troopsBadge });
+          });
+        }
+      }
+    }
+
+    if (items.length === 0) return '<td class="cell empty">—</td>';
+    const html = items.map(it => formatAdminItem(it)).join('');
+    return '<td class="cell' + (cellIsTrip ? ' trip' : '') + '">' + html + '</td>';
+  }
+
+  function formatAdminItem(it) {
+    const s = it.slot;
+    if (!s || !s.template) return '';
+    const time = it.time || '';
+    const tripTag = it.trip ? '<span class="item-trip-tag">🚌 выезд</span>' : '';
+    const badge = it.badge ? `<span class="badge-troops">${escapeHtml(it.badge)}</span>` : '';
+    const timeHtml = time ? `<span class="item-time">${escapeHtml(time)}</span>` : '';
+    const theme = s.theme ? `<div class="item-theme">«${escapeHtml(s.theme)}»</div>` : '';
+    const orderHtml = it.orderLabel ? `<div class="item-order">${escapeHtml(it.orderLabel)}</div>` : '';
+    const meta = [];
+    if (s.teacher) meta.push(escapeHtml(s.teacher));
+    if (s.room) meta.push(escapeHtml(s.room));
+    const metaHtml = meta.length ? `<div class="item-meta">${badge}${meta.join(' · ')}</div>` : (badge ? `<div class="item-meta">${badge}</div>` : '');
+    const commentHtml = s.comment ? (function(){
+      var cid = registerComment(s.comment);
+      var short = s.comment.length > 40 ? escapeHtml(s.comment.slice(0,40)) + '…' : escapeHtml(s.comment);
+      var more = s.comment.length > 40 ? ' <span class="item-comment-more">развернуть</span>' : '';
+      return '<div class="item-comment" onclick="event.stopPropagation();openCommentPopup(\''+cid+'\', '+JSON.stringify(s.template).replace(/"/g,'&quot;')+')" title="Открыть комментарий полностью">'
+        + '<span class="item-comment-short">💬 '+short+more+'</span>'
+        + '<span class="item-comment-full">💬 '+escapeHtml(s.comment)+'</span>'
+        + '</div>';
+    })() : '';
+    const refs = getSlotRefs(s);
+    let refAttr = '', refIcon = '';
+    if (refs.length > 0) {
+      const sid = registerRefs(refs);
+      refAttr = ` class="item has-refs" onclick="openRefsPopup('${sid}', ${JSON.stringify(s.template).replace(/"/g,'&quot;')})" title="Посмотреть референсы"`;
+      refIcon = '<span class="item-ref-icon" title="Есть референсы">🖼</span>';
+    }
+    return `<div${refAttr || ' class="item"'}>
+      <div class="item-line">${timeHtml}${tripTag}<span class="item-name">${escapeHtml(s.template)}</span>${refIcon}</div>
+      ${theme}
+      ${orderHtml}
+      ${metaHtml}
+      ${commentHtml}
+    </div>`;
+  }
+
+
+  function renderTripsSummary() {
+    // Сводка выездов: проходим по всем дням и всем половинам, собираем выезды.
+    const trips = []; // { dayIdx, half, slot, troopsLabel }
+    publishedState.schedule.forEach((d, dayIdx) => {
+      ['am','pm'].forEach(half => {
+        const mode = halfMode6(d, half);
+        if (mode === 'trip6') {
+          const s = d[half === 'am' ? 'trip6_am' : 'trip6_pm'];
+          if (s && s.template) trips.push({ dayIdx, half, slot: s, troopsLabel: 'все 6 отрядов' });
+        }
+        else if (mode === 'trip6_split') {
+          const sA = d[half === 'am' ? 'trip6_am_a' : 'trip6_pm_a'];
+          const sB = d[half === 'am' ? 'trip6_am_b' : 'trip6_pm_b'];
+          if (sA && sA.template) trips.push({ dayIdx, half, slot: sA, troopsLabel: 'отряды 1, 2, 3' });
+          if (sB && sB.template) trips.push({ dayIdx, half, slot: sB, troopsLabel: 'отряды 4, 5, 6' });
+        }
+        else if (mode === 'trip3') {
+          const g = trip3GroupsFor(d, half);
+          const s = d[half === 'am' ? 'trip_full_am' : 'trip_full_pm'];
+          if (s && s.template) trips.push({ dayIdx, half, slot: s, troopsLabel: 'отряды ' + g.trip.join(', ') });
+        }
+        else {
+          // normal — проверяем outside_single на формат «выезд»
+          const outsideMode = String(d[half + '_outside_mode'] || 'rotation');
+          if (outsideMode === 'single') {
+            const s = d[half + '_outside_single'];
+            if (s && s.template && String(s.format || '').indexOf('выезд') >= 0) {
+              const groups = normalGroupsFor(half);
+              trips.push({ dayIdx, half, slot: s, troopsLabel: 'отряды ' + groups.outside.join(', ') });
+            }
+          }
+        }
+      });
+    });
+
+    let rowsHtml = '';
+    if (trips.length === 0) {
+      rowsHtml = '<tr><td colspan="3" class="trips-empty">Выездов в смене нет.</td></tr>';
+    } else {
+      trips.forEach(t => {
+        const dt = dateForDay(publishedState, t.dayIdx);
+        const dateLabel = (t.dayIdx + 1) + ' день';
+        const dateSub = dt.getDate() + ' ' + MONTHS[dt.getMonth()] + ' · ' + WEEKDAYS_SHORT[dt.getDay()].toUpperCase();
+        const halfLabel = t.half === 'am' ? 'до обеда<br>9:30–12:30' : 'после обеда<br>14:00–17:00';
+        const slot = t.slot;
+        const meta = [];
+        meta.push(t.troopsLabel);
+        if (slot.teacher) meta.push(escapeHtml(slot.teacher));
+        if (slot.room) meta.push('место: ' + escapeHtml(slot.room));
+        rowsHtml += `<tr>
+          <td class="trip-day">${dateLabel}<span class="trip-day-sub">${dateSub}</span></td>
+          <td class="trip-half">${halfLabel}</td>
+          <td class="trip-content">
+            <div class="trip-name">🚌 ${escapeHtml(slot.template)}</div>
+            ${slot.theme ? `<div class="trip-meta" style="font-style:italic">«${escapeHtml(slot.theme)}»</div>` : ''}
+            <div class="trip-meta">${meta.join(' · ')}</div>
+          </td>
+        </tr>`;
+      });
+    }
+
+    return `
+      <div class="week-wrap">
+        <div class="week-head">
+          <span class="week-title">Выезды <em>смены</em></span>
+          <span class="week-sub">для оформления договорённостей с площадками и транспортом</span>
+        </div>
+        <table class="trips-grid">
+          <thead><tr><th style="width:130px">Когда</th><th style="width:100px">Блок</th><th>Куда и с кем</th></tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // МОБИЛЬНЫЙ ВИД: вертикальные карточки (для просмотра на телефоне).
+  // Переиспользует логику renderTroopCell / renderAdminCell, снимая обёртку <td>.
+  // ─────────────────────────────────────────────────────────────
+  // Достаёт внутренности ячейки (без <td>...</td>) и флаг trip.
+  function cellInner(tdHtml) {
+    const m = tdHtml.match(/^<td class="cell([^"]*)">([\s\S]*)<\/td>$/);
+    if (!m) {
+      // пустая/особая ячейка (empty, rot-ditto)
+      const isEmpty = /class="cell empty"/.test(tdHtml) || /rot-ditto/.test(tdHtml);
+      return { inner: tdHtml.replace(/^<td[^>]*>/, '').replace(/<\/td>$/, ''), trip: false, empty: isEmpty };
+    }
+    return { inner: m[2], trip: /\btrip\b/.test(m[1]), empty: false };
+  }
+
+  function renderMobileHTML() {
+    const total = Math.min(publishedState.schedule.length, NUM_DAYS);
+    if (total === 0) return '<div class="m-empty">Нет дней для показа.</div>';
+    let html = '';
+    for (let i = 0; i < total; i++) {
+      const d = publishedState.schedule[i];
+      const dt = dateForDay(publishedState, i);
+      const dateLabel = dt.getDate() + ' ' + MONTHS[dt.getMonth()] + ' · ' + WEEKDAYS_SHORT[dt.getDay()].toUpperCase();
+      html += `<div class="m-day">
+        <div class="m-day-head"><span class="m-day-num">День ${i+1}</span><span class="m-day-date">${dateLabel}</span></div>`;
+      ['am','pm'].forEach(half => {
+        const halfLabel = half === 'am' ? 'До обеда · 9:30–12:30' : 'После обеда · 14:00–17:00';
+        if (currentView === 'admin') {
+          html += renderMobileAdminHalf(d, half, halfLabel);
+        } else {
+          html += renderMobileTroopHalf(d, half, halfLabel);
+        }
+      });
+      html += '</div>';
+    }
+    return html;
+  }
+
+  // Кураторский мобильный: блок half, внутри — каждый отряд (или выбранный) со своими занятиями.
+  function renderMobileTroopHalf(d, half, halfLabel) {
+    let blocks = '';
+    const troopList = (currentTroop === 'all') ? [1,2,3,4,5,6] : [parseInt(currentTroop,10)];
+    troopList.forEach(troop => {
+      const td = renderTroopCell(d, half, troop);
+      const { inner, trip, empty } = cellInner(td);
+      if (empty || !inner.trim()) return; // отряд ничего не делает в этот блок — пропускаем
+      blocks += `<div class="m-troop-block t${troop}${trip ? ' is-trip' : ''}">
+        <div class="m-troop-tag t${troop}-bg">Отряд ${troop}</div>
+        <div class="m-items">${inner}</div>
+      </div>`;
+    });
+    if (!blocks) return ''; // в этой половине ничего нет
+    return `<div class="m-half"><div class="m-half-label">${halfLabel}</div>${blocks}</div>`;
+  }
+
+  // Админский мобильный: блок half, внутри — две группы (1-2-3 и 4-5-6) с занятиями.
+  function renderMobileAdminHalf(d, half, halfLabel) {
+    let blocks = '';
+    [TROOPS_GROUP_A.slice(), TROOPS_GROUP_B.slice()].forEach(group => {
+      const td = renderAdminCell(d, half, group);
+      const { inner, trip, empty } = cellInner(td);
+      if (empty || !inner.trim()) return;
+      const groupLabel = 'отряды ' + group.join(', ');
+      blocks += `<div class="m-pair-block${trip ? ' is-trip' : ''}">
+        <div class="m-pair-tag">${groupLabel}</div>
+        <div class="m-items">${inner}</div>
+      </div>`;
+    });
+    if (!blocks) return '';
+    return `<div class="m-half"><div class="m-half-label">${halfLabel}</div>${blocks}</div>`;
+  }
+
+  function pluralRu(n, one, few, many) {
+    const mod10 = n % 10, mod100 = n % 100;
+    if (mod10 === 1 && mod100 !== 11) return one;
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few;
+    return many;
+  }
+
+  // ── РЕГУЛЯТОР ШРИФТА ──
+  let fontScale = 100;
+  function applyFontSize() {
+    const px = 13 * (fontScale / 100);
+    document.documentElement.style.setProperty('--print-font-size', px + 'px');
+    document.getElementById('size-display').textContent = fontScale + '%';
+    try { localStorage.setItem('print4_font_scale', String(fontScale)); } catch(e) {}
+  }
+  function changeFontSize(delta) {
+    fontScale = Math.max(60, Math.min(140, fontScale + delta * 10));
+    applyFontSize();
+  }
+  function resetFontSize() { fontScale = 100; applyFontSize(); }
+  // Восстанавливаем сохранённый масштаб
+  try {
+    const saved = parseInt(localStorage.getItem('print4_font_scale'), 10);
+    if (!isNaN(saved) && saved >= 60 && saved <= 140) { fontScale = saved; applyFontSize(); }
+  } catch(e) {}
+  // Глобально для onclick кнопок
+  window.changeFontSize = changeFontSize;
+  window.resetFontSize = resetFontSize;
+  window.goBack = function() {
+    if (publishedId) location.href = 'view6.html?id=' + encodeURIComponent(publishedId);
+    else history.back();
+  };
+
+  // Если уже разблокировано — стартуем сразу
+  if (document.body.classList.contains('unlocked')) init();
+})();
+</script>
+</body>
+</html>
