@@ -1431,26 +1431,59 @@
   }
   .day-actions { display: flex; gap: 6px; align-items: center; }
 
+  /* Тип дня — 2 строки (AM / PM), как в index4 */
+  .day-type-rows {
+    display: flex;
+    flex-direction: column;
+    background: var(--paper-deep, #faf8f3);
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid rgba(21,22,23,0.12);
+  }
+  .day-type-row {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    padding: 0 0 0 12px;
+  }
+  .day-type-row + .day-type-row { border-top: 1px solid rgba(21,22,23,0.10); }
+  .day-type-label {
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(21,22,23,0.55);
+    font-weight: 700;
+    flex-shrink: 0;
+    min-width: 92px;
+    display: flex;
+    align-items: center;
+  }
   .day-type-switch {
     display: flex;
+    flex-wrap: wrap;
     gap: 0;
-    border: 1px solid var(--paper);
+    flex: 1;
   }
   .day-type-btn {
     background: transparent;
     border: none;
-    color: rgba(245,245,240,0.6);
-    padding: 4px 8px;
+    border-left: 1px solid rgba(21,22,23,0.14);
+    color: rgba(21,22,23,0.6);
+    padding: 7px 12px;
     font-family: Inter, system-ui, sans-serif;
-    font-size: 9px;
-    letter-spacing: 0.1em;
+    font-size: 10px;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     cursor: pointer;
-    border-right: 1px solid rgba(245,245,240,0.3);
+    font-weight: 600;
+    transition: all 0.12s ease;
+    flex: 1 1 auto;
+    white-space: nowrap;
+    text-align: center;
   }
-  .day-type-btn:last-child { border-right: none; }
   .day-type-btn:hover { color: var(--ink); background: var(--yellow); }
-  .day-type-btn.active { background: var(--yellow); color: var(--ink); font-weight: 600; }
+  .day-type-btn.active { background: var(--yellow); color: var(--ink); font-weight: 700; }
 
   /* Полноширинный слот общего выезда */
   .all-troops-slot {
@@ -1830,6 +1863,22 @@
     color: var(--ink);
   }
   .icon-btn.has-comment:hover { background: var(--yellow-deep); color: var(--ink); border-color: var(--yellow-deep); }
+
+  /* 🎤 Голосовой отчёт — мшистый (зелёный) когда требуется */
+  .icon-btn.report-btn {
+    background: var(--moss, #8FA370);
+    border-color: var(--moss, #8FA370);
+    color: var(--paper, #fff);
+  }
+  .icon-btn.report-btn:hover { background: #748656; border-color: #748656; color: var(--paper, #fff); }
+
+  /* 📊 Оценочный МК (баллы детям) — терракотовый когда включено */
+  .icon-btn.scored-btn {
+    background: var(--terra, #C77E5E);
+    border-color: var(--terra, #C77E5E);
+    color: var(--paper, #fff);
+  }
+  .icon-btn.scored-btn:hover { background: #b06a4a; border-color: #b06a4a; color: var(--paper, #fff); }
 
   /* Уличный блок: тоже 3 ротационные активности, но проще */
   .outside .stations { grid-template-columns: repeat(3, 1fr); }
@@ -5798,6 +5847,33 @@ function isRefSelectedInSlot_(slot, url) {
   return slot.selectedRefs.indexOf(url) >= 0;
 }
 
+// ────────────────────────────────────────────────────────────
+// 🎤 Голосовой отчёт педагога / 📊 Баллы детям (оценочный МК)
+// ────────────────────────────────────────────────────────────
+// Два независимых флага на каждом слоте МК:
+//   slot.needsReport — требовать голосовой отчёт педагога. Дефолт ВКЛ.
+//                       Хранится как boolean. undefined трактуется как true.
+//   slot.needsScores — это оценочный МК (педагог ставит баллы детям). Дефолт ВЫКЛ.
+//                       Хранится как boolean. undefined трактуется как false.
+// Адресация через slotPath (см. getSlotByPath_): {dayIdx, group, idx, slotKey, isTripSlot}.
+
+function toggleNeedsReport(slotPath) {
+  const slot = getSlotByPath_(slotPath);
+  if (!slot) return;
+  const cur = slot.needsReport !== false; // дефолт true
+  slot.needsReport = !cur;
+  saveLocal();
+  render();
+}
+
+function toggleNeedsScores(slotPath) {
+  const slot = getSlotByPath_(slotPath);
+  if (!slot) return;
+  slot.needsScores = !slot.needsScores;
+  saveLocal();
+  render();
+}
+
 // Зеркальная функция для родительских референсов.
 // Если у слота нет parentSelectedRefs — всё активно (показываются все рефы).
 function isParentRefSelectedInSlot_(slot, url) {
@@ -6431,19 +6507,18 @@ function renderDay(day, idx) {
                          day.type === 'trip3_full' ? 'два выезда: утром 4-5-6, после обеда 1-2-3 (1-2-3 и 4-5-6 параллельно в кластере)' :
                          (idx===0?'старт смены, знакомство':idx===4?'неделя 1, вечер — вечеринка':idx===9?'финал смены':'учебный день');
 
-  const types = [
+  // Тип дня: 2 строки (AM/PM), 4 кнопки в каждой. См. функцию setHalfType_.
+  // 4 опции в каждой половине: normal / trip3 (выезд группы) / trip6 (выезд всех) / split (параллельные)
+  const halfOptions = [
     {key:'normal', label:'Обычный'},
-    {key:'trip3_am', label:'Выезд 3 утром'},
-    {key:'trip3_pm', label:'Выезд 3 днём'},
-    {key:'trip3_full', label:'Выезд 3 × 2'},
-    {key:'trip6_am', label:'Выезд 6 утром'},
-    {key:'trip6_pm', label:'Выезд 6 днём'},
-    {key:'trip6_am_split', label:'Парал. выезды утром'},
-    {key:'trip6_pm_split', label:'Парал. выезды днём'},
-    {key:'trip6_full_split', label:'Парал. выезды × 2'},
+    {key:'trip3',  label:'Выезд группы'},
+    {key:'trip6',  label:'Выезд всех'},
+    {key:'split',  label:'Параллельные'}
   ];
-  const typeSwitch = types.map(t =>
-    `<button class="day-type-btn ${day.type===t.key?'active':''}" onclick="setDayType(${idx},'${t.key}')">${t.label}</button>`
+  const amChoice = halfChoice_(day.type, 'am');
+  const pmChoice = halfChoice_(day.type, 'pm');
+  const buildRow = (half, current) => halfOptions.map(o =>
+    `<button class="day-type-btn ${current===o.key?'active':''}" onclick="setHalfType(${idx},'${half}','${o.key}')">${o.label}</button>`
   ).join('');
 
   card.innerHTML = `
@@ -6457,8 +6532,17 @@ function renderDay(day, idx) {
         <span class="day-context">${dayContextLabel}</span>
       </div>
       <div class="day-actions">
-        <div class="day-type-switch">${typeSwitch}</div>
         <button class="btn btn-sm" onclick="regenDay(${idx})">🔄 день</button>
+      </div>
+    </div>
+    <div class="day-type-rows">
+      <div class="day-type-row">
+        <span class="day-type-label">До обеда:</span>
+        <div class="day-type-switch">${buildRow('am', amChoice)}</div>
+      </div>
+      <div class="day-type-row">
+        <span class="day-type-label">После обеда:</span>
+        <div class="day-type-switch">${buildRow('pm', pmChoice)}</div>
       </div>
     </div>
     <div class="day-body" id="day-body-${idx}"></div>
@@ -6586,6 +6670,8 @@ function renderTrip3Half(dayIdx, half, day) {
       <button class="icon-btn" onclick="event.stopPropagation();openTripVariants(${dayIdx},'${slotKey}','trip3')" title="3 варианта">🔄</button>
       <button class="icon-btn" onclick="event.stopPropagation();openTemplatePicker(${dayIdx},null,0,true,'${slotKey}')" title="Выбрать шаблон из библиотеки">🧱</button>
       ${slot.template ? `<button class="icon-btn" onclick="event.stopPropagation();openRefsForTemplate(${JSON.stringify(slot.template).replace(/"/g, '&quot;')}, {dayIdx:${dayIdx},isTripSlot:true,slotKey:'${slotKey}',idx:0})" title="Референсы шаблона">🔖</button>` : ''}
+      <button class="icon-btn ${slot.needsReport !== false ? 'report-btn' : ''}" onclick="event.stopPropagation();toggleNeedsReport({dayIdx:${dayIdx},isTripSlot:true,slotKey:'${slotKey}',idx:0})" title="${slot.needsReport !== false ? 'Снять требование голосового отчёта' : 'Требовать голосовой отчёт от педагога'}">🎤</button>
+      <button class="icon-btn ${slot.needsScores ? 'scored-btn' : ''}" onclick="event.stopPropagation();toggleNeedsScores({dayIdx:${dayIdx},isTripSlot:true,slotKey:'${slotKey}',idx:0})" title="${slot.needsScores ? 'Снять с оценивания' : 'Отметить как оценочный МК (баллы детям)'}">📊</button>
       <button class="icon-btn ${slot.comment ? 'has-comment' : ''}" onclick="event.stopPropagation();openCommentEditor(${dayIdx},null,0,true,'${slotKey}')" title="${slot.comment ? 'Комментарий: ' + escapeHtml(slot.comment).replace(/"/g, '&quot;') : 'Добавить комментарий для педагога'}">💬</button>
       <button class="icon-btn" onclick="event.stopPropagation();editTrip(${dayIdx},'${slotKey}')" title="Редактировать">✏</button>
     </div>
@@ -6627,6 +6713,8 @@ function renderTrip6Half(dayIdx, half, day) {
       <button class="icon-btn" onclick="event.stopPropagation();openTripVariants(${dayIdx},'${slotKey}','trip6')" title="3 варианта">🔄</button>
       <button class="icon-btn" onclick="event.stopPropagation();openTemplatePicker(${dayIdx},null,0,true,'${slotKey}')" title="Выбрать шаблон из библиотеки">🧱</button>
       ${slot.template ? `<button class="icon-btn" onclick="event.stopPropagation();openRefsForTemplate(${JSON.stringify(slot.template).replace(/"/g, '&quot;')}, {dayIdx:${dayIdx},isTripSlot:true,slotKey:'${slotKey}',idx:0})" title="Референсы шаблона">🔖</button>` : ''}
+      <button class="icon-btn ${slot.needsReport !== false ? 'report-btn' : ''}" onclick="event.stopPropagation();toggleNeedsReport({dayIdx:${dayIdx},isTripSlot:true,slotKey:'${slotKey}',idx:0})" title="${slot.needsReport !== false ? 'Снять требование голосового отчёта' : 'Требовать голосовой отчёт от педагога'}">🎤</button>
+      <button class="icon-btn ${slot.needsScores ? 'scored-btn' : ''}" onclick="event.stopPropagation();toggleNeedsScores({dayIdx:${dayIdx},isTripSlot:true,slotKey:'${slotKey}',idx:0})" title="${slot.needsScores ? 'Снять с оценивания' : 'Отметить как оценочный МК (баллы детям)'}">📊</button>
       <button class="icon-btn ${slot.comment ? 'has-comment' : ''}" onclick="event.stopPropagation();openCommentEditor(${dayIdx},null,0,true,'${slotKey}')" title="${slot.comment ? 'Комментарий: ' + escapeHtml(slot.comment).replace(/"/g, '&quot;') : 'Добавить комментарий для педагога'}">💬</button>
       <button class="icon-btn" onclick="event.stopPropagation();editTrip(${dayIdx},'${slotKey}')" title="Редактировать">✏</button>
     </div>
@@ -6671,6 +6759,8 @@ function renderTrip6SplitHalf(dayIdx, half, day) {
         <button class="icon-btn" onclick="event.stopPropagation();openTripVariants(${dayIdx},'${slotKey}','trip3')" title="3 варианта">🔄</button>
         <button class="icon-btn" onclick="event.stopPropagation();openTemplatePicker(${dayIdx},null,0,true,'${slotKey}')" title="Выбрать шаблон из библиотеки">🧱</button>
         ${slot.template ? `<button class="icon-btn" onclick="event.stopPropagation();openRefsForTemplate(${JSON.stringify(slot.template).replace(/"/g, '&quot;')}, {dayIdx:${dayIdx},isTripSlot:true,slotKey:'${slotKey}',idx:0})" title="Референсы шаблона">🔖</button>` : ''}
+      <button class="icon-btn ${slot.needsReport !== false ? 'report-btn' : ''}" onclick="event.stopPropagation();toggleNeedsReport({dayIdx:${dayIdx},isTripSlot:true,slotKey:'${slotKey}',idx:0})" title="${slot.needsReport !== false ? 'Снять требование голосового отчёта' : 'Требовать голосовой отчёт от педагога'}">🎤</button>
+      <button class="icon-btn ${slot.needsScores ? 'scored-btn' : ''}" onclick="event.stopPropagation();toggleNeedsScores({dayIdx:${dayIdx},isTripSlot:true,slotKey:'${slotKey}',idx:0})" title="${slot.needsScores ? 'Снять с оценивания' : 'Отметить как оценочный МК (баллы детям)'}">📊</button>
       <button class="icon-btn ${slot.comment ? 'has-comment' : ''}" onclick="event.stopPropagation();openCommentEditor(${dayIdx},null,0,true,'${slotKey}')" title="${slot.comment ? 'Комментарий: ' + escapeHtml(slot.comment).replace(/"/g, '&quot;') : 'Добавить комментарий для педагога'}">💬</button>
         <button class="icon-btn" onclick="event.stopPropagation();editTrip(${dayIdx},'${slotKey}')" title="Редактировать">✏</button>
       </div>
@@ -6823,6 +6913,8 @@ function renderStation(dayIdx, groupKey, stationIdx, slot, troops, slotLabels, i
       <button class="icon-btn" onclick="event.stopPropagation();openTemplatePicker(${dayIdx},'${groupKey}',${stationIdx},false,null)" title="Выбрать шаблон из библиотеки">🧱</button>
       <button class="icon-btn" onclick="event.stopPropagation();generateThemeForSlot(${dayIdx},'${groupKey}',${stationIdx},false,null)" title="Сгенерировать тему">✨</button>
       <button class="icon-btn" onclick="event.stopPropagation();openRefsForTemplate(${JSON.stringify(slot.template).replace(/"/g, '&quot;')}, {dayIdx:${dayIdx},group:'${groupKey}',idx:${stationIdx},isTripSlot:false})" title="Референсы шаблона${refsBadge ? ' · сохранено: ' + (LIBRARY.find(a=>a.template===slot.template)?.refsCount || 0) : ''}">🔖${refsBadge}</button>
+      <button class="icon-btn ${slot.needsReport !== false ? 'report-btn' : ''}" onclick="event.stopPropagation();toggleNeedsReport({dayIdx:${dayIdx},group:'${groupKey}',idx:${stationIdx},isTripSlot:false})" title="${slot.needsReport !== false ? 'Снять требование голосового отчёта' : 'Требовать голосовой отчёт от педагога'}">🎤</button>
+      <button class="icon-btn ${slot.needsScores ? 'scored-btn' : ''}" onclick="event.stopPropagation();toggleNeedsScores({dayIdx:${dayIdx},group:'${groupKey}',idx:${stationIdx},isTripSlot:false})" title="${slot.needsScores ? 'Снять с оценивания' : 'Отметить как оценочный МК (баллы детям)'}">📊</button>
       <button class="icon-btn ${slot.comment ? 'has-comment' : ''}" onclick="event.stopPropagation();openCommentEditor(${dayIdx},'${groupKey}',${stationIdx},false,null)" title="${slot.comment ? 'Комментарий: ' + escapeHtml(slot.comment).replace(/"/g, '&quot;') : 'Добавить комментарий для педагога'}">💬</button>
       <button class="icon-btn" onclick="event.stopPropagation();editStation(${dayIdx},'${groupKey}',${stationIdx})" title="Редактировать вручную">✏</button>
     </div>
@@ -7901,6 +7993,56 @@ function _clearCommentForSlot(day, group, idx, isTripSlot, slotKey) {
 }
 
 // === Работа с типом дня и trip-слотами ===
+
+// halfChoice_(dayType, half) → 'normal' | 'trip3' | 'trip6' | 'split'
+// Извлекает «выбор» для конкретной половины дня из enum-типа дня.
+function halfChoice_(dayType, half) {
+  const t = String(dayType || 'normal');
+  if (half === 'am') {
+    if (t === 'trip3_am' || t === 'trip3_full') return 'trip3';
+    if (t === 'trip6_am') return 'trip6';
+    if (t === 'trip6_am_split' || t === 'trip6_full_split') return 'split';
+    return 'normal';
+  } else {
+    if (t === 'trip3_pm' || t === 'trip3_full') return 'trip3';
+    if (t === 'trip6_pm') return 'trip6';
+    if (t === 'trip6_pm_split' || t === 'trip6_full_split') return 'split';
+    return 'normal';
+  }
+}
+
+// (amChoice, pmChoice) → day.type
+function mapHalvesToDayType_(am, pm) {
+  if (am === 'normal' && pm === 'normal') return 'normal';
+  if (am === 'trip3'  && pm === 'normal') return 'trip3_am';
+  if (am === 'normal' && pm === 'trip3')  return 'trip3_pm';
+  if (am === 'trip3'  && pm === 'trip3')  return 'trip3_full';
+  if (am === 'trip6'  && pm === 'normal') return 'trip6_am';
+  if (am === 'normal' && pm === 'trip6')  return 'trip6_pm';
+  if (am === 'split'  && pm === 'normal') return 'trip6_am_split';
+  if (am === 'normal' && pm === 'split')  return 'trip6_pm_split';
+  if (am === 'split'  && pm === 'split')  return 'trip6_full_split';
+  // Все остальные комбинации (trip3+trip6, trip3+split и т.п.) — в модели не предусмотрены.
+  // Сюда не должны попадать благодаря автокорректу в setHalfType, но на всякий случай — normal.
+  return 'normal';
+}
+
+// Установить тип одной половины дня (AM или PM). Сама вычисляет результирующий
+// day.type через mapHalvesToDayType_. Если новая пара даст несовместимую комбинацию
+// (типа trip3 + trip6) — другую половину сбрасывает в 'normal' автоматически.
+function setHalfType(idx, half, newChoice) {
+  const day = state.schedule[idx];
+  if (!day) return;
+  let am = halfChoice_(day.type, 'am');
+  let pm = halfChoice_(day.type, 'pm');
+  if (half === 'am') am = newChoice; else pm = newChoice;
+  // Совместимы: одинаковые выборы (full) или хотя бы один — normal.
+  if (am !== 'normal' && pm !== 'normal' && am !== pm) {
+    if (half === 'am') pm = 'normal'; else am = 'normal';
+  }
+  setDayType(idx, mapHalvesToDayType_(am, pm));
+}
+
 function setDayType(day, type) {
   state.schedule[day].type = type;
   render();
