@@ -1422,12 +1422,30 @@
           if (normalizeName(s.template || '') !== normalizeName(ctx.mkName || '')) return;
           if (mkKeys.indexOf(s.mkKey) < 0) mkKeys.push(s.mkKey);
           var tl = troopLabelOf(s);
-          if (tl && troops.indexOf(tl) < 0) troops.push(tl);
+          // 6-отрядная модель: cluster/outside-МК часто рендерится одним общим слотом
+          // с troopsLabel вида «отряды 1, 2, 3». expandTroopLabels_ разбивает такую
+          // метку на отдельные ['отряд 1', 'отряд 2', 'отряд 3'] — это нужно чтобы блок
+          // «Добавить заметку по отряду» показал ОТДЕЛЬНЫЕ поля под каждый отряд.
+          var labels = expandTroopLabels_(tl);
+          labels.forEach(function (label) {
+            if (label && troops.indexOf(label) < 0) troops.push(label);
+          });
         });
       } catch (e) {}
       ctx.mkKeys = mkKeys;
       ctx.troops = sortTroops(troops);
       ctx.coverLabel = ctx.troops.length > 1 ? ctx.troops.join(', ') : (troopLabelOf(ctx) || ctx.troopsLabel || '');
+    }
+
+    // Разбивает строку вроде «отряды 1, 2, 3» или «отряд 1, отряд 2» на массив меток
+    // ['отряд 1', 'отряд 2', 'отряд 3']. Если в метке нет цифр (или одна метка с одним
+    // числом) — возвращает массив с одним элементом. Используется для блока заметок по отрядам.
+    function expandTroopLabels_(tl) {
+      if (!tl) return [];
+      var nums = String(tl).match(/\d+/g) || [];
+      if (nums.length === 0) return [tl];
+      if (nums.length === 1) return ['отряд ' + nums[0]];
+      return nums.map(function (n) { return 'отряд ' + n; });
     }
 
     // Чистая метка отряда: «отряд N» (без «станция …»). Берём s.troop, иначе вытаскиваем из mkKey.
