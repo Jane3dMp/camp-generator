@@ -964,7 +964,9 @@
             isTrip: !!opts.isTrip,
             refs: getActiveRefsForSlot(s),
             scored: !!s.scored,
-            needsReport: !!(s.needsReport ?? s.scored),
+            // Дефолт ВКЛ: если поле needsReport не задано в state — считаем true (нужен отчёт).
+            // Только явный false убирает кнопку. s.scored работает как алиас для совместимости со старыми сменами.
+            needsReport: (s.needsReport ?? s.scored ?? true) !== false,
             needsScores: !!(s.needsScores ?? s.scored),
             mkKey: opts.mkKey || ''
           });
@@ -1087,7 +1089,9 @@
       scoredBtn = `<a class="vslot-scored-btn" href="${url}" target="_blank" rel="noopener">📊 Проставить баллы</a>`;
     }
     let lessonBtn = '';
-    if (s.mkKey && s.needsReport) {
+    // Дефолт ВКЛ: если поле needsReport не задано (undefined) — считаем что отчёт нужен.
+    // Только явный false убирает кнопку (педагог снял этот флаг в index6).
+    if (s.mkKey && s.needsReport !== false) {
       const t = document.getElementById('teacher-pick') ? document.getElementById('teacher-pick').value : '';
       lessonBtn = `<button type="button" class="vslot-lesson-btn" data-mkkey="${escapeHtml(s.mkKey)}"
         onclick='LessonNotes.open(${JSON.stringify(JSON.stringify({ mkKey: s.mkKey, teacher: t, mkName: s.template || '', troopsLabel: s.troopsLabel || ('отряд ' + s.troop), time: s.time || '' }))})'>🎤 Запись урока</button>`;
