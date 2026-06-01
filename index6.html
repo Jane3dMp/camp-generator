@@ -196,6 +196,38 @@
     .curator-troop-label { text-align: left; padding-left: 0; background: transparent; }
   }
   .field { display: flex; flex-direction: column; gap: 4px; }
+
+  /* ── Cognito-формы: выпадашки в шапке смены ── */
+  .cognito-forms-field { min-width: 260px; }
+  #cognito-forms-rows { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
+  .cognito-form-row {
+    display: flex; gap: 4px; align-items: center;
+  }
+  .cognito-form-row select {
+    flex: 1; padding: 5px 8px; font-size: 12px; font-family: inherit;
+    border: 1px solid rgba(245,245,240,0.3); border-radius: 4px;
+    background: var(--paper); color: var(--ink);
+    cursor: pointer;
+  }
+  .cognito-form-row select:focus { outline: none; border-color: var(--yellow); }
+  .cognito-form-row .cognito-remove-btn {
+    background: transparent; border: 1px solid rgba(245,245,240,0.3);
+    color: rgba(245,245,240,0.6); cursor: pointer;
+    width: 26px; height: 26px; border-radius: 4px;
+    font-size: 14px; line-height: 1; padding: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .cognito-form-row .cognito-remove-btn:hover {
+    color: var(--terra); border-color: var(--terra);
+  }
+  .btn-cognito-add {
+    background: transparent; border: 1px dashed rgba(245,245,240,0.4);
+    color: rgba(245,245,240,0.7); cursor: pointer;
+    padding: 5px 12px; font-size: 11px; font-family: inherit;
+    letter-spacing: 0.06em; text-transform: uppercase; border-radius: 4px;
+  }
+  .btn-cognito-add:hover { color: var(--yellow); border-color: var(--yellow); }
+  .cognito-loading { color: rgba(245,245,240,0.5); font-size: 11px; font-style: italic; }
   .field label {
     font-family: Inter, system-ui, sans-serif;
     font-size: 10px;
@@ -3236,9 +3268,11 @@
     <label>Тема смены</label>
     <input type="text" id="theme" value="Лесная лаборатория">
   </div>
-  <div class="field" style="max-width:140px">
-    <label title="Номер смены в системе документов Cognito Forms (1 = «1 Комплект…», 2 = «2 Комплект…» и т.д.)">Номер смены</label>
-    <input type="number" id="shift-number" min="1" max="9" value="1">
+  <div class="field cognito-forms-field" id="cognito-forms-field">
+    <label title="Cognito-формы с договорами родителей именно для ЭТОЙ смены. Обычно 2 формы (до 9 лет / от 9 лет). Список тянется из Cognito автоматически.">📋 Cognito-формы с договорами</label>
+    <div id="cognito-forms-rows"></div>
+    <button type="button" class="btn-cognito-add" onclick="addCognitoFormRow()">+ Добавить форму</button>
+    <input type="hidden" id="shift-number" value="1"><!-- сохраняем для backward-compat со старыми сменами -->
   </div>
   <div class="field">
     <label>Возраст детей</label>
@@ -8942,7 +8976,7 @@ function syncConfig() {
   }
 }
 
-// Подтягивает значения shiftNumber и troopsCurators из state в инпуты.
+// Подтягивает значения shiftNumber, troopsCurators, cognitoFormIds из state в инпуты.
 // Вызывается после стандартного заполнения theme/ages/startDate/anchors в 4 местах:
 // init нового шаблона, импорт JSON, загрузка черновика, загрузка опубликованного.
 function _applyCuratorsAndShiftToInputs_() {
@@ -8955,6 +8989,93 @@ function _applyCuratorsAndShiftToInputs_() {
     set('curator-name-' + t, c.name);
     set('curator-phone-' + t, c.phone);
   }
+  // Рендерим выпадашки Cognito-форм (список форм мог уже подгрузиться, или ещё нет —
+  // в любом случае renderCognitoFormsRows показывает что есть на текущий момент).
+  renderCognitoFormsRows();
+}
+
+// ============================================================
+// COGNITO-ФОРМЫ: выбор форм для смены через выпадашки в шапке
+// ============================================================
+// В state.cognitoFormIds хранится массив строк-ID Cognito-форм, относящихся к этой смене
+// (например ['26','27'] для смены «1 Комплект до 9» + «1 Комплект от 9»).
+// Бэк (Contracts.gs) использует эту привязку для фильтрации договоров — точная замена
+// старого shiftNumber-матчинга.
+
+let _availableCognitoForms = null; // массив {id, name, shiftNumber} — кэш с бэка
+let _cognitoFormsLoading = false;
+
+async function loadCognitoFormsList() {
+  if (_availableCognitoForms || _cognitoFormsLoading) return;
+  _cognitoFormsLoading = true;
+  try {
+    const r = await fetch(LIBRARY_URL + '?action=listCognitoForms').then(r => r.json());
+    if (r.ok && Array.isArray(r.result)) {
+      _availableCognitoForms = r.result;
+      renderCognitoFormsRows(); // перерисовать с реальными опциями
+    } else {
+      _availableCognitoForms = [];
+    }
+  } catch (e) {
+    console.warn('Не удалось загрузить список Cognito-форм:', e);
+    _availableCognitoForms = [];
+  } finally {
+    _cognitoFormsLoading = false;
+  }
+}
+
+// Отрисовывает строки с <select> по текущему state.cognitoFormIds.
+// Если в state ничего нет — рисует одну пустую строку (чтобы было куда выбирать).
+function renderCognitoFormsRows() {
+  const wrap = document.getElementById('cognito-forms-rows');
+  if (!wrap) return;
+  if (_availableCognitoForms === null) {
+    wrap.innerHTML = '<div class="cognito-loading">Загружаю список форм…</div>';
+    return;
+  }
+  const ids = Array.isArray(state.cognitoFormIds) ? state.cognitoFormIds.slice() : [];
+  // Если в state ничего нет — показываем одну пустую строку для выбора
+  const rows = ids.length ? ids : [''];
+  wrap.innerHTML = rows.map((id, idx) => buildCognitoFormRowHtml_(id, idx)).join('');
+}
+
+function buildCognitoFormRowHtml_(selectedId, idx) {
+  const opts = ['<option value="">— выбери форму —</option>'];
+  (_availableCognitoForms || []).forEach(f => {
+    const sel = (String(f.id) === String(selectedId)) ? ' selected' : '';
+    opts.push('<option value="' + f.id + '"' + sel + '>' + escapeHtml(f.name) + '</option>');
+  });
+  return '<div class="cognito-form-row">' +
+    '<select onchange="onCognitoFormChange()" data-idx="' + idx + '">' + opts.join('') + '</select>' +
+    '<button type="button" class="cognito-remove-btn" title="Убрать форму" onclick="removeCognitoFormRow(' + idx + ')">✕</button>' +
+    '</div>';
+}
+
+function addCognitoFormRow() {
+  const ids = Array.isArray(state.cognitoFormIds) ? state.cognitoFormIds.slice() : [];
+  ids.push(''); // пустая строка — пользователь выберет
+  state.cognitoFormIds = ids;
+  renderCognitoFormsRows();
+}
+
+function removeCognitoFormRow(idx) {
+  const ids = Array.isArray(state.cognitoFormIds) ? state.cognitoFormIds.slice() : [];
+  ids.splice(idx, 1);
+  state.cognitoFormIds = ids;
+  renderCognitoFormsRows();
+  saveLocal();
+}
+
+// Собирает значения всех select'ов в массив id (только непустые).
+function onCognitoFormChange() {
+  const selects = document.querySelectorAll('#cognito-forms-rows select');
+  const ids = [];
+  selects.forEach(s => {
+    const v = String(s.value || '').trim();
+    if (v) ids.push(v);
+  });
+  state.cognitoFormIds = ids;
+  saveLocal();
 }
 
 // ============================================================
@@ -9851,6 +9972,8 @@ async function init() {
   // Кураторы: привязываем обработчики, фоном грузим справочник для автокомплита
   bindCuratorsHandlers_();
   loadCuratorsDirectory_();
+  // Cognito-формы: фоном тянем список договорных форм для выпадашек в шапке
+  loadCognitoFormsList();
 
   // Пробуем восстановить из автосохранения
   const saved = loadLocal();
@@ -12165,6 +12288,7 @@ async function publishSmena() {
   const stateForPublish = {
     theme: state.theme,
     shiftNumber: state.shiftNumber || 1,
+    cognitoFormIds: Array.isArray(state.cognitoFormIds) ? state.cognitoFormIds.slice() : null,
     ages: state.ages,
     startDate: state.startDate,
     anchors: state.anchors,
