@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Паспорт ребёнка · Прознание</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@400;500;600;700&family=Unbounded:wght@500;600;700;800&family=Inter:wght@400;500;600&family=Caveat:wght@600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --yellow:#FED634; --yellow-deep:#C9A800; --ink:#1f1c14; --paper:#fffdf6;
+    --t1:#41BEEA; --t2:#FF8A3D; --t3:#8FA370; --t4:#C879D8;
+    --line:#e9e3cf; --muted:#8a8470; --green:#8FA370; --green-deep:#6f8052;
+    --terra:#C1694F;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#FBF6EC;color:#2E2A22;font-family:'Inter',system-ui,sans-serif;font-size:16px;line-height:1.5}
+  h1,h2,h3{margin:0}
+  em{font-family:'Caveat',cursive;font-style:normal;font-size:1.15em;color:var(--green-deep)}
+
+  #lockscreen{position:fixed;inset:0;background:#FBF6EC;display:flex;align-items:center;justify-content:center;z-index:1000;padding:24px}
+  body.unlocked #lockscreen{display:none}
+  body:not(.unlocked) #app{display:none}
+  .lock-card{max-width:340px;width:100%;text-align:center}
+  .lock-card h1{font-family:'Unbounded';font-size:24px;font-weight:700;margin-bottom:6px;color:#5A3A28}
+  .lock-card p{color:var(--muted);font-size:14px;margin:0 0 18px}
+  .lock-card input{width:100%;padding:12px 14px;font-size:16px;border:2px solid var(--line);border-radius:12px;margin-bottom:10px;font-family:inherit}
+  .lock-card input:focus{outline:none;border-color:var(--yellow-deep)}
+  .lock-card button{width:100%;padding:12px;font-size:16px;font-weight:600;background:var(--yellow);border:none;border-radius:12px;cursor:pointer;font-family:inherit;color:var(--ink)}
+  .lock-err{color:#c0392b;font-size:13px;min-height:18px;margin-top:4px}
+
+  .topbar{max-width:720px;margin:0 auto;padding:14px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .topbar label{font-size:13px;color:var(--muted)}
+  select{padding:8px 11px;font-size:14px;border:2px solid var(--line);border-radius:10px;font-family:inherit;background:#fff;max-width:100%}
+  select:focus{outline:none;border-color:var(--yellow-deep)}
+  .mode-switch{margin-left:auto;display:flex;border:2px solid var(--green);border-radius:10px;overflow:hidden}
+  .mode-switch button{padding:7px 12px;font-size:13px;border:none;background:#fff;color:var(--green-deep);cursor:pointer;font-family:inherit;font-weight:600}
+  .mode-switch button.active{background:var(--green);color:#fff}
+
+  /* ── МОДАЛКА «КАК ПОЛЬЗОВАТЬСЯ» ── */
+  .help-btn{padding:7px 12px;font-size:13px;border:2px solid var(--green);background:#f3f7ee;color:var(--green-deep);border-radius:10px;cursor:pointer;font-family:inherit;font-weight:600}
+  .help-btn:hover{background:#e8efe0}
+  .help-overlay{position:fixed;inset:0;background:rgba(31,28,20,0.45);display:none;align-items:flex-start;justify-content:center;z-index:950;padding:24px 16px;overflow-y:auto}
+  .help-overlay.open{display:flex}
+  .help-modal{background:var(--paper);max-width:640px;width:100%;border-radius:16px;padding:24px 26px 28px;box-shadow:0 12px 40px rgba(0,0,0,0.25);margin:auto;font-family:'Inter',sans-serif;position:relative}
+  .help-modal h2{font-size:20px;margin:0 0 4px;padding-right:30px}
+  .help-modal h2 em{font-family:'Caveat',cursive;font-style:normal;font-weight:600;color:var(--ink);background:var(--yellow);padding:0 6px;border-radius:4px;font-size:1em}
+  .help-modal .help-close{position:absolute;top:18px;right:22px;background:none;border:none;font-size:24px;cursor:pointer;color:var(--muted);line-height:1;padding:0 4px}
+  .help-modal .help-close:hover{color:var(--ink)}
+  .help-modal h4{font-family:'Geologica',sans-serif;font-size:13px;font-weight:700;color:var(--green-deep);margin:18px 0 8px;letter-spacing:0.04em}
+  .help-modal h4:first-of-type{margin-top:14px}
+  .help-modal p{font-size:14.5px;margin:0 0 8px;line-height:1.55;color:var(--ink)}
+  .help-modal ol,.help-modal ul{font-size:14.5px;margin:0 0 8px;padding-left:22px;line-height:1.55}
+  .help-modal li{margin:6px 0}
+  .help-modal strong{font-weight:700}
+  .help-modal .help-key{display:inline-block;background:#fff;border:1px solid var(--line);padding:1px 7px;border-radius:6px;font-size:13px;font-weight:600;white-space:nowrap}
+  .help-modal .help-note{background:#f3f7ee;border-left:3px solid var(--green);padding:10px 14px;margin:14px 0;font-size:13.5px;border-radius:0 6px 6px 0}
+  .help-modal .help-warn{background:#fbede6;border-left:3px solid #9A4B30;padding:10px 14px;margin:14px 0;font-size:13.5px;border-radius:0 6px 6px 0}
+
+  main{max-width:720px;margin:0 auto;padding:14px 20px 90px}
+  .hint{color:var(--muted);font-size:14px;padding:36px 10px;text-align:center}
+  .err{color:#c0392b;padding:20px;text-align:center}
+
+  /* карточки */
+  .card{background:#fff;border-radius:18px;padding:22px 24px;margin-bottom:18px;box-shadow:0 4px 18px rgba(90,58,40,0.07);border:1px solid #F0E6D2}
+  .card-title{font-family:'Unbounded';font-size:13px;font-weight:600;letter-spacing:.5px;color:var(--green-deep);margin-bottom:16px;display:flex;align-items:center;gap:8px;text-transform:none}
+
+  /* шапка паспорта */
+  .pass-head{text-align:center;padding:8px 0 6px}
+  .pass-kicker{font-family:'Unbounded';font-size:10px;letter-spacing:4px;text-transform:uppercase;color:var(--terra);font-weight:600}
+  .pass-name{font-family:'Unbounded';font-size:34px;font-weight:800;color:#5A3A28;margin:8px 0 4px;line-height:1.05}
+  .pass-meta{font-size:14px;color:var(--muted)}
+  .pass-theme{font-family:'Caveat';font-size:21px;color:var(--green-deep);margin-top:6px}
+
+  /* три цифры */
+  .stats{display:flex;gap:12px;margin:18px 0 4px;justify-content:center;flex-wrap:wrap}
+  .stat{flex:1 1 0;min-width:120px;background:#FBF6EC;border-radius:14px;padding:16px 12px;text-align:center}
+  .stat .num{font-family:'Unbounded';font-size:30px;font-weight:700;color:var(--terra);line-height:1}
+  .stat .lbl{font-size:12px;color:var(--muted);margin-top:6px}
+
+  /* radar */
+  .radar-wrap{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:24px}
+  .radar-legend{font-size:13px;color:var(--ink)}
+  .radar-legend .lg{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+  .radar-legend .dot{width:11px;height:11px;border-radius:50%;background:var(--terra);flex:0 0 auto}
+  .radar-legend .val{font-weight:600;color:var(--green-deep);margin-left:4px}
+
+  /* характеристика (письмо) */
+  .letter-box{white-space:pre-wrap;font-size:15px;line-height:1.7;color:#4A3A2E;font-family:'Lora',Georgia,serif}
+  .gen-letter-btn{padding:10px 16px;font-size:14px;border:2px solid var(--green);background:#f3f7ee;color:var(--green-deep);border-radius:11px;cursor:pointer;font-family:inherit;font-weight:600}
+  .gen-letter-btn:hover{background:#e8efe0}
+  .letter-loading{color:var(--muted);font-size:14px;padding:14px}
+
+  /* лестница достижений */
+  .ladder{display:flex;align-items:stretch;gap:0}
+  .lstep{flex:1;text-align:center;padding:12px 6px;position:relative;font-size:13px;color:var(--muted)}
+  .lstep .ic{font-size:24px;filter:grayscale(1);opacity:.45}
+  .lstep .nm{margin-top:5px;font-weight:600}
+  .lstep.done{color:var(--green-deep)}
+  .lstep.done .ic{filter:none;opacity:1}
+  .lstep.cur .nm{color:var(--terra)}
+  .lstep::after{content:'';position:absolute;top:24px;right:-50%;width:100%;height:2px;background:var(--line);z-index:0}
+  .lstep:last-child::after{display:none}
+  .lstep.done::after{background:var(--green)}
+  .ladder-note{font-size:13px;color:var(--muted);margin-top:12px;text-align:center}
+
+  /* знаки */
+  .badges{display:flex;gap:10px;flex-wrap:wrap}
+  .badge{padding:9px 15px;border-radius:24px;font-size:14px;font-weight:600;background:#f3f7ee;border:1.5px solid var(--green);color:var(--green-deep);display:flex;align-items:center;gap:6px}
+  .badge .b-val{opacity:.65;font-weight:500;margin-left:2px}
+
+  /* карта занятий */
+  .mk-list{display:flex;flex-direction:column;gap:10px}
+  .mk-item{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#FBF6EC}
+  .mk-item .mk-n{font-weight:600;font-size:14px}
+  .mk-item .mk-dir{font-size:12px;color:var(--muted);margin-left:6px}
+  .mk-crits{display:flex;gap:16px;margin-top:6px;flex-wrap:wrap;font-size:13px;color:var(--ink)}
+  .mk-crits .c{color:var(--muted)}
+  .mk-crits .c b{color:var(--green-deep);font-weight:600}
+
+  /* зона роста */
+  .growth{background:#F4E8D6;border-left:3px solid var(--terra);border-radius:0 10px 10px 0;padding:14px 18px;font-size:14px;line-height:1.6;color:#6B4A32}
+
+  /* что дальше */
+  .next-list{display:flex;flex-direction:column;gap:10px}
+  .next-item{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;background:#FBF6EC;border-radius:12px}
+  .next-item .ni-ic{font-size:22px;flex:0 0 auto}
+  .next-item .ni-t{font-weight:600;font-size:14px;color:#5A3A28}
+  .next-item .ni-c{font-size:13px;color:var(--muted);margin-top:2px}
+
+  .soon-note{font-size:12px;color:var(--muted);font-style:italic;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+
+  .parent-only{display:none}
+  body.mode-parent .internal-only{display:none}
+  body.mode-parent .parent-only{display:block}
+  body.parent-link .topbar{display:none !important}
+</style>
+</head>
+<body class="mode-internal">
+
+<div id="lockscreen">
+  <div class="lock-card">
+    <h1>Паспорт ребёнка</h1>
+    <p>Введи пароль клуба</p>
+    <input type="password" id="lock-input" placeholder="Пароль" autocomplete="current-password">
+    <button onclick="tryUnlock()">Войти</button>
+    <div class="lock-err" id="lock-err"></div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <label for="child-pick">Ребёнок:</label>
+    <select id="child-pick" onchange="onChildChange()"><option value="">—</option></select>
+    <button class="help-btn" onclick="openHelp()" title="Как пользоваться этой страницей">❓ Инструкция</button>
+    <div class="mode-switch">
+      <button id="mode-int" class="active" onclick="setMode('internal')">Внутренний</button>
+      <button id="mode-par" onclick="setMode('parent')">Для родителей</button>
+    </div>
+  </div>
+  <main id="content"><div class="hint">Загружаю смену…</div></main>
+
+  <!-- МОДАЛКА «КАК ПОЛЬЗОВАТЬСЯ» (только для админа — у родителя .topbar и эта модалка не нужны, но кнопка скрыта вместе с topbar) -->
+  <div class="help-overlay" id="help-overlay" onclick="if(event.target===this)closeHelp()">
+    <div class="help-modal">
+      <button class="help-close" onclick="closeHelp()" title="Закрыть">×</button>
+      <h2>❓ Как пользоваться <em>этой страницей</em></h2>
+
+      <h4>Что это за окно</h4>
+      <p>Цифровой паспорт ребёнка после смены. Складывается автоматически из баллов педагогов (scores4) и голосовых отчётов педагогов (view4): три цифры сверху, радар по направлениям, лестница достижений, особые знаки, тёплая характеристика от ИИ, что попробовать дальше. Это «итог смены» для ребёнка — то, что увидит родитель.</p>
+
+      <h4>Что делать</h4>
+      <ol>
+        <li><strong>Выбери ребёнка</strong> в селекте <span class="help-key">Ребёнок</span> сверху. Прокрути страницу — увидишь весь профиль.</li>
+        <li><strong>Если живой характеристики ещё нет</strong> — нажми <span class="help-key">✍️ Сформировать характеристику</span> в её блоке. ИИ напишет на основе баллов и голосовых отчётов отряда (это та же логика, что в reports4 — текст письма родителю = тексту характеристики в паспорте).</li>
+        <li><strong>Переключи <span class="help-key">Для родителей</span></strong> — увидишь, как этот же паспорт выглядит со стороны родителя. Цифры исчезают, появляются словесные уровни («ярко» / «уверенно» / «развивается» / «в начале пути»).</li>
+      </ol>
+
+      <h4>Как родители получают паспорт</h4>
+      <p>Не нужно ничего рассылать вручную — работает Telegram-бот <span class="help-key">@Passport weekend</span> в SendPulse:</p>
+      <ul>
+        <li>Родитель пишет боту → бот спрашивает номер телефона → скрипт ищет ребёнка по последним 9 цифрам.</li>
+        <li>Если найден — родителю прилетает сообщение с кнопкой <span class="help-key">🎓 Имя ребёнка</span> → по клику открывается этот же паспорт, но автоматически в режиме «Для родителей».</li>
+        <li>Если у одного родителя несколько детей — несколько кнопок.</li>
+        <li>Токены формируются автоматически при импорте детей в смену. Ничего отдельно генерить не нужно.</li>
+      </ul>
+
+      <h4>Куда уходит то, что ты делаешь здесь</h4>
+      <p>Эта страница — только показ. Здесь ничего не сохраняется. Сами данные пишут педагоги в scores4 и view4; токены ссылок для родителей формируются на этапе импорта детей через index6/admin-hub4.</p>
+
+      <h4>Что важно</h4>
+      <ul>
+        <li>Режим <span class="help-key">Для родителей</span> — НЕ просто визуальный переключатель. Это <strong>реальный режим</strong>, в котором родитель видит паспорт через свою токен-ссылку. Здесь у тебя превью.</li>
+        <li>В родительском режиме нет цифр специально — родителю не нужны точные баллы (5 vs 4), нужны слова. Низкое не звучит как «два», а как «в начале пути».</li>
+        <li>Радар по направлениям рисуется, если есть оценки по 3+ разным направлениям. Меньше — показываются цветные полосы.</li>
+        <li>В админском режиме есть всё: точные цифры, разбор по занятиям, баллы. Это для тебя как админа смены, чтобы понимать «что под капотом» характеристики.</li>
+      </ul>
+
+      <div class="help-warn">
+        <strong>Если родитель пишет «ссылка показывает старое / не открывается».</strong> Это кэш Telegram-браузера. Решение: повышай <span class="help-key">PASSPORT_LINK_VERSION</span> в Scores.gs (сейчас <code>'2'</code>) → деплой New version → токен в ссылке станет <code>&v=3</code>, Telegram отдаст свежую версию. Это надо делать после любой большой правки <code>passport6.html</code>.
+      </div>
+
+      <div class="help-note">
+        Логика характеристики единая с reports4 — если поменяешь промт в reports4, изменится и текст здесь.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const LIBRARY_URL = 'https://script.google.com/macros/s/AKfycbxb6EEzzl-FguxjpIO5YthGLj-QXh7puCD_DO4HL4wVPziHL1pEtVeuo3uNEi2i2yXq/exec';
+  const LOCK_PASSWORD_HASH = '45e5a3f82cc81679d006c8d2f6e3cce87c89ec2059fe13a2d79438f0368b226a';
+  const LOCK_TOKEN_KEY = 'camp4_lock_token';
+
+  const MONTHS = ['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
+  const NUM_TROOPS = 6;
+  const CRIT_KEYS = ['interest','diligence','potential'];
+  const CRIT_RU = { interest:'Интерес', diligence:'Усердие', potential:'Потенциал' };
+  const CRIT_RU_COMM = { interest:'Лидерство', diligence:'Команда', potential:'Конфликты' };
+
+  let publishedState=null, publishedMeta={id:'',name:'',theme:''};
+  let troopsChildren=[], scoresMap={}, allMks=[];
+  let currentMode='internal';
+  let parentToken='';
+  const letterCache={};
+
+  // ── LOCK ──
+  async function sha256Hex(str){
+    const buf=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+  async function tryUnlock(){
+    const inp=document.getElementById('lock-input'), err=document.getElementById('lock-err');
+    const hex=await sha256Hex(inp.value);
+    if(hex===LOCK_PASSWORD_HASH){ try{localStorage.setItem(LOCK_TOKEN_KEY,hex);}catch(e){} document.body.classList.add('unlocked'); bootstrap(); }
+    else { err.textContent='Неверный пароль'; inp.value=''; inp.focus(); }
+  }
+  document.getElementById('lock-input').addEventListener('keydown',e=>{ if(e.key==='Enter') tryUnlock(); });
+  (function(){
+    // Родитель: ссылка с токеном → без пароля, без выпадашки, только свой ребёнок.
+    // Читаем токен устойчиво — из всего URL (search ИЛИ hash), на случай мобильных браузеров.
+    var t = getQueryParam('t');
+    if(!t){
+      // запасной разбор: ищем t= в любом месте URL
+      var m = /[?&#]t=([^&#]+)/.exec(window.location.href);
+      if(m) t = decodeURIComponent(m[1]);
+    }
+    if(t){
+      parentToken = t;
+      document.body.className = 'unlocked mode-parent parent-link';
+      currentMode = 'parent';
+      bootstrapParent();
+      return;
+    }
+    let tok=''; try{tok=localStorage.getItem(LOCK_TOKEN_KEY)||'';}catch(e){}
+    if(tok===LOCK_PASSWORD_HASH){ document.body.classList.add('unlocked'); bootstrap(); }
+    else document.getElementById('lock-input').focus();
+  })();
+
+  // ── UTILS ──
+  function getQueryParam(n){ const m=new RegExp('[?&]'+n+'=([^&#]*)').exec(window.location.search); return m?decodeURIComponent(m[1]):''; }
+  function escapeHtml(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+  function normalizeName(s){ if(!s) return ''; return String(s).toLowerCase().replace(/ё/g,'е').replace(/\s+/g,' ').trim(); }
+  // 6-отрядная физика
+  const TROOPS_GROUP_A = [1, 2, 3];
+  const TROOPS_GROUP_B = [4, 5, 6];
+
+  function halfMode6(day, half){
+    const t = String(day && day.type || 'normal');
+    const isAM = half === 'am';
+    switch (t) {
+      case 'trip3_am':       return isAM ? 'trip3'       : 'normal';
+      case 'trip3_pm':       return isAM ? 'normal'      : 'trip3';
+      case 'trip3_full':     return 'trip3';
+      case 'trip6_am':       return isAM ? 'trip6'       : 'normal';
+      case 'trip6_pm':       return isAM ? 'normal'      : 'trip6';
+      case 'trip6_am_split': return isAM ? 'trip6_split' : 'normal';
+      case 'trip6_pm_split': return isAM ? 'normal'      : 'trip6_split';
+      case 'trip6_full':     return 'trip6';
+      default:               return 'normal';
+    }
+  }
+  function halfMode4(d, half){ return halfMode6(d, half); }
+
+  function trip3GroupsFor(day, half){
+    const inv = day && day.trip3_outside === 'A';
+    const baseTrip = inv ? TROOPS_GROUP_A.slice() : TROOPS_GROUP_B.slice();
+    const baseCluster = inv ? TROOPS_GROUP_B.slice() : TROOPS_GROUP_A.slice();
+    if (String(day && day.type) === 'trip3_full' && half === 'pm') {
+      return { trip: baseCluster, cluster: baseTrip };
+    }
+    return { trip: baseTrip, cluster: baseCluster };
+  }
+
+  function normalGroupsFor(half){
+    if (half === 'am') return { cluster: TROOPS_GROUP_A.slice(), outside: TROOPS_GROUP_B.slice() };
+    return { cluster: TROOPS_GROUP_B.slice(), outside: TROOPS_GROUP_A.slice() };
+  }
+  function isCommMk(s){ const t=normalizeName((s&&(s.template||s.name))||''),dir=normalizeName((s&&s.direction)||''); return t.includes('коммуникат')||t.includes('командн')||t.includes('тренинг')||dir.includes('soft')||dir.includes('нейро'); }
+
+  // нормализация направления для группировки на диаграмме
+  function dirGroup(s){
+    const dir=normalizeName((s&&s.direction)||'');
+    const t=normalizeName((s&&(s.template||s.name))||'');
+    if(isCommMk(s)) return 'Коммуникация';
+    if(dir.includes('it')||t.includes('програм')||t.includes('roblox')||t.includes('minecraft')||t.includes('робот')||t.includes('код')) return 'IT';
+    if(dir.includes('творч')||t.includes('лепк')||t.includes('рисов')||t.includes('арт')||t.includes('глин')) return 'Творчество';
+    if(dir.includes('актив')||dir.includes('спорт')) return 'Активность';
+    if(s&&s.direction) return String(s.direction).trim();
+    return 'Прочее';
+  }
+
+  // Все оценочные МК (по всем педагогам) с направлением и comm
+  // Собирает все «оценочные» МК смены (s.scored=true), формируя mkKey совпадающие
+  // с теми, что использует scores6.html. Для каждого МК добавляется отдельная запись
+  // на каждый отряд прошедший через него (даже если они на одном слоте, у каждого
+  // был свой час — оценки могут быть разные).
+  //
+  // Формат mkKey: dayIdx + '_' + half + '_' + путь + '_t' + троп
+  // Пути в 6-отрядной модели:
+  //   cluster_0/1/2, outside_0/1/2, outside_single, trip_full, trip6, trip6_a, trip6_b
+  function buildAllScoredMks(){
+    const out = [];
+    publishedState.schedule.forEach((d, idx) => {
+      ['am','pm'].forEach(half => {
+        const mode = halfMode6(d, half);
+
+        // Универсальный add: проверяет s.scored и создаёт по записи на каждый отряд
+        function addSlot(slot, pathKey, troops) {
+          if (!slot || !slot.template || !slot.scored) return;
+          troops.forEach(troop => {
+            out.push({
+              mkKey: idx + '_' + half + '_' + pathKey + '_t' + troop,
+              name: slot.template,
+              comm: isCommMk(slot),
+              dir: dirGroup(slot),
+              troops: [troop]
+            });
+          });
+        }
+
+        if (mode === 'trip6') {
+          const s = d[half === 'am' ? 'trip6_am' : 'trip6_pm'];
+          addSlot(s, 'trip6', [1, 2, 3, 4, 5, 6]);
+          return;
+        }
+        if (mode === 'trip6_split') {
+          const sA = d[half === 'am' ? 'trip6_am_a' : 'trip6_pm_a'];
+          const sB = d[half === 'am' ? 'trip6_am_b' : 'trip6_pm_b'];
+          addSlot(sA, 'trip6_a', TROOPS_GROUP_A.slice());
+          addSlot(sB, 'trip6_b', TROOPS_GROUP_B.slice());
+          return;
+        }
+        if (mode === 'trip3') {
+          const g = trip3GroupsFor(d, half);
+          const sTrip = d[half === 'am' ? 'trip_full_am' : 'trip_full_pm'];
+          addSlot(sTrip, 'trip_full', g.trip);
+          // Вторая группа в кабинетах — ротация cluster
+          (d[half + '_cluster'] || []).forEach((s, i) => {
+            addSlot(s, 'cluster_' + i, g.cluster);
+          });
+          return;
+        }
+        // mode === 'normal'
+        const groups = normalGroupsFor(half);
+        (d[half + '_cluster'] || []).forEach((s, i) => {
+          addSlot(s, 'cluster_' + i, groups.cluster);
+        });
+        const outsideMode = String(d[half + '_outside_mode'] || 'rotation');
+        if (outsideMode === 'single') {
+          const s = d[half + '_outside_single'];
+          addSlot(s, 'outside_single', groups.outside);
+        } else {
+          (d[half + '_outside'] || []).forEach((s, i) => {
+            addSlot(s, 'outside_' + i, groups.outside);
+          });
+        }
+      });
+    });
+    return out;
+  }
+
+  // Оценки ребёнка по МК: { mkName: { dir, comm, crits:{interest:5,...} } } — только числовые (2-5)
+  function childMkScores(childId){
+    const byMk={};
+    allMks.forEach(mk=>{
+      CRIT_KEYS.forEach(cr=>{
+        const v=scoresMap[mk.mkKey+'|'+childId+'|'+cr];
+        if(v==null||v===''||v==='x'||v==='-') return;
+        const num=Number(v); if(!num) return;
+        if(!byMk[mk.name]) byMk[mk.name]={dir:mk.dir,comm:mk.comm,crits:{}};
+        byMk[mk.name].crits[cr]=num;
+      });
+    });
+    return byMk;
+  }
+
+  // Средние по направлениям: { 'IT':4.5, 'Творчество':4.0, ... }
+  function dirAverages(byMk){
+    const acc={}; // dir -> {sum,n}
+    Object.values(byMk).forEach(mk=>{
+      Object.values(mk.crits).forEach(v=>{
+        if(!acc[mk.dir]) acc[mk.dir]={sum:0,n:0};
+        acc[mk.dir].sum+=v; acc[mk.dir].n++;
+      });
+    });
+    const out={};
+    Object.keys(acc).forEach(d=>{ out[d]=acc[d].n?(acc[d].sum/acc[d].n):0; });
+    return out;
+  }
+
+  // ── РАДАР (SVG, без библиотек) ──
+  const RADAR_COLORS=['#C1694F','#41BEEA','#D9A441','#9B6FB0','#8FA370','#FF8A3D'];
+  function radarColor(i){ return RADAR_COLORS[i%RADAR_COLORS.length]; }
+  function renderRadar(avgs){
+    const dirs=Object.keys(avgs);
+    if(dirs.length===0) return '<div class="hint" style="padding:10px">Недостаточно оценок для диаграммы.</div>';
+    if(dirs.length<3){
+      // меньше 3 осей — радар вырождается, показываем полосами
+      return '<div style="min-width:240px">'+dirs.map((d,i)=>{
+        const v=avgs[d], pct=Math.round(v/5*100);
+        return '<div style="margin-bottom:12px"><div style="font-size:13px;margin-bottom:4px">'+escapeHtml(d)+' <b style="color:var(--green-deep)">'+v.toFixed(1)+'</b></div>'+
+          '<div style="height:12px;background:#F0E6D2;border-radius:6px;overflow:hidden"><div style="width:'+pct+'%;height:100%;background:'+radarColor(i)+'"></div></div></div>';
+      }).join('')+'</div>';
+    }
+    const cx=130,cy=130,R=95,n=dirs.length;
+    const ang=i=>(-Math.PI/2)+(2*Math.PI*i/n);
+    const pt=(i,r)=>[cx+r*Math.cos(ang(i)), cy+r*Math.sin(ang(i))];
+    let grid='';
+    // кольца 1..5
+    for(let ring=1;ring<=5;ring++){
+      const rr=R*ring/5;
+      const pts=dirs.map((_,i)=>pt(i,rr).map(x=>x.toFixed(1)).join(',')).join(' ');
+      grid+='<polygon points="'+pts+'" fill="none" stroke="#e0ccae" stroke-width="1"/>';
+    }
+    // оси + подписи
+    let axes='', labels='';
+    dirs.forEach((d,i)=>{
+      const [x,y]=pt(i,R);
+      axes+='<line x1="'+cx+'" y1="'+cy+'" x2="'+x.toFixed(1)+'" y2="'+y.toFixed(1)+'" stroke="#e0ccae" stroke-width="1"/>';
+      const [lx,ly]=pt(i,R+18);
+      const anchor=Math.abs(lx-cx)<10?'middle':(lx<cx?'end':'start');
+      labels+='<text x="'+lx.toFixed(1)+'" y="'+ly.toFixed(1)+'" text-anchor="'+anchor+'" font-size="11" font-weight="600" fill="#5A3A28" dominant-baseline="middle">'+escapeHtml(d)+'</text>';
+    });
+    // данные
+    const dataPts=dirs.map((d,i)=>pt(i, R*Math.max(0,Math.min(5,avgs[d]))/5).map(x=>x.toFixed(1)).join(',')).join(' ');
+    const dots=dirs.map((d,i)=>{ const [x,y]=pt(i,R*Math.max(0,Math.min(5,avgs[d]))/5); return '<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="4" fill="'+radarColor(i)+'"/>'; }).join('');
+    return '<svg viewBox="0 0 260 260" width="260" height="260">'+grid+axes+
+      '<polygon points="'+dataPts+'" fill="rgba(193,105,79,0.22)" stroke="#C1694F" stroke-width="2"/>'+dots+labels+'</svg>';
+  }
+
+  // ── BOOTSTRAP ──
+  async function bootstrap(){
+    const id=getQueryParam('id');
+    if(!id){ document.getElementById('content').innerHTML='<div class="err">В ссылке не указан ID публикации.</div>'; return; }
+    try{
+      const pubResp=await fetch(LIBRARY_URL+'?action=getPublished&id='+encodeURIComponent(id)).then(r=>r.json());
+      if(!pubResp.ok) throw new Error(pubResp.error||'Не удалось загрузить публикацию');
+      const pub=pubResp.publication; if(!pub||!pub.id) throw new Error('Публикация не найдена.');
+      publishedMeta={id:pub.id,name:pub.name||'',theme:pub.theme||''};
+      publishedState=JSON.parse(pub.stateJson||'{}');
+      if(!Array.isArray(publishedState.schedule)||!publishedState.schedule[0]||!Array.isArray(publishedState.schedule[0].am)) throw new Error('Это не похоже на смену на 6 отрядов.');
+      const [chResp,scResp]=await Promise.all([
+        fetch(LIBRARY_URL+'?action=getChildren&seasonId='+encodeURIComponent(id)).then(r=>r.json()).catch(()=>({ok:false})),
+        fetch(LIBRARY_URL+'?action=getScores&seasonId='+encodeURIComponent(id)).then(r=>r.json()).catch(()=>({ok:false}))
+      ]);
+      troopsChildren=(chResp&&chResp.ok&&Array.isArray(chResp.children))?chResp.children:[];
+      scoresMap=(scResp&&scResp.ok&&scResp.scores&&scResp.scores.scores)?scResp.scores.scores:{};
+      allMks=buildAllScoredMks();
+
+      const sel=document.getElementById('child-pick');
+      const kids=troopsChildren.slice().sort((a,b)=>(Number(a.troop)-Number(b.troop))||String(a.name).localeCompare(b.name,'ru'));
+      sel.innerHTML='<option value="">—</option>'+kids.map(k=>'<option value="'+escapeHtml(String(k.crmId))+'">'+escapeHtml(k.name)+'</option>').join('');
+
+      const childFromUrl=getQueryParam('child');
+      if(childFromUrl){ sel.value=childFromUrl; onChildChange(); }
+      else document.getElementById('content').innerHTML='<div class="hint">Выбери ребёнка вверху.</div>';
+    }catch(e){
+      document.getElementById('content').innerHTML='<div class="err">Ошибка: '+escapeHtml(e.message)+'</div>';
+    }
+  }
+
+  // Родительский вход: грузим публикацию (тема+расписание) и паспорт ТОЛЬКО своего ребёнка по токену
+  async function bootstrapParent(){
+    const id=getQueryParam('id');
+    if(!id){ document.getElementById('content').innerHTML='<div class="err">Ссылка неполная.</div>'; return; }
+    document.getElementById('content').innerHTML='<div class="hint">Загружаю паспорт…</div>';
+    try{
+      const [pubResp, passResp] = await Promise.all([
+        fetch(LIBRARY_URL+'?action=getPublished&id='+encodeURIComponent(id)).then(r=>r.json()),
+        fetch(LIBRARY_URL+'?action=getPassportByToken&id='+encodeURIComponent(id)+'&t='+encodeURIComponent(parentToken)).then(r=>r.json())
+      ]);
+      if(!pubResp.ok) throw new Error('Смена не найдена.');
+      publishedMeta={id:pubResp.publication.id,name:pubResp.publication.name||'',theme:pubResp.publication.theme||''};
+      publishedState=JSON.parse(pubResp.publication.stateJson||'{}');
+      allMks=buildAllScoredMks();
+
+      const pr = passResp.result || passResp;
+      if(!pr || !pr.ok){ document.getElementById('content').innerHTML='<div class="err">'+escapeHtml((pr&&pr.error)||'Ссылка недействительна.')+'</div>'; return; }
+      troopsChildren=[pr.child];
+      scoresMap=pr.scores||{};
+      renderPassport(String(pr.child.crmId));
+    }catch(e){
+      document.getElementById('content').innerHTML='<div class="err">Ошибка: '+escapeHtml(e.message)+'</div>';
+    }
+  }
+
+  function setMode(m){
+    currentMode=m;
+    document.body.className=document.body.className.replace(/mode-\w+/g,'')+' mode-'+m;
+    if(!document.body.classList.contains('unlocked')) document.body.classList.add('unlocked');
+    document.getElementById('mode-int').classList.toggle('active',m==='internal');
+    document.getElementById('mode-par').classList.toggle('active',m==='parent');
+    onChildChange();
+  }
+
+  function onChildChange(){
+    const id=document.getElementById('child-pick').value;
+    if(!id){ document.getElementById('content').innerHTML='<div class="hint">Выбери ребёнка вверху.</div>'; return; }
+    renderPassport(id);
+  }
+
+  function findChild(id){ return troopsChildren.find(k=>String(k.crmId)===String(id)); }
+
+  // Маппинг направление → курсы клуба (из контекста Прознание+Coddy)
+  const NEXT_COURSES = {
+    'IT': {ic:'💻', courses:'Scratch, Minecraft, Roblox Studio, Python, Blender, Робототехника'},
+    'Творчество': {ic:'🎨', courses:'Digital Art, Арт-студия, Глина и лепка, Пескография'},
+    'Коммуникация': {ic:'🗣️', courses:'Говорилка, Развитие речи, интенсив «Код личности»'},
+    'Активность': {ic:'⚡', courses:'активные форматы каникул в клубе'},
+    'Прочее': {ic:'✨', courses:'направления клуба по интересам ребёнка'}
+  };
+
+  // Знак по направлению
+  const BADGE_IC = { 'IT':'💻', 'Творчество':'🎨', 'Коммуникация':'🤝', 'Активность':'⚡', 'Прочее':'⭐' };
+
+  // Уровень-лестница из общего среднего
+  const LADDER = [
+    {ic:'🌱', nm:'Участник', min:0},
+    {ic:'⭐', nm:'Активный', min:3.0},
+    {ic:'🏅', nm:'Звезда смены', min:4.0},
+    {ic:'👑', nm:'Мастер', min:4.6}
+  ];
+
+  function overallAvg(byMk){
+    let sum=0,n=0;
+    Object.values(byMk).forEach(mk=>Object.values(mk.crits).forEach(v=>{sum+=v;n++;}));
+    return n?sum/n:0;
+  }
+
+  function renderPassport(childId){
+    const kid=findChild(childId);
+    if(!kid){ document.getElementById('content').innerHTML='<div class="err">Ребёнок не найден.</div>'; return; }
+    const byMk=childMkScores(childId);
+    const mkNames=Object.keys(byMk);
+    const avgs=dirAverages(byMk);
+    const parent = currentMode==='parent';
+    const theme = publishedState.theme?publishedState.theme.replace(/_/g,' '):'';
+
+    let html='';
+    // ── ШАПКА (карточка) ──
+    html+='<div class="card"><div class="pass-head">'+
+      '<div class="pass-kicker">прознание · coddy · каникулы в клубе</div>'+
+      '<div class="pass-name">'+escapeHtml(kid.name)+'</div>'+
+      '<div class="pass-meta">отряд '+kid.troop+(kid.age?' · '+kid.age+' лет':'')+'</div>'+
+      (theme?'<div class="pass-theme">смена «'+escapeHtml(theme)+'»</div>':'')+
+      '</div>';
+
+    if(mkNames.length===0){
+      html+='<div class="hint">У ребёнка пока нет выставленных оценок. Паспорт появится, когда педагоги заполнят баллы.</div></div>';
+      document.getElementById('content').innerHTML=html;
+      return;
+    }
+
+    // ── ТРИ ЦИФРЫ ──
+    const nDirs=Object.keys(avgs).length;
+    html+='<div class="stats">'+
+      '<div class="stat"><div class="num">'+mkNames.length+'</div><div class="lbl">занятий прошёл</div></div>'+
+      '<div class="stat"><div class="num">'+nDirs+'</div><div class="lbl">направлен'+(nDirs===1?'ие':(nDirs<5?'ия':'ий'))+' освоил</div></div>'+
+      '<div class="stat"><div class="num">'+overallAvg(byMk).toFixed(1)+'</div><div class="lbl">средний балл</div></div>'+
+      '</div></div>';
+
+    // ── ХАРАКТЕРИСТИКА (письмо) ──
+    let autoGenLetter=false;
+    html+='<div class="card"><div class="card-title">✍️ Живая характеристика</div><div id="letter-slot">';
+    if(letterCache[childId]){ html+='<div class="letter-box">'+escapeHtml(letterCache[childId])+'</div>'; }
+    else if(parent){ html+='<div class="letter-loading">Готовим тёплые слова о ребёнке…</div>'; autoGenLetter=true; }
+    else { html+='<button class="gen-letter-btn" onclick="genLetter(\''+escapeHtml(String(childId))+'\',\''+escapeHtml(kid.name)+'\')">✍️ Сформировать характеристику</button>'; }
+    html+='</div></div>';
+
+    // ── РАДАР ──
+    html+='<div class="card"><div class="card-title">📊 Профиль по направлениям</div>';
+    html+='<div class="radar-wrap"><div>'+renderRadar(avgs)+'</div><div class="radar-legend">';
+    Object.keys(avgs).sort((a,b)=>avgs[b]-avgs[a]).forEach((d,i)=>{
+      const v=avgs[d];
+      const word = v>=4.5?'ярко':v>=3.5?'уверенно':v>=2.5?'развивается':'в начале пути';
+      html+='<div class="lg"><span class="dot" style="background:'+radarColor(i)+'"></span>'+escapeHtml(d)+
+        (parent?(' <span class="val">'+word+'</span>'):(' <span class="val">'+v.toFixed(1)+'</span>'))+'</div>';
+    });
+    html+='</div></div></div>';
+
+    // ── ЛЕСТНИЦА ДОСТИЖЕНИЙ ──
+    const ov=overallAvg(byMk);
+    let curIdx=0; LADDER.forEach((s,i)=>{ if(ov>=s.min) curIdx=i; });
+    html+='<div class="card"><div class="card-title">🪜 Лестница достижений</div><div class="ladder">';
+    LADDER.forEach((s,i)=>{
+      const cls=(i<curIdx?'done':(i===curIdx?'done cur':''));
+      html+='<div class="lstep '+cls+'"><div class="ic">'+s.ic+'</div><div class="nm">'+s.nm+'</div></div>';
+    });
+    html+='</div>';
+    if(curIdx<LADDER.length-1){
+      const next=LADDER[curIdx+1];
+      html+='<div class="ladder-note">Сейчас: <b style="color:var(--terra)">'+LADDER[curIdx].nm+'</b>. До уровня «'+next.nm+'» — ещё немного роста.</div>';
+    } else {
+      html+='<div class="ladder-note">Высший уровень — <b style="color:var(--terra)">Мастер</b>! 🎉</div>';
+    }
+    html+='</div>';
+
+    // ── ОСОБЫЕ ЗНАКИ ──
+    const strong=Object.keys(avgs).filter(d=>avgs[d]>=4).sort((a,b)=>avgs[b]-avgs[a]);
+    if(strong.length){
+      html+='<div class="card"><div class="card-title">🏆 Особые знаки</div><div class="badges">';
+      strong.forEach(d=>{ html+='<div class="badge">'+(BADGE_IC[d]||'⭐')+' '+escapeHtml(d)+(parent?'':' <span class="b-val">'+avgs[d].toFixed(1)+'</span>')+'</div>'; });
+      html+='</div></div>';
+    }
+
+    // ── ЗОНА РОСТА ──
+    const grow=Object.keys(avgs).filter(d=>avgs[d]<3.5).sort((a,b)=>avgs[a]-avgs[b]);
+    if(grow.length){
+      html+='<div class="card"><div class="card-title">🌱 Зона роста</div>'+
+        '<div class="growth">'+escapeHtml(grow.join(', '))+' — здесь у ребёнка есть пространство для роста. С поддержкой и интересом эти навыки раскроются ярче.</div></div>';
+    }
+
+    // ── КАРТА ЗАНЯТИЙ (внутренний режим) ──
+    html+='<div class="card internal-only"><div class="card-title">🗂 Разбор по занятиям</div><div class="mk-list">';
+    mkNames.forEach(n=>{
+      const mk=byMk[n]; const labels=mk.comm?CRIT_RU_COMM:CRIT_RU;
+      let crits='';
+      CRIT_KEYS.forEach(cr=>{ if(mk.crits[cr]!==undefined) crits+='<span class="c">'+labels[cr]+': <b>'+mk.crits[cr]+'</b></span>'; });
+      html+='<div class="mk-item"><span class="mk-n">'+escapeHtml(n)+'</span><span class="mk-dir">'+escapeHtml(mk.dir)+'</span>'+
+        '<div class="mk-crits">'+crits+'</div></div>';
+    });
+    html+='</div></div>';
+
+    // ── ЧТО ПОПРОБОВАТЬ ДАЛЬШЕ ──
+    if(strong.length){
+      html+='<div class="card"><div class="card-title">🧭 Что попробовать дальше</div><div class="next-list">';
+      strong.slice(0,2).forEach(d=>{
+        const nc=NEXT_COURSES[d]||NEXT_COURSES['Прочее'];
+        html+='<div class="next-item"><div class="ni-ic">'+nc.ic+'</div><div><div class="ni-t">Раз понравилось направление «'+escapeHtml(d)+'»</div>'+
+          '<div class="ni-c">обратите внимание на курсы клуба: '+escapeHtml(nc.courses)+'.</div></div></div>';
+      });
+      html+='</div></div>';
+    }
+
+    // ── СНОСКА про то, что появится позже ──
+    html+='<div class="soon-note">С расширением отметок педагогов в паспорте позже появятся: учёт посещаемости, знаки за яркие моменты («Железная воля», «Командный игрок»), детальные радары по рамке 4P (знания · умения · характер · мышление) и печатная версия A4.</div>';
+
+    document.getElementById('content').innerHTML=html;
+    if(autoGenLetter){ genLetter(String(childId), kid.name); }
+  }
+
+  // ── ПИСЬМО (переиспользует generateReport) ──
+  function scoresForChild(childId){
+    const res=[];
+    allMks.forEach(mk=>CRIT_KEYS.forEach(cr=>{ const v=scoresMap[mk.mkKey+'|'+childId+'|'+cr]; if(v!=null&&v!=='') res.push({mkName:mk.name,criterion:cr,value:v,comm:mk.comm}); }));
+    return res;
+  }
+  async function genLetter(childId, childName){
+    const slot=document.getElementById('letter-slot');
+    slot.innerHTML='<div class="letter-loading">ИИ пишет письмо… (10–20 сек)</div>';
+    try{
+      const scores=scoresForChild(childId);
+      const resp=await fetch(LIBRARY_URL,{ method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({ action:'generateReport', childName:childName, theme:(publishedState.theme||''), scores:scores, seasonId:publishedMeta.id, childId:childId }) }).then(r=>r.json());
+      if(!resp.ok) throw new Error(resp.error||'Ошибка');
+      letterCache[childId]=resp.result.report;
+      slot.innerHTML='<div class="letter-box">'+escapeHtml(resp.result.report)+'</div>';
+    }catch(e){ slot.innerHTML='<div class="err">Ошибка: '+escapeHtml(e.message)+'</div>'; }
+  }
+
+  window.tryUnlock=tryUnlock;
+  window.onChildChange=onChildChange;
+  window.setMode=setMode;
+  window.genLetter=genLetter;
+
+  function openHelp(){ document.getElementById('help-overlay').classList.add('open'); }
+  function closeHelp(){ document.getElementById('help-overlay').classList.remove('open'); }
+  window.openHelp=openHelp;
+  window.closeHelp=closeHelp;
+</script>
+</body>
+</html>
