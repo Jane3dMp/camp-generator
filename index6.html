@@ -11576,8 +11576,9 @@ function _teaserPickGenerate() {
 // Базовый URL для публичной страницы (на той же странице сайта что и редактор)
 function getPublishedViewBaseUrl_() {
   const here = location.href.split('?')[0].split('#')[0];
-  // Заменим index.html (или конец /) на view6.html
-  const base = here.replace(/index\.html$/, '').replace(/\/$/, '/');
+  // Убираем ЛЮБОЕ имя файла *.html (index.html, index6.html, etc.), а не только index.html.
+  // Без этого ссылка склеивается: 'index6.html' + 'view6.html' = 'index6.htmlview6.html'.
+  const base = here.replace(/[^/]*\.html$/, '').replace(/\/$/, '/');
   return (base || './') + 'view6.html';
 }
 
