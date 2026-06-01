@@ -669,7 +669,11 @@
   }
 
   // ── ССЫЛКИ ──
-  function pageUrl(page){ return location.href.split('?')[0].replace(/admin-hub4\.html$/, page) + '?id=' + encodeURIComponent(SEASON_ID); }
+  function pageUrl(page){
+    // Заменяем ЛЮБОЕ имя файла *.html (admin-hub6.html, admin-hub4.html, etc),
+    // а не только admin-hub4.html. Без этого ссылка остаётся на admin-hub6 и идёт сама на себя.
+    return location.href.split('?')[0].replace(/[^/]*\.html$/, page) + '?id=' + encodeURIComponent(SEASON_ID);
+  }
   // [иконка, подпись, файл, ключ-зоны, описание]
   const LINKS = [
     ['👩‍🏫','Расписание пед состава','view6.html','team','Материалы и инструкции для команды педагогов'],
