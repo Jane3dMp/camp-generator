@@ -224,6 +224,8 @@
 
   /* ───── Вкладка «На уход» ───── */
   .leave-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  .leave-sep{font-size:12px;color:#888;margin-left:8px}
+  .leave-time-input{font-size:13px;padding:6px 10px;border:1px solid #D8D5CC;border-radius:5px;font-family:inherit}
   .leave-period{font-size:13px;color:#666;margin-left:auto}
   table.leave-tbl{width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;font-size:13px}
   table.leave-tbl th{background:#FAFAFA;padding:10px 14px;text-align:left;border-bottom:1px solid #E8E5DD;font-weight:600;color:#444;font-size:12px;text-transform:uppercase;letter-spacing:0.4px}
@@ -463,6 +465,9 @@
       <div class="leave-bar">
         <button class="btn" onclick="toggleAllLeave()">☑ Все / Снять</button>
         <button class="btn btn-primary" onclick="printLeaveSelected()">🖨 Печать выбранных <span id="leave-count">(0)</span></button>
+        <span class="leave-sep">или с другим временем:</span>
+        <input type="time" id="leave-time" value="17:00" class="leave-time-input">
+        <button class="btn" onclick="printLeaveCustomTime()">🕒 Печать с этим временем</button>
         <span class="leave-period" id="leave-period">—</span>
       </div>
       <div id="leave-content"><div class="soon">Загружаю детей…</div></div>
@@ -2175,10 +2180,23 @@ pages.join('')+
   }
 
   function printLeaveSelected(){
+    printLeavePack_('17:00');
+  }
+
+  function printLeaveCustomTime(){
+    const inp = document.getElementById('leave-time');
+    const t = String(inp && inp.value || '').trim();
+    if (!/^\d{1,2}:\d{2}$/.test(t)) { alert('Введи время в формате ЧЧ:ММ (например 16:30)'); return; }
+    const [h, m] = t.split(':');
+    const timeStr = h.padStart(2,'0') + ':' + m;
+    printLeavePack_(timeStr);
+  }
+
+  function printLeavePack_(timeStr){
     const selected = _leaveKids.filter(k => k.selected);
     if (!selected.length) { alert('Никто не выбран. Поставь галочки.'); return; }
     if (!_leaveDates) _leaveDates = computeLeaveDates_();
-    const pages = selected.map(k => renderLeaveOne_(k)).join('');
+    const pages = selected.map(k => renderLeaveOne_(k, timeStr)).join('');
     const html = buildLeavePrintDoc_(pages);
     const w = window.open('', '_blank', 'width=900,height=1000');
     if (!w) { alert('Браузер заблокировал окно. Разреши попапы для этого сайта.'); return; }
@@ -2186,8 +2204,9 @@ pages.join('')+
     w.onload = () => { setTimeout(()=>{ w.focus(); w.print(); }, 200); };
   }
 
-  function renderLeaveOne_(k){
+  function renderLeaveOne_(k, timeStr){
     const d = _leaveDates || {};
+    const time = String(timeStr || '17:00');
     const childPron = (k.gender===0) ? 'сыну' : (k.gender===1 ? 'дочери' : 'сыну/дочери');
     const parentNameDisplay = k.parentName.trim() || '_______________________________';
     const phoneDisplay      = k.parentPhone.trim() || '_______________________________';
@@ -2209,7 +2228,7 @@ pages.join('')+
       '    Я, <span class="lv-fill">'+escapeHtml(parentNameDisplay)+'</span>, '+
       '    прошу разрешить уходить самостоятельно из ООО «Прознание клуб» в '+
       '    период с <span class="lv-fill">'+escapeHtml(d.fromStr||'__________')+' '+escapeHtml(d.yearStr||'')+' года</span> '+
-      '    по <span class="lv-fill">'+escapeHtml(d.toStr||'__________')+' '+escapeHtml(d.yearStr||'')+' года</span> после 17:00 '+
+      '    по <span class="lv-fill">'+escapeHtml(d.toStr||'__________')+' '+escapeHtml(d.yearStr||'')+' года</span> после '+escapeHtml(time)+' '+
       '    моему/моей '+childPron+' <span class="lv-fill">'+escapeHtml(childNameDisplay)+'</span>.'+
       '  </p>'+
       '  <p class="lv-body">Ответственность за жизнь и здоровье ребёнка беру на себя.</p>'+
@@ -2253,6 +2272,7 @@ pagesHtml+
   window.toggleAllLeave = toggleAllLeave;
   window.toggleLeaveOne = toggleLeaveOne;
   window.printLeaveSelected = printLeaveSelected;
+  window.printLeaveCustomTime = printLeaveCustomTime;
 </script>
 </body>
 </html>
