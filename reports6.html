@@ -373,8 +373,8 @@
       if(!pub||!pub.id) throw new Error('Публикация не найдена.');
       publishedMeta={id:pub.id,name:pub.name||'',theme:pub.theme||''};
       publishedState=JSON.parse(pub.stateJson||'{}');
-      if(!Array.isArray(publishedState.schedule)||!publishedState.schedule[0]||!Array.isArray(publishedState.schedule[0].am))
-        throw new Error('Это не похоже на смену на 6 отрядов.');
+      if(!Array.isArray(publishedState.schedule)||!publishedState.schedule[0]) throw new Error('Расписание пустое.');
+      if(Array.isArray(publishedState.schedule[0].am)) throw new Error('Это 4-отрядная смена. Открывай её через reports4.html.');
 
       const [chResp,scResp]=await Promise.all([
         fetch(LIBRARY_URL+'?action=getChildren&seasonId='+encodeURIComponent(id)).then(r=>r.json()).catch(()=>({ok:false})),

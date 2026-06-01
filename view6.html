@@ -708,10 +708,13 @@
       publishedMeta = { id: pub.id, name: pub.name || '', theme: pub.theme || '', publishedAt: pub.publishedAt || '' };
       try { publishedState = JSON.parse(pub.stateJson || '{}'); }
       catch(e) { throw new Error('Не удалось распарсить расписание: ' + e.message); }
-      // Проверка формы: 4-отрядная публикация должна иметь am/pm массивы.
-      if (!Array.isArray(publishedState.schedule) || publishedState.schedule.length === 0
-          || !publishedState.schedule[0] || !Array.isArray(publishedState.schedule[0].am)) {
-        throw new Error('Это не похоже на смену на 6 отрядов. Для 6-отрядных смен используй view.html.');
+      // Проверка формы: 6-отрядная публикация НЕ должна иметь массив am/pm (это 4-отрядная модель).
+      // У 6-отрядной — am_cluster/am_outside/trip6_am и т.д.
+      if (!Array.isArray(publishedState.schedule) || publishedState.schedule.length === 0) {
+        throw new Error('Расписание пустое.');
+      }
+      if (Array.isArray(publishedState.schedule[0].am)) {
+        throw new Error('Это 4-отрядная смена. Открывай её через view4.html, а не view6.html.');
       }
       onPublishedLoaded();
     } catch(e) {

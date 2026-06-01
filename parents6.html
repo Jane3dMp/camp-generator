@@ -402,9 +402,11 @@
       publishedMeta = { id: pub.id, name: pub.name || '', theme: pub.theme || '', publishedAt: pub.publishedAt || '' };
       try { publishedState = JSON.parse(pub.stateJson || '{}'); }
       catch(e) { throw new Error('Не удалось разобрать программу: ' + e.message); }
-      if (!Array.isArray(publishedState.schedule) || publishedState.schedule.length === 0
-          || !publishedState.schedule[0] || !Array.isArray(publishedState.schedule[0].am)) {
-        throw new Error('Это не похоже на смену на 6 отрядов. Используй parents.html для 6-отрядных смен.');
+      if (!Array.isArray(publishedState.schedule) || publishedState.schedule.length === 0) {
+        throw new Error('Расписание пустое.');
+      }
+      if (Array.isArray(publishedState.schedule[0].am)) {
+        throw new Error('Это 4-отрядная смена. Открывай её через parents4.html, а не parents6.html.');
       }
       onPublishedLoaded();
     } catch(e) {
