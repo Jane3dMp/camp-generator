@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Баллы · Прознание</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@400;500;600;700&family=Inter:wght@400;500;600&family=Caveat:wght@600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --yellow:#FED634; --yellow-deep:#C9A800; --ink:#1f1c14; --paper:#fffdf6;
+    --t1:#41BEEA; --t2:#FF8A3D; --t3:#8FA370; --t4:#C879D8;
+    --line:#e9e3cf; --muted:#8a8470; --green:#8FA370; --green-deep:#6f8052;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Inter',system-ui,sans-serif;font-size:16px;line-height:1.5}
+  h1,h2,h3{font-family:'Geologica',sans-serif;margin:0}
+  em{font-family:'Caveat',cursive;font-style:normal;font-size:1.15em;color:var(--green-deep)}
+
+  /* ── LOCK ── */
+  #lockscreen{position:fixed;inset:0;background:var(--paper);display:flex;align-items:center;justify-content:center;z-index:1000;padding:24px}
+  body.unlocked #lockscreen{display:none}
+  body:not(.unlocked) #app{display:none}
+  .lock-card{max-width:340px;width:100%;text-align:center}
+  .lock-card h1{font-size:24px;margin-bottom:6px}
+  .lock-card p{color:var(--muted);font-size:14px;margin:0 0 18px}
+  .lock-card input{width:100%;padding:12px 14px;font-size:16px;border:2px solid var(--line);border-radius:12px;margin-bottom:10px;font-family:inherit}
+  .lock-card input:focus{outline:none;border-color:var(--yellow-deep)}
+  .lock-card button{width:100%;padding:12px;font-size:16px;font-weight:600;background:var(--yellow);border:none;border-radius:12px;cursor:pointer;font-family:inherit;color:var(--ink)}
+  .lock-err{color:#c0392b;font-size:13px;min-height:18px;margin-top:4px}
+
+  /* ── HEADER ── */
+  header{padding:18px 20px 10px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--paper);z-index:50}
+  .hwrap{max-width:780px;margin:0 auto}
+  header h1{font-size:21px}
+  header .sub{color:var(--muted);font-size:13px;margin-top:2px}
+  .topbar{max-width:780px;margin:0 auto;padding:0 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
+  .topbar label{font-size:14px;color:var(--muted)}
+  select{padding:9px 12px;font-size:15px;border:2px solid var(--line);border-radius:10px;font-family:inherit;background:#fff;max-width:100%}
+  select:focus{outline:none;border-color:var(--yellow-deep)}
+  .save-ind{font-size:13px;color:var(--muted);margin-left:auto}
+  .help-btn{padding:8px 12px;font-size:14px;border:2px solid var(--green);background:#f3f7ee;color:var(--green-deep);border-radius:10px;cursor:pointer;font-family:inherit;font-weight:600}
+  .help-btn:hover{background:#e8efe0}
+
+  /* ── МОДАЛКА ИНСТРУКЦИИ ── */
+  .help-overlay{position:fixed;inset:0;background:rgba(31,28,20,0.45);display:none;align-items:flex-start;justify-content:center;z-index:900;padding:24px 16px;overflow-y:auto}
+  .help-overlay.open{display:flex}
+  .help-modal{background:var(--paper);max-width:560px;width:100%;border-radius:16px;padding:24px 26px 28px;box-shadow:0 12px 40px rgba(0,0,0,0.25);margin:auto}
+  .help-modal h2{font-size:20px;margin-bottom:4px}
+  .help-modal h2 em{font-family:'Caveat',cursive;font-style:normal;font-weight:600;color:var(--ink);background:var(--yellow);padding:0 6px;border-radius:4px;font-size:1em}
+  .help-modal .help-close{float:right;background:none;border:none;font-size:24px;cursor:pointer;color:var(--muted);line-height:1;margin:-4px -6px 0 0}
+  .help-modal h3{font-family:'Geologica';font-size:15px;color:var(--green-deep);margin:18px 0 6px}
+  .help-modal h4{font-family:'Geologica',sans-serif;font-size:13px;font-weight:700;color:var(--green-deep);margin:18px 0 8px;letter-spacing:0.04em}
+  .help-modal h4:first-of-type{margin-top:0}
+  .help-modal p{font-size:14px;margin:0 0 8px;line-height:1.55}
+  .help-modal ol{font-size:14px;margin:0 0 8px;padding-left:20px;line-height:1.6}
+  .help-modal ul{font-size:14px;margin:0 0 8px;padding-left:18px;line-height:1.6}
+  .help-modal li{margin-bottom:3px}
+  .help-modal .crit-name{font-weight:600;color:var(--ink)}
+  .help-modal .scale-row{display:flex;gap:8px;align-items:baseline;font-size:14px;margin-bottom:4px}
+  .help-modal .scale-val{flex:0 0 38px;font-weight:700;color:var(--green-deep)}
+  .help-modal .help-key{display:inline-block;background:#fff;border:1px solid var(--line);padding:1px 7px;border-radius:6px;font-size:13px;font-weight:600;white-space:nowrap}
+  .help-modal .help-note{background:#f3f7ee;border-left:3px solid var(--green);padding:10px 14px;margin:14px 0;font-size:13.5px;border-radius:0 6px 6px 0}
+  .save-ind.ok{color:var(--green-deep)}
+  .save-ind.saving{color:var(--yellow-deep)}
+  .save-ind.err{color:#c0392b}
+
+  main{max-width:780px;margin:0 auto;padding:18px 20px 80px}
+  .hint{color:var(--muted);font-size:14px;padding:30px 10px;text-align:center}
+  .hint a, .filter-bar a{color:var(--green-deep);font-weight:600}
+  .filter-bar{background:#f3f7ee;border:1px solid var(--green);border-radius:10px;padding:9px 14px;margin-bottom:16px;font-size:14px;color:var(--ink)}
+  .err{color:#c0392b;padding:20px;text-align:center}
+
+  /* ── DAY GROUP ── */
+  .day-group{margin-bottom:26px}
+  .day-head{font-family:'Geologica';font-size:15px;color:var(--green-deep);font-weight:600;margin-bottom:10px;padding-bottom:4px;border-bottom:2px solid var(--line)}
+
+  /* ── MK CARD ── */
+  .mk{border:1px solid var(--line);border-radius:14px;margin-bottom:16px;overflow:hidden;background:#fff}
+  .mk-head{padding:12px 16px;background:#faf6e8;border-bottom:1px solid var(--line)}
+  .mk-title{font-family:'Geologica';font-size:16px;font-weight:600}
+  .mk-theme{font-family:'Caveat';font-size:17px;color:var(--green-deep);margin-top:1px}
+  .mk-meta{font-size:13px;color:var(--muted);margin-top:3px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .mk-troops{display:inline-block;font-size:12px;padding:2px 8px;border-radius:20px;background:#eee;color:#444}
+  .mk-time{font-size:13px;color:var(--ink);font-weight:600}
+  .mk-progress{font-size:12px;color:var(--muted)}
+  .mk-progress.done{color:var(--green-deep);font-weight:600}
+
+  /* ── CHILD ROW ── */
+  .kid{display:flex;align-items:center;gap:10px;padding:9px 16px;border-bottom:1px solid #f3eede;flex-wrap:wrap}
+  .kid:last-child{border-bottom:none}
+  .kid-troop{width:7px;height:7px;border-radius:50%;flex:0 0 auto}
+  .t1{background:var(--t1)} .t2{background:var(--t2)} .t3{background:var(--t3)} .t4{background:var(--t4)}
+  .kid-name{flex:1 1 130px;min-width:120px;font-size:15px}
+  .kid-name .age{color:var(--muted);font-size:13px;margin-left:5px}
+  .crits{display:flex;gap:7px;flex-wrap:wrap}
+  .crit{display:flex;flex-direction:column;gap:2px}
+  .crit label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;text-align:center}
+  .crit select{padding:5px 6px;font-size:14px;border-radius:8px;border:1.5px solid var(--line);min-width:62px;text-align:center}
+  .crit select.filled{border-color:var(--green);background:#f3f7ee;font-weight:600}
+  .crit select.absent{border-color:#ddd;background:#f7f7f7;color:#999}
+
+  .mk-tools{padding:8px 16px;background:#fcfaf2;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #f3eede}
+  .mk-tools button{font-size:12px;padding:5px 10px;border:1px solid var(--line);background:#fff;border-radius:8px;cursor:pointer;color:var(--muted);font-family:inherit}
+  .mk-tools button:hover{border-color:var(--yellow-deep);color:var(--ink)}
+
+  @media(max-width:560px){
+    .kid-name{flex-basis:100%}
+    .crits{width:100%;justify-content:space-between}
+    .crit select{min-width:0;width:100%}
+    .crit{flex:1}
+  }
+</style>
+</head>
+<body>
+
+<div id="lockscreen">
+  <div class="lock-card">
+    <h1>Баллы детям</h1>
+    <p>Введи пароль клуба</p>
+    <input type="password" id="lock-input" placeholder="Пароль" autocomplete="current-password">
+    <button onclick="tryUnlock()">Войти</button>
+    <div class="lock-err" id="lock-err"></div>
+  </div>
+</div>
+
+<div id="app">
+  <header>
+    <div class="hwrap">
+      <h1 id="title">Баллы детям</h1>
+      <div class="sub" id="subhead">Загрузка…</div>
+    </div>
+    <div class="topbar">
+      <label for="teacher-pick">Педагог:</label>
+      <select id="teacher-pick" onchange="onTeacherChange()"><option value="">—</option></select>
+      <button class="help-btn" onclick="openHelp()">❓ Инструкция</button>
+      <span class="save-ind" id="save-ind"></span>
+    </div>
+  </header>
+  <main id="content">
+    <div class="hint">Выбери себя в списке выше — появятся твои МК для оценивания.</div>
+  </main>
+</div>
+
+<div class="help-overlay" id="help-overlay" onclick="if(event.target===this)closeHelp()">
+  <div class="help-modal">
+    <button class="help-close" onclick="closeHelp()" title="Закрыть">×</button>
+    <h2>❓ Как пользоваться <em>этой страницей</em></h2>
+
+    <h4>Что это за окно</h4>
+    <p>Здесь ты ставишь детям баллы после своих оценочных МК. Три критерия на каждого ребёнка, шкала 2–5. Это нужно, чтобы потом ИИ написал тёплое письмо родителям и собрал цифровой паспорт ребёнка.</p>
+
+    <h4>Что делать</h4>
+    <ol>
+      <li>Выбери себя в списке <span class="help-key">Педагог</span> сверху.</li>
+      <li>Появятся твои МК, отмеченные как оценочные — по дням, с точным временем и отрядом.</li>
+      <li>Под каждым МК — дети того отряда, который был у тебя на этом занятии.</li>
+      <li>Поставь каждому ребёнку три оценки. Заполняется на ходу — сохраняется автоматически (видно <span class="help-key">● сохранено</span> вверху справа).</li>
+    </ol>
+    <p>Оценки можно ставить не за один присест: выставил часть — закрыл, вернулся позже, продолжил. Уже выставленное подгрузится.</p>
+
+    <div class="help-note">
+      Удобный путь: из окна расписания (view4) после оценочного МК нажми <span class="help-key">Проставить баллы</span> — попадёшь сюда сразу с фильтром на это занятие.
+    </div>
+
+    <h4>Что значат критерии</h4>
+    <p><span class="crit-name">Интерес</span> — насколько ребёнок вовлечён: горят ли глаза, задаёт вопросы, хочет попробовать сам, делает больше, чем просили.</p>
+    <p><span class="crit-name">Усердие</span> — насколько старается: аккуратность, доводит ли работу до конца, не бросает при трудностях, исправляет недочёты.</p>
+    <p><span class="crit-name">Потенциал</span> — способности в этом направлении: схватывает суть, придумывает своё, видит формы / логику / композицию — то, что можно развивать дальше.</p>
+    <p style="color:var(--muted);font-size:13px">Для коммуникативных МК критерии другие: <span class="crit-name">Лидерство</span> (инициатива, умеет организовать), <span class="crit-name">Команда</span> (слушает, договаривается, сотрудничает), <span class="crit-name">Конфликты</span> (спокойно решает разногласия, ищет компромисс).</p>
+
+    <h4>Что значат баллы</h4>
+    <div class="scale-row"><span class="scale-val">5</span><span>проявлено отлично, ярко</span></div>
+    <div class="scale-row"><span class="scale-val">4</span><span>проявлено хорошо</span></div>
+    <div class="scale-row"><span class="scale-val">3</span><span>проявлено средне, есть куда расти</span></div>
+    <div class="scale-row"><span class="scale-val">2</span><span>пока почти не проявляется</span></div>
+    <div class="scale-row"><span class="scale-val">–</span><span>был на занятии, но именно этот критерий оценить не удалось</span></div>
+    <div class="scale-row"><span class="scale-val">не&nbsp;был</span><span>ребёнка не было на этом занятии</span></div>
+
+    <h4>Куда уходит то, что ты ставишь здесь</h4>
+    <p>Все баллы складываются по ребёнку и используются для письма родителям (его собирает админ смены) и для цифрового паспорта ребёнка (по ссылке после смены).</p>
+
+    <h4>Что важно</h4>
+    <ul>
+      <li>Ставь честно — баллы помогают увидеть сильные стороны ребёнка и подсказать родителям, что развивать. Низкие оценки не «плохо»: это зона роста.</li>
+      <li>Если случайно поставил не тот балл — просто нажми правильный, перезапишется.</li>
+      <li>Если ребёнка не было — выбери <span class="help-key">не был</span>, иначе он попадёт в письмо как «не проявил критерий».</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+  const LIBRARY_URL = 'https://script.google.com/macros/s/AKfycbxb6EEzzl-FguxjpIO5YthGLj-QXh7puCD_DO4HL4wVPziHL1pEtVeuo3uNEi2i2yXq/exec';
+  const LOCK_PASSWORD_HASH = '45e5a3f82cc81679d006c8d2f6e3cce87c89ec2059fe13a2d79438f0368b226a';
+  const LOCK_TOKEN_KEY = 'camp4_lock_token';
+
+  const MONTHS = ['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
+  const WEEKDAYS = ['вс','пн','вт','ср','чт','пт','сб'];
+  const NUM_TROOPS = 6;
+  const TIME_AM = '9:30 – 12:30';
+  const TIME_PM = '14:00 – 17:00';
+
+  // 6-отрядная физика
+  const TROOPS_GROUP_A = [1, 2, 3];
+  const TROOPS_GROUP_B = [4, 5, 6];
+
+  // Времена шагов ротации (3 шага по часу)
+  function multiStepTimes(half){
+    if (half === 'am') return ['9:30–10:30', '10:30–11:30', '11:30–12:30'];
+    return ['14:00–15:00', '15:00–16:00', '16:00–17:00'];
+  }
+  function fullHalfTime(half){ return half === 'am' ? '9:30 – 12:30' : '14:00 – 17:00'; }
+
+  // Совместимость: вызовы multiStepTimes4(half, mode) делегируются на 6-отрядную
+  function multiStepTimes4(half, _mode){ return multiStepTimes(half); }
+
+  // Критерии. value-ключи фиксированы (interest/diligence/potential),
+  // подписи зависят от типа МК: обычный или коммуникативный.
+  const CRIT_KEYS = ['interest','diligence','potential'];
+  const CRIT_LABELS_DEFAULT = { interest:'Интерес', diligence:'Усердие', potential:'Потенциал' };
+  const CRIT_LABELS_COMM = { interest:'Лидерство', diligence:'Команда', potential:'Конфликты' };
+  // Значения выпадашки: '' = не оценено, '2'..'5', '-' = был, но критерий не проявлен, 'x' = не был.
+  const VALUE_OPTIONS = [
+    { v:'', t:'—' }, { v:'5', t:'5' }, { v:'4', t:'4' }, { v:'3', t:'3' }, { v:'2', t:'2' },
+    { v:'-', t:'–' }, { v:'x', t:'не был' }
+  ];
+
+  let publishedState = null;
+  let publishedMeta = { id:'', name:'', theme:'' };
+  let troopsChildren = [];
+  let scoresMap = {};          // 'mkKey|childId|criterion' -> value
+  const saveQueue = [];        // отложенные сохранения
+  let saveTimer = null;
+
+  // ── LOCK ──
+  async function sha256Hex(str){
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+  async function tryUnlock(){
+    const inp = document.getElementById('lock-input');
+    const err = document.getElementById('lock-err');
+    const hex = await sha256Hex(inp.value);
+    if (hex === LOCK_PASSWORD_HASH){
+      try{ localStorage.setItem(LOCK_TOKEN_KEY, hex); }catch(e){}
+      document.body.classList.add('unlocked');
+      bootstrap();
+    } else {
+      err.textContent = 'Неверный пароль';
+      inp.value=''; inp.focus();
+    }
+  }
+  document.getElementById('lock-input').addEventListener('keydown', e=>{ if(e.key==='Enter') tryUnlock(); });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeHelp(); });
+  (function(){
+    let tok=''; try{ tok = localStorage.getItem(LOCK_TOKEN_KEY)||''; }catch(e){}
+    if (tok === LOCK_PASSWORD_HASH){ document.body.classList.add('unlocked'); bootstrap(); }
+    else document.getElementById('lock-input').focus();
+  })();
+
+  // ── UTILS (синхронно с view4) ──
+  function getQueryParam(name){
+    const m = new RegExp('[?&]'+name+'=([^&#]*)').exec(window.location.search);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+  function escapeHtml(s){
+    return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+  function normalizeName(s){
+    if(!s) return '';
+    return String(s).toLowerCase().replace(/ё/g,'е').replace(/\s+/g,' ').trim();
+  }
+  function dateForDay(state, dayIdx){
+    const start = new Date(state.startDate+'T00:00:00');
+    let d = new Date(start), workDays = 0;
+    while (workDays < dayIdx+1){
+      if (d.getDay()!==0 && d.getDay()!==6) workDays++;
+      if (workDays < dayIdx+1) d.setDate(d.getDate()+1); else break;
+    }
+    return d;
+  }
+  function halfMode6(day, half){
+    const t = String(day && day.type || 'normal');
+    const isAM = half === 'am';
+    switch (t) {
+      case 'trip3_am':       return isAM ? 'trip3'       : 'normal';
+      case 'trip3_pm':       return isAM ? 'normal'      : 'trip3';
+      case 'trip3_full':     return 'trip3';
+      case 'trip6_am':       return isAM ? 'trip6'       : 'normal';
+      case 'trip6_pm':       return isAM ? 'normal'      : 'trip6';
+      case 'trip6_am_split': return isAM ? 'trip6_split' : 'normal';
+      case 'trip6_pm_split': return isAM ? 'normal'      : 'trip6_split';
+      case 'trip6_full':     return 'trip6';
+      default:               return 'normal';
+    }
+  }
+  // Совместимость со старыми вызовами
+  function halfMode4(dOrType, half){ return halfMode6(typeof dOrType === 'object' ? dOrType : { type: dOrType }, half); }
+
+  // В trip3_*: какие отряды на выезде, какие в кабинетах
+  function trip3GroupsFor(day, half){
+    const inv = day && day.trip3_outside === 'A';
+    const baseTrip = inv ? TROOPS_GROUP_A.slice() : TROOPS_GROUP_B.slice();
+    const baseCluster = inv ? TROOPS_GROUP_B.slice() : TROOPS_GROUP_A.slice();
+    if (String(day && day.type) === 'trip3_full' && half === 'pm') {
+      return { trip: baseCluster, cluster: baseTrip };
+    }
+    return { trip: baseTrip, cluster: baseCluster };
+  }
+
+  // Своп нормальной модели: AM — A в cluster + B в outside; PM — B в cluster + A в outside
+  function normalGroupsFor(half){
+    if (half === 'am') return { cluster: TROOPS_GROUP_A.slice(), outside: TROOPS_GROUP_B.slice() };
+    return { cluster: TROOPS_GROUP_B.slice(), outside: TROOPS_GROUP_A.slice() };
+  }
+
+  function isNamedTeacher(name){
+    if(!name) return false;
+    const n = String(name).trim().toLowerCase();
+    if(!n) return false;
+    if (n.includes('куратор')||n.includes('админ')||n.includes('вожат')||n.includes('тренер')) return false;
+    if (n.includes(',')) return false;
+    return /\s/.test(n.trim());
+  }
+  function dobSortKey4(dob){
+    const m = String(dob||'').trim().match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+    if(!m) return 0;
+    return new Date(+m[3], +m[2]-1, +m[1]).getTime();
+  }
+  // Коммуникативный МК — по названию шаблона/направлению (для смены подписей критериев).
+  function isCommMk(s){
+    const t = normalizeName((s && (s.template||s.name)) || '');
+    const dir = normalizeName((s && s.direction) || '');
+    return t.includes('коммуникат') || t.includes('командн') || t.includes('тренинг')
+        || dir.includes('soft') || dir.includes('нейро');
+  }
+
+  // ── СБОР ОЦЕНОЧНЫХ МК ПЕДАГОГА ──
+  // Каждая карточка = ОДИН заход ОДНОГО отряда (или общий слот на пару) со своим временем.
+  // mkKey = dayIdx + half + путь_слота + '_t' + отряд.
+  // путь_слота: cluster_0/1/2, outside_0/1/2, outside_single, trip_full, trip6, trip6_a, trip6_b
+  // Так оценки ребёнка привязаны к точному заходу его отряда; пересечений нет.
+  // Возвращает по дням: { idx, dateStr, weekday, mks:[{ mkKey, name, theme, time, troops:[..], comm }] }
+
+  // 6-отрядная физика. Для каждого МК создаём отдельный mkKey на каждый отряд,
+  // прошедший через него. Это позволяет педагогу ставить разные оценки разным
+  // отрядам (даже если МК «тот же», у каждого отряда был свой час).
+  function buildScoredMksForTeacher(teacherName){
+    const target = normalizeName(teacherName);
+    if (!target || !publishedState) return [];
+    const out = [];
+
+    publishedState.schedule.forEach((d, idx) => {
+      const date = dateForDay(publishedState, idx);
+      const mDate = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+      const wDay = ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
+      const dateStr = date.getDate() + ' ' + mDate[date.getMonth()];
+      const weekday = wDay[date.getDay()];
+      const mks = [];
+
+      ['am','pm'].forEach(half => {
+        const mode = halfMode6(d, half);
+        const times = multiStepTimes(half);
+        const fullT = fullHalfTime(half);
+
+        // Универсальное добавление: на каждый отряд — свой mkKey.
+        function pushSlot(slot, opts) {
+          if (!slot || !slot.template) return;
+          if (normalizeName(slot.teacher) !== target) return;
+          (opts.troops || []).forEach(troop => {
+            mks.push({
+              mkKey: idx + '_' + half + '_' + opts.path + '_t' + troop,
+              name: slot.template,
+              theme: slot.theme || '',
+              time: opts.time || fullT,
+              troops: [troop],
+              comm: isCommMk(slot)
+            });
+          });
+        }
+
+        if (mode === 'trip6') {
+          const s = d[half === 'am' ? 'trip6_am' : 'trip6_pm'];
+          pushSlot(s, { path: 'trip6', troops: [1,2,3,4,5,6], time: fullT });
+          return;
+        }
+        if (mode === 'trip6_split') {
+          const sA = d[half === 'am' ? 'trip6_am_a' : 'trip6_pm_a'];
+          const sB = d[half === 'am' ? 'trip6_am_b' : 'trip6_pm_b'];
+          pushSlot(sA, { path: 'trip6_a', troops: TROOPS_GROUP_A.slice(), time: fullT });
+          pushSlot(sB, { path: 'trip6_b', troops: TROOPS_GROUP_B.slice(), time: fullT });
+          return;
+        }
+        if (mode === 'trip3') {
+          const g = trip3GroupsFor(d, half);
+          const sTrip = d[half === 'am' ? 'trip_full_am' : 'trip_full_pm'];
+          pushSlot(sTrip, { path: 'trip_full', troops: g.trip, time: fullT });
+          // Другая группа — в кабинетах, проходит ротацию cluster
+          const cluster = d[half + '_cluster'] || [];
+          cluster.forEach((s, i) => {
+            pushSlot(s, { path: 'cluster_' + i, troops: g.cluster, time: times[i] });
+          });
+          return;
+        }
+
+        // mode === 'normal'
+        const groups = normalGroupsFor(half);
+        // cluster — для одной группы (3 МК с ротацией)
+        const cluster = d[half + '_cluster'] || [];
+        cluster.forEach((s, i) => {
+          pushSlot(s, { path: 'cluster_' + i, troops: groups.cluster, time: times[i] });
+        });
+        // outside — для другой группы (rotation или single)
+        const outsideMode = String(d[half + '_outside_mode'] || 'rotation');
+        if (outsideMode === 'single') {
+          const s = d[half + '_outside_single'];
+          pushSlot(s, { path: 'outside_single', troops: groups.outside, time: fullT });
+        } else {
+          const outside = d[half + '_outside'] || [];
+          outside.forEach((s, i) => {
+            pushSlot(s, { path: 'outside_' + i, troops: groups.outside, time: times[i] });
+          });
+        }
+      });
+
+      if (mks.length) out.push({ idx, dateStr, weekday, mks });
+    });
+    return out;
+  }
+
+  function getNamedTeachers(){
+    const seen = new Set(), result = [];
+    const tryAdd = t => {
+      if(!isNamedTeacher(t)) return;
+      const n = normalizeName(t);
+      if(seen.has(n)) return;
+      seen.add(n); result.push(t);
+    };
+    if(!publishedState||!Array.isArray(publishedState.schedule)) return [];
+    publishedState.schedule.forEach(d=>{
+      if(!d) return;
+      ['am','pm'].forEach(half=>{
+        const mode = halfMode6(d, half);
+        // cluster и outside могут быть и в normal, и в trip3 (для второй группы)
+        (d[half + '_cluster'] || []).forEach(s => { if (s) tryAdd(String(s.teacher || '').trim()); });
+        (d[half + '_outside'] || []).forEach(s => { if (s) tryAdd(String(s.teacher || '').trim()); });
+        const single = d[half + '_outside_single'];
+        if (single) tryAdd(String(single.teacher || '').trim());
+        if (mode === 'trip3') {
+          const tripSlot = d[half === 'am' ? 'trip_full_am' : 'trip_full_pm'];
+          if (tripSlot) tryAdd(String(tripSlot.teacher || '').trim());
+        }
+        if (mode === 'trip6') {
+          const s = d[half === 'am' ? 'trip6_am' : 'trip6_pm'];
+          if (s) tryAdd(String(s.teacher || '').trim());
+        }
+        if (mode === 'trip6_split') {
+          const sA = d[half === 'am' ? 'trip6_am_a' : 'trip6_pm_a'];
+          const sB = d[half === 'am' ? 'trip6_am_b' : 'trip6_pm_b'];
+          if (sA) tryAdd(String(sA.teacher || '').trim());
+          if (sB) tryAdd(String(sB.teacher || '').trim());
+        }
+      });
+      // extraTripTeachers — если админ дописал
+      const extra = String(d.extraTripTeachers || '').trim();
+      if (extra) extra.split(',').forEach(x => tryAdd(x.trim()));
+    });
+    return result.sort((a,b)=>a.localeCompare(b,'ru'));
+  }
+
+  // ── BOOTSTRAP / LOAD ──
+  async function bootstrap(){
+    const id = getQueryParam('id');
+    if(!id){
+      document.getElementById('content').innerHTML = '<div class="err">В ссылке не указан ID публикации. Попроси у администратора актуальную ссылку.</div>';
+      return;
+    }
+    await loadAll(id);
+    const t = getQueryParam('teacher');
+    if(t){
+      const sel = document.getElementById('teacher-pick');
+      const opt = Array.from(sel.options).find(o=>normalizeName(o.value)===normalizeName(t));
+      if(opt){ sel.value = opt.value; onTeacherChange(); }
+    }
+  }
+
+  async function loadAll(id){
+    document.getElementById('content').innerHTML = '<div class="hint">Загружаю смену…</div>';
+    try{
+      const pubResp = await fetch(LIBRARY_URL+'?action=getPublished&id='+encodeURIComponent(id)).then(r=>r.json());
+      if(!pubResp.ok) throw new Error(pubResp.error||'Не удалось загрузить публикацию');
+      const pub = pubResp.publication;
+      if(!pub||!pub.id) throw new Error('Публикация не найдена. Возможно, ссылка устарела.');
+      publishedMeta = { id:pub.id, name:pub.name||'', theme:pub.theme||'' };
+      publishedState = JSON.parse(pub.stateJson||'{}');
+      if(!Array.isArray(publishedState.schedule)||!publishedState.schedule[0]||!Array.isArray(publishedState.schedule[0].am))
+        throw new Error('Это не похоже на смену на 6 отрядов.');
+
+      // дети и уже выставленные баллы — параллельно
+      const [chResp, scResp] = await Promise.all([
+        fetch(LIBRARY_URL+'?action=getChildren&seasonId='+encodeURIComponent(id)).then(r=>r.json()).catch(()=>({ok:false})),
+        fetch(LIBRARY_URL+'?action=getScores&seasonId='+encodeURIComponent(id)).then(r=>r.json()).catch(()=>({ok:false}))
+      ]);
+      troopsChildren = (chResp&&chResp.ok&&Array.isArray(chResp.children)) ? chResp.children : [];
+      scoresMap = (scResp&&scResp.ok&&scResp.scores&&scResp.scores.scores) ? scResp.scores.scores : {};
+
+      document.getElementById('title').innerHTML = publishedState.theme ? ('Баллы · <em>'+escapeHtml(publishedState.theme)+'</em>') : 'Баллы детям';
+      document.getElementById('subhead').textContent = publishedMeta.name || 'смена';
+
+      const sel = document.getElementById('teacher-pick');
+      const teachers = getNamedTeachers();
+      sel.innerHTML = '<option value="">—</option>' + teachers.map(t=>'<option value="'+escapeHtml(t)+'">'+escapeHtml(t)+'</option>').join('');
+      document.getElementById('content').innerHTML = '<div class="hint">Выбери себя в списке выше — появятся твои МК для оценивания.</div>';
+    }catch(e){
+      document.getElementById('content').innerHTML = '<div class="err">Ошибка: '+escapeHtml(e.message)+'</div>';
+    }
+  }
+
+  // ── РЕНДЕР ──
+  function onTeacherChange(){
+    const v = document.getElementById('teacher-pick').value;
+    if(!v){ document.getElementById('content').innerHTML = '<div class="hint">Выбери себя в списке выше.</div>'; return; }
+    renderTeacher(v);
+  }
+
+  function kidsForTroops(troops){
+    return troopsChildren
+      .filter(k => troops.indexOf(Number(k.troop)) >= 0)
+      .sort((a,b)=> (Number(a.troop)-Number(b.troop)) || (dobSortKey4(b.dob)-dobSortKey4(a.dob)));
+  }
+
+  function mkProgress(mk, kids){
+    let filled = 0, total = kids.length*3;
+    kids.forEach(k=>{
+      CRIT_KEYS.forEach(cr=>{
+        const v = scoresMap[mk.mkKey+'|'+k.crmId+'|'+cr];
+        if(v!=null && v!=='') filled++;
+      });
+    });
+    return { filled, total };
+  }
+
+  function buildAllUrl(){
+    const id = getQueryParam('id');
+    const t = document.getElementById('teacher-pick') ? document.getElementById('teacher-pick').value : '';
+    return 'scores6.html?id='+encodeURIComponent(id)+(t?'&teacher='+encodeURIComponent(t):'');
+  }
+
+  function renderTeacher(teacherName){
+    let days = buildScoredMksForTeacher(teacherName);
+    // Если в URL указан конкретный МК (mk=...), показываем только его — переход «Проставить баллы» с view4.
+    const onlyMk = getQueryParam('mk');
+    if (onlyMk) {
+      days = days.map(d => ({ ...d, mks: d.mks.filter(m => m.mkKey === onlyMk) }))
+                 .filter(d => d.mks.length > 0);
+    }
+    const totalMk = days.reduce((s,d)=>s+d.mks.length,0);
+    if(totalMk===0){
+      const msg = onlyMk
+        ? 'Этот МК не найден среди твоих оценочных. Возможно, ссылка устарела.<br><a href="'+escapeHtml(buildAllUrl())+'">Показать все мои МК →</a>'
+        : 'У тебя пока нет МК, отмеченных как оценочные.<br>Их отмечает администратор в сетке кнопкой 📊.';
+      document.getElementById('content').innerHTML = '<div class="hint">'+msg+'</div>';
+      return;
+    }
+    let html = '';
+    if (onlyMk) {
+      html += '<div class="filter-bar">Показан один МК. <a href="'+escapeHtml(buildAllUrl())+'">Показать все мои МК →</a></div>';
+    }
+    days.forEach(day=>{
+      html += '<div class="day-group"><div class="day-head">День '+(day.idx+1)+' · '+day.dateStr+', '+day.weekday+'</div>';
+      day.mks.forEach(mk=>{
+        const kids = kidsForTroops(mk.troops);
+        const labels = mk.comm ? CRIT_LABELS_COMM : CRIT_LABELS_DEFAULT;
+        const prog = mkProgress(mk, kids);
+        const troopsTag = mk.troops.length>1 ? ('отряды '+mk.troops.join(', ')) : ('отряд '+mk.troops[0]);
+        const done = prog.filled===prog.total && prog.total>0;
+        html += '<div class="mk" data-mk="'+escapeHtml(mk.mkKey)+'">';
+        html += '<div class="mk-head"><div class="mk-title">'+escapeHtml(mk.name)+'</div>'+
+                (mk.theme?'<div class="mk-theme">«'+escapeHtml(mk.theme)+'»</div>':'')+
+                '<div class="mk-meta">'+(mk.time?'<span class="mk-time">🕐 '+escapeHtml(mk.time)+'</span>':'')+
+                '<span class="mk-troops">'+troopsTag+'</span>'+
+                '<span class="mk-progress'+(done?' done':'')+'">'+prog.filled+' / '+prog.total+' оценок</span></div></div>';
+        if(kids.length===0){
+          html += '<div class="kid"><span class="kid-name" style="color:var(--muted)">В отрядах этого МК пока нет детей. Проверь состав в админке.</span></div>';
+        } else {
+          kids.forEach(k=>{
+            const age = (k.age===''||k.age==null)?'':'<span class="age">'+k.age+'</span>';
+            html += '<div class="kid"><span class="kid-troop t'+k.troop+'"></span>'+
+                    '<span class="kid-name">'+escapeHtml(k.name)+age+'</span><div class="crits">';
+            CRIT_KEYS.forEach(cr=>{
+              const cur = scoresMap[mk.mkKey+'|'+k.crmId+'|'+cr] || '';
+              const cls = cur==='x'||cur==='-' ? 'absent' : (cur ? 'filled' : '');
+              const opts = VALUE_OPTIONS.map(o=>'<option value="'+o.v+'"'+(o.v===cur?' selected':'')+'>'+o.t+'</option>').join('');
+              html += '<div class="crit"><label>'+labels[cr]+'</label>'+
+                      '<select class="'+cls+'" onchange="onScoreChange(this,\''+escapeHtml(mk.mkKey)+'\',\''+escapeHtml(mk.name)+'\',\''+escapeHtml(String(k.crmId))+'\',\''+escapeHtml(k.name)+'\',\''+cr+'\')">'+opts+'</select></div>';
+            });
+            html += '</div></div>';
+          });
+        }
+        html += '</div>'; // .mk
+      });
+      html += '</div>'; // .day-group
+    });
+    document.getElementById('content').innerHTML = html;
+  }
+
+  // ── СОХРАНЕНИЕ ──
+  function onScoreChange(selEl, mkKey, mkName, childId, childName, criterion){
+    const value = selEl.value;
+    scoresMap[mkKey+'|'+childId+'|'+criterion] = value;
+    // визуальная реакция
+    selEl.className = value==='x'||value==='-' ? 'absent' : (value ? 'filled' : '');
+    // обновим счётчик прогресса в шапке этого МК
+    updateMkProgress(mkKey);
+    // очередь
+    saveQueue.push({ mkKey, mkName, childId, childName, criterion, value });
+    scheduleSave();
+  }
+
+  function updateMkProgress(mkKey){
+    const card = document.querySelector('.mk[data-mk="'+CSS.escape(mkKey)+'"]');
+    if(!card) return;
+    const selects = card.querySelectorAll('.crit select');
+    let filled=0; selects.forEach(s=>{ if(s.value) filled++; });
+    const el = card.querySelector('.mk-progress');
+    if(el){ el.textContent = filled+' / '+selects.length+' оценок';
+      el.classList.toggle('done', filled===selects.length && selects.length>0); }
+  }
+
+  function setSaveInd(state){
+    const el = document.getElementById('save-ind');
+    el.className = 'save-ind '+(state||'');
+    el.textContent = state==='saving' ? '⏳ сохраняю…' : state==='ok' ? '● сохранено' : state==='err' ? '● ошибка' : '';
+  }
+
+  function scheduleSave(){
+    setSaveInd('saving');
+    if(saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(flushSave, 600);
+  }
+
+  async function flushSave(){
+    if(saveQueue.length===0){ setSaveInd('ok'); return; }
+    const id = getQueryParam('id');
+    // забираем текущую пачку
+    const batch = saveQueue.splice(0, saveQueue.length);
+    try{
+      // последовательно (Apps Script не любит параллельные записи в один лист)
+      for(const item of batch){
+        await fetch(LIBRARY_URL, {
+          method:'POST',
+          headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action:'saveScore', seasonId:id,
+            mkKey:item.mkKey, mkName:item.mkName,
+            childId:item.childId, childName:item.childName,
+            criterion:item.criterion, value:item.value
+          })
+        });
+      }
+      setSaveInd('ok');
+      // если за время сохранения накопилось ещё — досохраним
+      if(saveQueue.length>0) scheduleSave();
+    }catch(e){
+      // вернём пачку в очередь для повторной попытки
+      saveQueue.unshift(...batch);
+      setSaveInd('err');
+    }
+  }
+
+  function openHelp(){ document.getElementById('help-overlay').classList.add('open'); }
+  function closeHelp(){ document.getElementById('help-overlay').classList.remove('open'); }
+
+  window.tryUnlock = tryUnlock;
+  window.onTeacherChange = onTeacherChange;
+  window.onScoreChange = onScoreChange;
+  window.openHelp = openHelp;
+  window.closeHelp = closeHelp;
+</script>
+</body>
+</html>
