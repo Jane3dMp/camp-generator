@@ -2274,7 +2274,7 @@ pages.join('')+
   function renderLeaveOne_(k, timeStr){
     const d = _leaveDates || {};
     const time = String(timeStr || '17:00');
-    const childPron = (k.gender===0) ? 'сыну' : (k.gender===1 ? 'дочери' : 'сыну/дочери');
+    const childPron = (k.gender===1) ? 'сыну' : (k.gender===0 ? 'дочери' : 'сыну/дочери');
     const parentNameDisplay = k.parentName.trim() || '_______________________________';
     const phoneDisplay      = k.parentPhone.trim() || '_______________________________';
     const childNameDisplay  = k.name.trim();
