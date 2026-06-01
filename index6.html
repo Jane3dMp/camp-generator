@@ -6564,47 +6564,38 @@ function renderDay(day, idx) {
 
   if (day.type === 'trip6_am') {
     // Утром все 6 отрядов на одном выезде, после обеда обычная
-    body.style.gridTemplateColumns = '1fr 1fr';
     body.appendChild(renderTrip6Half(idx, 'am', day));
     body.appendChild(renderHalf(idx, 'pm', day));
   } else if (day.type === 'trip6_pm') {
     // Утром обычная, после обеда все 6 на выезде
-    body.style.gridTemplateColumns = '1fr 1fr';
     body.appendChild(renderHalf(idx, 'am', day));
     body.appendChild(renderTrip6Half(idx, 'pm', day));
   } else if (day.type === 'trip6_am_split') {
     // Параллельные выезды утром: 1-2-3 → одно место, 4-5-6 → другое. После обеда обычная.
-    body.style.gridTemplateColumns = '1fr 1fr';
     body.appendChild(renderTrip6SplitHalf(idx, 'am', day));
     body.appendChild(renderHalf(idx, 'pm', day));
   } else if (day.type === 'trip6_pm_split') {
     // Утром обычная, параллельные выезды после обеда
-    body.style.gridTemplateColumns = '1fr 1fr';
     body.appendChild(renderHalf(idx, 'am', day));
     body.appendChild(renderTrip6SplitHalf(idx, 'pm', day));
   } else if (day.type === 'trip6_full_split') {
     // Параллельные выезды и утром, и после обеда
-    body.style.gridTemplateColumns = '1fr 1fr';
     body.appendChild(renderTrip6SplitHalf(idx, 'am', day));
     body.appendChild(renderTrip6SplitHalf(idx, 'pm', day));
   } else if (day.type === 'trip3_am') {
     // Утром 3 отряда в кластере на МК + 3 отряда на одном выезде (картинг и т.п.)
-    body.style.gridTemplateColumns = '1fr 1fr';
     body.appendChild(renderTrip3Half(idx, 'am', day));
     body.appendChild(renderHalf(idx, 'pm', day));
   } else if (day.type === 'trip3_pm') {
-    body.style.gridTemplateColumns = '1fr 1fr';
     body.appendChild(renderHalf(idx, 'am', day));
     body.appendChild(renderTrip3Half(idx, 'pm', day));
   } else if (day.type === 'trip3_full') {
     // Утром: 4-5-6 на выезде, 1-2-3 в кластере. После обеда — наоборот.
     // Уличного блока нет — обе группы заняты (кластер или выезд).
-    body.style.gridTemplateColumns = '1fr 1fr';
     body.appendChild(renderTrip3Half(idx, 'am', day));
     body.appendChild(renderTrip3Half(idx, 'pm', day));
   } else {
     // Обычный день
-    body.style.gridTemplateColumns = '1fr 1fr';
     body.appendChild(renderHalf(idx, 'am', day));
     body.appendChild(renderHalf(idx, 'pm', day));
   }
