@@ -2032,6 +2032,9 @@ pages.join('')+
     const _kidUnderfilledInMk = (mkKey, childId) => {
       const absent = scoresFull[mkKey+'|'+childId+'|absent'] === '1';
       if (absent) return false;
+      // Старый формат до миграции: 'x' в любой из категорий означал «не был».
+      const oldAbsent = SCORE_CRITS.some(cr => scoresFull[mkKey+'|'+childId+'|'+cr] === 'x');
+      if (oldAbsent) return false;
       const allFilled = SCORE_CRITS.every(cr => {
         const v = scoresFull[mkKey+'|'+childId+'|'+cr];
         return v != null && v !== '';

@@ -2090,9 +2090,12 @@ pages.join('')+
       return Array.from(ids);
     };
     const _kidUnderfilledInMk = (mkKey, childId) => {
-      // Не заполнен = absent != '1' И хотя бы одна из 3 категорий пуста.
+      // Не заполнен = absent != '1' (и нет старого маркера 'x' ни в одной категории) И хотя бы одна из 3 категорий пуста.
       const absent = scoresFull[mkKey+'|'+childId+'|absent'] === '1';
       if (absent) return false;
+      // Старый формат до миграции: 'x' в любой из категорий означал «не был».
+      const oldAbsent = SCORE_CRITS.some(cr => scoresFull[mkKey+'|'+childId+'|'+cr] === 'x');
+      if (oldAbsent) return false;
       const allFilled = SCORE_CRITS.every(cr => {
         const v = scoresFull[mkKey+'|'+childId+'|'+cr];
         return v != null && v !== '';
