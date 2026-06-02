@@ -1987,8 +1987,14 @@ pages.join('')+
         .then(r => r.json()).then(r => { if (r && r.ok && r.notes) notes = r.notes; }).catch(()=>{}),
       fetch(LIBRARY_URL + '?action=getScores&seasonId=' + encodeURIComponent(SEASON_ID))
         .then(r => r.json()).then(r => {
-          // У getScores_ ответ либо напрямую {mkTouched:[...]}, либо завёрнут jsonResponse в {ok,result}.
-          const data = (r && r.result) ? r.result : r;
+          // Бэк отдаёт { ok, scores: { seasonId, scores, mkTouched } } — mkTouched лежит на уровне r.scores.
+          // Поддерживаем три варианта на случай разных версий бэка:
+          //   r.scores.mkTouched  — текущий формат (jsonResponse({ok, scores: getScores_()}))
+          //   r.result.mkTouched  — если когда-то перевернут на {ok, result}
+          //   r.mkTouched         — плоский ответ
+          const data = (r && r.scores && Array.isArray(r.scores.mkTouched)) ? r.scores
+                    : (r && r.result && Array.isArray(r.result.mkTouched)) ? r.result
+                    : r;
           if (data && Array.isArray(data.mkTouched)) {
             data.mkTouched.forEach(k => { mkScored[k] = true; });
           }
