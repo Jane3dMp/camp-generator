@@ -359,6 +359,7 @@
   .ah-tag{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:6px;font-size:11px;font-weight:600;vertical-align:middle}
   .ah-tag.report{background:#C8714B;color:#fff}
   .ah-tag.scores{background:#534AB7;color:#fff}
+  .ah-tag.partial{background:#C77E5E;color:#fff;cursor:help}
   .ah-future{margin:0 0 18px;border:1px solid rgba(21,22,23,0.12);border-radius:12px;background:rgba(21,22,23,0.025)}
   .ah-future > summary{cursor:pointer;padding:12px 16px;font-size:13px;font-weight:600;color:rgba(21,22,23,0.65);list-style:none;user-select:none}
   .ah-future > summary::-webkit-details-marker{display:none}
@@ -2036,8 +2037,8 @@ pages.join('')+
       });
     });
 
-    // Параллельно: статусы записей (отчёты) + баллы (mkTouched).
-    let notes = {}, mkScored = {};
+    // Параллельно: статусы записей (отчёты) + баллы (mkTouched + полный словарь) + дети сезона.
+    let notes = {}, mkScored = {}, scoresFull = {}, childrenById = {}, childrenByTroop = {};
     await Promise.all([
       fetch(LIBRARY_URL + '?action=listLessonNotes&seasonId=' + encodeURIComponent(SEASON_ID))
         .then(r => r.json()).then(r => { if (r && r.ok && r.notes) notes = r.notes; }).catch(()=>{}),
@@ -2054,15 +2055,57 @@ pages.join('')+
           if (data && Array.isArray(data.mkTouched)) {
             data.mkTouched.forEach(k => { mkScored[k] = true; });
           }
+          if (data && data.scores && typeof data.scores === 'object') {
+            scoresFull = data.scores;
+          }
+        }).catch(()=>{}),
+      fetch(LIBRARY_URL + '?action=getChildren&seasonId=' + encodeURIComponent(SEASON_ID))
+        .then(r => r.json()).then(r => {
+          if (r && r.ok && Array.isArray(r.children)) {
+            r.children.forEach(k => {
+              childrenById[String(k.crmId)] = k;
+              const t = Number(k.troop);
+              if (!childrenByTroop[t]) childrenByTroop[t] = [];
+              childrenByTroop[t].push(k);
+            });
+          }
         }).catch(()=>{})
     ]);
+
+    // Хелперы для расчёта недозаполненных детей.
+    const SCORE_CRITS = ['interest','diligence','potential'];
+    const _troopFromMkKey = (mkKey) => {
+      const m = String(mkKey||'').match(/_t(AB|\d+)$/);
+      return m ? m[1] : null;
+    };
+    const _childIdsTouchedInMk = (mkKey) => {
+      const ids = new Set();
+      const prefix = mkKey + '|';
+      Object.keys(scoresFull).forEach(k => {
+        if (k.indexOf(prefix) === 0) {
+          const parts = k.split('|');
+          if (parts[1]) ids.add(parts[1]);
+        }
+      });
+      return Array.from(ids);
+    };
+    const _kidUnderfilledInMk = (mkKey, childId) => {
+      // Не заполнен = absent != '1' И хотя бы одна из 3 категорий пуста.
+      const absent = scoresFull[mkKey+'|'+childId+'|absent'] === '1';
+      if (absent) return false;
+      const allFilled = SCORE_CRITS.every(cr => {
+        const v = scoresFull[mkKey+'|'+childId+'|'+cr];
+        return v != null && v !== '';
+      });
+      return !allFilled;
+    };
 
     // Для каждой группы решаем, что не сделано.
     // ВАЖНО: группа попадает в трекер только если у неё есть хотя бы один из двух
     // флагов задач — needsReport (🎤) или needsScores (📊). Так отрезаются кураторы,
     // админы и любые слоты, по которым админ не задал ни одной задачи.
     // missReport проверяем только если needsReport === true; аналогично для баллов.
-    const byTeacher = {}; // teacher → [{dayIdx, mkName, missReport, missScores}]
+    const byTeacher = {}; // teacher → [{dayIdx, mkName, missReport, missScores, partialNames}]
     Object.keys(buckets).forEach(gid => {
       const g = buckets[gid];
       if (!g.needsReport && !g.needsScores) return; // ни одной задачи на группу — пропускаем
@@ -2070,10 +2113,38 @@ pages.join('')+
       const scoresDone = g.mkKeys.some(k => mkScored[k]);
       const missReport = g.needsReport && !reportDone;
       const missScores = g.needsScores && !scoresDone;
-      if (!missReport && !missScores) return;
+
+      // Недозаполненные дети — считаем только если задача баллов есть И педагог уже начал (scoresDone),
+      // иначе тег «не выставлены баллы» сам уведомит, и второй сверху не нужен.
+      const partialIds = new Map(); // childId -> name (для дедупликации между mkKey)
+      if (g.needsScores && scoresDone) {
+        g.mkKeys.forEach(mkKey => {
+          const t = _troopFromMkKey(mkKey);
+          let candidates;
+          if (t && t !== 'AB' && /^\d+$/.test(t)) {
+            // обычный отряд — берём всех детей этого отряда
+            const troopNum = Number(t);
+            candidates = (childrenByTroop[troopNum] || []).map(k => String(k.crmId));
+          } else {
+            // tAB или нераспознанный формат — берём только трогавшихся в scoresMap
+            candidates = _childIdsTouchedInMk(mkKey);
+          }
+          candidates.forEach(childId => {
+            if (_kidUnderfilledInMk(mkKey, childId)) {
+              const kid = childrenById[childId];
+              const name = kid && kid.name ? kid.name : ('#'+childId);
+              partialIds.set(childId, name);
+            }
+          });
+        });
+      }
+      const partialNames = Array.from(partialIds.values()).sort((a,b)=>a.localeCompare(b,'ru'));
+
+      if (!missReport && !missScores && partialNames.length === 0) return;
       const t = g.teacher;
       (byTeacher[t] = byTeacher[t] || []).push({
-        dayIdx: g.dayIdx, mkName: g.mkName, missReport: missReport, missScores: missScores
+        dayIdx: g.dayIdx, mkName: g.mkName, missReport: missReport, missScores: missScores,
+        partialNames: partialNames
       });
     });
 
@@ -2130,6 +2201,10 @@ pages.join('')+
           const tags = [];
           if (it.missReport) tags.push('<span class="ah-tag report">нет отчёта</span>');
           if (it.missScores) tags.push('<span class="ah-tag scores">не выставлены баллы</span>');
+          if (it.partialNames && it.partialNames.length){
+            const nameList = it.partialNames.join(', ');
+            tags.push('<span class="ah-tag partial" title="'+escapeHtml(nameList)+'">недозаполнено '+it.partialNames.length+'</span>');
+          }
           h += '<li>' + escapeHtml(dayLabel) + ' — ' + escapeHtml(it.mkName) + ' ' + tags.join(' ') + '</li>';
         });
         h += '</ul>';

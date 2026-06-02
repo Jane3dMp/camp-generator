@@ -89,16 +89,29 @@
   /* ── CHILD ROW ── */
   .kid{display:flex;align-items:center;gap:10px;padding:9px 16px;border-bottom:1px solid #f3eede;flex-wrap:wrap}
   .kid:last-child{border-bottom:none}
+  .kid.absent{background:#faf7f0}
+  .kid.absent .kid-name{color:#999;text-decoration:line-through}
   .kid-troop{width:7px;height:7px;border-radius:50%;flex:0 0 auto}
   .t1{background:var(--t1)} .t2{background:var(--t2)} .t3{background:var(--t3)} .t4{background:var(--t4)}
+
+  /* тогл «не был» — компактный чекбокс слева от имени */
+  .absent-toggle{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);cursor:pointer;
+                 padding:3px 7px;border:1px solid var(--line);border-radius:6px;user-select:none;flex:0 0 auto;
+                 text-transform:uppercase;letter-spacing:.3px}
+  .absent-toggle input{margin:0;cursor:pointer;accent-color:var(--terra,#C77E5E)}
+  .absent-toggle:hover{border-color:var(--terra,#C77E5E)}
+  .kid.absent .absent-toggle{background:#C77E5E;color:#fff;border-color:#C77E5E}
+  .kid.absent .absent-toggle input{accent-color:#fff}
+
   .kid-name{flex:1 1 130px;min-width:120px;font-size:15px}
   .kid-name .age{color:var(--muted);font-size:13px;margin-left:5px}
   .crits{display:flex;gap:7px;flex-wrap:wrap}
   .crit{display:flex;flex-direction:column;gap:2px}
   .crit label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;text-align:center}
-  .crit select{padding:5px 6px;font-size:14px;border-radius:8px;border:1.5px solid var(--line);min-width:62px;text-align:center}
+  .crit select{padding:5px 6px;font-size:14px;border-radius:8px;border:1.5px solid var(--line);min-width:62px;text-align:center;font-family:inherit}
   .crit select.filled{border-color:var(--green);background:#f3f7ee;font-weight:600}
-  .crit select.absent{border-color:#ddd;background:#f7f7f7;color:#999}
+  .crit select.notshown{border-color:#ddd;background:#f7f7f7;color:#999}
+  .crit select:disabled{opacity:.45;cursor:not-allowed;background:#f0ebde;border-color:#e0d9c4;color:#999;font-weight:400}
 
   .mk-tools{padding:8px 16px;background:#fcfaf2;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #f3eede}
   .mk-tools button{font-size:12px;padding:5px 10px;border:1px solid var(--line);background:#fff;border-radius:8px;cursor:pointer;color:var(--muted);font-family:inherit}
@@ -174,8 +187,9 @@
     <div class="scale-row"><span class="scale-val">4</span><span>проявлено хорошо</span></div>
     <div class="scale-row"><span class="scale-val">3</span><span>проявлено средне, есть куда расти</span></div>
     <div class="scale-row"><span class="scale-val">2</span><span>пока почти не проявляется</span></div>
-    <div class="scale-row"><span class="scale-val">–</span><span>был на занятии, но именно этот критерий оценить не удалось</span></div>
-    <div class="scale-row"><span class="scale-val">не&nbsp;был</span><span>ребёнка не было на этом занятии</span></div>
+    <div class="scale-row"><span class="scale-val">не&nbsp;проявил</span><span>был на занятии, но именно этот критерий оценить не удалось</span></div>
+    <div class="scale-row"><span class="scale-val">не&nbsp;оценено</span><span>пока не выбрал ничего — этот ребёнок ждёт оценки</span></div>
+    <div class="scale-row"><span class="scale-val">не&nbsp;был</span><span>отдельный тогл слева от имени ребёнка — поставь, если ребёнка не было на этом занятии (селекты по нему отключатся)</span></div>
 
     <h4>Куда уходит то, что ты ставишь здесь</h4>
     <p>Все баллы складываются по ребёнку и используются для письма родителям (его собирает админ смены) и для цифрового паспорта ребёнка (по ссылке после смены).</p>
@@ -184,7 +198,7 @@
     <ul>
       <li>Ставь честно — баллы помогают увидеть сильные стороны ребёнка и подсказать родителям, что развивать. Низкие оценки не «плохо»: это зона роста.</li>
       <li>Если случайно поставил не тот балл — просто нажми правильный, перезапишется.</li>
-      <li>Если ребёнка не было — выбери <span class="help-key">не был</span>, иначе он попадёт в письмо как «не проявил критерий».</li>
+      <li>Если ребёнка не было — поставь галочку <span class="help-key">не был</span> слева от имени, иначе он попадёт в письмо как «не проявил критерий».</li>
     </ul>
   </div>
 </div>
@@ -219,10 +233,11 @@
   const CRIT_KEYS = ['interest','diligence','potential'];
   const CRIT_LABELS_DEFAULT = { interest:'Интерес', diligence:'Усердие', potential:'Потенциал' };
   const CRIT_LABELS_COMM = { interest:'Лидерство', diligence:'Команда', potential:'Конфликты' };
-  // Значения выпадашки: '' = не оценено, '2'..'5', '-' = был, но критерий не проявлен, 'x' = не был.
+  // Значения выпадашки: '' = не оценено (дефолт), '-' = был, но критерий не проявлен, '2'..'5' = балл.
+  // «Не был» — отдельный тогл слева от имени, хранится в scoresMap по ключу '|absent' со значением '1'.
   const VALUE_OPTIONS = [
-    { v:'', t:'—' }, { v:'5', t:'5' }, { v:'4', t:'4' }, { v:'3', t:'3' }, { v:'2', t:'2' },
-    { v:'-', t:'–' }, { v:'x', t:'не был' }
+    { v:'', t:'не оценено' }, { v:'-', t:'не проявил' },
+    { v:'2', t:'2' }, { v:'3', t:'3' }, { v:'4', t:'4' }, { v:'5', t:'5' }
   ];
 
   let publishedState = null;
@@ -504,6 +519,9 @@
       troopsChildren = (chResp&&chResp.ok&&Array.isArray(chResp.children)) ? chResp.children : [];
       scoresMap = (scResp&&scResp.ok&&scResp.scores&&scResp.scores.scores) ? scResp.scores.scores : {};
 
+      // Миграция старых значений 'x' (бывшее «не был» внутри селекта) → тогл absent='1' на уровне ребёнка.
+      migrateAbsentFromX();
+
       document.getElementById('title').innerHTML = publishedState.theme ? ('Баллы · <em>'+escapeHtml(publishedState.theme)+'</em>') : 'Баллы детям';
       document.getElementById('subhead').textContent = publishedMeta.name || 'смена';
 
@@ -530,14 +548,18 @@
   }
 
   function mkProgress(mk, kids){
-    let filled = 0, total = kids.length*3;
+    // Ребёнок «оценён» = либо отсутствовал (absent='1'), либо во всех 3 категориях стоит что-то ≠ '' (включая «не проявил»).
+    let done = 0;
     kids.forEach(k=>{
-      CRIT_KEYS.forEach(cr=>{
+      const absent = scoresMap[mk.mkKey+'|'+k.crmId+'|absent'] === '1';
+      if (absent) { done++; return; }
+      const allFilled = CRIT_KEYS.every(cr => {
         const v = scoresMap[mk.mkKey+'|'+k.crmId+'|'+cr];
-        if(v!=null && v!=='') filled++;
+        return v != null && v !== '';
       });
+      if (allFilled) done++;
     });
-    return { filled, total };
+    return { filled: done, total: kids.length };
   }
 
   function buildAllUrl(){
@@ -579,20 +601,27 @@
                 (mk.theme?'<div class="mk-theme">«'+escapeHtml(mk.theme)+'»</div>':'')+
                 '<div class="mk-meta">'+(mk.time?'<span class="mk-time">🕐 '+escapeHtml(mk.time)+'</span>':'')+
                 '<span class="mk-troops">'+troopsTag+'</span>'+
-                '<span class="mk-progress'+(done?' done':'')+'">'+prog.filled+' / '+prog.total+' оценок</span></div></div>';
+                '<span class="mk-progress'+(done?' done':'')+'">'+prog.filled+' / '+prog.total+' детей оценено</span></div></div>';
         if(kids.length===0){
           html += '<div class="kid"><span class="kid-name" style="color:var(--muted)">В отрядах этого МК пока нет детей. Проверь состав в админке.</span></div>';
         } else {
           kids.forEach(k=>{
             const age = (k.age===''||k.age==null)?'':'<span class="age">'+k.age+'</span>';
-            html += '<div class="kid"><span class="kid-troop t'+k.troop+'"></span>'+
+            const absent = scoresMap[mk.mkKey+'|'+k.crmId+'|absent'] === '1';
+            html += '<div class="kid'+(absent?' absent':'')+'" data-kid="'+escapeHtml(String(k.crmId))+'">'+
+                    '<span class="kid-troop t'+k.troop+'"></span>'+
+                    '<label class="absent-toggle" title="отметить, что ребёнка не было на этом занятии">'+
+                      '<input type="checkbox"'+(absent?' checked':'')+
+                      ' onchange="onAbsentChange(this,\''+escapeHtml(mk.mkKey)+'\',\''+escapeHtml(mk.name)+'\',\''+escapeHtml(String(k.crmId))+'\',\''+escapeHtml(k.name)+'\')">'+
+                      '<span>не&nbsp;был</span>'+
+                    '</label>'+
                     '<span class="kid-name">'+escapeHtml(k.name)+age+'</span><div class="crits">';
             CRIT_KEYS.forEach(cr=>{
               const cur = scoresMap[mk.mkKey+'|'+k.crmId+'|'+cr] || '';
-              const cls = cur==='x'||cur==='-' ? 'absent' : (cur ? 'filled' : '');
+              const cls = cur==='-' ? 'notshown' : (cur ? 'filled' : '');
               const opts = VALUE_OPTIONS.map(o=>'<option value="'+o.v+'"'+(o.v===cur?' selected':'')+'>'+o.t+'</option>').join('');
               html += '<div class="crit"><label>'+labels[cr]+'</label>'+
-                      '<select class="'+cls+'" onchange="onScoreChange(this,\''+escapeHtml(mk.mkKey)+'\',\''+escapeHtml(mk.name)+'\',\''+escapeHtml(String(k.crmId))+'\',\''+escapeHtml(k.name)+'\',\''+cr+'\')">'+opts+'</select></div>';
+                      '<select class="'+cls+'"'+(absent?' disabled':'')+' onchange="onScoreChange(this,\''+escapeHtml(mk.mkKey)+'\',\''+escapeHtml(mk.name)+'\',\''+escapeHtml(String(k.crmId))+'\',\''+escapeHtml(k.name)+'\',\''+cr+'\')">'+opts+'</select></div>';
             });
             html += '</div></div>';
           });
@@ -609,7 +638,7 @@
     const value = selEl.value;
     scoresMap[mkKey+'|'+childId+'|'+criterion] = value;
     // визуальная реакция
-    selEl.className = value==='x'||value==='-' ? 'absent' : (value ? 'filled' : '');
+    selEl.className = value==='-' ? 'notshown' : (value ? 'filled' : '');
     // обновим счётчик прогресса в шапке этого МК
     updateMkProgress(mkKey);
     // очередь
@@ -617,14 +646,70 @@
     scheduleSave();
   }
 
+  // Миграция старых значений 'x' → тогл absent.
+  // Старый формат: scoresMap['mkKey|childId|interest'] === 'x' (и/или diligence/potential).
+  // Новый формат: scoresMap['mkKey|childId|absent'] === '1', а категории — пустые.
+  // Дописываем изменения в saveQueue и инициируем сохранение, чтобы Sheets обновился сразу при первой загрузке.
+  function migrateAbsentFromX(){
+    const toMigrate = {}; // 'mkKey|childId' -> true
+    Object.keys(scoresMap).forEach(k => {
+      if (scoresMap[k] === 'x') {
+        const parts = k.split('|');
+        if (parts.length >= 3) toMigrate[parts[0]+'|'+parts[1]] = true;
+      }
+    });
+    const pairs = Object.keys(toMigrate);
+    if (pairs.length === 0) return;
+    pairs.forEach(pair => {
+      const [mkKey, childId] = pair.split('|');
+      scoresMap[mkKey+'|'+childId+'|absent'] = '1';
+      saveQueue.push({ mkKey, mkName:'', childId, childName:'', criterion:'absent', value:'1' });
+      CRIT_KEYS.forEach(cr => {
+        const key = mkKey+'|'+childId+'|'+cr;
+        if (scoresMap[key] === 'x') {
+          scoresMap[key] = '';
+          saveQueue.push({ mkKey, mkName:'', childId, childName:'', criterion:cr, value:'' });
+        }
+      });
+    });
+    console.log('[migrateAbsentFromX] мигрировано пар ребёнок×МК:', pairs.length);
+    scheduleSave();
+  }
+
+  // Тогл «не был» — отметка отсутствия ребёнка на занятии.
+  // Хранится в scoresMap по ключу mkKey+'|'+childId+'|absent' со значением '1' (был отмечен) или '' (снят).
+  function onAbsentChange(cbEl, mkKey, mkName, childId, childName){
+    const isAbsent = cbEl.checked;
+    const value = isAbsent ? '1' : '';
+    scoresMap[mkKey+'|'+childId+'|absent'] = value;
+    const row = cbEl.closest('.kid');
+    if (row){
+      row.classList.toggle('absent', isAbsent);
+      row.querySelectorAll('.crit select').forEach(s => { s.disabled = isAbsent; });
+    }
+    updateMkProgress(mkKey);
+    saveQueue.push({ mkKey, mkName, childId, childName, criterion: 'absent', value });
+    scheduleSave();
+  }
+
   function updateMkProgress(mkKey){
     const card = document.querySelector('.mk[data-mk="'+CSS.escape(mkKey)+'"]');
     if(!card) return;
-    const selects = card.querySelectorAll('.crit select');
-    let filled=0; selects.forEach(s=>{ if(s.value) filled++; });
+    const rows = card.querySelectorAll('.kid[data-kid]');
+    let done = 0;
+    rows.forEach(row => {
+      if (row.classList.contains('absent')) { done++; return; }
+      const sels = row.querySelectorAll('.crit select');
+      let allFilled = sels.length > 0;
+      sels.forEach(s => { if (!s.value) allFilled = false; });
+      if (allFilled) done++;
+    });
+    const total = rows.length;
     const el = card.querySelector('.mk-progress');
-    if(el){ el.textContent = filled+' / '+selects.length+' оценок';
-      el.classList.toggle('done', filled===selects.length && selects.length>0); }
+    if(el){
+      el.textContent = done+' / '+total+' детей оценено';
+      el.classList.toggle('done', done===total && total>0);
+    }
   }
 
   function setSaveInd(state){
@@ -674,6 +759,7 @@
   window.tryUnlock = tryUnlock;
   window.onTeacherChange = onTeacherChange;
   window.onScoreChange = onScoreChange;
+  window.onAbsentChange = onAbsentChange;
   window.openHelp = openHelp;
   window.closeHelp = closeHelp;
 </script>
