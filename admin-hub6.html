@@ -1846,17 +1846,17 @@ pages.join('')+
             const chain = multi[sub] || [];
             const s0 = chain[0];
             if (s0 && s0.template && s0.teacher) {
-              cb({teacher:s0.teacher, template:s0.template, theme:s0.theme||'', scored:!!s0.scored, needsReport:!!(s0.needsReport ?? s0.scored), needsScores:!!(s0.needsScores ?? s0.scored), troop:tA, mkKey: idx+'_'+half+'_'+sub+'_0_t'+tA});
-              cb({teacher:s0.teacher, template:s0.template, theme:s0.theme||'', scored:!!s0.scored, needsReport:!!(s0.needsReport ?? s0.scored), needsScores:!!(s0.needsScores ?? s0.scored), troop:tB, mkKey: idx+'_'+half+'_'+sub+'_0_t'+tB});
+              cb({teacher:s0.teacher, template:s0.template, theme:s0.theme||'', scored:!!s0.scored, needsReport:(s0.needsReport ?? s0.scored ?? true) !== false, needsScores:!!(s0.needsScores ?? s0.scored), troop:tA, mkKey: idx+'_'+half+'_'+sub+'_0_t'+tA});
+              cb({teacher:s0.teacher, template:s0.template, theme:s0.theme||'', scored:!!s0.scored, needsReport:(s0.needsReport ?? s0.scored ?? true) !== false, needsScores:!!(s0.needsScores ?? s0.scored), troop:tB, mkKey: idx+'_'+half+'_'+sub+'_0_t'+tB});
             }
             const s1 = chain[1];
             if (s1 && s1.template && s1.teacher) {
-              cb({teacher:s1.teacher, template:s1.template, theme:s1.theme||'', scored:!!s1.scored, needsReport:!!(s1.needsReport ?? s1.scored), needsScores:!!(s1.needsScores ?? s1.scored), troop:tB, mkKey: idx+'_'+half+'_'+sub+'_1_t'+tB});
-              cb({teacher:s1.teacher, template:s1.template, theme:s1.theme||'', scored:!!s1.scored, needsReport:!!(s1.needsReport ?? s1.scored), needsScores:!!(s1.needsScores ?? s1.scored), troop:tA, mkKey: idx+'_'+half+'_'+sub+'_1_t'+tA});
+              cb({teacher:s1.teacher, template:s1.template, theme:s1.theme||'', scored:!!s1.scored, needsReport:(s1.needsReport ?? s1.scored ?? true) !== false, needsScores:!!(s1.needsScores ?? s1.scored), troop:tB, mkKey: idx+'_'+half+'_'+sub+'_1_t'+tB});
+              cb({teacher:s1.teacher, template:s1.template, theme:s1.theme||'', scored:!!s1.scored, needsReport:(s1.needsReport ?? s1.scored ?? true) !== false, needsScores:!!(s1.needsScores ?? s1.scored), troop:tA, mkKey: idx+'_'+half+'_'+sub+'_1_t'+tA});
             }
             const s2 = chain[2];
             if (s2 && s2.template && s2.teacher) {
-              cb({teacher:s2.teacher, template:s2.template, theme:s2.theme||'', scored:!!s2.scored, needsReport:!!(s2.needsReport ?? s2.scored), needsScores:!!(s2.needsScores ?? s2.scored), troop:tA, mkKey: idx+'_'+half+'_'+sub+'_2_tAB'});
+              cb({teacher:s2.teacher, template:s2.template, theme:s2.theme||'', scored:!!s2.scored, needsReport:(s2.needsReport ?? s2.scored ?? true) !== false, needsScores:!!(s2.needsScores ?? s2.scored), troop:tA, mkKey: idx+'_'+half+'_'+sub+'_2_tAB'});
             }
           });
         } else {
@@ -1864,7 +1864,7 @@ pages.join('')+
             if (!s || !s.template || !s.teacher) return;
             for (let k = 0; k < 4; k++) {
               const troopIdx = ((st - k) % 4 + 4) % 4;
-              cb({teacher:s.teacher, template:s.template, theme:s.theme||'', scored:!!s.scored, needsReport:!!(s.needsReport ?? s.scored), needsScores:!!(s.needsScores ?? s.scored), troop:troopIdx+1, mkKey: idx+'_'+half+'_stations_'+st+'_t'+(troopIdx+1)});
+              cb({teacher:s.teacher, template:s.template, theme:s.theme||'', scored:!!s.scored, needsReport:(s.needsReport ?? s.scored ?? true) !== false, needsScores:!!(s.needsScores ?? s.scored), troop:troopIdx+1, mkKey: idx+'_'+half+'_stations_'+st+'_t'+(troopIdx+1)});
             }
           });
         }
@@ -1879,17 +1879,17 @@ pages.join('')+
         const chain = multi.chainA || [];
         const s0 = chain[0];
         if (s0 && s0.template && s0.teacher) {
-          cb({teacher:s0.teacher, template:s0.template, theme:s0.theme||'', scored:!!s0.scored, needsReport:!!(s0.needsReport ?? s0.scored), needsScores:!!(s0.needsScores ?? s0.scored), troop:tA, mkKey: idx+'_'+half+'_chainA_0_t'+tA});
-          cb({teacher:s0.teacher, template:s0.template, theme:s0.theme||'', scored:!!s0.scored, needsReport:!!(s0.needsReport ?? s0.scored), needsScores:!!(s0.needsScores ?? s0.scored), troop:tB, mkKey: idx+'_'+half+'_chainA_0_t'+tB});
+          cb({teacher:s0.teacher, template:s0.template, theme:s0.theme||'', scored:!!s0.scored, needsReport:(s0.needsReport ?? s0.scored ?? true) !== false, needsScores:!!(s0.needsScores ?? s0.scored), troop:tA, mkKey: idx+'_'+half+'_chainA_0_t'+tA});
+          cb({teacher:s0.teacher, template:s0.template, theme:s0.theme||'', scored:!!s0.scored, needsReport:(s0.needsReport ?? s0.scored ?? true) !== false, needsScores:!!(s0.needsScores ?? s0.scored), troop:tB, mkKey: idx+'_'+half+'_chainA_0_t'+tB});
         }
         const s1 = chain[1];
         if (s1 && s1.template && s1.teacher) {
-          cb({teacher:s1.teacher, template:s1.template, theme:s1.theme||'', scored:!!s1.scored, needsReport:!!(s1.needsReport ?? s1.scored), needsScores:!!(s1.needsScores ?? s1.scored), troop:tB, mkKey: idx+'_'+half+'_chainA_1_t'+tB});
-          cb({teacher:s1.teacher, template:s1.template, theme:s1.theme||'', scored:!!s1.scored, needsReport:!!(s1.needsReport ?? s1.scored), needsScores:!!(s1.needsScores ?? s1.scored), troop:tA, mkKey: idx+'_'+half+'_chainA_1_t'+tA});
+          cb({teacher:s1.teacher, template:s1.template, theme:s1.theme||'', scored:!!s1.scored, needsReport:(s1.needsReport ?? s1.scored ?? true) !== false, needsScores:!!(s1.needsScores ?? s1.scored), troop:tB, mkKey: idx+'_'+half+'_chainA_1_t'+tB});
+          cb({teacher:s1.teacher, template:s1.template, theme:s1.theme||'', scored:!!s1.scored, needsReport:(s1.needsReport ?? s1.scored ?? true) !== false, needsScores:!!(s1.needsScores ?? s1.scored), troop:tA, mkKey: idx+'_'+half+'_chainA_1_t'+tA});
         }
         const s2 = chain[2];
         if (s2 && s2.template && s2.teacher) {
-          cb({teacher:s2.teacher, template:s2.template, theme:s2.theme||'', scored:!!s2.scored, needsReport:!!(s2.needsReport ?? s2.scored), needsScores:!!(s2.needsScores ?? s2.scored), troop:tA, mkKey: idx+'_'+half+'_chainA_2_tAB'});
+          cb({teacher:s2.teacher, template:s2.template, theme:s2.theme||'', scored:!!s2.scored, needsReport:(s2.needsReport ?? s2.scored ?? true) !== false, needsScores:!!(s2.needsScores ?? s2.scored), troop:tA, mkKey: idx+'_'+half+'_chainA_2_tAB'});
         }
         return;
       }
@@ -1900,7 +1900,7 @@ pages.join('')+
         const s = arr[a.idx];
         if (!s || !s.template || !s.teacher) return;
         if (a.isTrip) return; // выезды отчётом не закрываем
-        cb({teacher:s.teacher, template:s.template, theme:s.theme||'', scored:!!s.scored, needsReport:!!(s.needsReport ?? s.scored), needsScores:!!(s.needsScores ?? s.scored), troop:a.idx+1, mkKey: idx+'_'+half+'_'+a.idx+'_t'+(a.idx+1)});
+        cb({teacher:s.teacher, template:s.template, theme:s.theme||'', scored:!!s.scored, needsReport:(s.needsReport ?? s.scored ?? true) !== false, needsScores:!!(s.needsScores ?? s.scored), troop:a.idx+1, mkKey: idx+'_'+half+'_'+a.idx+'_t'+(a.idx+1)});
       });
     });
   }
