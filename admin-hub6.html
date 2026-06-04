@@ -359,6 +359,15 @@
   .ah-tag.report{background:#C8714B;color:#fff}
   .ah-tag.scores{background:#534AB7;color:#fff}
   .ah-tag.partial{background:#C77E5E;color:#fff;cursor:help}
+  /* Конвертик возле имени педагога — скопировать сообщение и открыть Viber */
+  .ah-env-btn{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:24px;height:20px;padding:0;margin-left:8px;
+    border:1px solid var(--terra,#C77E5E);background:#fff;color:var(--terra,#C77E5E);
+    border-radius:4px;cursor:pointer;font-size:12px;line-height:1;vertical-align:middle;
+    transition:background 0.12s ease,color 0.12s ease;
+  }
+  .ah-env-btn:hover{background:var(--terra,#C77E5E);color:#fff}
   .ah-future{margin:0 0 18px;border:1px solid rgba(21,22,23,0.12);border-radius:12px;background:rgba(21,22,23,0.025)}
   .ah-future > summary{cursor:pointer;padding:12px 16px;font-size:13px;font-weight:600;color:rgba(21,22,23,0.65);list-style:none;user-select:none}
   .ah-future > summary::-webkit-details-marker{display:none}
@@ -1807,7 +1816,61 @@ pages.join('')+
   window.paySyncFromAlfa = paySyncFromAlfa;
   window.payPrint = payPrint;
   window.payToggleSigned = payToggleSigned;
+  // Конвертик у имени педагога в блоке «📋 Не закрыты задачи педагогов».
+  async function sendTeacherViberMessage(teacherFullName){
+    const items = (window._ahTeacherTasks || {})[teacherFullName] || [];
+    if (!items.length){ toast('У педагога нет открытых задач'); return; }
+
+    const parts = String(teacherFullName).trim().split(/\s+/);
+    const firstName = parts.length > 1 ? parts[parts.length-1] : parts[0];
+
+    const todayIdxLocal = _todayDayIdx(state);
+    const lines = items.map(it => {
+      const tags = [];
+      if (it.missReport) tags.push('нет отчёта');
+      if (it.missScores) tags.push('не выставлены баллы');
+      if (it.partialCount) tags.push('недозаполнено ' + it.partialCount);
+      const date = _dateForDay(state, it.dayIdx);
+      const dateStr = date.getDate() + ' ' + _M[date.getMonth()];
+      const dayLabel = (todayIdxLocal >= 0 && it.dayIdx === todayIdxLocal) ? '' : ' (' + dateStr + ')';
+      return '• ' + it.mkName + dayLabel + ' — ' + tags.join(', ');
+    });
+
+    const hasPast = items.some(it => todayIdxLocal >= 0 && it.dayIdx < todayIdxLocal);
+    const whenPhrase = hasPast ? 'на сегодня и за прошлые дни' : 'на сегодня';
+
+    const text =
+      firstName + ', доброго дня!\n' +
+      'Не закрыты задачи ' + whenPhrase + ':\n' +
+      lines.join('\n') + '\n\n' +
+      'Пожалуйста, закрой до 17:30.';
+
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(text);
+      copied = true;
+    } catch (e) {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        copied = document.execCommand('copy');
+        document.body.removeChild(ta);
+      } catch (_) { copied = false; }
+    }
+    if (copied){
+      toast('Текст скопирован — найди ' + firstName + ' в Viber и нажми Ctrl+V');
+    } else {
+      toast('Не получилось скопировать автоматически — текст в консоли');
+      console.log('=== Текст для Viber ===\n' + text);
+    }
+    window.location.href = 'viber://';
+  }
+
   window.openContractMessage = openContractMessage;
+  window.sendTeacherViberMessage = sendTeacherViberMessage;
 
   function openHelp(){ document.getElementById('help-popup').classList.add('open'); }
   function closeHelp(){ document.getElementById('help-popup').classList.remove('open'); }
@@ -2129,12 +2192,23 @@ pages.join('')+
     const curNames = Object.keys(teachersCurrent).sort((a,b)=>a.localeCompare(b,'ru'));
     const futNames = Object.keys(teachersFuture).sort((a,b)=>a.localeCompare(b,'ru'));
 
+    // Карта «педагог → его задачи» для конвертика-кнопки (Viber).
+    window._ahTeacherTasks = {};
+
     // Хелпер: блок одного списка педагогов.
     const renderTeacherList = (names, dict) => {
       let h = '';
       names.forEach(t => {
         const items = dict[t].sort((a,b) => a.dayIdx - b.dayIdx || a.mkName.localeCompare(b.mkName, 'ru'));
-        h += '<div class="ah-teacher">' + escapeHtml(t) + '</div><ul class="ah-list">';
+        window._ahTeacherTasks[t] = items.map(it => ({
+          dayIdx: it.dayIdx, mkName: it.mkName,
+          missReport: !!it.missReport, missScores: !!it.missScores,
+          partialCount: (it.partialNames && it.partialNames.length) || 0
+        }));
+        const envBtn = '<button class="ah-env-btn" onclick="sendTeacherViberMessage(\''
+                       + escapeHtml(t).replace(/'/g,'&#39;')
+                       + '\')" title="Скопировать сообщение и открыть Viber">✉</button>';
+        h += '<div class="ah-teacher">' + escapeHtml(t) + envBtn + '</div><ul class="ah-list">';
         items.forEach(it => {
           const date = _dateForDay(state, it.dayIdx);
           const dateStr = date.getDate() + ' ' + _M[date.getMonth()];
