@@ -1820,17 +1820,19 @@ pages.join('')+
   async function sendTeacherViberMessage(teacherFullName){
     const items = (window._ahTeacherTasks || {})[teacherFullName] || [];
     if (!items.length){ toast('У педагога нет открытых задач'); return; }
+    const st = window._ahState;
+    if (!st){ toast('Состояние смены ещё не загружено'); return; }
 
     const parts = String(teacherFullName).trim().split(/\s+/);
     const firstName = parts.length > 1 ? parts[parts.length-1] : parts[0];
 
-    const todayIdxLocal = _todayDayIdx(state);
+    const todayIdxLocal = _todayDayIdx(st);
     const lines = items.map(it => {
       const tags = [];
       if (it.missReport) tags.push('нет отчёта');
       if (it.missScores) tags.push('не выставлены баллы');
       if (it.partialCount) tags.push('недозаполнено ' + it.partialCount);
-      const date = _dateForDay(state, it.dayIdx);
+      const date = _dateForDay(st, it.dayIdx);
       const dateStr = date.getDate() + ' ' + _M[date.getMonth()];
       const dayLabel = (todayIdxLocal >= 0 && it.dayIdx === todayIdxLocal) ? '' : ' (' + dateStr + ')';
       return '• ' + it.mkName + dayLabel + ' — ' + tags.join(', ');
@@ -2194,6 +2196,7 @@ pages.join('')+
 
     // Карта «педагог → его задачи» для конвертика-кнопки (Viber).
     window._ahTeacherTasks = {};
+    window._ahState = state;
 
     // Хелпер: блок одного списка педагогов.
     const renderTeacherList = (names, dict) => {

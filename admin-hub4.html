@@ -1878,6 +1878,8 @@ pages.join('')+
   async function sendTeacherViberMessage(teacherFullName){
     const items = (window._ahTeacherTasks || {})[teacherFullName] || [];
     if (!items.length){ toast('У педагога нет открытых задач'); return; }
+    const st = window._ahState;
+    if (!st){ toast('Состояние смены ещё не загружено'); return; }
 
     // Обращение по имени: берём последнее слово из ФИО («Гайкова Тамара» → «Тамара»),
     // если в имени только одно слово — используем целиком.
@@ -1885,14 +1887,13 @@ pages.join('')+
     const firstName = parts.length > 1 ? parts[parts.length-1] : parts[0];
 
     // Группируем задачи по дню для красивого текста.
-    // Сейчас в блок «не закрыты» попадают сегодня + просрочка → «сегодня» для todayIdx, иначе дата.
-    const todayIdxLocal = _todayDayIdx(state);
+    const todayIdxLocal = _todayDayIdx(st);
     const lines = items.map(it => {
       const tags = [];
       if (it.missReport) tags.push('нет отчёта');
       if (it.missScores) tags.push('не выставлены баллы');
       if (it.partialCount) tags.push('недозаполнено ' + it.partialCount);
-      const date = _dateForDay(state, it.dayIdx);
+      const date = _dateForDay(st, it.dayIdx);
       const dateStr = date.getDate() + ' ' + _M[date.getMonth()];
       const dayLabel = (todayIdxLocal >= 0 && it.dayIdx === todayIdxLocal) ? '' : ' (' + dateStr + ')';
       return '• ' + it.mkName + dayLabel + ' — ' + tags.join(', ');
@@ -2267,6 +2268,7 @@ pages.join('')+
     // Сохраняем здесь то, что уже отрендерено в renderTeacherList, чтобы клик-хэндлер
     // не пересобирал логику и видел ровно те же задачи, что показаны на экране.
     window._ahTeacherTasks = {};
+    window._ahState = state; // state локальный в рендере — пробрасываем в глобал для onclick-хэндлера
 
     // Хелпер: блок одного списка педагогов.
     const renderTeacherList = (names, dict) => {
