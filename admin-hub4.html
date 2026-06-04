@@ -1872,9 +1872,24 @@ pages.join('')+
   window.paySyncFromAlfa = paySyncFromAlfa;
   window.payPrint = payPrint;
   window.payToggleSigned = payToggleSigned;
+  // Нормализация ФИО для поиска в справочнике: lowercase, ё→е, схлопывание пробелов,
+  // сортировка слов по алфавиту. «Гайкова Тамара» ≡ «Тамара Гайкова».
+  function _normPersonNameKey(s){
+    return String(s||'')
+      .toLowerCase()
+      .replace(/ё/g, 'е')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .split(' ')
+      .filter(Boolean)
+      .sort()
+      .join(' ');
+  }
+
   // Конвертик у имени педагога в блоке «📋 Не закрыты задачи педагогов».
-  // Собирает сообщение из задач, кладёт в буфер обмена и открывает Viber.
-  // Номер не передаём — админ сам найдёт педагога в Viber-контактах и вставит Ctrl+V.
+  // Ищет номер педагога в справочнике по нормализованному ФИО. Если найден — открывает
+  // viber://chat?number=... (Viber подсветит контакт по номеру независимо от того, как
+  // он подписан в адресной книге). Текст в любом случае кладём в буфер.
   async function sendTeacherViberMessage(teacherFullName){
     const items = (window._ahTeacherTasks || {})[teacherFullName] || [];
     if (!items.length){ toast('У педагога нет открытых задач'); return; }
@@ -1899,7 +1914,6 @@ pages.join('')+
       return '• ' + it.mkName + dayLabel + ' — ' + tags.join(', ');
     });
 
-    // Если все задачи на сегодня — «на сегодня», если есть прошлые — «на сегодня и за прошлые дни».
     const hasPast = items.some(it => todayIdxLocal >= 0 && it.dayIdx < todayIdxLocal);
     const whenPhrase = hasPast ? 'на сегодня и за прошлые дни' : 'на сегодня';
 
@@ -1909,7 +1923,25 @@ pages.join('')+
       lines.join('\n') + '\n\n' +
       'Пожалуйста, закрой до 17:30.';
 
-    // Кладём в буфер, потом открываем Viber.
+    // Ищем телефон педагога в справочнике (нормализованное ФИО).
+    const phoneRaw = (window._ahCuratorPhones || {})[_normPersonNameKey(teacherFullName)] || '';
+    let viberUrl = 'viber://';
+    let phoneNote = '';
+    if (phoneRaw){
+      // Нормализация номера: только цифры, 80→375, 9 цифр → +375 спереди.
+      let digits = String(phoneRaw).replace(/\D/g, '');
+      if (digits.startsWith('80')) digits = '375' + digits.slice(2);
+      if (digits.length === 9) digits = '375' + digits;
+      if (digits.length === 12 && digits.startsWith('375')){
+        viberUrl = 'viber://chat?number=%2B' + digits;
+      } else {
+        phoneNote = ' (телефон «' + phoneRaw + '» — нераспознанный формат, Viber откроется без номера)';
+      }
+    } else {
+      phoneNote = ' (нет телефона в справочнике — добавь в Sheets: «Кураторы (справочник)»)';
+    }
+
+    // Кладём текст в буфер.
     let copied = false;
     try {
       await navigator.clipboard.writeText(text);
@@ -1926,13 +1958,12 @@ pages.join('')+
       } catch (_) { copied = false; }
     }
     if (copied){
-      toast('Текст скопирован — найди ' + firstName + ' в Viber и нажми Ctrl+V');
+      toast('Текст скопирован — нажми Ctrl+V в открывшемся чате' + phoneNote);
     } else {
-      toast('Не получилось скопировать автоматически — текст в консоли');
+      toast('Не получилось скопировать автоматически — текст в консоли' + phoneNote);
       console.log('=== Текст для Viber ===\n' + text);
     }
-    // Открываем Viber без номера — приложение запустится, дальше админ выбирает контакт.
-    window.location.href = 'viber://';
+    window.location.href = viberUrl;
   }
 
   window.openContractMessage = openContractMessage;
@@ -2110,8 +2141,8 @@ pages.join('')+
       });
     });
 
-    // Параллельно: статусы записей (отчёты) + баллы (mkTouched + полный словарь) + дети сезона.
-    let notes = {}, mkScored = {}, scoresFull = {}, childrenById = {}, childrenByTroop = {};
+    // Параллельно: статусы записей (отчёты) + баллы (mkTouched + полный словарь) + дети сезона + справочник кураторов (имя→телефон).
+    let notes = {}, mkScored = {}, scoresFull = {}, childrenById = {}, childrenByTroop = {}, curatorPhones = {};
     await Promise.all([
       fetch(LIBRARY_URL + '?action=listLessonNotes&seasonId=' + encodeURIComponent(SEASON_ID))
         .then(r => r.json()).then(r => { if (r && r.ok && r.notes) notes = r.notes; }).catch(()=>{}),
@@ -2142,8 +2173,22 @@ pages.join('')+
               childrenByTroop[t].push(k);
             });
           }
+        }).catch(()=>{}),
+      // Справочник кураторов — глобальный, без seasonId. Используем для номеров телефонов педагогов.
+      fetch(LIBRARY_URL + '?action=getCuratorsDirectory')
+        .then(r => r.json()).then(r => {
+          const items = (r && r.result && Array.isArray(r.result.items)) ? r.result.items
+                      : (r && Array.isArray(r.items)) ? r.items : [];
+          items.forEach(it => {
+            const phone = String(it.phone || '').trim();
+            if (!phone) return;
+            const k = _normPersonNameKey(it.name);
+            if (k && !curatorPhones[k]) curatorPhones[k] = phone;
+          });
         }).catch(()=>{})
     ]);
+    // Пробрасываем карту в глобал — она нужна onclick-хэндлеру конвертика.
+    window._ahCuratorPhones = curatorPhones;
 
     // Хелперы для расчёта недозаполненных детей.
     const SCORE_CRITS = ['interest','diligence','potential'];
