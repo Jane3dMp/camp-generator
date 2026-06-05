@@ -377,7 +377,7 @@
     // данные
     const dataPts=dirs.map((d,i)=>pt(i, R*Math.max(0,Math.min(5,avgs[d]))/5).map(x=>x.toFixed(1)).join(',')).join(' ');
     const dots=dirs.map((d,i)=>{ const [x,y]=pt(i,R*Math.max(0,Math.min(5,avgs[d]))/5); return '<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="4" fill="'+radarColor(i)+'"/>'; }).join('');
-    return '<svg viewBox="0 0 260 260" width="260" height="260">'+grid+axes+
+    return '<svg viewBox="-90 0 440 260" style="max-width:100%;height:auto" preserveAspectRatio="xMidYMid meet">'+grid+axes+
       '<polygon points="'+dataPts+'" fill="rgba(193,105,79,0.22)" stroke="#C1694F" stroke-width="2"/>'+dots+labels+'</svg>';
   }
 
