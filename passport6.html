@@ -223,6 +223,7 @@
   let currentMode='internal';
   let parentToken='';
   const letterCache={};
+  let clubCourses=[];   // [{name,category,min_age,max_age,platform}] из листа «Курсы клуба»
 
   // ── LOCK ──
   async function sha256Hex(str){
@@ -461,15 +462,17 @@
       publishedState=JSON.parse(pub.stateJson||'{}');
       if(!Array.isArray(publishedState.schedule)||!publishedState.schedule[0]) throw new Error('Расписание пустое.');
       if(Array.isArray(publishedState.schedule[0].am)) throw new Error('Это 4-отрядная смена. Открывай её через passport4.html.');
-      const [chResp,scResp,pinResp]=await Promise.all([
+      const [chResp,scResp,pinResp,ccResp]=await Promise.all([
         fetch(LIBRARY_URL+'?action=getChildren&seasonId='+encodeURIComponent(id)).then(r=>r.json()).catch(()=>({ok:false})),
         fetch(LIBRARY_URL+'?action=getScores&seasonId='+encodeURIComponent(id)).then(r=>r.json()).catch(()=>({ok:false})),
-        fetch(LIBRARY_URL+'?action=getPinnedReportsForSeason&seasonId='+encodeURIComponent(id)).then(r=>r.json()).catch(()=>({ok:false}))
+        fetch(LIBRARY_URL+'?action=getPinnedReportsForSeason&seasonId='+encodeURIComponent(id)).then(r=>r.json()).catch(()=>({ok:false})),
+        fetch(LIBRARY_URL+'?action=getClubCourses').then(r=>r.json()).catch(()=>({ok:false}))
       ]);
       troopsChildren=(chResp&&chResp.ok&&Array.isArray(chResp.children))?chResp.children:[];
       scoresMap=(scResp&&scResp.ok&&scResp.scores&&scResp.scores.scores)?scResp.scores.scores:{};
       const pinMap=(pinResp&&pinResp.result&&pinResp.result.pinned)?pinResp.result.pinned:{};
       Object.keys(pinMap).forEach(cid=>{ if(pinMap[cid] && pinMap[cid].text) letterCache[cid]=pinMap[cid].text; });
+      clubCourses=(ccResp&&ccResp.result&&Array.isArray(ccResp.result.items))?ccResp.result.items:[];
       allMks=buildAllScoredMks();
 
       const sel=document.getElementById('child-pick');
@@ -490,13 +493,15 @@
     if(!id){ document.getElementById('content').innerHTML='<div class="err">Ссылка неполная.</div>'; return; }
     document.getElementById('content').innerHTML='<div class="hint">Загружаю паспорт…</div>';
     try{
-      const [pubResp, passResp] = await Promise.all([
+      const [pubResp, passResp, ccResp] = await Promise.all([
         fetch(LIBRARY_URL+'?action=getPublished&id='+encodeURIComponent(id)).then(r=>r.json()),
-        fetch(LIBRARY_URL+'?action=getPassportByToken&id='+encodeURIComponent(id)+'&t='+encodeURIComponent(parentToken)).then(r=>r.json())
+        fetch(LIBRARY_URL+'?action=getPassportByToken&id='+encodeURIComponent(id)+'&t='+encodeURIComponent(parentToken)).then(r=>r.json()),
+        fetch(LIBRARY_URL+'?action=getClubCourses').then(r=>r.json()).catch(()=>({ok:false}))
       ]);
       if(!pubResp.ok) throw new Error('Смена не найдена.');
       publishedMeta={id:pubResp.publication.id,name:pubResp.publication.name||'',theme:pubResp.publication.theme||''};
       publishedState=JSON.parse(pubResp.publication.stateJson||'{}');
+      clubCourses=(ccResp&&ccResp.result&&Array.isArray(ccResp.result.items))?ccResp.result.items:[];
       allMks=buildAllScoredMks();
 
       const pr = passResp.result || passResp;
@@ -529,14 +534,33 @@
 
   function findChild(id){ return troopsChildren.find(k=>String(k.crmId)===String(id)); }
 
-  // Маппинг направление → курсы клуба (из контекста Прознание+Coddy)
-  const NEXT_COURSES = {
-    'IT': {ic:'💻', courses:'Scratch, Minecraft, Roblox Studio, Python, Blender, Робототехника'},
-    'Творчество': {ic:'🎨', courses:'Digital Art, Арт-студия, Глина и лепка, Пескография'},
-    'Коммуникация': {ic:'🗣️', courses:'Говорилка, Развитие речи, интенсив «Код личности»'},
-    'Активность': {ic:'⚡', courses:'активные форматы каникул в клубе'},
-    'Прочее': {ic:'✨', courses:'направления клуба по интересам ребёнка'}
+  const CAMP_TO_CLUB_CATEGORIES = {
+    'IT':           ['tech', 'tech_art', 'math', 'science'],
+    'Творчество':   ['art', 'tech_art'],
+    'Коммуникация': ['preschool', 'soft_skills', 'language']
   };
+  const DIR_IC = { 'IT':'💻', 'Творчество':'🎨', 'Коммуникация':'🗣️', 'Активность':'⚡', 'Прочее':'✨' };
+
+  function pickClubCoursesAfterCamp(childAge, strongDirs, courses){
+    const result = [];
+    strongDirs.forEach(dir => {
+      const cats = CAMP_TO_CLUB_CATEGORIES[dir] || [];
+      if (!cats.length) return;
+      const picked = courses
+        .filter(c => cats.indexOf(c.category) >= 0)
+        .filter(c => {
+          if (childAge == null || isNaN(childAge)) return true;
+          return childAge >= c.min_age && childAge <= c.max_age;
+        })
+        .sort((a,b) => {
+          if (a.platform === b.platform) return a.name.localeCompare(b.name, 'ru');
+          return a.platform === 'proznanie' ? -1 : 1;
+        })
+        .map(c => c.name);
+      if (picked.length) result.push({ direction: dir, courses: picked });
+    });
+    return result;
+  }
 
   // Знак по направлению
   const BADGE_IC = { 'IT':'💻', 'Творчество':'🎨', 'Коммуникация':'🤝', 'Активность':'⚡', 'Прочее':'⭐' };
@@ -648,13 +672,15 @@
     });
     html+='</div></div>';
 
-    // ── ЧТО ПОПРОБОВАТЬ ДАЛЬШЕ ──
-    if(strong.length){
+    // ── ЧТО ПОПРОБОВАТЬ ДАЛЬШЕ (курсы клуба по сильным направлениям + возраст) ──
+    const childAgeNum=Number(kid.age);
+    const recos=pickClubCoursesAfterCamp(childAgeNum, strong, clubCourses);
+    if(recos.length){
       html+='<div class="card"><div class="card-title">🧭 Что попробовать дальше</div><div class="next-list">';
-      strong.slice(0,2).forEach(d=>{
-        const nc=NEXT_COURSES[d]||NEXT_COURSES['Прочее'];
-        html+='<div class="next-item"><div class="ni-ic">'+nc.ic+'</div><div><div class="ni-t">Раз понравилось направление «'+escapeHtml(d)+'»</div>'+
-          '<div class="ni-c">обратите внимание на курсы клуба: '+escapeHtml(nc.courses)+'.</div></div></div>';
+      recos.forEach(rec=>{
+        const ic=DIR_IC[rec.direction]||'✨';
+        html+='<div class="next-item"><div class="ni-ic">'+ic+'</div><div><div class="ni-t">Раз понравилось направление «'+escapeHtml(rec.direction)+'»</div>'+
+          '<div class="ni-c">обратите внимание на курсы клуба: '+escapeHtml(rec.courses.join(', '))+'.</div></div></div>';
       });
       html+='</div></div>';
     }
