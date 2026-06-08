@@ -461,12 +461,15 @@
       publishedState=JSON.parse(pub.stateJson||'{}');
       if(!Array.isArray(publishedState.schedule)||!publishedState.schedule[0]) throw new Error('Расписание пустое.');
       if(Array.isArray(publishedState.schedule[0].am)) throw new Error('Это 4-отрядная смена. Открывай её через passport4.html.');
-      const [chResp,scResp]=await Promise.all([
+      const [chResp,scResp,pinResp]=await Promise.all([
         fetch(LIBRARY_URL+'?action=getChildren&seasonId='+encodeURIComponent(id)).then(r=>r.json()).catch(()=>({ok:false})),
-        fetch(LIBRARY_URL+'?action=getScores&seasonId='+encodeURIComponent(id)).then(r=>r.json()).catch(()=>({ok:false}))
+        fetch(LIBRARY_URL+'?action=getScores&seasonId='+encodeURIComponent(id)).then(r=>r.json()).catch(()=>({ok:false})),
+        fetch(LIBRARY_URL+'?action=getPinnedReportsForSeason&seasonId='+encodeURIComponent(id)).then(r=>r.json()).catch(()=>({ok:false}))
       ]);
       troopsChildren=(chResp&&chResp.ok&&Array.isArray(chResp.children))?chResp.children:[];
       scoresMap=(scResp&&scResp.ok&&scResp.scores&&scResp.scores.scores)?scResp.scores.scores:{};
+      const pinMap=(pinResp&&pinResp.result&&pinResp.result.pinned)?pinResp.result.pinned:{};
+      Object.keys(pinMap).forEach(cid=>{ if(pinMap[cid] && pinMap[cid].text) letterCache[cid]=pinMap[cid].text; });
       allMks=buildAllScoredMks();
 
       const sel=document.getElementById('child-pick');
@@ -500,6 +503,9 @@
       if(!pr || !pr.ok){ document.getElementById('content').innerHTML='<div class="err">'+escapeHtml((pr&&pr.error)||'Ссылка недействительна.')+'</div>'; return; }
       troopsChildren=[pr.child];
       scoresMap=pr.scores||{};
+      if(pr.pinnedReport && String(pr.pinnedReport).trim()){
+        letterCache[String(pr.child.crmId)] = String(pr.pinnedReport);
+      }
       renderPassport(String(pr.child.crmId));
     }catch(e){
       document.getElementById('content').innerHTML='<div class="err">Ошибка: '+escapeHtml(e.message)+'</div>';
@@ -582,10 +588,9 @@
       '</div></div>';
 
     // ── ХАРАКТЕРИСТИКА (письмо) ──
-    let autoGenLetter=false;
     html+='<div class="card"><div class="card-title">✍️ Живая характеристика</div><div id="letter-slot">';
     if(letterCache[childId]){ html+='<div class="letter-box">'+escapeHtml(letterCache[childId])+'</div>'; }
-    else if(parent){ html+='<div class="letter-loading">Готовим тёплые слова о ребёнке…</div>'; autoGenLetter=true; }
+    else if(parent){ html+='<div class="letter-loading">Педагоги готовят характеристику для '+escapeHtml(kid.name.split(/\s+/)[1]||kid.name)+' — она появится здесь чуть позже.</div>'; }
     else { html+='<button class="gen-letter-btn" onclick="genLetter(\''+escapeHtml(String(childId))+'\',\''+escapeHtml(kid.name)+'\')">✍️ Сформировать характеристику</button>'; }
     html+='</div></div>';
 
@@ -658,7 +663,6 @@
     html+='<div class="soon-note">С расширением отметок педагогов в паспорте позже появятся: учёт посещаемости, знаки за яркие моменты («Железная воля», «Командный игрок»), детальные радары по рамке 4P (знания · умения · характер · мышление) и печатная версия A4.</div>';
 
     document.getElementById('content').innerHTML=html;
-    if(autoGenLetter){ genLetter(String(childId), kid.name); }
   }
 
   // ── ПИСЬМО (переиспользует generateReport) ──
