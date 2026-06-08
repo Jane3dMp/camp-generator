@@ -75,12 +75,20 @@
   .rep-modal h2{font-size:19px;margin-bottom:10px}
   .rep-modal .rep-close{float:right;background:none;border:none;font-size:24px;cursor:pointer;color:var(--muted);line-height:1;margin:-2px -4px 0 0}
   .rep-text{white-space:pre-wrap;font-size:15px;line-height:1.6;background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 16px;max-height:50vh;overflow-y:auto}
+  .rep-edit{width:100%;box-sizing:border-box;font-size:15px;line-height:1.6;font-family:inherit;
+            background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+            min-height:240px;max-height:50vh;resize:vertical;color:var(--ink)}
+  .rep-edit:focus{outline:none;border-color:var(--green)}
   .rep-loading{text-align:center;color:var(--muted);padding:30px}
   .rep-actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
   .rep-actions button{padding:9px 14px;font-size:14px;border-radius:10px;cursor:pointer;font-family:inherit;font-weight:600;border:none}
   .rep-copy{background:var(--green);color:#fff}
   .rep-copy:hover{background:var(--green-deep)}
   .rep-regen{background:#fff;border:1px solid var(--line);color:var(--muted)}
+  .rep-pin{background:#C77E5E;color:#fff}
+  .rep-pin:hover{background:#b06a4b}
+  .rep-pinned-note{font-size:13px;color:#8a6650;margin-top:10px}
+  .kid-pinned{font-size:12px;color:#fff;background:#C77E5E;border-radius:6px;padding:1px 7px;margin-left:6px;white-space:nowrap}
 
   /* ── МОДАЛКА «КАК ПОЛЬЗОВАТЬСЯ» ── */
   .help-btn{padding:8px 12px;font-size:14px;border:2px solid var(--green);background:#f3f7ee;color:var(--green-deep);border-radius:10px;cursor:pointer;font-family:inherit;font-weight:600}
@@ -217,6 +225,7 @@
   let publishedState=null, publishedMeta={id:'',name:'',theme:''};
   let troopsChildren=[], scoresMap={}, allMks=[];
   const reportCache={};  // childId -> текст письма (чтобы не дёргать ИИ повторно)
+  let pinnedMap={};      // childId -> {text, pinnedAt} закреплённые письма
 
   // ── LOCK ──
   async function sha256Hex(str){
@@ -376,12 +385,14 @@
       if(!Array.isArray(publishedState.schedule)||!publishedState.schedule[0]) throw new Error('Расписание пустое.');
       if(Array.isArray(publishedState.schedule[0].am)) throw new Error('Это 4-отрядная смена. Открывай её через reports4.html.');
 
-      const [chResp,scResp]=await Promise.all([
+      const [chResp,scResp,pinResp]=await Promise.all([
         fetch(LIBRARY_URL+'?action=getChildren&seasonId='+encodeURIComponent(id)).then(r=>r.json()).catch(()=>({ok:false})),
-        fetch(LIBRARY_URL+'?action=getScores&seasonId='+encodeURIComponent(id)).then(r=>r.json()).catch(()=>({ok:false}))
+        fetch(LIBRARY_URL+'?action=getScores&seasonId='+encodeURIComponent(id)).then(r=>r.json()).catch(()=>({ok:false})),
+        fetch(LIBRARY_URL+'?action=getPinnedReportsForSeason&seasonId='+encodeURIComponent(id)).then(r=>r.json()).catch(()=>({ok:false}))
       ]);
       troopsChildren=(chResp&&chResp.ok&&Array.isArray(chResp.children))?chResp.children:[];
       scoresMap=(scResp&&scResp.ok&&scResp.scores&&scResp.scores.scores)?scResp.scores.scores:{};
+      pinnedMap=(pinResp&&pinResp.result&&pinResp.result.pinned)?pinResp.result.pinned:{};
       allMks=buildAllScoredMks();
 
       document.getElementById('title').innerHTML=publishedState.theme?('Письма родителям · <em>'+escapeHtml(publishedState.theme)+'</em>'):'Письма родителям';
@@ -402,10 +413,11 @@
       const disabled = cnt===0 ? 'disabled' : '';
       const cntCls = cnt===0 ? 'kid-count none' : 'kid-count';
       const cntTxt = cnt===0 ? 'нет оценок' : (cnt+' оценок');
+      const pinnedBadge = pinnedMap[String(k.crmId)] ? '<span class="kid-pinned" title="Письмо закреплено — родитель видит его в паспорте">📌 закреплено</span>' : '';
       html+='<div class="kid-row">'+
         '<span class="kid-dot t'+k.troop+'"></span>'+
         '<span class="kid-name">'+escapeHtml(k.name)+age+'</span>'+
-        '<span class="'+cntCls+'">'+cntTxt+'</span>'+
+        '<span class="'+cntCls+'">'+cntTxt+'</span>'+ pinnedBadge +
         '<button class="gen-btn" '+disabled+' onclick="genOne(\''+escapeHtml(String(k.crmId))+'\',\''+escapeHtml(k.name)+'\')">✍️ Письмо</button>'+
         '</div>';
     });
@@ -427,6 +439,11 @@
   }
 
   async function genOne(childId, childName){
+    const pinned = pinnedMap[String(childId)];
+    if (pinned && pinned.text){
+      showRep(childName, pinned.text, childId);
+      return;
+    }
     openRep(childName, '<div class="rep-loading">ИИ пишет письмо… (10–20 сек)</div>');
     try{
       const text=await callGenerate(childId, childName);
@@ -459,17 +476,50 @@
     document.getElementById('rep-overlay').classList.add('open');
   }
   function showRep(name, text, childId){
-    const body='<div class="rep-text" id="rep-text-box">'+escapeHtml(text)+'</div>'+
+    const pinned = pinnedMap[String(childId)];
+    const pinnedNote = pinned && pinned.pinnedAt
+      ? '<div class="rep-pinned-note">📌 Закреплено '+_fmtPinnedDate(pinned.pinnedAt)+'. Родитель видит этот текст. Можно отредактировать и закрепить заново.</div>'
+      : '<div class="rep-pinned-note">Письмо ещё не закреплено. Проверь, при необходимости поправь текст и нажми «Закрепить» — тогда родитель увидит его в паспорте.</div>';
+    const body='<textarea class="rep-edit" id="rep-text-box">'+escapeHtml(text)+'</textarea>'+ pinnedNote +
       '<div class="rep-actions">'+
+        '<button class="rep-pin" onclick="pinRep(\''+escapeHtml(String(childId))+'\',\''+escapeHtml(name)+'\')">📌 Закрепить для паспорта</button>'+
         '<button class="rep-copy" onclick="copyRep()">📋 Копировать</button>'+
         '<button class="rep-regen" onclick="regen(\''+escapeHtml(String(childId))+'\',\''+escapeHtml(name)+'\')">↻ Сгенерировать заново</button>'+
       '</div>';
     document.getElementById('rep-body').innerHTML=body;
   }
+  function _fmtPinnedDate(iso){
+    try{ const d=new Date(iso); return d.toLocaleDateString('ru-RU')+' '+d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}); }
+    catch(e){ return ''; }
+  }
+  async function pinRep(childId, childName){
+    const box=document.getElementById('rep-text-box');
+    if(!box) return;
+    const text=box.value.trim();
+    if(!text){ alert('Текст письма пустой — нечего закреплять.'); return; }
+    const btn=document.querySelector('.rep-pin');
+    const orig=btn?btn.textContent:'';
+    if(btn){ btn.disabled=true; btn.textContent='Закрепляю…'; }
+    try{
+      const resp=await fetch(LIBRARY_URL,{
+        method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({ action:'pinReport', seasonId:publishedMeta.id, childId:childId, childName:childName, text:text })
+      }).then(r=>r.json());
+      if(!resp.ok) throw new Error(resp.error||'Ошибка закрепления');
+      pinnedMap[String(childId)]={ text:text, pinnedAt:resp.pinnedAt||new Date().toISOString() };
+      reportCache[childId]=text;
+      if(btn){ btn.textContent='✓ Закреплено'; }
+      renderList();
+      setTimeout(()=>{ if(btn){ btn.disabled=false; btn.textContent=orig; } }, 1500);
+    }catch(e){
+      if(btn){ btn.disabled=false; btn.textContent=orig; }
+      alert('Не удалось закрепить: '+e.message);
+    }
+  }
   function closeRep(){ document.getElementById('rep-overlay').classList.remove('open'); }
   function copyRep(){
     const box=document.getElementById('rep-text-box'); if(!box) return;
-    const text=box.textContent;
+    const text=(box.value!==undefined)?box.value:box.textContent;
     const done=()=>{ const b=document.querySelector('.rep-copy'); if(b){ const o=b.textContent; b.textContent='✓ Скопировано'; setTimeout(()=>b.textContent=o,1500);} };
     if(navigator.clipboard) navigator.clipboard.writeText(text).then(done).catch(()=>fallbackCopy(text,done));
     else fallbackCopy(text,done);
@@ -477,7 +527,13 @@
   function fallbackCopy(text,done){ const ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.left='-9999px'; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');done();}catch(e){} document.body.removeChild(ta); }
   async function regen(childId, childName){
     delete reportCache[childId];
-    await genOne(childId, childName);
+    openRep(childName, '<div class="rep-loading">ИИ пишет письмо заново… (10–20 сек)</div>');
+    try{
+      const text=await callGenerate(childId, childName);
+      showRep(childName, text, childId);
+    }catch(e){
+      document.getElementById('rep-body').innerHTML='<div class="err">Ошибка: '+escapeHtml(e.message)+'</div>';
+    }
   }
 
   // ── НАСТРОЙКА ПРОМТА ──
@@ -677,6 +733,7 @@
   window.closeRep=closeRep;
   window.copyRep=copyRep;
   window.regen=regen;
+  window.pinRep=pinRep;
 
   function openHelp(){ document.getElementById('help-overlay').classList.add('open'); }
   function closeHelp(){ document.getElementById('help-overlay').classList.remove('open'); }
