@@ -241,6 +241,16 @@
   let publishedMeta = { id:'', name:'', theme:'' };
   let troopsChildren = [];
   let scoresMap = {};          // 'mkKey|childId|criterion' -> value
+  let _attMap = {};            // 'childId|dateIdx' -> '+'|'-' (табель посещаемости из Альфы)
+
+  // Ребёнок «не был» на МК если: ручной тогл absent='1' ИЛИ в табеле за день этого МК стоит '−'.
+  // dayIdx = первое число mkKey (= dateIdx в табеле, оба считают рабочие дни смены).
+  function isAbsentFor(mkKey, childId){
+    if (scoresMap[mkKey+'|'+childId+'|absent'] === '1') return true;
+    const di = String(mkKey).split('_')[0];
+    if (/^\d+$/.test(di) && _attMap[childId+'|'+di] === '-') return true;
+    return false;
+  }
   const saveQueue = [];        // отложенные сохранения
   let saveTimer = null;
 
@@ -492,12 +502,14 @@
         throw new Error('Это не похоже на смену на 4 отряда.');
 
       // дети и уже выставленные баллы — параллельно
-      const [chResp, scResp] = await Promise.all([
+      const [chResp, scResp, atResp] = await Promise.all([
         fetch(LIBRARY_URL+'?action=getChildren&seasonId='+encodeURIComponent(id)).then(r=>r.json()).catch(()=>({ok:false})),
-        fetch(LIBRARY_URL+'?action=getScores&seasonId='+encodeURIComponent(id)).then(r=>r.json()).catch(()=>({ok:false}))
+        fetch(LIBRARY_URL+'?action=getScores&seasonId='+encodeURIComponent(id)).then(r=>r.json()).catch(()=>({ok:false})),
+        fetch(LIBRARY_URL+'?action=getAttendance&seasonId='+encodeURIComponent(id)).then(r=>r.json()).catch(()=>({ok:false}))
       ]);
       troopsChildren = (chResp&&chResp.ok&&Array.isArray(chResp.children)) ? chResp.children : [];
       scoresMap = (scResp&&scResp.ok&&scResp.scores&&scResp.scores.scores) ? scResp.scores.scores : {};
+      _attMap = (atResp&&atResp.ok&&atResp.attendance&&atResp.attendance.attendance) ? atResp.attendance.attendance : ((atResp&&atResp.attendance)||{});
 
       // Миграция старых значений 'x' (бывшее «не был» внутри селекта) → тогл absent='1' на уровне ребёнка.
       // Идём по всем ключам scoresMap, ищем 'x', преобразуем структуру и кидаем в saveQueue для записи в новом формате.
@@ -532,7 +544,7 @@
     // Ребёнок «оценён» = либо отсутствовал (absent='1'), либо во всех 3 категориях стоит что-то ≠ '' (включая «не проявил»).
     let done = 0;
     kids.forEach(k=>{
-      const absent = scoresMap[mk.mkKey+'|'+k.crmId+'|absent'] === '1';
+      const absent = isAbsentFor(mk.mkKey, k.crmId);
       if (absent) { done++; return; }
       const allFilled = CRIT_KEYS.every(cr => {
         const v = scoresMap[mk.mkKey+'|'+k.crmId+'|'+cr];
@@ -588,7 +600,7 @@
         } else {
           kids.forEach(k=>{
             const age = (k.age===''||k.age==null)?'':'<span class="age">'+k.age+'</span>';
-            const absent = scoresMap[mk.mkKey+'|'+k.crmId+'|absent'] === '1';
+            const absent = isAbsentFor(mk.mkKey, k.crmId);
             html += '<div class="kid'+(absent?' absent':'')+'" data-kid="'+escapeHtml(String(k.crmId))+'">'+
                     '<span class="kid-troop t'+k.troop+'"></span>'+
                     '<label class="absent-toggle" title="отметить, что ребёнка не было на этом занятии">'+
