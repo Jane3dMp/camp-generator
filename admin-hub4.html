@@ -2373,17 +2373,25 @@ pages.join('')+
     window._ahTeacherTasks = {};
     window._ahState = state; // state локальный в рендере — пробрасываем в глобал для onclick-хэндлера
 
+    // Конвертик шлёт АКТУАЛЬНЫЕ задачи (прошлые + сегодня) — их и надо закрыть до 17:30.
+    // Если у педагога только будущие — берём их (чтобы кнопка не была пустой).
+    const _mapTask = it => ({
+      dayIdx: it.dayIdx, mkName: it.mkName, half: it.half || '',
+      missReport: !!it.missReport, missScores: !!it.missScores,
+      partialNames: (it.partialNames || []).slice(),
+      partialCount: (it.partialNames && it.partialNames.length) || 0
+    });
+    Object.keys(byTeacher).forEach(t => {
+      const cur = (teachersCurrent[t] || []).slice().sort((a,b)=>a.dayIdx-b.dayIdx);
+      const src = cur.length ? cur : (teachersFuture[t] || []).slice().sort((a,b)=>a.dayIdx-b.dayIdx);
+      window._ahTeacherTasks[t] = src.map(_mapTask);
+    });
+
     // Хелпер: блок одного списка педагогов.
     const renderTeacherList = (names, dict) => {
       let h = '';
       names.forEach(t => {
         const items = dict[t].sort((a,b) => a.dayIdx - b.dayIdx || a.mkName.localeCompare(b.mkName, 'ru'));
-        window._ahTeacherTasks[t] = items.map(it => ({
-          dayIdx: it.dayIdx, mkName: it.mkName, half: it.half || '',
-          missReport: !!it.missReport, missScores: !!it.missScores,
-          partialNames: (it.partialNames || []).slice(),
-          partialCount: (it.partialNames && it.partialNames.length) || 0
-        }));
         const envBtn = '<button class="ah-env-btn" onclick="sendTeacherViberMessage(\''
                        + escapeHtml(t).replace(/'/g,'&#39;')
                        + '\')" title="Скопировать сообщение и открыть Viber">✉</button>';
