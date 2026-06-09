@@ -1956,15 +1956,20 @@ pages.join('')+
 
     // Группируем задачи по дню для красивого текста.
     const todayIdxLocal = _todayDayIdx(st);
+    const HALF_RU = { am: 'до обеда', pm: 'после обеда' };
     const lines = items.map(it => {
-      const tags = [];
-      if (it.missReport) tags.push('нет отчёта');
-      if (it.missScores) tags.push('не выставлены баллы');
-      if (it.partialCount) tags.push('недозаполнено ' + it.partialCount);
       const date = _dateForDay(st, it.dayIdx);
       const dateStr = date.getDate() + ' ' + _M[date.getMonth()];
-      const dayLabel = (todayIdxLocal >= 0 && it.dayIdx === todayIdxLocal) ? '' : ' (' + dateStr + ')';
-      return '• ' + it.mkName + dayLabel + ' — ' + tags.join(', ');
+      const isToday = (todayIdxLocal >= 0 && it.dayIdx === todayIdxLocal);
+      const whenHead = (isToday ? 'сегодня' : dateStr) + (it.half && HALF_RU[it.half] ? ', ' + HALF_RU[it.half] : '');
+      let block = '• ' + it.mkName + ' (' + whenHead + '):';
+      const subs = [];
+      if (it.missReport) subs.push('   – нет отчёта «Запись урока»');
+      if (it.missScores) subs.push('   – не выставлены баллы');
+      if (it.partialNames && it.partialNames.length){
+        subs.push('   – не выставлены баллы: ' + it.partialNames.join(', '));
+      }
+      return block + '\n' + subs.join('\n');
     });
 
     const hasPast = items.some(it => todayIdxLocal >= 0 && it.dayIdx < todayIdxLocal);
@@ -2186,7 +2191,7 @@ pages.join('')+
       _walkDay(state.schedule[i], i, slot => {
         const gid = SEASON_ID + '|' + i + '|' + _normName(slot.teacher) + '|' + _normName(slot.template);
         if (!buckets[gid]) {
-          buckets[gid] = {gid, teacher: slot.teacher, dayIdx: i, mkName: slot.template, mkKeys: [], needsReport: false, needsScores: false};
+          buckets[gid] = {gid, teacher: slot.teacher, dayIdx: i, mkName: slot.template, mkKeys: [], needsReport: false, needsScores: false, half: (String(slot.mkKey).split('_')[1]||'')};
         }
         buckets[gid].mkKeys.push(slot.mkKey);
         if (slot.needsReport) buckets[gid].needsReport = true;
@@ -2318,7 +2323,7 @@ pages.join('')+
       const t = g.teacher;
       (byTeacher[t] = byTeacher[t] || []).push({
         dayIdx: g.dayIdx, mkName: g.mkName, missReport: missReport, missScores: missScores,
-        partialNames: partialNames
+        partialNames: partialNames, half: g.half
       });
     });
 
@@ -2374,8 +2379,9 @@ pages.join('')+
       names.forEach(t => {
         const items = dict[t].sort((a,b) => a.dayIdx - b.dayIdx || a.mkName.localeCompare(b.mkName, 'ru'));
         window._ahTeacherTasks[t] = items.map(it => ({
-          dayIdx: it.dayIdx, mkName: it.mkName,
+          dayIdx: it.dayIdx, mkName: it.mkName, half: it.half || '',
           missReport: !!it.missReport, missScores: !!it.missScores,
+          partialNames: (it.partialNames || []).slice(),
           partialCount: (it.partialNames && it.partialNames.length) || 0
         }));
         const envBtn = '<button class="ah-env-btn" onclick="sendTeacherViberMessage(\''
