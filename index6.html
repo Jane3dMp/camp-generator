@@ -3021,6 +3021,23 @@
     color: rgba(21,22,23,0.5);
     margin-top: 14px;
   }
+.troops-import-panel { display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; background:var(--paper-warm); border:1px solid rgba(21,22,23,0.1); border-radius:6px; padding:14px 16px; margin-bottom:14px; }
+.troops-statusbar { display:flex; gap:16px; align-items:center; margin-bottom:14px; font-family:Inter,sans-serif; font-size:12px; color:rgba(21,22,23,0.65); flex-wrap:wrap; }
+.troops-statusbar code { background:var(--white); padding:2px 6px; border-radius:2px; font-size:11px; border:1px solid rgba(21,22,23,0.15); }
+.kid-board { display:grid; grid-template-columns:1.1fr 1fr 1fr 1fr 1fr 1fr 1fr; gap:8px; align-items:start; }
+.kid-col { border-radius:8px; border:1px solid rgba(21,22,23,0.12); padding:8px; min-height:200px; }
+.kid-col-title { font-family:Inter,sans-serif; font-size:12px; font-weight:600; margin-bottom:8px; padding:0 2px; }
+.kid-card { background:var(--white); border:1px solid rgba(21,22,23,0.15); border-radius:5px; padding:6px 8px; margin-bottom:5px; cursor:grab; font-family:Inter,sans-serif; font-size:12px; display:flex; justify-content:space-between; align-items:center; gap:6px; }
+.kid-card:active { cursor:grabbing; }
+.kid-card .tc-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.kid-card .tc-age { color:rgba(21,22,23,0.45); }
+.kid-card .tc-lock { cursor:pointer; font-size:13px; flex-shrink:0; }
+.kid-card.is-locked { background:#FFF6D8; border-color:#E8C200; box-shadow:inset 3px 0 0 #E8C200; }
+.kid-card.is-locked .tc-name { font-weight:600; }
+.kid-col.drag-over { outline:2px dashed currentColor; outline-offset:-2px; }
+.troops-hint { font-family:Inter,sans-serif; font-size:12px; color:rgba(21,22,23,0.5); margin-top:14px; line-height:1.5; }
+@media (max-width:1100px){ .kid-board{ grid-template-columns:1fr 1fr 1fr; } }
+@media (max-width:700px){ .kid-board{ grid-template-columns:1fr 1fr; } }
 </style>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -3255,6 +3272,7 @@
   <button class="view-btn active" id="view-btn-grid" onclick="switchView('grid')">📅 Сетка смены</button>
   <button class="view-btn" id="view-btn-teachers" onclick="switchView('teachers')">👨‍🏫 Расписания педагогов</button>
   <button class="view-btn" id="view-btn-compact" onclick="switchView('compact')">📋 Компактно</button>
+  <button class="view-btn" id="view-btn-troops" onclick="switchView('troops')">👦 Дети и отряды</button>
 </div>
 
 <div class="config-panel">
@@ -3428,6 +3446,27 @@
     <div class="compact-hint">Только активность · педагог · кабинет. Для печати лучше альбомная ориентация — увидишь неделю на одном листе.</div>
   </div>
   <div id="compact-content"></div>
+</div>
+
+<div id="troops-view" style="display:none">
+  <div class="troops-import-panel">
+    <div class="field" style="flex:1;min-width:220px;margin:0">
+      <label>ID или названия лагерных групп в Альфе (через запятую)</label>
+      <input type="text" id="troops-group-input" placeholder="напр. 162  или  Лагерь июнь №1, Лагерь июнь №2">
+    </div>
+    <button class="btn btn-primary" id="troops-import-btn" onclick="importTroopsChildren()">⬇ Импортировать и разбить</button>
+    <button class="btn" onclick="reshuffleTroops()" title="Переразложить незакреплённых по возрасту">🔀 Переразбить</button>
+    <button class="btn" onclick="checkTroopsActuality()" id="troops-check-btn" title="Сравнить список с актуальным составом в Альфе">🔍 Проверить актуальность</button>
+    <button class="btn" onclick="saveTroopsManual()" title="Сохранить распределение в таблицу">💾 Сохранить</button>
+  </div>
+  <div class="troops-statusbar">
+    <span id="troops-save-status"><span style="color:var(--moss)">●</span> сохранено</span>
+    <span>Смена: <code id="troops-season-id">—</code></span>
+    <span id="troops-counts"></span>
+  </div>
+  <div id="troops-check-result" style="display:none;margin-bottom:14px"></div>
+  <div id="troops-board" class="kid-board"></div>
+  <p class="troops-hint">Перетащи карточку между колонками. 🔒 закрепляет ребёнка — при «Переразбить» закреплённые не двигаются. Дата рождения определяет, в какой отряд попадёт ребёнок (1 — младшие, 6 — старшие).</p>
 </div>
 
 <div class="actions-bar">
@@ -12915,9 +12954,11 @@ function switchView(view) {
   const grid = document.getElementById('schedule-container');
   const teachers = document.getElementById('teachers-view');
   const compact = document.getElementById('compact-view');
+  const troops = document.getElementById('troops-view');
   const btnGrid = document.getElementById('view-btn-grid');
   const btnTeachers = document.getElementById('view-btn-teachers');
   const btnCompact = document.getElementById('view-btn-compact');
+  const btnTroops = document.getElementById('view-btn-troops');
   const toolbar = document.querySelector('.toolbar');
   const actionsBar = document.querySelector('.actions-bar');
   const rotHelp = document.querySelector('.rotation-help');
@@ -12930,10 +12971,12 @@ function switchView(view) {
   if (rotHelp) rotHelp.style.display = showGrid ? '' : 'none';
   if (teachers) teachers.style.display = view === 'teachers' ? 'block' : 'none';
   if (compact) compact.style.display = view === 'compact' ? 'block' : 'none';
+  if (troops) troops.style.display = view === 'troops' ? 'block' : 'none';
 
   btnGrid.classList.toggle('active', view === 'grid');
   btnTeachers.classList.toggle('active', view === 'teachers');
   btnCompact.classList.toggle('active', view === 'compact');
+  if (btnTroops) btnTroops.classList.toggle('active', view === 'troops');
 
   if (view === 'teachers') {
     populateTeacherSelect();
@@ -12941,6 +12984,8 @@ function switchView(view) {
   } else if (view === 'compact') {
     // По умолчанию показываем неделю 1
     renderCompactView(window._compactWeek || 1);
+  } else if (view === 'troops') {
+    openTroopsScreen();
   }
 }
 
@@ -13189,6 +13234,317 @@ function splitTripCellHTML(slotA, slotB) {
     ${renderMini(slotA, '1-2-3')}
     ${renderMini(slotB, '4-5-6')}
   </td>`;
+}
+
+// ============================================================
+// ДЕТИ И ОТРЯДЫ (6 отрядов) — перенос из index4, адаптация на 6
+// ============================================================
+const TROOPS6_META = [
+  { key: 0, name: 'Без отряда',        color: '#888780', bg: 'transparent' },
+  { key: 1, name: 'Отряд 1 · младшие', color: '#185FA5', bg: '#E6F1FB' },
+  { key: 2, name: 'Отряд 2',           color: '#993C1D', bg: '#FAECE7' },
+  { key: 3, name: 'Отряд 3',           color: '#3B6D11', bg: '#EAF3DE' },
+  { key: 4, name: 'Отряд 4',           color: '#534AB7', bg: '#EEEDFE' },
+  { key: 5, name: 'Отряд 5',           color: '#B5316F', bg: '#FBE7F1' },
+  { key: 6, name: 'Отряд 6 · старшие', color: '#8A6D1E', bg: '#F6EFD9' }
+];
+const TROOPS6_COUNT = 6;
+let _troopsKids = [];
+let _troopsSaveTimer = null;
+
+function troopsSeasonId_() { return state.publishId || ''; }
+
+function openTroopsScreen() {
+  const sid = troopsSeasonId_();
+  document.getElementById('troops-season-id').textContent = sid || '— (смена не опубликована)';
+  if (!sid) {
+    const board = document.getElementById('troops-board');
+    if (board) board.innerHTML = '<div style="padding:24px;font-family:Inter,sans-serif;font-size:14px;color:rgba(21,22,23,0.6);line-height:1.6">Чтобы импортировать детей, сначала <strong>опубликуй смену</strong> (кнопка «Опубликовать»). Дети привязываются к ID опубликованной смены.<br><br>Так список детей и расписание всегда останутся вместе.</div>';
+    const counts = document.getElementById('troops-counts');
+    if (counts) counts.textContent = '';
+    return;
+  }
+  loadTroopsChildren();
+}
+
+function troopsSetStatus_(saved) {
+  const s = document.getElementById('troops-save-status');
+  if (!s) return;
+  s.innerHTML = saved
+    ? '<span style="color:var(--moss)">●</span> сохранено'
+    : '<span style="color:#C9A800">●</span> сохранение…';
+}
+
+function dobSortKey6_(dob) {
+  const m = String(dob || '').trim().match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (!m) return 0;
+  return new Date(+m[3], +m[2] - 1, +m[1]).getTime();
+}
+
+async function loadTroopsChildren() {
+  const sid = troopsSeasonId_();
+  const board = document.getElementById('troops-board');
+  if (!sid) { return; }
+  board.innerHTML = '<div style="padding:20px;font-family:Inter,sans-serif;font-size:13px;color:rgba(21,22,23,0.5)">Загружаю детей…</div>';
+  try {
+    const r = await fetch(LIBRARY_URL + '?action=getChildren&seasonId=' + encodeURIComponent(sid));
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'Ошибка загрузки');
+    _troopsKids = (j.children || []).map(c => ({
+      crmId: String(c.crmId), name: c.name || '', dob: c.dob || '',
+      age: c.age, gender: c.gender, parentName: c.parentName || '',
+      parentPhone: c.parentPhone || '', troop: c.troop || 0, locked: !!c.locked
+    }));
+    renderTroopsBoard();
+  } catch (e) {
+    board.innerHTML = '<div style="padding:20px;font-family:Inter,sans-serif;font-size:13px;color:#c0392b">Ошибка: ' + escapeHtml(e.message) + '</div>';
+  }
+}
+
+async function importTroopsChildren() {
+  const sid = troopsSeasonId_();
+  if (!sid) { toast('Сначала опубликуй смену — дети привязываются к её ID'); return; }
+  const raw = (document.getElementById('troops-group-input').value || '').trim();
+  if (!raw) { toast('Введи id или названия групп'); return; }
+  const parts = raw.split(',').map(s => s.trim()).filter(Boolean);
+  const ids = parts.filter(p => /^\d+$/.test(p)).map(Number);
+  const names = parts.filter(p => !/^\d+$/.test(p));
+
+  const btn = document.getElementById('troops-import-btn');
+  const oldLabel = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳ Импорт из Альфы…';
+  troopsSetStatus_(false);
+  try {
+    const r1 = await fetch(LIBRARY_URL, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'importChildren', seasonId: sid,
+        groupIds: ids.length ? ids : null, groupNames: names.length ? names : null })
+    });
+    const j1 = await r1.json();
+    if (!j1.ok) throw new Error(j1.error || 'Ошибка импорта');
+    btn.textContent = '⏳ Разбиваю по возрасту…';
+    const r2 = await fetch(LIBRARY_URL, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'autoSplitTroops', seasonId: sid, troopCount: TROOPS6_COUNT })
+    });
+    const j2 = await r2.json();
+    if (!j2.ok) throw new Error(j2.error || 'Ошибка разбивки');
+
+    await loadTroopsChildren();
+    troopsSetStatus_(true);
+    let msg = 'Импортировано: ' + (j1.result.added + j1.result.updated) + ' детей, разбито на 6 отрядов';
+    if (j1.result.missingNames && j1.result.missingNames.length) {
+      msg += '. Не найдены группы: ' + j1.result.missingNames.join(', ');
+    }
+    toast(msg);
+  } catch (e) {
+    toast('Ошибка: ' + e.message);
+    troopsSetStatus_(true);
+  } finally {
+    btn.disabled = false; btn.textContent = oldLabel;
+  }
+}
+
+async function reshuffleTroops() {
+  const sid = troopsSeasonId_();
+  if (!sid) { toast('Сначала опубликуй смену'); return; }
+  troopsSetStatus_(false);
+  try {
+    const r = await fetch(LIBRARY_URL, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'autoSplitTroops', seasonId: sid, troopCount: TROOPS6_COUNT })
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'Ошибка');
+    await loadTroopsChildren();
+    troopsSetStatus_(true);
+    toast('Переразбито по возрасту (закреплённые на местах)');
+  } catch (e) { toast('Ошибка: ' + e.message); troopsSetStatus_(true); }
+}
+
+async function saveTroopsToServer_() {
+  const sid = troopsSeasonId_();
+  if (!sid) throw new Error('Смена не опубликована');
+  const assignments = {};
+  _troopsKids.forEach(k => { assignments[k.crmId] = { troop: k.troop || '', locked: !!k.locked }; });
+  const r = await fetch(LIBRARY_URL, {
+    method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action: 'saveTroops', seasonId: sid, assignments: assignments })
+  });
+  const j = await r.json();
+  if (!j.ok) throw new Error(j.error || 'Ошибка сохранения');
+  return j.result;
+}
+
+function troopsAutoSave_() {
+  troopsSetStatus_(false);
+  if (_troopsSaveTimer) clearTimeout(_troopsSaveTimer);
+  _troopsSaveTimer = setTimeout(async () => {
+    try { await saveTroopsToServer_(); troopsSetStatus_(true); }
+    catch (e) { toast('Не сохранилось: ' + e.message); }
+  }, 800);
+}
+
+async function saveTroopsManual() {
+  troopsSetStatus_(false);
+  try { await saveTroopsToServer_(); troopsSetStatus_(true); toast('Отряды сохранены'); }
+  catch (e) { toast('Ошибка: ' + e.message); }
+}
+
+function renderTroopsBoard() {
+  const board = document.getElementById('troops-board');
+  board.innerHTML = '';
+  const counts = [0, 0, 0, 0, 0, 0, 0];
+  _troopsKids.forEach(k => { counts[k.troop || 0]++; });
+
+  TROOPS6_META.forEach(tr => {
+    const col = document.createElement('div');
+    col.className = 'kid-col';
+    col.style.background = tr.bg;
+    col.style.color = tr.color;
+    col.dataset.troop = tr.key;
+
+    const list = _troopsKids.filter(k => (k.troop || 0) === tr.key)
+      .sort((a, b) => dobSortKey6_(b.dob) - dobSortKey6_(a.dob));
+
+    const title = document.createElement('div');
+    title.className = 'kid-col-title';
+    title.style.color = tr.color;
+    title.innerHTML = escapeHtml(tr.name) + ' <span style="opacity:0.6">(' + list.length + ')</span>';
+    col.appendChild(title);
+
+    list.forEach(k => {
+      const card = document.createElement('div');
+      card.className = 'kid-card' + (k.locked ? ' is-locked' : '');
+      card.draggable = true;
+      card.dataset.id = k.crmId;
+      const ageStr = (k.age === '' || k.age == null) ? '' : ' <span class="tc-age">' + k.age + '</span>';
+      card.innerHTML =
+        '<span class="tc-name" title="' + escapeHtml(k.name) + (k.parentPhone ? ' · ' + escapeHtml(k.parentPhone) : '') + '">' +
+        escapeHtml(k.name) + ageStr + '</span>' +
+        '<span class="tc-lock" title="' + (k.locked ? 'Закреплён — нажми, чтобы открепить' : 'Нажми, чтобы закрепить') + '">' + (k.locked ? '🔒' : '🔓') + '</span>';
+      card.querySelector('.tc-lock').onclick = (e) => {
+        e.stopPropagation();
+        k.locked = !k.locked;
+        renderTroopsBoard();
+        troopsAutoSave_();
+      };
+      card.ondragstart = (e) => { e.dataTransfer.setData('id', k.crmId); card.style.opacity = '0.4'; };
+      card.ondragend = () => { card.style.opacity = '1'; };
+      col.appendChild(card);
+    });
+
+    col.ondragover = (e) => { e.preventDefault(); col.classList.add('drag-over'); };
+    col.ondragleave = () => { col.classList.remove('drag-over'); };
+    col.ondrop = (e) => {
+      e.preventDefault();
+      col.classList.remove('drag-over');
+      const id = e.dataTransfer.getData('id');
+      const k = _troopsKids.find(x => x.crmId === id);
+      if (k && (k.troop || 0) !== tr.key) {
+        k.troop = tr.key;
+        renderTroopsBoard();
+        troopsAutoSave_();
+      }
+    };
+    board.appendChild(col);
+  });
+
+  const placed = _troopsKids.length - counts[0];
+  document.getElementById('troops-counts').textContent =
+    'распределено: ' + placed + '/' + _troopsKids.length;
+}
+
+async function checkTroopsActuality() {
+  const sid = troopsSeasonId_();
+  if (!sid) { toast('Сначала опубликуй смену'); return; }
+  const box = document.getElementById('troops-check-result');
+  const btn = document.getElementById('troops-check-btn');
+  const oldLabel = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳ Проверяю Альфу…';
+  box.style.display = 'block';
+  box.innerHTML = '<div style="padding:14px;font-family:Inter,sans-serif;font-size:13px;color:rgba(21,22,23,0.6)">Сравниваю список с актуальным составом в Альфе…</div>';
+  try {
+    const r = await fetch(LIBRARY_URL + '?action=checkChildrenActuality&seasonId=' + encodeURIComponent(sid) + '&_t=' + Date.now());
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'Ошибка проверки');
+    renderCheckResult_(j.result);
+  } catch (e) {
+    box.innerHTML = '<div style="padding:14px;font-family:Inter,sans-serif;font-size:13px;color:#c0392b">Ошибка: ' + escapeHtml(e.message) + '</div>';
+  } finally {
+    btn.disabled = false; btn.textContent = oldLabel;
+  }
+}
+
+function renderCheckResult_(res) {
+  const box = document.getElementById('troops-check-result');
+  const left = res.left || [];
+  const added = res.added || [];
+  window._troopsCheckedGroups = res.groupsChecked || [];
+
+  if (res.inSync || (left.length === 0 && added.length === 0)) {
+    box.innerHTML = '<div style="padding:12px 16px;background:#EAF6E3;border:1px solid #9Fca7e;border-radius:6px;font-family:Inter,sans-serif;font-size:13px;color:#3B6D11">✓ Состав актуален — расхождений с Альфой нет.' +
+      (res.groupsChecked && res.groupsChecked.length ? ' <span style="opacity:0.7">(проверены группы: ' + res.groupsChecked.join(', ') + ')</span>' : '') +
+      ' <button class="btn btn-sm btn-ghost" onclick="document.getElementById(\'troops-check-result\').style.display=\'none\'" style="margin-left:8px">скрыть</button></div>';
+    return;
+  }
+
+  let html = '<div style="padding:14px 16px;background:#FFF6E5;border:1px solid #E8C95A;border-radius:6px;font-family:Inter,sans-serif">';
+  html += '<div style="font-weight:700;font-size:13px;margin-bottom:10px">Найдены расхождения с Альфой' +
+    (res.groupsChecked && res.groupsChecked.length ? ' <span style="font-weight:400;opacity:0.7">(группы: ' + res.groupsChecked.join(', ') + ')</span>' : '') + '</div>';
+
+  if (left.length > 0) {
+    const ids = left.map(function(c){ return c.crmId; });
+    window._troopsLeftIds = ids;
+    html += '<div style="margin-bottom:12px">';
+    html += '<div style="font-size:12px;font-weight:600;color:#c0392b;margin-bottom:5px">Выбыли из Альфы (' + left.length + ') — больше не едут:</div>';
+    html += '<div style="font-size:13px;line-height:1.6;margin-bottom:8px">' +
+      left.map(function(c){ return '• ' + escapeHtml(c.name); }).join('<br>') + '</div>';
+    html += '<button class="btn btn-sm" onclick="removeLeftChildren_()" style="border-color:#c0392b;color:#c0392b">🗑 Убрать выбывших (' + left.length + ')</button>';
+    html += '</div>';
+  }
+
+  if (added.length > 0) {
+    html += '<div style="margin-bottom:6px">';
+    html += '<div style="font-size:12px;font-weight:600;color:#185FA5;margin-bottom:5px">Новые в Альфе (' + added.length + ') — ещё не в списке:</div>';
+    html += '<div style="font-size:13px;line-height:1.6;margin-bottom:8px">' +
+      added.map(function(c){ return '• ' + escapeHtml(c.name) + (c.age!==''&&c.age!=null ? ' (' + c.age + ')' : ''); }).join('<br>') + '</div>';
+    html += '<button class="btn btn-sm" onclick="addNewChildren_()" style="border-color:#185FA5;color:#185FA5">⬇ Добавить новых и разбить</button>';
+    html += '</div>';
+  }
+
+  html += '<div style="margin-top:8px"><button class="btn btn-sm btn-ghost" onclick="document.getElementById(\'troops-check-result\').style.display=\'none\'">скрыть</button></div>';
+  html += '</div>';
+  box.innerHTML = html;
+}
+
+async function removeLeftChildren_() {
+  const ids = window._troopsLeftIds || [];
+  if (!ids.length) return;
+  if (!confirm('Убрать ' + ids.length + ' выбывших из списка отрядов? Они исчезнут из смены.')) return;
+  const sid = troopsSeasonId_();
+  troopsSetStatus_(false);
+  try {
+    const r = await fetch(LIBRARY_URL, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'removeChildren', seasonId: sid, crmIds: ids })
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'Ошибка');
+    await loadTroopsChildren();
+    troopsSetStatus_(true);
+    document.getElementById('troops-check-result').style.display = 'none';
+    toast('Убрано выбывших: ' + (j.result.removed || ids.length));
+  } catch (e) { toast('Ошибка: ' + e.message); troopsSetStatus_(true); }
+}
+
+async function addNewChildren_() {
+  document.getElementById('troops-check-result').style.display = 'none';
+  if (window._troopsCheckedGroups && window._troopsCheckedGroups.length) {
+    const inp = document.getElementById('troops-group-input');
+    if (inp && !inp.value.trim()) inp.value = window._troopsCheckedGroups.join(', ');
+  }
+  await importTroopsChildren();
 }
 
 init();
