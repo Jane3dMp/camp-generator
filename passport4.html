@@ -635,9 +635,15 @@
     const proven=clubCourses.filter(c=> c.subject_id && attendedSubjects.indexOf(Number(c.subject_id))>=0 && strongCats[c.category]);
     if(proven.length){
       const firstName=(kid.name.split(/\s+/)[1]||kid.name.split(/\s+/)[0]||kid.name);
-      const provenNames=proven.map(c=>c.name).join(', ');
+      const provenPro=proven.filter(c=>c.platform!=='coddy').map(c=>c.name);
+      const provenCoddy=proven.filter(c=>c.platform==='coddy').map(c=>c.name);
+      const parts=[];
+      if(provenPro.length) parts.push('в «Прознании» — <b>'+escapeHtml(provenPro.join(', '))+'</b>');
+      if(provenCoddy.length) parts.push('в CODDY — <b>'+escapeHtml(provenCoddy.join(', '))+'</b>');
       html+='<div class="card"><div class="card-title">✅ Что уже приносит плоды</div>'+
-        '<div class="proven-note">'+escapeHtml(firstName)+' занимается этим в клубе весь год — и на смене это было видно: <b>'+escapeHtml(provenNames)+'</b>. Занятия дают результат, который заметен и летом.</div></div>';
+        '<div class="proven-note">'+escapeHtml(firstName)+' занимается у нас весь год, и на смене это раскрылось. '+
+        'Направления, которые уже посещает: '+parts.join(', ')+'. '+
+        'Хорошо, что занятия не прерываются — результат виден.</div></div>';
     }
 
     // ── 🧭 ЧТО ПОПРОБОВАТЬ ДАЛЬШЕ (курсы клуба по сильным направлениям + возраст, без тех что уже ходит) ──
