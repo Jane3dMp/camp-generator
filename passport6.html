@@ -120,6 +120,7 @@
 
   /* зона роста */
   .growth{background:#F4E8D6;border-left:3px solid var(--terra);border-radius:0 10px 10px 0;padding:14px 18px;font-size:14px;line-height:1.6;color:#6B4A32}
+  .proven-note{background:#E9F0E2;border-left:3px solid #8FA370;border-radius:0 10px 10px 0;padding:14px 18px;font-size:14px;line-height:1.6;color:#4A5A38}
 
   /* что дальше */
   .next-list{display:flex;flex-direction:column;gap:10px}
@@ -223,7 +224,8 @@
   let currentMode='internal';
   let parentToken='';
   const letterCache={};
-  let clubCourses=[];   // [{name,category,min_age,max_age,platform}] из листа «Курсы клуба»
+  let clubCourses=[];   // [{name,category,min_age,max_age,platform,subject_id}] из листа «Курсы клуба»
+  let attendedSubjects=[]; // subject_id, что ребёнок посещал ≥12 раз за учебный год
 
   // ── LOCK ──
   async function sha256Hex(str){
@@ -512,6 +514,7 @@
         letterCache[String(pr.child.crmId)] = String(pr.pinnedReport);
       }
       renderPassport(String(pr.child.crmId));
+      loadAttendedSubjects(String(pr.child.crmId));
     }catch(e){
       document.getElementById('content').innerHTML='<div class="err">Ошибка: '+escapeHtml(e.message)+'</div>';
     }
@@ -530,6 +533,17 @@
     const id=document.getElementById('child-pick').value;
     if(!id){ document.getElementById('content').innerHTML='<div class="hint">Выбери ребёнка вверху.</div>'; return; }
     renderPassport(id);
+    loadAttendedSubjects(id);
+  }
+
+  async function loadAttendedSubjects(childId){
+    attendedSubjects=[];
+    try{
+      const resp=await fetch(LIBRARY_URL+'?action=getAttendedSubjects&customerId='+encodeURIComponent(childId)).then(r=>r.json());
+      attendedSubjects=(resp&&resp.result&&Array.isArray(resp.result.subjects))?resp.result.subjects:[];
+    }catch(e){ attendedSubjects=[]; }
+    const cur=document.getElementById('child-pick');
+    if(!cur || !cur.value || String(cur.value)===String(childId)){ renderPassport(String(childId)); }
   }
 
   function findChild(id){ return troopsChildren.find(k=>String(k.crmId)===String(id)); }
@@ -541,7 +555,7 @@
   };
   const DIR_IC = { 'IT':'💻', 'Творчество':'🎨', 'Коммуникация':'🗣️', 'Активность':'⚡', 'Прочее':'✨' };
 
-  function pickClubCoursesAfterCamp(childAge, strongDirs, courses){
+  function pickClubCoursesAfterCamp(childAge, strongDirs, courses, attendedSet){
     const result = [];
     strongDirs.forEach(dir => {
       const cats = CAMP_TO_CLUB_CATEGORIES[dir] || [];
@@ -552,6 +566,7 @@
           if (childAge == null || isNaN(childAge)) return true;
           return childAge >= c.min_age && childAge <= c.max_age;
         })
+        .filter(c => !(c.subject_id && attendedSet && attendedSet.indexOf(Number(c.subject_id)) >= 0))
         .sort((a,b) => {
           if (a.platform === b.platform) return a.name.localeCompare(b.name, 'ru');
           return a.platform === 'proznanie' ? -1 : 1;
@@ -672,9 +687,26 @@
     });
     html+='</div></div>';
 
-    // ── ЧТО ПОПРОБОВАТЬ ДАЛЬШЕ (курсы клуба по сильным направлениям + возраст) ──
+    // ── ✅ ЧТО УЖЕ ПРИНОСИТ ПЛОДЫ (посещает ≥12 + категория среди сильных направлений) ──
     const childAgeNum=Number(kid.age);
-    const recos=pickClubCoursesAfterCamp(childAgeNum, strong, clubCourses);
+    const strongCats={};
+    strong.forEach(d=>(CAMP_TO_CLUB_CATEGORIES[d]||[]).forEach(cat=>{ strongCats[cat]=true; }));
+    const proven=clubCourses.filter(c=> c.subject_id && attendedSubjects.indexOf(Number(c.subject_id))>=0 && strongCats[c.category]);
+    if(proven.length){
+      const firstName=(kid.name.split(/\s+/)[1]||kid.name.split(/\s+/)[0]||kid.name);
+      const provenPro=proven.filter(c=>c.platform!=='coddy').map(c=>c.name);
+      const provenCoddy=proven.filter(c=>c.platform==='coddy').map(c=>c.name);
+      const parts=[];
+      if(provenPro.length) parts.push('в «Прознании» — <b>'+escapeHtml(provenPro.join(', '))+'</b>');
+      if(provenCoddy.length) parts.push('в CODDY — <b>'+escapeHtml(provenCoddy.join(', '))+'</b>');
+      html+='<div class="card"><div class="card-title">✅ Что уже приносит плоды</div>'+
+        '<div class="proven-note">'+escapeHtml(firstName)+' занимается у нас весь год, и на смене это раскрылось. '+
+        'Направления, которые уже посещает: '+parts.join(', ')+'. '+
+        'Хорошо, что занятия не прерываются — результат виден.</div></div>';
+    }
+
+    // ── ЧТО ПОПРОБОВАТЬ ДАЛЬШЕ (курсы клуба по сильным направлениям + возраст, без тех что уже ходит) ──
+    const recos=pickClubCoursesAfterCamp(childAgeNum, strong, clubCourses, attendedSubjects);
     if(recos.length){
       html+='<div class="card"><div class="card-title">🧭 Что попробовать дальше</div><div class="next-list">';
       recos.forEach(rec=>{
