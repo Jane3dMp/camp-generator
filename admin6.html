@@ -1420,6 +1420,11 @@
     const items = [];
     let cellIsTrip = false;
     const troopsBadge = troops.join('-');
+    // Порядок прихода отрядов к МК-станции с индексом i (ротация 3 отрядов внутри группы).
+    // На шаге k у станции i стоит отряд с индексом ((i-k) mod 3) в группе troops.
+    function rotOrder(i) {
+      return [0,1,2].map(k => troops[((i - k) % 3 + 3) % 3]).join(', ');
+    }
 
     if (mode === 'trip6') {
       const s = d[half === 'am' ? 'trip6_am' : 'trip6_pm'];
@@ -1443,7 +1448,7 @@
         const cluster = d[half + '_cluster'] || [];
         const times = multiStepTimes(half);
         cluster.forEach((s, i) => {
-          if (s && s.template) items.push({ slot: s, time: times[i], trip: false, badge: troopsBadge });
+          if (s && s.template) items.push({ slot: s, time: times[i], trip: false, badge: 'ст. ' + (i+1), orderLabel: 'порядок: отряды ' + rotOrder(i) });
         });
       }
     }
@@ -1456,7 +1461,7 @@
         const cluster = d[half + '_cluster'] || [];
         const times = multiStepTimes(half);
         cluster.forEach((s, i) => {
-          if (s && s.template) items.push({ slot: s, time: times[i], trip: false, badge: troopsBadge });
+          if (s && s.template) items.push({ slot: s, time: times[i], trip: false, badge: 'ст. ' + (i+1), orderLabel: 'порядок: отряды ' + rotOrder(i) });
         });
       } else {
         // outside — rotation или single
@@ -1472,7 +1477,7 @@
           const outside = d[half + '_outside'] || [];
           const times = multiStepTimes(half);
           outside.forEach((s, i) => {
-            if (s && s.template) items.push({ slot: s, time: times[i], trip: false, badge: troopsBadge });
+            if (s && s.template) items.push({ slot: s, time: times[i], trip: false, badge: 'ст. ' + (i+1), orderLabel: 'порядок: отряды ' + rotOrder(i) });
           });
         }
       }
