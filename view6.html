@@ -481,10 +481,10 @@
   const WEEKDAYS = ['вс','пн','вт','ср','чт','пт','сб'];
   const NUM_TROOPS = 6;
   let troopsChildren = [];   // [{crmId, name, age, troop, ...}] — для попапа «состав»
-  const TIME_AM = '9:30 – 13:30';
-  const TIME_PM = '14:00 – 17:30';
+  const TIME_AM = '9:30 – 12:30';
+  const TIME_PM = '14:00 – 17:00';
   const BREAKFAST = { name: 'Завтрак', time: '9:00 – 9:30' };
-  const LUNCH     = { name: 'Обед',    time: '13:30 – 14:00' };
+  const LUNCH     = { name: 'Обед',    time: '12:30 – 14:00' };
 
   // === ЛОКСКРИН ===
   async function sha256Hex(text) {
@@ -861,17 +861,15 @@
     }
   }
 
-  // Времена шагов внутри половины (упрощённо — для отображения времени педагогу)
-  // В 6-отрядной модели обычно 3 шага по ~1 часу. Завтрак 9:00–9:30, обед 13:30–14:00.
+  // Времена шагов внутри половины (синхронизировано с admin-hub6/print6).
+  // AM 9:30–12:30, PM 14:00–17:00 — 3 шага по 60 мин.
   function multiStepTimes6(half) {
-    // AM: 9:30–13:30 → 3 шага по ~80 мин
-    // PM: 14:00–18:00 → 3 шага по ~80 мин
-    if (half === 'am') return ['9:30 – 10:50', '10:50 – 12:10', '12:10 – 13:30'];
-    return ['14:00 – 15:20', '15:20 – 16:40', '16:40 – 18:00'];
+    if (half === 'am') return ['9:30 – 10:30', '10:30 – 11:30', '11:30 – 12:30'];
+    return ['14:00 – 15:00', '15:00 – 16:00', '16:00 – 17:00'];
   }
   // Полное время полу-дня — для выездов/общих
   function fullHalfTime(half) {
-    return half === 'am' ? '9:30 – 13:30' : '14:00 – 18:00';
+    return half === 'am' ? '9:30 – 12:30' : '14:00 – 17:00';
   }
 
   // Совместимость со старыми вызовами в коде view (halfMode4 / activeSlotsForHalf).
@@ -890,7 +888,7 @@
     if (mode === 'trip3') {
       const g = trip3GroupsFor(day);
       const tripLabel = 'отряды ' + g.trip.join(', ') + ' (выезд)';
-      const clusterLabel = 'отряды ' + g.cluster.join(', ') + ' (МК/улица)';
+      const clusterLabel = 'отряды ' + g.cluster.join(', ');
       return [
         { idx: 0, troopsLabel: clusterLabel, isTrip: false },
         { idx: 1, troopsLabel: clusterLabel, isTrip: false },
@@ -1029,7 +1027,7 @@
           outside.forEach((s, i) => {
             pushSlot(s, {
               time: times[i] || fullT,
-              troopsLabel: labelCl + ' (улица)',
+              troopsLabel: labelCl,
               isTrip: false,
               mkKey: idx + '_' + half + '_outside_' + i
             });
@@ -1054,7 +1052,7 @@
         outside.forEach((s, i) => {
           pushSlot(s, {
             time: times[i] || fullT,
-            troopsLabel: 'отряды ' + outsideGroup.join(', ') + ' (улица)',
+            troopsLabel: 'отряды ' + outsideGroup.join(', '),
             isTrip: false,
             mkKey: idx + '_' + half + '_outside_' + i
           });
