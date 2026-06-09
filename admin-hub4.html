@@ -452,6 +452,10 @@
         <button class="btn" onclick="printAttendance(false)">🖨 Печать таблицы (с отметками)</button>
         <button class="btn" onclick="printAttendance(true)">🖨 Печать таблицы (пустой)</button>
         <button class="btn contracts-sync-btn" onclick="syncContractsFromCognito()">📋 Обновить из Cognito</button>
+        <span class="att-sync-group" style="display:inline-flex;gap:6px;align-items:center;margin-left:4px">
+          <select id="att-sync-day" class="att-sync-day" style="padding:6px 8px;border:1px solid rgba(21,22,23,0.25);border-radius:5px;font-family:Inter,sans-serif;font-size:13px"></select>
+          <button class="btn" id="att-sync-btn" onclick="syncAttendanceDay()" title="Подтянуть посещаемость из AlfaCRM за выбранный день">🔄 Синхрон с Альфой</button>
+        </span>
         <span class="att-status" id="att-status"></span>
         <span class="contracts-badge"></span>
       </div>
@@ -964,6 +968,7 @@
       _attMap=(atR&&atR.ok&&atR.attendance&&atR.attendance.attendance)?atR.attendance.attendance:((atR&&atR.attendance)||{});
       _attLoaded=true;
       renderAttendance();
+      fillAttSyncDays_();
       // Если Доплаты уже отрисованы — обновить ячейки "Подписан"
       if (_payData) renderPayments();
     }catch(e){ box.innerHTML='<div style="padding:20px;font-size:13px;color:#c0392b">Ошибка: '+escapeHtml(e.message)+'</div>'; }
@@ -1083,6 +1088,54 @@
   function printAttendance(blank){
     document.body.classList.toggle('print-blank', !!blank);
     setTimeout(()=>{ window.print(); setTimeout(()=>document.body.classList.remove('print-blank'),500); }, 80);
+  }
+
+  // Заполняет выпадашку дней для синхрона (по _attDates). По умолчанию — сегодняшний день смены, если он в списке.
+  function fillAttSyncDays_(){
+    const sel=document.getElementById('att-sync-day');
+    if(!sel) return;
+    sel.innerHTML = _attDates.map((d,i)=>'<option value="'+i+'">День '+(i+1)+' · '+escapeHtml(d)+'</option>').join('');
+    // подсветить сегодня
+    const todayIdx = todayAttIdx_();
+    if(todayIdx>=0 && todayIdx<_attDates.length) sel.value=String(todayIdx);
+  }
+
+  // Индекс сегодняшнего дня в _attDates (по дате), или -1.
+  function todayAttIdx_(){
+    const now=new Date();
+    const label = now.getDate()+' '+MONTHS_SHORT[now.getMonth()];
+    return _attDates.indexOf(label);
+  }
+
+  async function syncAttendanceDay(){
+    const sel=document.getElementById('att-sync-day');
+    const btn=document.getElementById('att-sync-btn');
+    if(!sel) return;
+    const dateIdx=Number(sel.value);
+    if(isNaN(dateIdx)){ toast&&toast('Выбери день'); return; }
+    const old=btn.textContent; btn.disabled=true; btn.textContent='⏳ Тяну из Альфы…';
+    document.getElementById('att-status').textContent='синхрон…';
+    try{
+      const r=await fetch(LIBRARY_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({action:'syncAttendanceFromAlfa',seasonId:SEASON_ID,dateIdx:dateIdx})});
+      const j=await r.json();
+      if(!j.ok) throw new Error(j.error||'Ошибка синхрона');
+      if(j.found===0){
+        document.getElementById('att-status').textContent='';
+        alert(j.note||('За выбранный день занятий смены в Альфе не найдено.'));
+      } else {
+        await loadAttendance(); // перечитать табель с сервера
+        let msg='Синхрон за '+j.date+': был — '+j.present+', не был — '+j.absent;
+        if(j.notFoundCount) msg+=', нет в уроке Альфы — '+j.notFoundCount;
+        document.getElementById('att-status').textContent='готово';
+        alert(msg + (j.notFoundCount&&j.notFound&&j.notFound.length ? '\n\nНе найдены в уроке Альфы:\n'+j.notFound.join(', ') : ''));
+      }
+    }catch(e){
+      document.getElementById('att-status').textContent='ошибка';
+      alert('Ошибка синхрона: '+e.message);
+    }finally{
+      btn.disabled=false; btn.textContent=old;
+    }
   }
 
   // Лист куратора: 4 страницы A4 horizontal, по одному отряду на лист.

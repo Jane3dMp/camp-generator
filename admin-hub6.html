@@ -358,16 +358,6 @@
   .ah-tag{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:6px;font-size:11px;font-weight:600;vertical-align:middle}
   .ah-tag.report{background:#C8714B;color:#fff}
   .ah-tag.scores{background:#534AB7;color:#fff}
-  .ah-tag.partial{background:#C77E5E;color:#fff;cursor:help}
-  /* Конвертик возле имени педагога — скопировать сообщение и открыть Viber */
-  .ah-env-btn{
-    display:inline-flex;align-items:center;justify-content:center;
-    width:24px;height:20px;padding:0;margin-left:8px;
-    border:1px solid var(--terra,#C77E5E);background:#fff;color:var(--terra,#C77E5E);
-    border-radius:4px;cursor:pointer;font-size:12px;line-height:1;vertical-align:middle;
-    transition:background 0.12s ease,color 0.12s ease;
-  }
-  .ah-env-btn:hover{background:var(--terra,#C77E5E);color:#fff}
   .ah-future{margin:0 0 18px;border:1px solid rgba(21,22,23,0.12);border-radius:12px;background:rgba(21,22,23,0.025)}
   .ah-future > summary{cursor:pointer;padding:12px 16px;font-size:13px;font-weight:600;color:rgba(21,22,23,0.65);list-style:none;user-select:none}
   .ah-future > summary::-webkit-details-marker{display:none}
@@ -451,6 +441,10 @@
         <button class="btn" onclick="printAttendance(false)">🖨 Печать таблицы (с отметками)</button>
         <button class="btn" onclick="printAttendance(true)">🖨 Печать таблицы (пустой)</button>
         <button class="btn contracts-sync-btn" onclick="syncContractsFromCognito()">📋 Обновить из Cognito</button>
+        <span class="att-sync-group" style="display:inline-flex;gap:6px;align-items:center;margin-left:4px">
+          <select id="att-sync-day" class="att-sync-day" style="padding:6px 8px;border:1px solid rgba(21,22,23,0.25);border-radius:5px;font-family:Inter,sans-serif;font-size:13px"></select>
+          <button class="btn" id="att-sync-btn" onclick="syncAttendanceDay()" title="Подтянуть посещаемость из AlfaCRM за выбранный день">🔄 Синхрон с Альфой</button>
+        </span>
         <span class="att-status" id="att-status"></span>
         <span class="contracts-badge"></span>
       </div>
@@ -969,6 +963,7 @@
       _attMap=(atR&&atR.ok&&atR.attendance&&atR.attendance.attendance)?atR.attendance.attendance:((atR&&atR.attendance)||{});
       _attLoaded=true;
       renderAttendance();
+      fillAttSyncDays_();
       // Если Доплаты уже отрисованы — обновить ячейки "Подписан"
       if (_payData) renderPayments();
     }catch(e){ box.innerHTML='<div style="padding:20px;font-size:13px;color:#c0392b">Ошибка: '+escapeHtml(e.message)+'</div>'; }
@@ -1066,6 +1061,51 @@
   function printAttendance(blank){
     document.body.classList.toggle('print-blank', !!blank);
     setTimeout(()=>{ window.print(); setTimeout(()=>document.body.classList.remove('print-blank'),500); }, 80);
+  }
+
+  function fillAttSyncDays_(){
+    const sel=document.getElementById('att-sync-day');
+    if(!sel) return;
+    sel.innerHTML = _attDates.map((d,i)=>'<option value="'+i+'">День '+(i+1)+' · '+escapeHtml(d)+'</option>').join('');
+    const todayIdx = todayAttIdx_();
+    if(todayIdx>=0 && todayIdx<_attDates.length) sel.value=String(todayIdx);
+  }
+
+  function todayAttIdx_(){
+    const now=new Date();
+    const label = now.getDate()+' '+MONTHS_SHORT[now.getMonth()];
+    return _attDates.indexOf(label);
+  }
+
+  async function syncAttendanceDay(){
+    const sel=document.getElementById('att-sync-day');
+    const btn=document.getElementById('att-sync-btn');
+    if(!sel) return;
+    const dateIdx=Number(sel.value);
+    if(isNaN(dateIdx)){ toast&&toast('Выбери день'); return; }
+    const old=btn.textContent; btn.disabled=true; btn.textContent='⏳ Тяну из Альфы…';
+    document.getElementById('att-status').textContent='синхрон…';
+    try{
+      const r=await fetch(LIBRARY_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({action:'syncAttendanceFromAlfa',seasonId:SEASON_ID,dateIdx:dateIdx})});
+      const j=await r.json();
+      if(!j.ok) throw new Error(j.error||'Ошибка синхрона');
+      if(j.found===0){
+        document.getElementById('att-status').textContent='';
+        alert(j.note||('За выбранный день занятий смены в Альфе не найдено.'));
+      } else {
+        await loadAttendance();
+        let msg='Синхрон за '+j.date+': был — '+j.present+', не был — '+j.absent;
+        if(j.notFoundCount) msg+=', нет в уроке Альфы — '+j.notFoundCount;
+        document.getElementById('att-status').textContent='готово';
+        alert(msg + (j.notFoundCount&&j.notFound&&j.notFound.length ? '\n\nНе найдены в уроке Альфы:\n'+j.notFound.join(', ') : ''));
+      }
+    }catch(e){
+      document.getElementById('att-status').textContent='ошибка';
+      alert('Ошибка синхрона: '+e.message);
+    }finally{
+      btn.disabled=false; btn.textContent=old;
+    }
   }
 
   // Лист куратора: 4 страницы A4 horizontal, по одному отряду на лист.
@@ -1816,93 +1856,7 @@ pages.join('')+
   window.paySyncFromAlfa = paySyncFromAlfa;
   window.payPrint = payPrint;
   window.payToggleSigned = payToggleSigned;
-  // Конвертик у имени педагога в блоке «📋 Не закрыты задачи педагогов».
-  // Нормализация ФИО для поиска в справочнике: lowercase, ё→е, схлопывание пробелов,
-  // сортировка слов по алфавиту. «Гайкова Тамара» ≡ «Тамара Гайкова».
-  function _normPersonNameKey(s){
-    return String(s||'')
-      .toLowerCase()
-      .replace(/ё/g, 'е')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .split(' ')
-      .filter(Boolean)
-      .sort()
-      .join(' ');
-  }
-
-  async function sendTeacherViberMessage(teacherFullName){
-    const items = (window._ahTeacherTasks || {})[teacherFullName] || [];
-    if (!items.length){ toast('У педагога нет открытых задач'); return; }
-    const st = window._ahState;
-    if (!st){ toast('Состояние смены ещё не загружено'); return; }
-
-    const parts = String(teacherFullName).trim().split(/\s+/);
-    const firstName = parts.length > 1 ? parts[parts.length-1] : parts[0];
-
-    const todayIdxLocal = _todayDayIdx(st);
-    const lines = items.map(it => {
-      const tags = [];
-      if (it.missReport) tags.push('нет отчёта');
-      if (it.missScores) tags.push('не выставлены баллы');
-      if (it.partialCount) tags.push('недозаполнено ' + it.partialCount);
-      const date = _dateForDay(st, it.dayIdx);
-      const dateStr = date.getDate() + ' ' + _M[date.getMonth()];
-      const dayLabel = (todayIdxLocal >= 0 && it.dayIdx === todayIdxLocal) ? '' : ' (' + dateStr + ')';
-      return '• ' + it.mkName + dayLabel + ' — ' + tags.join(', ');
-    });
-
-    const hasPast = items.some(it => todayIdxLocal >= 0 && it.dayIdx < todayIdxLocal);
-    const whenPhrase = hasPast ? 'на сегодня и за прошлые дни' : 'на сегодня';
-
-    const text =
-      firstName + ', доброго дня!\n' +
-      'Не закрыты задачи ' + whenPhrase + ':\n' +
-      lines.join('\n') + '\n\n' +
-      'Пожалуйста, закрой до 17:30.';
-
-    const phoneRaw = (window._ahCuratorPhones || {})[_normPersonNameKey(teacherFullName)] || '';
-    let viberUrl = 'viber://';
-    let phoneNote = '';
-    if (phoneRaw){
-      let digits = String(phoneRaw).replace(/\D/g, '');
-      if (digits.startsWith('80')) digits = '375' + digits.slice(2);
-      if (digits.length === 9) digits = '375' + digits;
-      if (digits.length === 12 && digits.startsWith('375')){
-        viberUrl = 'viber://chat?number=%2B' + digits;
-      } else {
-        phoneNote = ' (телефон «' + phoneRaw + '» — нераспознанный формат, Viber откроется без номера)';
-      }
-    } else {
-      phoneNote = ' (нет телефона в справочнике — добавь в Sheets: «Кураторы (справочник)»)';
-    }
-
-    let copied = false;
-    try {
-      await navigator.clipboard.writeText(text);
-      copied = true;
-    } catch (e) {
-      try {
-        const ta = document.createElement('textarea');
-        ta.value = text;
-        ta.style.position = 'fixed'; ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.select();
-        copied = document.execCommand('copy');
-        document.body.removeChild(ta);
-      } catch (_) { copied = false; }
-    }
-    if (copied){
-      toast('Текст скопирован — нажми Ctrl+V в открывшемся чате' + phoneNote);
-    } else {
-      toast('Не получилось скопировать автоматически — текст в консоли' + phoneNote);
-      console.log('=== Текст для Viber ===\n' + text);
-    }
-    window.location.href = viberUrl;
-  }
-
   window.openContractMessage = openContractMessage;
-  window.sendTeacherViberMessage = sendTeacherViberMessage;
 
   function openHelp(){ document.getElementById('help-popup').classList.add('open'); }
   function closeHelp(){ document.getElementById('help-popup').classList.remove('open'); }
@@ -2076,85 +2030,33 @@ pages.join('')+
       });
     });
 
-    // Параллельно: статусы записей (отчёты) + баллы (mkTouched + полный словарь) + дети сезона + справочник кураторов (имя→телефон).
-    let notes = {}, mkScored = {}, scoresFull = {}, childrenById = {}, childrenByTroop = {}, curatorPhones = {};
+    // Параллельно: статусы записей (отчёты) + баллы (mkTouched).
+    let notes = {}, mkScored = {};
     await Promise.all([
       fetch(LIBRARY_URL + '?action=listLessonNotes&seasonId=' + encodeURIComponent(SEASON_ID))
         .then(r => r.json()).then(r => { if (r && r.ok && r.notes) notes = r.notes; }).catch(()=>{}),
       fetch(LIBRARY_URL + '?action=getScores&seasonId=' + encodeURIComponent(SEASON_ID))
         .then(r => r.json()).then(r => {
           // Бэк отдаёт { ok, scores: { seasonId, scores, mkTouched } } — mkTouched лежит на уровне r.scores.
+          // Поддерживаем три варианта на случай разных версий бэка:
+          //   r.scores.mkTouched  — текущий формат (jsonResponse({ok, scores: getScores_()}))
+          //   r.result.mkTouched  — если когда-то перевернут на {ok, result}
+          //   r.mkTouched         — плоский ответ
           const data = (r && r.scores && Array.isArray(r.scores.mkTouched)) ? r.scores
                     : (r && r.result && Array.isArray(r.result.mkTouched)) ? r.result
                     : r;
           if (data && Array.isArray(data.mkTouched)) {
             data.mkTouched.forEach(k => { mkScored[k] = true; });
           }
-          if (data && data.scores && typeof data.scores === 'object') {
-            scoresFull = data.scores;
-          }
-        }).catch(()=>{}),
-      fetch(LIBRARY_URL + '?action=getChildren&seasonId=' + encodeURIComponent(SEASON_ID))
-        .then(r => r.json()).then(r => {
-          if (r && r.ok && Array.isArray(r.children)) {
-            r.children.forEach(k => {
-              childrenById[String(k.crmId)] = k;
-              const t = Number(k.troop);
-              if (!childrenByTroop[t]) childrenByTroop[t] = [];
-              childrenByTroop[t].push(k);
-            });
-          }
-        }).catch(()=>{}),
-      fetch(LIBRARY_URL + '?action=getCuratorsDirectory')
-        .then(r => r.json()).then(r => {
-          const items = (r && r.result && Array.isArray(r.result.items)) ? r.result.items
-                      : (r && Array.isArray(r.items)) ? r.items : [];
-          items.forEach(it => {
-            const phone = String(it.phone || '').trim();
-            if (!phone) return;
-            const k = _normPersonNameKey(it.name);
-            if (k && !curatorPhones[k]) curatorPhones[k] = phone;
-          });
         }).catch(()=>{})
     ]);
-    window._ahCuratorPhones = curatorPhones;
-
-    // Хелперы для расчёта недозаполненных детей.
-    const SCORE_CRITS = ['interest','diligence','potential'];
-    const _troopFromMkKey = (mkKey) => {
-      const m = String(mkKey||'').match(/_t(AB|\d+)$/);
-      return m ? m[1] : null;
-    };
-    const _childIdsTouchedInMk = (mkKey) => {
-      const ids = new Set();
-      const prefix = mkKey + '|';
-      Object.keys(scoresFull).forEach(k => {
-        if (k.indexOf(prefix) === 0) {
-          const parts = k.split('|');
-          if (parts[1]) ids.add(parts[1]);
-        }
-      });
-      return Array.from(ids);
-    };
-    const _kidUnderfilledInMk = (mkKey, childId) => {
-      const absent = scoresFull[mkKey+'|'+childId+'|absent'] === '1';
-      if (absent) return false;
-      // Старый формат до миграции: 'x' в любой из категорий означал «не был».
-      const oldAbsent = SCORE_CRITS.some(cr => scoresFull[mkKey+'|'+childId+'|'+cr] === 'x');
-      if (oldAbsent) return false;
-      const allFilled = SCORE_CRITS.every(cr => {
-        const v = scoresFull[mkKey+'|'+childId+'|'+cr];
-        return v != null && v !== '';
-      });
-      return !allFilled;
-    };
 
     // Для каждой группы решаем, что не сделано.
     // ВАЖНО: группа попадает в трекер только если у неё есть хотя бы один из двух
     // флагов задач — needsReport (🎤) или needsScores (📊). Так отрезаются кураторы,
     // админы и любые слоты, по которым админ не задал ни одной задачи.
     // missReport проверяем только если needsReport === true; аналогично для баллов.
-    const byTeacher = {}; // teacher → [{dayIdx, mkName, missReport, missScores, partialNames}]
+    const byTeacher = {}; // teacher → [{dayIdx, mkName, missReport, missScores}]
     Object.keys(buckets).forEach(gid => {
       const g = buckets[gid];
       if (!g.needsReport && !g.needsScores) return; // ни одной задачи на группу — пропускаем
@@ -2162,37 +2064,10 @@ pages.join('')+
       const scoresDone = g.mkKeys.some(k => mkScored[k]);
       const missReport = g.needsReport && !reportDone;
       const missScores = g.needsScores && !scoresDone;
-
-      // Недозаполненные дети — считаем только если задача баллов есть И педагог уже начал (scoresDone),
-      // иначе тег «не выставлены баллы» сам уведомит, и второй сверху не нужен.
-      const partialIds = new Map(); // childId -> name
-      if (g.needsScores && scoresDone) {
-        g.mkKeys.forEach(mkKey => {
-          const t = _troopFromMkKey(mkKey);
-          let candidates;
-          if (t && t !== 'AB' && /^\d+$/.test(t)) {
-            const troopNum = Number(t);
-            candidates = (childrenByTroop[troopNum] || []).map(k => String(k.crmId));
-          } else {
-            // нераспознанный формат — fallback на трогавшихся
-            candidates = _childIdsTouchedInMk(mkKey);
-          }
-          candidates.forEach(childId => {
-            if (_kidUnderfilledInMk(mkKey, childId)) {
-              const kid = childrenById[childId];
-              const name = kid && kid.name ? kid.name : ('#'+childId);
-              partialIds.set(childId, name);
-            }
-          });
-        });
-      }
-      const partialNames = Array.from(partialIds.values()).sort((a,b)=>a.localeCompare(b,'ru'));
-
-      if (!missReport && !missScores && partialNames.length === 0) return;
+      if (!missReport && !missScores) return;
       const t = g.teacher;
       (byTeacher[t] = byTeacher[t] || []).push({
-        dayIdx: g.dayIdx, mkName: g.mkName, missReport: missReport, missScores: missScores,
-        partialNames: partialNames
+        dayIdx: g.dayIdx, mkName: g.mkName, missReport: missReport, missScores: missScores
       });
     });
 
@@ -2236,24 +2111,12 @@ pages.join('')+
     const curNames = Object.keys(teachersCurrent).sort((a,b)=>a.localeCompare(b,'ru'));
     const futNames = Object.keys(teachersFuture).sort((a,b)=>a.localeCompare(b,'ru'));
 
-    // Карта «педагог → его задачи» для конвертика-кнопки (Viber).
-    window._ahTeacherTasks = {};
-    window._ahState = state;
-
     // Хелпер: блок одного списка педагогов.
     const renderTeacherList = (names, dict) => {
       let h = '';
       names.forEach(t => {
         const items = dict[t].sort((a,b) => a.dayIdx - b.dayIdx || a.mkName.localeCompare(b.mkName, 'ru'));
-        window._ahTeacherTasks[t] = items.map(it => ({
-          dayIdx: it.dayIdx, mkName: it.mkName,
-          missReport: !!it.missReport, missScores: !!it.missScores,
-          partialCount: (it.partialNames && it.partialNames.length) || 0
-        }));
-        const envBtn = '<button class="ah-env-btn" onclick="sendTeacherViberMessage(\''
-                       + escapeHtml(t).replace(/'/g,'&#39;')
-                       + '\')" title="Скопировать сообщение и открыть Viber">✉</button>';
-        h += '<div class="ah-teacher">' + escapeHtml(t) + envBtn + '</div><ul class="ah-list">';
+        h += '<div class="ah-teacher">' + escapeHtml(t) + '</div><ul class="ah-list">';
         items.forEach(it => {
           const date = _dateForDay(state, it.dayIdx);
           const dateStr = date.getDate() + ' ' + _M[date.getMonth()];
@@ -2261,10 +2124,6 @@ pages.join('')+
           const tags = [];
           if (it.missReport) tags.push('<span class="ah-tag report">нет отчёта</span>');
           if (it.missScores) tags.push('<span class="ah-tag scores">не выставлены баллы</span>');
-          if (it.partialNames && it.partialNames.length){
-            const nameList = it.partialNames.join(', ');
-            tags.push('<span class="ah-tag partial" title="'+escapeHtml(nameList)+'">недозаполнено '+it.partialNames.length+'</span>');
-          }
           h += '<li>' + escapeHtml(dayLabel) + ' — ' + escapeHtml(it.mkName) + ' ' + tags.join(' ') + '</li>';
         });
         h += '</ul>';
