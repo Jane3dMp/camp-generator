@@ -1018,7 +1018,7 @@
           const labelCl = 'отряды ' + g.cluster.join(', ');
           cluster.forEach((s, i) => {
             pushSlot(s, {
-              time: times[i] || fullT,
+              time: fullT,
               troopsLabel: labelCl,
               isTrip: false,
               mkKey: idx + '_' + half + '_cluster_' + i
@@ -1026,7 +1026,7 @@
           });
           outside.forEach((s, i) => {
             pushSlot(s, {
-              time: times[i] || fullT,
+              time: fullT,
               troopsLabel: labelCl,
               isTrip: false,
               mkKey: idx + '_' + half + '_outside_' + i
@@ -1043,7 +1043,7 @@
         const outsideGroup = groupForHalf(half, 'outside');
         cluster.forEach((s, i) => {
           pushSlot(s, {
-            time: times[i] || fullT,
+            time: fullT,
             troopsLabel: 'отряды ' + clusterGroup.join(', '),
             isTrip: false,
             mkKey: idx + '_' + half + '_cluster_' + i
@@ -1051,7 +1051,7 @@
         });
         outside.forEach((s, i) => {
           pushSlot(s, {
-            time: times[i] || fullT,
+            time: fullT,
             troopsLabel: 'отряды ' + outsideGroup.join(', '),
             isTrip: false,
             mkKey: idx + '_' + half + '_outside_' + i
