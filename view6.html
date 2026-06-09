@@ -1432,6 +1432,12 @@
       } catch (e) {}
       ctx.mkKeys = mkKeys;
       ctx.troops = sortTroops(troops);
+      // 6-отрядная: МК часто один слот с групповой меткой «отряды 4, 5, 6».
+      // Если пересборка из расписания не дала отдельных отрядов — разворачиваем метку слота.
+      if (ctx.troops.length <= 1) {
+        var expandedSelf = expandTroopLabels_(ctx.troopsLabel || '');
+        if (expandedSelf.length > 1) ctx.troops = sortTroops(expandedSelf);
+      }
       ctx.coverLabel = ctx.troops.length > 1 ? ctx.troops.join(', ') : (troopLabelOf(ctx) || ctx.troopsLabel || '');
     }
 
