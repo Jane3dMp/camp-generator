@@ -13457,7 +13457,7 @@ function openPhonesModal() {
 
   document.getElementById('modal-body').innerHTML = `
     <div style="font-family:Geologica,serif;font-style:italic;font-size:13px;color:rgba(21,22,23,0.7);margin-bottom:12px;line-height:1.5">
-      Viber ищет контакты по одному. Жми 📋 у нужного родителя, вставляй в поиск контактов Viber, добавляй — и переходи к следующему. Скопированные подсвечиваются, чтобы не запутаться.
+      Viber ищет контакты по одному. Жми 📋 у нужного родителя, вставляй в поиск контактов Viber, добавляй — и переходи к следующему. Скопированные подсвечиваются, чтобы не запутаться. По галочке слева можно снять или поставить отметку вручную — например, у тех, кто запретил добавление в группу.
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px;flex-wrap:wrap">
       <span id="phones-counter" style="font-family:Inter,sans-serif;font-size:12px;color:rgba(21,22,23,0.6)"></span>
@@ -13476,11 +13476,26 @@ function _phoneRowHtml(v, i) {
   const done = _phonesCopiedSet.has(i);
   return `
     <div class="phone-row" data-idx="${i}" style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:6px;border:1px solid ${done ? 'rgba(143,163,112,0.5)' : 'rgba(21,22,23,0.12)'};background:${done ? 'rgba(143,163,112,0.12)' : 'var(--white)'};font-family:Inter,sans-serif">
-      <span style="flex-shrink:0;width:18px;text-align:center;color:var(--moss);font-weight:700">${done ? '✓' : ''}</span>
+      <button onclick="_togglePhoneCopied(${i})" title="${done ? 'Снять отметку' : 'Отметить вручную (например, тех, кто запретил добавление)'}"
+              style="flex-shrink:0;width:22px;height:22px;padding:0;line-height:1;cursor:pointer;border-radius:4px;border:1px solid ${done ? 'var(--moss)' : 'rgba(21,22,23,0.25)'};background:${done ? 'var(--moss)' : 'transparent'};color:${done ? '#fff' : 'transparent'};font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center">✓</button>
       <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">${escapeHtml(v.name)}</span>
       <span style="font-variant-numeric:tabular-nums;font-size:13px;color:rgba(21,22,23,0.7)">${escapeHtml(v.phone)}</span>
       <button class="btn btn-sm" onclick="_copyOnePhone(${i})" title="Скопировать этот номер">📋</button>
     </div>`;
+}
+
+// Переключает метку «скопировано/обработано» вручную, без копирования.
+// Нужно чтобы снять галочку (например, у тех, кто запретил добавление в группу),
+// или наоборот отметить вручную пропускаемых.
+function _togglePhoneCopied(i) {
+  const list = window._phonesModalList || [];
+  const v = list[i];
+  if (!v) return;
+  if (_phonesCopiedSet.has(i)) _phonesCopiedSet.delete(i);
+  else _phonesCopiedSet.add(i);
+  const row = document.querySelector('.phone-row[data-idx="' + i + '"]');
+  if (row) row.outerHTML = _phoneRowHtml(v, i);
+  _updatePhonesCounter();
 }
 
 function _updatePhonesCounter() {
