@@ -76,6 +76,7 @@
   .stats{display:flex;gap:12px;margin:18px 0 4px;justify-content:center;flex-wrap:wrap}
   .stat{flex:1 1 0;min-width:120px;background:#FBF6EC;border-radius:14px;padding:16px 12px;text-align:center}
   .stat .num{font-family:'Unbounded';font-size:30px;font-weight:700;color:var(--terra);line-height:1}
+  .stat .num .num-word{font-size:20px;line-height:1.1;display:inline-block}
   .stat .lbl{font-size:12px;color:var(--muted);margin-top:6px}
 
   /* radar */
@@ -120,6 +121,11 @@
 
   /* зона роста */
   .growth{background:#F4E8D6;border-left:3px solid var(--terra);border-radius:0 10px 10px 0;padding:14px 18px;font-size:14px;line-height:1.6;color:#6B4A32}
+  .strong-mk-note{font-size:13px;color:var(--muted);margin-bottom:10px}
+  .strong-mk-list{display:flex;flex-direction:column;gap:8px}
+  .strong-mk{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 10px;background:#FBF6EC;border-left:3px solid #C9A227;border-radius:0 10px 10px 0;padding:10px 14px}
+  .strong-mk .smk-name{font-size:14px;font-weight:600;color:#5A3A28}
+  .strong-mk .smk-crits{font-size:12px;color:#9A7B2E;font-weight:600}
   .proven-note{background:#E9F0E2;border-left:3px solid #8FA370;border-radius:0 10px 10px 0;padding:14px 18px;font-size:14px;line-height:1.6;color:#4A5A38}
 
   /* что дальше */
@@ -620,11 +626,18 @@
 
     // ── ТРИ ЦИФРЫ ──
     const nDirs=Object.keys(avgs).length;
+    const ovAvg=overallAvg(byMk);
+    // Для родителя средний балл показываем словом (по порогам LADDER), чтобы цифра 3.6
+    // не читалась как школьная тройка. Внутри (педагоги/админ) — оставляем число.
+    const ovWord = ovAvg>=4.6?'Мастерски':ovAvg>=4.0?'Уверенно':ovAvg>=3.0?'Активно':'В развитии';
+    const thirdNum = parent ? '<span class="num-word">'+ovWord+'</span>' : ovAvg.toFixed(1);
+    const thirdLbl = parent ? 'уровень вовлечённости' : 'средний балл';
     html+='<div class="stats">'+
       '<div class="stat"><div class="num">'+mkNames.length+'</div><div class="lbl">занятий прошёл</div></div>'+
       '<div class="stat"><div class="num">'+nDirs+'</div><div class="lbl">направлен'+(nDirs===1?'ие':(nDirs<5?'ия':'ий'))+' освоил</div></div>'+
-      '<div class="stat"><div class="num">'+overallAvg(byMk).toFixed(1)+'</div><div class="lbl">средний балл</div></div>'+
+      '<div class="stat"><div class="num">'+thirdNum+'</div><div class="lbl">'+thirdLbl+'</div></div>'+
       '</div></div>';
+
 
     // ── ХАРАКТЕРИСТИКА (письмо) ──
     html+='<div class="card"><div class="card-title">✍️ Живая характеристика</div><div id="letter-slot">';
@@ -667,6 +680,30 @@
       html+='<div class="card"><div class="card-title">🏆 Особые знаки</div><div class="badges">';
       strong.forEach(d=>{ html+='<div class="badge">'+(BADGE_IC[d]||'⭐')+' '+escapeHtml(d)+(parent?'':' <span class="b-val">'+avgs[d].toFixed(1)+'</span>')+'</div>'; });
       html+='</div></div>';
+    }
+
+    // ── ЯРЧЕ ВСЕГО ПРОЯВИЛ СЕБЯ (для родителя) ──
+    // Занятия, где ребёнок получил хотя бы одну оценку 4 или 5 — показываем родителю
+    // как сильные стороны. Чипом: название занятия + по каким критериям отличился.
+    if(parent){
+      const strongMks=[];
+      mkNames.forEach(n=>{
+        const mk=byMk[n]; const labels=mk.comm?CRIT_RU_COMM:CRIT_RU;
+        const high=[];
+        CRIT_KEYS.forEach(cr=>{ if(mk.crits[cr]!==undefined && mk.crits[cr]>=4) high.push(labels[cr]); });
+        if(high.length) strongMks.push({ name:n, crits:high });
+      });
+      if(strongMks.length){
+        const fn=(kid.name.split(/\s+/)[1]||kid.name.split(/\s+/)[0]||kid.name);
+        html+='<div class="card"><div class="card-title">🌟 Ярче всего проявил'+(/(а|я)$/i.test(fn)?'а':'')+' себя</div>'+
+          '<div class="strong-mk-note">Занятия, где '+escapeHtml(fn)+' особенно отличил'+(/(а|я)$/i.test(fn)?'ась':'ся')+':</div>'+
+          '<div class="strong-mk-list">';
+        strongMks.forEach(m=>{
+          html+='<div class="strong-mk"><span class="smk-name">'+escapeHtml(m.name)+'</span>'+
+            '<span class="smk-crits">'+escapeHtml(m.crits.join(' · '))+'</span></div>';
+        });
+        html+='</div></div>';
+      }
     }
 
     // ── ЗОНА РОСТА ──
