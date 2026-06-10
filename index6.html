@@ -3458,7 +3458,7 @@
     <button class="btn" onclick="reshuffleTroops()" title="Переразложить незакреплённых по возрасту">🔀 Переразбить</button>
     <button class="btn" onclick="checkTroopsActuality()" id="troops-check-btn" title="Сравнить список с актуальным составом в Альфе">🔍 Проверить актуальность</button>
     <button class="btn" onclick="saveTroopsManual()" title="Сохранить распределение в таблицу">💾 Сохранить</button>
-    <button class="btn" onclick="copyAllPhones()" title="Скопировать телефоны всех родителей смены">📋 Скопировать все номера</button>
+    <button class="btn" onclick="openPhonesModal()" title="Список номеров родителей — копировать по одному для добавления в Viber-группу">📞 Номера для Viber</button>
   </div>
   <div class="troops-statusbar">
     <span id="troops-save-status"><span style="color:var(--moss)">●</span> сохранено</span>
@@ -13392,27 +13392,130 @@ async function saveTroopsManual() {
   catch (e) { toast('Ошибка: ' + e.message); }
 }
 
-async function copyAllPhones(){
-  const withPhone = []; let noPhone = 0;
+// ── Номера родителей для Viber (копирование по одному) ──
+// Viber ищет контакты по одному запросу — массовая вставка списка в поиск не работает.
+// Поэтому: модалка со списком, у каждого кнопка 📋 (копирует один номер и помечает строку).
+// Отметки «скопировано» живут только пока модалка открыта (в _phonesCopiedSet), нигде не сохраняются.
+
+// Нормализует телефон родителя к виду +375XXXXXXXXX.
+// Возвращает {ok:true, phone:'+375…'} либо {ok:false} если номер не привёлся.
+// Валидно: 375+9 цифр (12), 80+9 (11→375), либо 9 цифр с кодом оператора 25/29/33/44.
+function _normalizeParentPhone(raw) {
+  let d = String(raw || '').replace(/\D/g, '');
+  if (!d) return { ok: false };
+  if (d.length === 11 && d.startsWith('80')) d = '375' + d.slice(2);
+  else if (d.length === 9 && /^(25|29|33|44)/.test(d)) d = '375' + d;
+  // после приведения должно быть ровно 375 + 9 цифр, код оператора валиден
+  if (d.length === 12 && d.startsWith('375') && /^375(25|29|33|44)/.test(d)) {
+    return { ok: true, phone: '+' + d };
+  }
+  return { ok: false };
+}
+
+let _phonesCopiedSet = new Set();
+
+function openPhonesModal() {
+  // Собираем валидные и невалидные номера из текущего списка детей смены
+  const valid = [];   // {name, phone}
+  const invalid = []; // {name, raw}
   _troopsKids.forEach(k => {
-    let d = String(k.parentPhone||'').replace(/\D/g,'');
-    if(!d){ noPhone++; return; }
-    if(d.startsWith('80')) d = '375'+d.slice(2);
-    if(d.length===9) d = '375'+d;
-    if(d.length===12 && d.startsWith('375')) withPhone.push('+'+d);
-    else noPhone++;
+    const raw = String(k.parentPhone || '').trim();
+    const norm = _normalizeParentPhone(raw);
+    if (norm.ok) valid.push({ name: k.name || '—', phone: norm.phone });
+    else if (raw) invalid.push({ name: k.name || '—', raw: raw });
+    // дети совсем без телефона — молча пропускаем
   });
-  if(!withPhone.length){ toast('Нет номеров для копирования'); return; }
-  const text = withPhone.join('\n');
-  try { await navigator.clipboard.writeText(text); }
-  catch(e){
-    const ta=document.createElement('textarea'); ta.value=text;
-    ta.style.position='fixed'; ta.style.opacity='0';
+  // Дедуп валидных по номеру (один родитель — несколько детей)
+  const seen = new Set();
+  const validUniq = [];
+  valid.forEach(v => { if (!seen.has(v.phone)) { seen.add(v.phone); validUniq.push(v); } });
+
+  window._phonesModalList = validUniq;
+  _phonesCopiedSet = new Set();
+
+  document.getElementById('modal-title').innerHTML = 'Номера родителей <em>для Viber</em>';
+
+  if (validUniq.length === 0 && invalid.length === 0) {
+    document.getElementById('modal-body').innerHTML = `
+      <div style="font-family:Geologica,serif;font-style:italic;font-size:14px;color:rgba(21,22,23,0.6);padding:20px;text-align:center">
+        Нет телефонов. Сначала импортируй детей из Альфы.
+      </div>
+      <div class="modal-actions"><button class="btn" onclick="closeModal()">Закрыть</button></div>`;
+    openModal();
+    return;
+  }
+
+  const invalidBlock = invalid.length === 0 ? '' : `
+    <div style="margin-top:18px;padding-top:14px;border-top:1px solid rgba(21,22,23,0.12)">
+      <div style="font-family:Inter,sans-serif;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#c0392b;font-weight:600;margin-bottom:8px">
+        ⚠ Не распознаны (${invalid.length}) — занести вручную
+      </div>
+      <div style="font-family:Inter,sans-serif;font-size:13px;line-height:1.7;color:rgba(21,22,23,0.75)">
+        ${invalid.map(x => '• ' + escapeHtml(x.name) + ' — <code style="background:rgba(21,22,23,0.06);padding:1px 5px;border-radius:2px">' + escapeHtml(x.raw) + '</code>').join('<br>')}
+      </div>
+    </div>`;
+
+  document.getElementById('modal-body').innerHTML = `
+    <div style="font-family:Geologica,serif;font-style:italic;font-size:13px;color:rgba(21,22,23,0.7);margin-bottom:12px;line-height:1.5">
+      Viber ищет контакты по одному. Жми 📋 у нужного родителя, вставляй в поиск контактов Viber, добавляй — и переходи к следующему. Скопированные подсвечиваются, чтобы не запутаться.
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px;flex-wrap:wrap">
+      <span id="phones-counter" style="font-family:Inter,sans-serif;font-size:12px;color:rgba(21,22,23,0.6)"></span>
+      <button class="btn btn-sm btn-ghost" onclick="_resetPhonesCopied()">↺ сбросить отметки</button>
+    </div>
+    <div id="phones-list" style="display:flex;flex-direction:column;gap:5px;max-height:48vh;overflow-y:auto">
+      ${validUniq.map((v, i) => _phoneRowHtml(v, i)).join('')}
+    </div>
+    ${invalidBlock}
+    <div class="modal-actions"><button class="btn" onclick="closeModal()">Закрыть</button></div>`;
+  openModal();
+  _updatePhonesCounter();
+}
+
+function _phoneRowHtml(v, i) {
+  const done = _phonesCopiedSet.has(i);
+  return `
+    <div class="phone-row" data-idx="${i}" style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:6px;border:1px solid ${done ? 'rgba(143,163,112,0.5)' : 'rgba(21,22,23,0.12)'};background:${done ? 'rgba(143,163,112,0.12)' : 'var(--white)'};font-family:Inter,sans-serif">
+      <span style="flex-shrink:0;width:18px;text-align:center;color:var(--moss);font-weight:700">${done ? '✓' : ''}</span>
+      <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">${escapeHtml(v.name)}</span>
+      <span style="font-variant-numeric:tabular-nums;font-size:13px;color:rgba(21,22,23,0.7)">${escapeHtml(v.phone)}</span>
+      <button class="btn btn-sm" onclick="_copyOnePhone(${i})" title="Скопировать этот номер">📋</button>
+    </div>`;
+}
+
+function _updatePhonesCounter() {
+  const el = document.getElementById('phones-counter');
+  if (!el) return;
+  const total = (window._phonesModalList || []).length;
+  el.textContent = 'Скопировано: ' + _phonesCopiedSet.size + ' из ' + total;
+}
+
+async function _copyOnePhone(i) {
+  const list = window._phonesModalList || [];
+  const v = list[i];
+  if (!v) return;
+  try { await navigator.clipboard.writeText(v.phone); }
+  catch (e) {
+    const ta = document.createElement('textarea');
+    ta.value = v.phone; ta.style.position = 'fixed'; ta.style.opacity = '0';
     document.body.appendChild(ta); ta.select();
-    try{ document.execCommand('copy'); }catch(_){}
+    try { document.execCommand('copy'); } catch (_) {}
     document.body.removeChild(ta);
   }
-  toast('Скопировано номеров: '+withPhone.length+(noPhone?(' · без телефона: '+noPhone):''));
+  _phonesCopiedSet.add(i);
+  // Перерисовываем только эту строку
+  const row = document.querySelector('.phone-row[data-idx="' + i + '"]');
+  if (row) row.outerHTML = _phoneRowHtml(v, i);
+  _updatePhonesCounter();
+  toast('Скопировано: ' + v.phone);
+}
+
+function _resetPhonesCopied() {
+  _phonesCopiedSet = new Set();
+  const list = window._phonesModalList || [];
+  const cont = document.getElementById('phones-list');
+  if (cont) cont.innerHTML = list.map((v, i) => _phoneRowHtml(v, i)).join('');
+  _updatePhonesCounter();
 }
 
 function renderTroopsBoard() {
