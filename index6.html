@@ -3458,6 +3458,7 @@
     <button class="btn" onclick="reshuffleTroops()" title="Переразложить незакреплённых по возрасту">🔀 Переразбить</button>
     <button class="btn" onclick="checkTroopsActuality()" id="troops-check-btn" title="Сравнить список с актуальным составом в Альфе">🔍 Проверить актуальность</button>
     <button class="btn" onclick="saveTroopsManual()" title="Сохранить распределение в таблицу">💾 Сохранить</button>
+    <button class="btn" onclick="copyAllPhones()" title="Скопировать телефоны всех родителей смены">📋 Скопировать все номера</button>
   </div>
   <div class="troops-statusbar">
     <span id="troops-save-status"><span style="color:var(--moss)">●</span> сохранено</span>
@@ -13389,6 +13390,29 @@ async function saveTroopsManual() {
   troopsSetStatus_(false);
   try { await saveTroopsToServer_(); troopsSetStatus_(true); toast('Отряды сохранены'); }
   catch (e) { toast('Ошибка: ' + e.message); }
+}
+
+async function copyAllPhones(){
+  const withPhone = []; let noPhone = 0;
+  _troopsKids.forEach(k => {
+    let d = String(k.parentPhone||'').replace(/\D/g,'');
+    if(!d){ noPhone++; return; }
+    if(d.startsWith('80')) d = '375'+d.slice(2);
+    if(d.length===9) d = '375'+d;
+    if(d.length===12 && d.startsWith('375')) withPhone.push('+'+d);
+    else noPhone++;
+  });
+  if(!withPhone.length){ toast('Нет номеров для копирования'); return; }
+  const text = withPhone.join('\n');
+  try { await navigator.clipboard.writeText(text); }
+  catch(e){
+    const ta=document.createElement('textarea'); ta.value=text;
+    ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); }catch(_){}
+    document.body.removeChild(ta);
+  }
+  toast('Скопировано номеров: '+withPhone.length+(noPhone?(' · без телефона: '+noPhone):''));
 }
 
 function renderTroopsBoard() {
