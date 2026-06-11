@@ -271,6 +271,16 @@
   // ── UTILS ──
   function getQueryParam(n){ const m=new RegExp('[?&]'+n+'=([^&#]*)').exec(window.location.search); return m?decodeURIComponent(m[1]):''; }
   function escapeHtml(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+  // Чистит имя ребёнка для показа: убирает скобочные служебные заметки из Альфы
+  // (напр. «(в один отряд на 3-4 см с Зайцевой М)») и обрезает до Фамилия+Имя (2 слова).
+  // Исходное k.name в данных не меняется — чистим только для отображения.
+  function cleanChildName_(name){
+    let s = String(name == null ? '' : name);
+    s = s.replace(/\([^)]*\)/g, ' ');   // убираем всё в круглых скобках
+    s = s.replace(/\s+/g, ' ').trim();   // схлопываем пробелы
+    const parts = s.split(' ').filter(Boolean);
+    return parts.slice(0, 2).join(' ');  // Фамилия Имя
+  }
   function normalizeName(s){ if(!s) return ''; return String(s).toLowerCase().replace(/ё/g,'е').replace(/\s+/g,' ').trim(); }
   // 6-отрядная физика
   const TROOPS_GROUP_A = [1, 2, 3];
@@ -487,7 +497,7 @@
 
       const sel=document.getElementById('child-pick');
       const kids=troopsChildren.slice().sort((a,b)=>(Number(a.troop)-Number(b.troop))||String(a.name).localeCompare(b.name,'ru'));
-      sel.innerHTML='<option value="">—</option>'+kids.map(k=>'<option value="'+escapeHtml(String(k.crmId))+'">'+escapeHtml(k.name)+'</option>').join('');
+      sel.innerHTML='<option value="">—</option>'+kids.map(k=>'<option value="'+escapeHtml(String(k.crmId))+'">'+escapeHtml(cleanChildName_(k.name))+'</option>').join('');
 
       const childFromUrl=getQueryParam('child');
       if(childFromUrl){ sel.value=childFromUrl; onChildChange(); }
@@ -605,6 +615,9 @@
   function renderPassport(childId){
     const kid=findChild(childId);
     if(!kid){ document.getElementById('content').innerHTML='<div class="err">Ребёнок не найден.</div>'; return; }
+    // Очищенное имя для показа (без скобок, Фамилия+Имя) и имя для склонений.
+    const dispName=cleanChildName_(kid.name);
+    const firstNameForText=(dispName.split(/\s+/)[1]||dispName.split(/\s+/)[0]||dispName);
     const byMk=childMkScores(childId);
     const mkNames=Object.keys(byMk);
     const avgs=dirAverages(byMk);
@@ -615,7 +628,7 @@
     // ── ШАПКА (карточка) ──
     html+='<div class="card"><div class="pass-head">'+
       '<div class="pass-kicker">прознание · coddy · каникулы в клубе</div>'+
-      '<div class="pass-name">'+escapeHtml(kid.name)+'</div>'+
+      '<div class="pass-name">'+escapeHtml(dispName)+'</div>'+
       '<div class="pass-meta">отряд '+kid.troop+(kid.age?' · '+kid.age+' лет':'')+'</div>'+
       (theme?'<div class="pass-theme">смена «'+escapeHtml(theme)+'»</div>':'')+
       '</div>';
@@ -644,8 +657,8 @@
     // ── ХАРАКТЕРИСТИКА (письмо) ──
     html+='<div class="card"><div class="card-title">✍️ Живая характеристика</div><div id="letter-slot">';
     if(letterCache[childId]){ html+='<div class="letter-box">'+escapeHtml(letterCache[childId])+'</div>'; }
-    else if(parent){ html+='<div class="letter-loading">Педагоги готовят характеристику для '+escapeHtml(kid.name.split(/\s+/)[1]||kid.name)+' — она появится здесь чуть позже.</div>'; }
-    else { html+='<button class="gen-letter-btn" onclick="genLetter(\''+escapeHtml(String(childId))+'\',\''+escapeHtml(kid.name)+'\')">✍️ Сформировать характеристику</button>'; }
+    else if(parent){ html+='<div class="letter-loading">Педагоги готовят характеристику для '+escapeHtml(firstNameForText)+' — она появится здесь чуть позже.</div>'; }
+    else { html+='<button class="gen-letter-btn" onclick="genLetter(\''+escapeHtml(String(childId))+'\',\''+escapeHtml(dispName)+'\')">✍️ Сформировать характеристику</button>'; }
     html+='</div></div>';
 
     // ── РАДАР ──
@@ -699,7 +712,7 @@
         if(high.length) strongMks.push({ name:n, crits:high });
       });
       if(strongMks.length){
-        const fn=(kid.name.split(/\s+/)[1]||kid.name.split(/\s+/)[0]||kid.name);
+        const fn=firstNameForText;
         html+='<div class="card"><div class="card-title">🌟 Ярче всего проявил'+(/(а|я)$/i.test(fn)?'а':'')+' себя</div>'+
           '<div class="strong-mk-note">Занятия, где '+escapeHtml(fn)+' особенно отличил'+(/(а|я)$/i.test(fn)?'ась':'ся')+':</div>'+
           '<div class="strong-mk-list">';
@@ -736,7 +749,7 @@
     strong.forEach(d=>(CAMP_TO_CLUB_CATEGORIES[d]||[]).forEach(cat=>{ strongCats[cat]=true; }));
     const proven=clubCourses.filter(c=> c.subject_id && attendedSubjects.indexOf(Number(c.subject_id))>=0 && strongCats[c.category]);
     if(proven.length){
-      const firstName=(kid.name.split(/\s+/)[1]||kid.name.split(/\s+/)[0]||kid.name);
+      const firstName=firstNameForText;
       const provenPro=proven.filter(c=>c.platform!=='coddy').map(c=>c.name);
       const provenCoddy=proven.filter(c=>c.platform==='coddy').map(c=>c.name);
       const parts=[];
