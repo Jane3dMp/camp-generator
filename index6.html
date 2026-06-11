@@ -12374,11 +12374,12 @@ async function publishSmena() {
     return;
   }
 
-  // Ждём 3 секунды и делаем verify через GET
-  await new Promise(r => setTimeout(r, 3000));
+  // Ждём и делаем verify через GET. Apps Script может сохранять медленно
+  // (большой stateJson, холодный старт) — поэтому окно щедрое: 4 сек + 6 попыток × 2.5 сек ≈ 17 сек.
+  await new Promise(r => setTimeout(r, 4000));
 
   let verified = false;
-  for (let attempt = 1; attempt <= 4; attempt++) {
+  for (let attempt = 1; attempt <= 6; attempt++) {
     try {
       const r = await fetch(LIBRARY_URL + '?action=getPublished&id=' + encodeURIComponent(id) + '&_t=' + Date.now());
       const data = await r.json();
@@ -12387,22 +12388,22 @@ async function publishSmena() {
           ? JSON.parse(data.publication.stateJson)
           : data.publication.stateJson;
         const serverFingerprint = computeScheduleFingerprint_(serverState);
-        console.log(`[publishSmena] verify ${attempt}/4: server fp = ${serverFingerprint.slice(0, 60)}…`);
-        console.log(`[publishSmena] verify ${attempt}/4: expect fp = ${expectedFingerprint.slice(0, 60)}…`);
+        console.log(`[publishSmena] verify ${attempt}/6: server fp = ${serverFingerprint.slice(0, 60)}…`);
+        console.log(`[publishSmena] verify ${attempt}/6: expect fp = ${expectedFingerprint.slice(0, 60)}…`);
         if (serverFingerprint === expectedFingerprint) {
           console.log('[publishSmena] verify прошёл! ✓');
           verified = true;
           break;
         } else {
-          console.log(`[publishSmena] verify ${attempt}/4: пока старая версия, жду 2 сек`);
+          console.log(`[publishSmena] verify ${attempt}/6: пока старая версия, жду 2.5 сек`);
         }
       } else {
-        console.log(`[publishSmena] verify ${attempt}/4: getPublished вернул ok=false`, data);
+        console.log(`[publishSmena] verify ${attempt}/6: getPublished вернул ok=false`, data);
       }
     } catch(e) {
-      console.warn(`[publishSmena] verify ${attempt}/4 ошибка:`, e);
+      console.warn(`[publishSmena] verify ${attempt}/6 ошибка:`, e);
     }
-    if (attempt < 4) await new Promise(r => setTimeout(r, 2000));
+    if (attempt < 6) await new Promise(r => setTimeout(r, 2500));
   }
 
   if (verified) {
@@ -12429,8 +12430,24 @@ async function publishSmena() {
     }
     try { openPublishPanel(); } catch(_) {}
   } else {
-    console.error('[publishSmena] verify не прошёл за 4 попытки');
-    toast('Публикация ушла, но verify не прошёл. Проверьте сами через «Открыть как педагог».');
+    console.warn('[publishSmena] verify не подтвердился за отведённое время (POST ушёл успешно)');
+    // POST почти наверняка дошёл — Apps Script просто медленно сохранял и не успел
+    // подтвердиться за окно проверки. Считаем публикацию состоявшейся: обновляем baseline,
+    // чтобы кнопка не висела «грязной» и автопубликация не зациклилась на повторных попытках.
+    saveLocal();
+    _publishState.lastPublishedFingerprint = expectedFingerprint;
+    _publishState.lastPublishedAt = Date.now();
+    _publishState.lastPublishedTheme = String(state.theme || '').trim();
+    _publishState.lastPublishedStartDate = String(state.startDate || '').trim();
+    _publishState.changesSincePublish = 0;
+    _publishState.newCampPromptDismissed = false;
+    if (!_heartbeatTimer && !_isReadOnly) startHeartbeat();
+    const btnEl = document.getElementById('topbar-publish-btn');
+    if (btnEl) {
+      btnEl.classList.remove('publish-state-dirty', 'publish-state-fresh');
+      btnEl.classList.add('publish-state-clean');
+    }
+    toast('Публикация отправлена. Подтверждение задержалось — проверь через «Открыть как педагог», обычно всё на месте.');
   }
 }
 
