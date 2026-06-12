@@ -913,9 +913,14 @@
   function countTeachersInDay_(d) {
     const counts = {};
     function add(name, times) {
-      if (!isNamedTeacher(name)) return;
-      const n = normalizeTeacherName(name);
-      counts[n] = (counts[n] || 0) + (times || 1);
+      String(name || '')
+        .split(/[,;/]+/)
+        .map(part => part.trim())
+        .filter(part => isNamedTeacher(part))
+        .forEach(part => {
+          const n = normalizeTeacherName(part);
+          counts[n] = (counts[n] || 0) + (times || 1);
+        });
     }
     if (!d) return counts;
     ['am', 'pm'].forEach(half => {
