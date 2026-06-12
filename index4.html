@@ -3508,6 +3508,7 @@ function applyToAllTroops(day, half) {
 // ============================================================
 function editSlot(day, half, idx) {
   const slot = getSlot(day, half, idx);
+  const allTeachers = Array.from(new Set(LIBRARY.map(a => String(a.t || '').trim()).filter(Boolean))).sort();
   document.getElementById('modal-title').innerHTML = 'Редактировать <em>вручную</em>';
   document.getElementById('modal-body').innerHTML = `
     <label class="eyebrow" style="display:block;margin-bottom:4px">Название</label>
@@ -3515,7 +3516,11 @@ function editSlot(day, half, idx) {
     <label class="eyebrow" style="display:block;margin-bottom:4px">Тема</label>
     <input class="editor-input" id="ed-theme" value="${escapeHtml(slot.theme||'')}">
     <label class="eyebrow" style="display:block;margin-bottom:4px">Педагог</label>
-    <input class="editor-input" id="ed-teacher" value="${escapeHtml(slot.teacher||'')}">
+    <input class="editor-input" id="ed-teacher" list="ed-slot-teachers" value="${escapeHtml(slot.teacher||'')}" placeholder="Начни вводить ФИО — подскажу из справочника">
+    <datalist id="ed-slot-teachers">
+      ${allTeachers.map(t => `<option value="${escapeHtml(t)}">`).join('')}
+    </datalist>
+    <div style="font-family:Inter,sans-serif;font-size:11px;color:rgba(21,22,23,0.55);margin:-2px 0 8px 0">Если выбрать педагога из справочника, занятие (в т.ч. выезд) появится в его расписании. «админ, кураторы» в расписание не попадает.</div>
     <label class="eyebrow" style="display:block;margin-bottom:4px">Кабинет / локация</label>
     <input class="editor-input" id="ed-room" value="${escapeHtml(slot.room||'')}">
     <label class="eyebrow" style="display:block;margin-bottom:4px">Направление</label>

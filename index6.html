@@ -8207,6 +8207,7 @@ function toggleLockTrip(day, slotKey) {
 
 function editTrip(day, slotKey) {
   const slot = state.schedule[day][slotKey];
+  const allTeachers = Array.from(new Set(LIBRARY.map(a => String(a.t || '').trim()).filter(Boolean))).sort();
   document.getElementById('modal-title').innerHTML = 'Редактировать <em>общее событие</em>';
   document.getElementById('modal-body').innerHTML = `
     <label class="eyebrow" style="display:block;margin-bottom:4px">Название</label>
@@ -8214,7 +8215,11 @@ function editTrip(day, slotKey) {
     <label class="eyebrow" style="display:block;margin-bottom:4px">Тема / подпись (курсивом под названием)</label>
     <input class="editor-input" id="ed-theme" value="${(slot.theme||'').replace(/"/g,'&quot;')}">
     <label class="eyebrow" style="display:block;margin-bottom:4px">Педагог / организаторы</label>
-    <input class="editor-input" id="ed-teacher" value="${(slot.teacher||'').replace(/"/g,'&quot;')}">
+    <input class="editor-input" id="ed-teacher" list="ed-trip-teachers" value="${(slot.teacher||'').replace(/"/g,'&quot;')}" placeholder="Начни вводить ФИО — подскажу из справочника">
+    <datalist id="ed-trip-teachers">
+      ${allTeachers.map(t => `<option value="${escapeHtml(t)}">`).join('')}
+    </datalist>
+    <div style="font-family:Inter,sans-serif;font-size:11px;color:rgba(21,22,23,0.55);margin:-2px 0 8px 0">Если выбрать педагога из справочника, выезд появится в его расписании. «админ, кураторы» в расписание не попадает.</div>
     <label class="eyebrow" style="display:block;margin-bottom:4px">Локация</label>
     <input class="editor-input" id="ed-room" value="${(slot.room||'').replace(/"/g,'&quot;')}">
     <label class="eyebrow" style="display:block;margin-bottom:4px">Направление</label>
