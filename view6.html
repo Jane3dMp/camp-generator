@@ -584,6 +584,15 @@
     if (!s) return '';
     return String(s).toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
   }
+  // Матчит педагога, даже если он один из нескольких в строке slot.teacher
+  // (например "админ, кураторы, Ермоленко Алексей").
+  function slotHasTeacher(raw, target) {
+    if (!raw || !target) return false;
+    return String(raw)
+      .split(/[,;/]+/)
+      .map(normalizeName)
+      .some(part => part === target);
+  }
   // Дата N-го рабочего дня (выходные пропускаем).
   function dateForDay(state, dayIdx) {
     const start = new Date(state.startDate + 'T00:00:00');
@@ -950,7 +959,7 @@
         // Универсальный пушер слота
         const pushSlot = (s, opts) => {
           if (!s || !s.template) return;
-          if (normalizeName(s.teacher) !== target) return;
+          if (!slotHasTeacher(s.teacher, target)) return;
           slots.push({
             time: opts.time || fullT,
             template: s.template,
