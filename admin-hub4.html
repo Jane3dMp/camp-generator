@@ -505,15 +505,16 @@
         <p class="contracts-hint" id="contracts-hint">Проверяю наличие файлов…</p>
       </div>
 
-      <!-- 1b. Бумажные деньги для детей  (Яндекс.Диск) -->
+      <!-- 1b. Письма и конверты родителям (Яндекс.Диск) -->
       <div class="docs-section">
-        <div class="docs-section-title">💌 Бумажные деньги для детей</div>
+        <div class="docs-section-title">💌 Письма и конверты родителям</div>
         <div class="contracts-row">
           <a class="btn btn-primary" href="https://disk.yandex.by/d/LqUa5QPqw88LVA" target="_blank" rel="noopener">
-            📥 Открыть 
+            📥 Открыть письма и конверты
           </a>
+          <button class="btn" onclick="downloadEnvelopesCSV(this)">📋 Скачать список детей для конвертов</button>
         </div>
-        <p class="contracts-hint">Готовые именные письма и конверты с QR-кодом на цифровой паспорт. Открой ссылку, скачай и распечатай для выдачи родителям.</p>
+        <p class="contracts-hint">Готовые именные письма и конверты с QR-кодом на цифровой паспорт. Открой ссылку, скачай и распечатай для выдачи родителям. Кнопка «Список детей для конвертов» выгружает CSV (Фамилия Имя, по отрядам) для печати конвертов заранее.</p>
       </div>
 
       <!-- 2. Заявления родителей на самостоятельный уход после смены -->
@@ -792,6 +793,57 @@
   }
   function copyParentCSV(btn){ const t=window._parentLinksCSV||''; const done=()=>{const o=btn.textContent;btn.textContent='✓ Скопировано';setTimeout(()=>btn.textContent=o,1500);}; if(navigator.clipboard) navigator.clipboard.writeText(t).then(done).catch(()=>{}); }
   function downloadParentCSV(){ const t=window._parentLinksCSV||''; const blob=new Blob(['\ufeff'+t],{type:'text/csv;charset=utf-8'}); const u=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=u; a.download='ссылки_родителям.csv'; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u); }
+
+  // ── СПИСОК ДЕТЕЙ ДЛЯ ПЕЧАТИ КОНВЕРТОВ ──
+  // Чистит имя от скобочных заметок и обрезает до «Фамилия Имя».
+  function cleanEnvName_(name){
+    let s=String(name==null?'':name);
+    s=s.replace(/\([^)]*\)/g,' ').replace(/\s+/g,' ').trim();
+    return s.split(' ').filter(Boolean).slice(0,2).join(' ');
+  }
+  // Тихо подгружает детей смены, если ещё не загружены (без рендера доски отрядов).
+  async function ensureKidsLoaded_(){
+    if(_troopsKids.length) return true;
+    const sid=troopsSeasonId_();
+    if(!sid){ toast('Нет ID смены'); return false; }
+    try{
+      const r=await fetch(LIBRARY_URL+'?action=getChildren&seasonId='+encodeURIComponent(sid));
+      const j=await r.json();
+      if(!j.ok) throw new Error(j.error||'Ошибка загрузки');
+      _troopsKids=(j.children||[]).map(c=>({crmId:String(c.crmId),name:c.name||'',dob:c.dob||'',age:c.age,gender:c.gender,parentName:c.parentName||'',parentPhone:c.parentPhone||'',troop:c.troop||0,locked:!!c.locked}));
+      return true;
+    }catch(e){ toast('Ошибка: '+e.message); return false; }
+  }
+  // Скачивает CSV (title,full) для навыка конвертов: title=«Фамилия Имя», full пусто,
+  // дети сгруппированы по отрядам (перед каждым отрядом — строка-комментарий # Отряд N).
+  async function downloadEnvelopesCSV(btn){
+    const old = btn ? btn.textContent : '';
+    if(btn){ btn.textContent='⏳ Готовлю…'; btn.disabled=true; }
+    const ok = await ensureKidsLoaded_();
+    if(btn){ btn.textContent=old; btn.disabled=false; }
+    if(!ok) return;
+    if(!_troopsKids.length){ toast('Нет детей в смене'); return; }
+    let csv='title,full\n';
+    let count=0;
+    TROOPS4_META.forEach(tr=>{
+      const kids=_troopsKids
+        .filter(k=>(k.troop||0)===tr.key)
+        .map(k=>cleanEnvName_(k.name))
+        .filter(Boolean)
+        .sort((a,b)=>a.localeCompare(b,'ru'));
+      if(!kids.length) return;
+      csv += '# '+tr.name.replace(/"/g,'')+'\n';
+      kids.forEach(nm=>{ csv += '"'+nm.replace(/"/g,'""')+'",\n'; count++; });
+    });
+    if(!count){ toast('Нет имён для экспорта'); return; }
+    const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
+    const u=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=u;
+    a.download='дети_для_конвертов.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u);
+    toast('Список готов: '+count+' детей');
+  }
+
 
   // ── ОТРЯДЫ (перенос из index4, seasonId = SEASON_ID) ──
   function troopsSeasonId_(){ return SEASON_ID; }
@@ -1425,7 +1477,7 @@ pages.join('')+
 
   // экспорты
   window.tryUnlock=tryUnlock; window.switchPane=switchPane;
-  window.copyLink=copyLink; window.openParentLinks=openParentLinks; window.copyParentCSV=copyParentCSV; window.downloadParentCSV=downloadParentCSV;
+  window.copyLink=copyLink; window.openParentLinks=openParentLinks; window.copyParentCSV=copyParentCSV; window.downloadParentCSV=downloadParentCSV; window.downloadEnvelopesCSV=downloadEnvelopesCSV;
   window.importTroopsChildren=importTroopsChildren; window.reshuffleTroops=reshuffleTroops; window.saveTroopsManual=saveTroopsManual;
   window.checkTroopsActuality=checkTroopsActuality; window.removeLeftChildren_=removeLeftChildren_; window.addNewChildren_=addNewChildren_;
   window.cycleAtt=cycleAtt; window.cycleDog=cycleDog; window.printAttendance=printAttendance; window.openStickers=openStickers; window.openTags=openTags; window.openMiniStickers=openMiniStickers;
