@@ -760,12 +760,15 @@
   function getNamedTeachers() {
     const seen = new Set();
     const result = [];
-    const tryAdd = (t) => {
-      if (!isNamedTeacher(t)) return;
-      const norm = normalizeName(t);
-      if (seen.has(norm)) return;
-      seen.add(norm);
-      result.push(t);
+    const tryAdd = (raw) => {
+      String(raw || '').split(/[,;/]+/).forEach((t) => {
+        t = t.trim();
+        if (!isNamedTeacher(t)) return;
+        const norm = normalizeName(t);
+        if (seen.has(norm)) return;
+        seen.add(norm);
+        result.push(t);
+      });
     };
     const collect = (s) => { if (s) tryAdd(String(s.teacher || '').trim()); };
     if (!publishedState || !Array.isArray(publishedState.schedule)) return [];

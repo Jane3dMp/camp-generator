@@ -584,6 +584,15 @@
     if (!s) return '';
     return String(s).toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
   }
+  // Матчит педагога, даже если он один из нескольких в строке slot.teacher
+  // (например "админ, кураторы, Ермоленко Алексей").
+  function slotHasTeacher(raw, target) {
+    if (!raw || !target) return false;
+    return String(raw)
+      .split(/[,;/]+/)
+      .map(normalizeName)
+      .some(part => part === target);
+  }
   // Дата N-го рабочего дня (выходные пропускаем).
   function dateForDay(state, dayIdx) {
     const start = new Date(state.startDate + 'T00:00:00');
@@ -748,12 +757,15 @@
   function getNamedTeachers() {
     const seen = new Set();
     const result = [];
-    const tryAdd = (t) => {
-      if (!isNamedTeacher(t)) return;
-      const norm = normalizeName(t);
-      if (seen.has(norm)) return;
-      seen.add(norm);
-      result.push(t);
+    const tryAdd = (raw) => {
+      String(raw || '').split(/[,;/]+/).forEach((t) => {
+        t = t.trim();
+        if (!isNamedTeacher(t)) return;
+        const norm = normalizeName(t);
+        if (seen.has(norm)) return;
+        seen.add(norm);
+        result.push(t);
+      });
     };
     if (!publishedState || !Array.isArray(publishedState.schedule)) return [];
     publishedState.schedule.forEach(d => {
@@ -929,7 +941,7 @@
               const [tropA, tropB] = troops;
               // chainA[0]: первый МК пары — отряд A в шаге 0, отряд B в шаге 1
               const s0 = chain[0];
-              if (s0 && s0.template && normalizeName(s0.teacher) === target) {
+              if (s0 && s0.template && slotHasTeacher(s0.teacher, target)) {
                 slots.push({ time: times[0] || '', template: s0.template, theme: s0.theme || '',
                   comment: s0.comment || '', room: s0.room || '—',
                   troopsLabel: 'отряд ' + tropA, troop: tropA, isTrip: false,
@@ -941,7 +953,7 @@
               }
               // chainA[1]: второй МК пары — отряд B в шаге 0, отряд A в шаге 1 (противофаза)
               const s1 = chain[1];
-              if (s1 && s1.template && normalizeName(s1.teacher) === target) {
+              if (s1 && s1.template && slotHasTeacher(s1.teacher, target)) {
                 slots.push({ time: times[0] || '', template: s1.template, theme: s1.theme || '',
                   comment: s1.comment || '', room: s1.room || '—',
                   troopsLabel: 'отряд ' + tropB, troop: tropB, isTrip: false,
@@ -953,7 +965,7 @@
               }
               // chainA[2]: общее занятие на оба отряда пары — одна строка
               const s2 = chain[2];
-              if (s2 && s2.template && normalizeName(s2.teacher) === target) {
+              if (s2 && s2.template && slotHasTeacher(s2.teacher, target)) {
                 slots.push({ time: times[2] || '', template: s2.template, theme: s2.theme || '',
                   comment: s2.comment || '', room: s2.room || '—',
                   troopsLabel: 'отряды ' + tropA + ', ' + tropB, troop: tropA, isTrip: false,
@@ -965,7 +977,7 @@
             // Порядок прихода зависит от номера станции: на шаге k у станции s сидит отряд
             // (s - k + 4) % 4. Поэтому педагогу показываем 4 строки — по одной на каждый шаг.
             (multi.stations || []).forEach((s, st) => {
-              if (!s || !s.template || normalizeName(s.teacher) !== target) return;
+              if (!s || !s.template || !slotHasTeacher(s.teacher, target)) return;
               for (let k = 0; k < 4; k++) {
                 const troopIdx = ((st - k) % 4 + 4) % 4; // отряд, который у этой станции на шаге k
                 slots.push({
@@ -997,7 +1009,7 @@
           const chain = multi.chainA || [];
           // chainA[0] — МК A: 10:00 → отряд A, 11:10 → отряд B (две строки)
           const s0 = chain[0];
-          if (s0 && s0.template && normalizeName(s0.teacher) === target) {
+          if (s0 && s0.template && slotHasTeacher(s0.teacher, target)) {
             slots.push({ time: times[0] || '', template: s0.template, theme: s0.theme || '',
               comment: s0.comment || '', room: s0.room || '—',
               troopsLabel: 'отряд ' + tropA, troop: tropA, isTrip: false, refs: getActiveRefsForSlot(s0), scored: !!s0.scored, needsReport: !!(s0.needsReport ?? s0.scored), needsScores: !!(s0.needsScores ?? s0.scored), mkKey: idx+'_'+half+'_chainA_0_t'+tropA });
@@ -1007,7 +1019,7 @@
           }
           // chainA[1] — МК B: 10:00 → отряд B, 11:10 → отряд A (противофаза)
           const s1 = chain[1];
-          if (s1 && s1.template && normalizeName(s1.teacher) === target) {
+          if (s1 && s1.template && slotHasTeacher(s1.teacher, target)) {
             slots.push({ time: times[0] || '', template: s1.template, theme: s1.theme || '',
               comment: s1.comment || '', room: s1.room || '—',
               troopsLabel: 'отряд ' + tropB, troop: tropB, isTrip: false, refs: getActiveRefsForSlot(s1), scored: !!s1.scored, needsReport: !!(s1.needsReport ?? s1.scored), needsScores: !!(s1.needsScores ?? s1.scored), mkKey: idx+'_'+half+'_chainA_1_t'+tropB });
@@ -1017,7 +1029,7 @@
           }
           // chainA[2] — общий третий слот: оба отряда пары в 12:20 (с кураторами, в разных кабинетах)
           const s2 = chain[2];
-          if (s2 && s2.template && normalizeName(s2.teacher) === target) {
+          if (s2 && s2.template && slotHasTeacher(s2.teacher, target)) {
             slots.push({ time: times[2] || '', template: s2.template, theme: s2.theme || '',
               comment: s2.comment || '', room: s2.room || '—',
               troopsLabel: 'отряды ' + tropA + ', ' + tropB, troop: tropA, isTrip: false, refs: getActiveRefsForSlot(s2), scored: !!s2.scored, needsReport: !!(s2.needsReport ?? s2.scored), needsScores: !!(s2.needsScores ?? s2.scored), mkKey: idx+'_'+half+'_chainA_2_tAB' });
@@ -1025,7 +1037,7 @@
           // Выезд другой пары
           const arr = d[half] || [];
           const ts = arr[tripIdx];
-          if (ts && ts.template && normalizeName(ts.teacher) === target) {
+          if (ts && ts.template && slotHasTeacher(ts.teacher, target)) {
             slots.push({
               time: tripTime, template: ts.template, theme: ts.theme || '',
               comment: ts.comment || '', room: ts.room || '—',
@@ -1042,7 +1054,7 @@
         active.forEach(a => {
           const s = arr[a.idx];
           if (!s || !s.template) return;
-          if (normalizeName(s.teacher) !== target) return;
+          if (!slotHasTeacher(s.teacher, target)) return;
           slots.push({
             time: a.timeOverride || time,
             template: s.template,
