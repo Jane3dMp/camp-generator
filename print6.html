@@ -529,6 +529,7 @@
   }
   @media print {
     .item-comment { cursor: default; }
+    .roster-phone, .tcl-phone { color: inherit !important; border-bottom: none !important; text-decoration: none !important; }
     .item-comment-short { display: none !important; }
     .item-comment-full { display: inline !important; }
     body { background: var(--white); font-size: 9.5pt; }
@@ -1224,7 +1225,7 @@
     if (curatorName || curatorPhone) {
       const parts = [];
       if (curatorName) parts.push('<strong>' + escapeHtml(curatorName) + '</strong>');
-      if (curatorPhone) parts.push('<span class="tcl-phone">' + escapeHtml(curatorPhone) + '</span>');
+      if (curatorPhone) parts.push('<a class="tcl-phone" style="text-decoration:none;border-bottom:1px dotted;color:inherit" href="tel:' + escapeHtml(String(curatorPhone).replace(/[^\d+]/g,'')) + '">' + escapeHtml(curatorPhone) + '</a>');
       curatorHtml = '<div class="troop-curator-line">Куратор: ' + parts.join(' · ') + '</div>';
     }
     return `<div class="week-wrap" style="padding-bottom:0;margin-bottom:0">
@@ -1246,7 +1247,9 @@
     if (kids.length === 0) return '';
     let rows = kids.map((k, i) => {
       const age = (k.age === '' || k.age == null) ? '' : k.age + ' л';
-      const phone = k.parentPhone ? escapeHtml(k.parentPhone) : '';
+      const phone = k.parentPhone
+        ? '<a class="roster-phone" href="tel:' + escapeHtml(String(k.parentPhone).replace(/[^\d+]/g,'')) + '">' + escapeHtml(k.parentPhone) + '</a>'
+        : '';
       return `<tr>
         <td class="tc-num">${i + 1}</td>
         <td class="tc-fio">${escapeHtml(k.name)}</td>
