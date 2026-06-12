@@ -1567,6 +1567,14 @@
     margin-bottom: 6px;
     color: var(--ink);
   }
+  .all-troops-theme {
+    font-family: Geologica, system-ui, sans-serif;
+    font-style: italic;
+    font-size: 15px;
+    line-height: 1.25;
+    margin: -2px 0 6px 0;
+    color: var(--terra-deep, #B5651D);
+  }
   .all-troops-meta {
     font-family: Inter, system-ui, sans-serif;
     font-size: 11px;
@@ -6739,6 +6747,7 @@ function renderTrip3Half(dayIdx, half, day) {
     <div class="all-troops-label trip3-label">🚌 Выезд 3 отряды (${tripTroops.join(', ')})</div>
     <span class="direction-tag ${dirClass(slot.direction)}">${slot.direction || '—'}</span>
     <div class="all-troops-name">${slot.name || '<em style="opacity:0.4">пусто</em>'}</div>
+    ${slot.theme ? `<div class="all-troops-theme">«${escapeHtml(slot.theme)}»</div>` : ''}
     <div class="all-troops-meta">
       <span class="pill">${slot.teacher || '—'}</span>
       <span class="pill">${slot.room || '—'}</span>
@@ -6782,6 +6791,7 @@ function renderTrip6Half(dayIdx, half, day) {
     <div class="all-troops-label trip6-label">🌲 Выезд всех 6 отрядов · полдня · лес / сапы</div>
     <span class="direction-tag ${dirClass(slot.direction)}">${slot.direction || '—'}</span>
     <div class="all-troops-name">${slot.name || '<em style="opacity:0.4">пусто</em>'}</div>
+    ${slot.theme ? `<div class="all-troops-theme">«${escapeHtml(slot.theme)}»</div>` : ''}
     <div class="all-troops-meta">
       <span class="pill">${slot.teacher || '—'}</span>
       <span class="pill">${slot.room || '—'}</span>
@@ -6828,6 +6838,7 @@ function renderTrip6SplitHalf(dayIdx, half, day) {
       <div class="all-troops-label trip6-split-label">🚌 ${troopsLabel} · ${isAM?'утром':'после обеда'} · выезд 3 отрядов</div>
       <span class="direction-tag ${dirClass(slot.direction)}">${slot.direction || '—'}</span>
       <div class="all-troops-name">${slot.name || '<em style="opacity:0.4">пусто</em>'}</div>
+      ${slot.theme ? `<div class="all-troops-theme">«${escapeHtml(slot.theme)}»</div>` : ''}
       <div class="all-troops-meta">
         <span class="pill">${slot.teacher || '—'}</span>
         <span class="pill">${slot.room || '—'}</span>
@@ -8200,6 +8211,8 @@ function editTrip(day, slotKey) {
   document.getElementById('modal-body').innerHTML = `
     <label class="eyebrow" style="display:block;margin-bottom:4px">Название</label>
     <input class="editor-input" id="ed-name" value="${(slot.name||'').replace(/"/g,'&quot;')}">
+    <label class="eyebrow" style="display:block;margin-bottom:4px">Тема / подпись (курсивом под названием)</label>
+    <input class="editor-input" id="ed-theme" value="${(slot.theme||'').replace(/"/g,'&quot;')}">
     <label class="eyebrow" style="display:block;margin-bottom:4px">Педагог / организаторы</label>
     <input class="editor-input" id="ed-teacher" value="${(slot.teacher||'').replace(/"/g,'&quot;')}">
     <label class="eyebrow" style="display:block;margin-bottom:4px">Локация</label>
@@ -8219,6 +8232,7 @@ function editTrip(day, slotKey) {
 function saveTripEdit(day, slotKey) {
   Object.assign(state.schedule[day][slotKey], {
     name: document.getElementById('ed-name').value,
+    theme: document.getElementById('ed-theme').value,
     teacher: document.getElementById('ed-teacher').value,
     room: document.getElementById('ed-room').value,
     direction: document.getElementById('ed-dir').value,
