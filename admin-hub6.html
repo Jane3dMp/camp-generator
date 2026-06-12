@@ -1970,6 +1970,19 @@ pages.join('')+
   // вызывается из обоих файлов один и тот же расчёт mkKey.
   const _M = ['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
   function _normName(s){ return String(s==null?'':s).toLowerCase().replace(/ё/g,'е').replace(/\s+/g,' ').trim(); }
+  // Вычленяет реальных педагогов из строки slot.teacher,
+  // отсекая "админ", "кураторы", "вожатые", "тренер".
+  function _namedTeachers(raw){
+    return String(raw==null?'':raw)
+      .split(/[,;/]+/)
+      .map(s => s.trim())
+      .filter(s => {
+        const n = s.toLowerCase();
+        if (!n) return false;
+        if (n.includes('куратор') || n.includes('админ') || n.includes('вожат') || n.includes('тренер')) return false;
+        return /\s/.test(n);
+      });
+  }
   function _dateForDay(state, dayIdx){
     const start = new Date(state.startDate + 'T00:00:00');
     let d = new Date(start), workDays = 0;
@@ -2123,13 +2136,17 @@ pages.join('')+
     for (let i = 0; i <= upToIdx; i++) dayIdxs.push(i);
     dayIdxs.forEach(i => {
       _walkDay(state.schedule[i], i, slot => {
-        const gid = SEASON_ID + '|' + i + '|' + _normName(slot.teacher) + '|' + _normName(slot.template);
-        if (!buckets[gid]) {
-          buckets[gid] = {gid, teacher: slot.teacher, dayIdx: i, mkName: slot.template, mkKeys: [], needsReport: false, needsScores: false};
-        }
-        buckets[gid].mkKeys.push(slot.mkKey);
-        if (slot.needsReport) buckets[gid].needsReport = true;
-        if (slot.needsScores) buckets[gid].needsScores = true;
+        const teachers = _namedTeachers(slot.teacher);
+        if (!teachers.length) return;
+        teachers.forEach(tName => {
+          const gid = SEASON_ID + '|' + i + '|' + _normName(tName) + '|' + _normName(slot.template);
+          if (!buckets[gid]) {
+            buckets[gid] = {gid, teacher: tName, dayIdx: i, mkName: slot.template, mkKeys: [], needsReport: false, needsScores: false};
+          }
+          buckets[gid].mkKeys.push(slot.mkKey);
+          if (slot.needsReport) buckets[gid].needsReport = true;
+          if (slot.needsScores) buckets[gid].needsScores = true;
+        });
       });
     });
 
