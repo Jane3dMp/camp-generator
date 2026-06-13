@@ -149,6 +149,29 @@
   .troop-switch button.t6-btn.active { background: var(--troop-6); }
   .troop-switch button[data-troop="all"].active { background: var(--yellow); }
 
+  .day-switch {
+    display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 4px; padding: 5px 8px; margin-left: 8px;
+  }
+  .day-switch-label { font-family: Inter; font-size: 10px; letter-spacing: 0.06em; color: var(--white); opacity: 0.85; }
+  .day-switch #day-checkboxes { display: inline-flex; flex-wrap: wrap; gap: 5px; }
+  .day-switch label {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-family: Inter; font-size: 11px; color: var(--white); cursor: pointer;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 3px; padding: 3px 6px;
+  }
+  .day-switch label:hover { background: rgba(255,255,255,0.14); }
+  .day-switch input[type="checkbox"] { accent-color: var(--yellow); cursor: pointer; margin: 0; }
+  .day-mini-btn {
+    background: transparent; color: var(--white); border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 3px; padding: 3px 8px; font-family: Inter; font-size: 10px;
+    cursor: pointer; letter-spacing: 0.05em;
+  }
+  .day-mini-btn:hover { background: rgba(255,255,255,0.12); }
+  .day-switch-hint { font-family: Inter; font-size: 10px; color: var(--yellow); opacity: 0.9; }
+
   /* Большая шапка отряда — когда отфильтровали один отряд, видно крупно «ОТРЯД 1» */
   .troop-header {
     background: var(--ink); color: var(--white);
@@ -684,6 +707,13 @@
         <button data-troop="5" class="t5-btn" onclick="switchTroop('5')">Отряд 5</button>
         <button data-troop="6" class="t6-btn" onclick="switchTroop('6')">Отряд 6</button>
       </div>
+      <div class="day-switch" id="day-switch" style="display:none">
+        <span class="day-switch-label">Дни для печати:</span>
+        <span id="day-checkboxes"></span>
+        <button type="button" class="day-mini-btn" onclick="setAllDays(true)">Все</button>
+        <button type="button" class="day-mini-btn" onclick="setAllDays(false)">Снять</button>
+        <span class="day-switch-hint" id="day-switch-hint"></span>
+      </div>
       <div class="actions">
         <button onclick="window.print()" class="btn-primary" id="print-btn">🖨 Печать</button>
         <button onclick="printAllTroops()" id="print-all-btn" style="display:none" title="Распечатать по одному листу на каждый отряд — для раздачи кураторами">🖨 Печать по отрядам</button>
@@ -1120,9 +1150,50 @@
     document.getElementById('view-subhead').textContent = range + ' · 6 отрядов · ' + totalDays + ' дней';
     document.getElementById('troop-switch').style.display = '';
     document.getElementById('print-all-btn').style.display = '';
+    buildDayCheckboxes(totalDays);
+    document.getElementById('day-switch').style.display = '';
     const dl = document.getElementById('docs-links');
     if (dl) dl.style.display = '';
   }
+
+  // ── Выбор дней для печати ──
+  // selectedDays — Set индексов дней (0-based). По умолчанию все выбраны → печать неделями.
+  let selectedDays = new Set();
+  function buildDayCheckboxes(totalDays) {
+    selectedDays = new Set();
+    for (let i = 0; i < totalDays; i++) selectedDays.add(i);
+    const box = document.getElementById('day-checkboxes');
+    let html = '';
+    for (let i = 0; i < totalDays; i++) {
+      const dt = dateForDay(publishedState, i);
+      const lbl = (i + 1) + ' (' + dt.getDate() + ' ' + MONTHS[dt.getMonth()] + ')';
+      html += '<label><input type="checkbox" checked onchange="toggleDay(' + i + ', this.checked)"> ' + lbl + '</label>';
+    }
+    box.innerHTML = html;
+    updateDayHint(totalDays);
+  }
+  function toggleDay(i, on) {
+    if (on) selectedDays.add(i); else selectedDays.delete(i);
+    updateDayHint(Math.min(publishedState.schedule.length, NUM_DAYS));
+    renderCurrentView();
+  }
+  function setAllDays(on) {
+    const totalDays = Math.min(publishedState.schedule.length, NUM_DAYS);
+    selectedDays = new Set();
+    if (on) for (let i = 0; i < totalDays; i++) selectedDays.add(i);
+    document.querySelectorAll('#day-checkboxes input[type="checkbox"]').forEach((cb, idx) => { cb.checked = on; });
+    updateDayHint(totalDays);
+    renderCurrentView();
+  }
+  function updateDayHint(totalDays) {
+    const n = selectedDays.size;
+    const hint = document.getElementById('day-switch-hint');
+    if (n === 0) { hint.textContent = '⚠ выбери хотя бы один день'; return; }
+    if (n === totalDays) { hint.textContent = 'вся смена (мелко, неделями)'; return; }
+    hint.textContent = 'крупно: по одному дню на лист';
+  }
+  window.toggleDay = toggleDay;
+  window.setAllDays = setAllDays;
 
   // ── ВИД: только кураторский (по отрядам) ──
   let currentView = 'troops';
@@ -1187,25 +1258,37 @@
       for (let t = 1; t <= NUM_TROOPS; t++) {
         html += '<div class="troop-print-block">';
         html += renderTroopHeader(t);
-        for (let w = 0; w < 2; w++) {
-          const startIdx = w * 5;
-          const endIdx = Math.min(startIdx + 5, total);
-          if (startIdx >= total) break;
-          html += renderWeek(w + 1, startIdx, endIdx, String(t));
-        }
+        html += renderDaysBlock(total, String(t));
         html += '</div>';
       }
       return html;
     }
     let html = '';
     if (currentTroop !== 'all') html += renderTroopHeader(parseInt(currentTroop, 10));
-    for (let w = 0; w < 2; w++) {
-      const startIdx = w * 5;
-      const endIdx = Math.min(startIdx + 5, total);
-      if (startIdx >= total) break;
-      html += renderWeek(w + 1, startIdx, endIdx, currentTroop);
-    }
+    html += renderDaysBlock(total, currentTroop);
     return html || '<div class="week-wrap"><em>Нет дней для печати.</em></div>';
+  }
+
+  // Рисует расписание с учётом выбранных дней.
+  // Все дни выбраны → недели по 5 (как раньше). Часть → каждый день своей таблицей (крупно, со своего листа).
+  function renderDaysBlock(total, troopFilter) {
+    const allSelected = (selectedDays.size === total);
+    if (allSelected || selectedDays.size === 0) {
+      let html = '';
+      for (let w = 0; w < 2; w++) {
+        const startIdx = w * 5;
+        const endIdx = Math.min(startIdx + 5, total);
+        if (startIdx >= total) break;
+        html += renderWeek(w + 1, startIdx, endIdx, troopFilter);
+      }
+      return html;
+    }
+    let html = '';
+    for (let i = 0; i < total; i++) {
+      if (!selectedDays.has(i)) continue;
+      html += renderWeek(1, i, i + 1, troopFilter);
+    }
+    return html;
   }
 
   function renderTroopHeader(troop) {
