@@ -214,6 +214,10 @@
   .contract-tick-signed{display:inline-block;width:18px;height:18px;line-height:16px;text-align:center;border-radius:50%;border:1.5px solid rgba(21,22,23,0.25);color:rgba(21,22,23,0.35);cursor:pointer;font-size:11px;font-weight:700;user-select:none}
   .contract-tick-signed:hover{border-color:#185FA5;color:#185FA5}
   .contract-tick-signed.is-on{background:#185FA5;border-color:#185FA5;color:#fff;font-size:13px}
+  /* Чекбокс «Подписан родителем» — терракотовый */
+  .contract-tick-parent{display:inline-block;width:18px;height:18px;line-height:16px;text-align:center;border-radius:50%;border:1.5px solid rgba(21,22,23,0.25);color:rgba(21,22,23,0.35);cursor:pointer;font-size:11px;font-weight:700;user-select:none}
+  .contract-tick-parent:hover{border-color:#C77E5E;color:#C77E5E}
+  .contract-tick-parent.is-on{background:#C77E5E;border-color:#C77E5E;color:#fff;font-size:13px}
   /* В печати — галочки тоже видны, но без подсветки */
   @media print{
     body.printing-payments .contract-tick.contract-cognito,
@@ -1043,7 +1047,7 @@
     const box=document.getElementById('att-table');
     if(!_attKids.length){ box.innerHTML='<div style="padding:20px;font-size:13px;color:var(--muted)">Нет детей. Импортируй на вкладке «Состав отрядов».</div>'; return; }
     const ROMAN=['','I','II','III','IV'];
-    let html='<table class="att"><thead><tr><th class="att-name">Ребёнок</th><th class="att-dog">Заполнен</th><th class="att-dog">Подписан</th>';
+    let html='<table class="att"><thead><tr><th class="att-name">Ребёнок</th><th class="att-dog">Заполнен</th><th class="att-dog">Подписан директором</th><th class="att-dog">Подписан родителем</th>';
     _attDates.forEach(d=>{ html+='<th>'+escapeHtml(d)+'</th>'; });
     html+='</tr></thead><tbody>';
     const renderKid=(k)=>{
@@ -1089,14 +1093,16 @@
       }
       // Колонка "Подписан" — ручная отметка (бывший `dogovor`)
       const signedCell = '<td class="att-cell att-dog '+(dv==='✓'?'v-dog':'')+'" data-cid="'+escapeHtml(k.crmId)+'" data-di="dogovor" onclick="cycleDog(this)">'+(dv||'')+'</td>';
-      let row='<tr><td class="att-name">'+escapeHtml(shortName_(k.name))+'</td>'+ filledCell + signedCell;
+      const dvp=_attMap[k.crmId+'|dogovor_parent']||'';
+      const parentCell = '<td class="att-cell att-dog '+(dvp==='✓'?'v-dog':'')+'" data-cid="'+escapeHtml(k.crmId)+'" data-di="dogovor_parent" onclick="cycleDogParent(this)">'+(dvp||'')+'</td>';
+      let row='<tr><td class="att-name">'+escapeHtml(shortName_(k.name))+'</td>'+ filledCell + signedCell + parentCell;
       _attDates.forEach((d,di)=>{ const v=_attMap[k.crmId+'|'+di]||''; const cls=v==='+'?'v-plus':(v==='-'?'v-minus':''); row+='<td class="att-cell '+cls+'" data-cid="'+escapeHtml(k.crmId)+'" data-di="'+di+'" onclick="cycleAtt(this)">'+(v||'')+'</td>'; });
       return row+'</tr>';
     };
     const emptyRows=(n)=>{
       let rows='';
       for(let i=0;i<n;i++){
-        rows+='<tr><td class="att-name">&nbsp;</td><td class="att-cell att-dog"></td><td class="att-cell att-dog"></td>';
+        rows+='<tr><td class="att-name">&nbsp;</td><td class="att-cell att-dog"></td><td class="att-cell att-dog"></td><td class="att-cell att-dog"></td>';
         _attDates.forEach(()=>{ rows+='<td class="att-cell"></td>'; });
         rows+='</tr>';
       }
@@ -1105,13 +1111,13 @@
     for(let t=1;t<=4;t++){
       const kids=_attKids.filter(k=>(k.troop||0)===t).sort((a,b)=>dobSortKey4_(b.dob)-dobSortKey4_(a.dob));
       if(!kids.length) continue;
-      html+='<tr class="att-troop"><td colspan="'+(_attDates.length+2)+'">'+ROMAN[t]+' отряд</td></tr>';
+      html+='<tr class="att-troop"><td colspan="'+(_attDates.length+3)+'">'+ROMAN[t]+' отряд</td></tr>';
       kids.forEach(k=>{ html+=renderKid(k); });
       html+=emptyRows(2);
     }
     const noTroop=_attKids.filter(k=>!(k.troop>=1&&k.troop<=4));
     if(noTroop.length){
-      html+='<tr class="att-troop"><td colspan="'+(_attDates.length+2)+'">Без отряда</td></tr>';
+      html+='<tr class="att-troop"><td colspan="'+(_attDates.length+3)+'">Без отряда</td></tr>';
       noTroop.forEach(k=>{ html+=renderKid(k); });
       html+=emptyRows(2);
     }
@@ -1137,6 +1143,17 @@
     td.textContent=next;
     td.className='att-cell att-dog'+(next==='✓'?' v-dog':'');
     saveAtt_(cid,'dogovor',next);
+  }
+
+  function cycleDogParent(td){
+    const cid=td.dataset.cid, key=cid+'|dogovor_parent';
+    const cur=_attMap[key]||'';
+    const next = cur===''?'✓':'';
+    if(next==='') delete _attMap[key]; else _attMap[key]=next;
+    td.textContent=next;
+    td.className='att-cell att-dog'+(next==='✓'?' v-dog':'');
+    saveAtt_(cid,'dogovor_parent',next);
+    if(typeof renderPayments==='function' && document.querySelector('.pay')) renderPayments();
   }
 
   let _attSaveQueue=Promise.resolve();
@@ -1482,7 +1499,7 @@ pages.join('')+
   window.copyLink=copyLink; window.openParentLinks=openParentLinks; window.copyParentCSV=copyParentCSV; window.downloadParentCSV=downloadParentCSV; window.downloadEnvelopesCSV=downloadEnvelopesCSV;
   window.importTroopsChildren=importTroopsChildren; window.reshuffleTroops=reshuffleTroops; window.saveTroopsManual=saveTroopsManual;
   window.checkTroopsActuality=checkTroopsActuality; window.removeLeftChildren_=removeLeftChildren_; window.addNewChildren_=addNewChildren_;
-  window.cycleAtt=cycleAtt; window.cycleDog=cycleDog; window.printAttendance=printAttendance; window.openStickers=openStickers; window.openTags=openTags; window.openMiniStickers=openMiniStickers;
+  window.cycleAtt=cycleAtt; window.cycleDog=cycleDog; window.cycleDogParent=cycleDogParent; window.printAttendance=printAttendance; window.openStickers=openStickers; window.openTags=openTags; window.openMiniStickers=openMiniStickers;
   window.openPrintGenerator=openPrintGenerator; window.closePrintGenerator=closePrintGenerator; window.pgToggleAll=pgToggleAll; window.pgSetFmt=pgSetFmt; window.updatePgCount=updatePgCount; window.pgPrint=pgPrint;
 
   // ────────────────────────────────────────────────
@@ -1784,7 +1801,8 @@ pages.join('')+
       '<th>ФИО</th>' +
       '<th style="text-align:center">Отряд</th>' +
       '<th style="text-align:center">Заполнен</th>' +
-      '<th style="text-align:center">Подписан</th>' +
+      '<th style="text-align:center">Подписан директором</th>' +
+      '<th style="text-align:center">Подписан родителем</th>' +
       '<th style="text-align:right">Доплата</th>' +
       '<th style="text-align:right">Нал</th>' +
       '<th style="text-align:right">Терминал</th>' +
@@ -1809,7 +1827,7 @@ pages.join('')+
       // Разделитель перед новой группой отряда
       if (String(r.troop) !== String(prevTroop)) {
         prevTroop = r.troop;
-        html += '<tr class="pay-troop-sep"><td colspan="12">Отряд ' + escapeHtml(String(r.troop || '—')) + '</td></tr>';
+        html += '<tr class="pay-troop-sep"><td colspan="13">Отряд ' + escapeHtml(String(r.troop || '—')) + '</td></tr>';
       }
       rowNum++;
       const i = rowNum - 1;
@@ -1887,8 +1905,12 @@ pages.join('')+
       }
       const signed = (_attMap && _attMap[r.crmId+'|dogovor']) || '';
       const signedCell = '<span class="contract-tick-signed' + (signed === '✓' ? ' is-on' : '') +
-        '" data-cid="' + escapeHtml(r.crmId) + '" onclick="payToggleSigned(this)" title="Клик: отметить договор подписан">' +
+        '" data-cid="' + escapeHtml(r.crmId) + '" onclick="payToggleSigned(this)" title="Клик: договор подписан директором">' +
         (signed === '✓' ? '✓' : '○') + '</span>';
+      const signedP = (_attMap && _attMap[r.crmId+'|dogovor_parent']) || '';
+      const parentCell = '<span class="contract-tick-parent' + (signedP === '✓' ? ' is-on' : '') +
+        '" data-cid="' + escapeHtml(r.crmId) + '" onclick="payToggleParent(this)" title="Клик: договор подписан родителем">' +
+        (signedP === '✓' ? '✓' : '○') + '</span>';
 
       html += '<tr class="' + rowClass + '">' +
         '<td class="idx">' + (i + 1) + '</td>' +
@@ -1896,6 +1918,7 @@ pages.join('')+
         '<td class="troop"><span class="pay-troop-pill">' + (r.troop || '—') + '</span></td>' +
         '<td class="contract-col">' + filledCell + '</td>' +
         '<td class="contract-col">' + signedCell + '</td>' +
+        '<td class="contract-col">' + parentCell + '</td>' +
         '<td class="num debt">' + debtCell + '</td>' +
         '<td class="num">' + cashCell + '</td>' +
         '<td class="num">' + termCell + '</td>' +
@@ -1910,6 +1933,7 @@ pages.join('')+
     html += '</tbody><tfoot><tr>' +
       '<td></td>' +
       '<td>Итого</td>' +
+      '<td></td>' +
       '<td></td>' +
       '<td></td>' +
       '<td></td>' +
@@ -1950,6 +1974,17 @@ pages.join('')+
     el.classList.toggle('is-on', next === '✓');
     el.textContent = next === '✓' ? '✓' : '○';
     saveAtt_(cid, 'dogovor', next);
+  }
+
+  function payToggleParent(el) {
+    const cid = el.dataset.cid;
+    const key = cid + '|dogovor_parent';
+    const cur = _attMap[key] || '';
+    const next = (cur === '✓') ? '' : '✓';
+    if (next === '') delete _attMap[key]; else _attMap[key] = next;
+    el.classList.toggle('is-on', next === '✓');
+    el.textContent = next === '✓' ? '✓' : '○';
+    saveAtt_(cid, 'dogovor_parent', next);
   }
 
   // ─── Отправка просьбы заполнить договор в Viber ───
@@ -2008,6 +2043,7 @@ pages.join('')+
   window.paySyncFromAlfa = paySyncFromAlfa;
   window.payPrint = payPrint;
   window.payToggleSigned = payToggleSigned;
+  window.payToggleParent = payToggleParent;
   // Нормализация ФИО для поиска в справочнике: lowercase, ё→е, схлопывание пробелов,
   // сортировка слов по алфавиту. «Гайкова Тамара» ≡ «Тамара Гайкова».
   function _normPersonNameKey(s){
