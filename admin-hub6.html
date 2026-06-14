@@ -199,7 +199,7 @@
   a.contract-tick:hover{text-decoration:none;opacity:0.7}
   .contracts-badge{font-size:12px;color:var(--muted);padding:4px 10px;border-radius:8px;background:rgba(143,163,112,0.15)}
   .contracts-badge:empty{display:none}
-  table.pay td.contract-col{text-align:center;width:80px}
+  table.pay td.contract-col{text-align:center;width:44px}
   /* Кнопка «Отправить просьбу в Viber» — в Доплатах, в колонке «Заполнен» */
   .contract-msg-btn{
     display:inline-flex;align-items:center;justify-content:center;
@@ -258,12 +258,14 @@
 
   .pay-wrap{border:1px solid rgba(21,22,23,0.08);border-radius:10px;overflow:auto;background:#fff}
   table.pay{border-collapse:collapse;width:100%;font-family:Inter,sans-serif;font-size:13px}
-  table.pay th,table.pay td{padding:7px 9px;border-bottom:1px solid rgba(21,22,23,0.06);text-align:left;vertical-align:top}
+  table.pay th,table.pay td{padding:6px 6px;border-bottom:1px solid rgba(21,22,23,0.06);text-align:left;vertical-align:top}
+  table.pay td.dob{white-space:nowrap;font-variant-numeric:tabular-nums;font-size:12px}
+  table.pay tr.pay-troop-sep td{background:#efece4;border-top:2px solid rgba(21,22,23,0.18);border-bottom:1px solid rgba(21,22,23,0.10);font-weight:700;font-size:12px;letter-spacing:0.04em;color:var(--ink);padding:5px 9px}
   table.pay th{background:#f8f7f3;font-weight:600;color:var(--ink);position:sticky;top:0;z-index:2;font-size:12px}
   table.pay td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
   table.pay td.idx{text-align:center;color:var(--muted);width:32px}
   table.pay td.troop{text-align:center;width:48px}
-  table.pay td.name{font-weight:500;min-width:200px}
+  table.pay td.name{font-weight:500;min-width:140px}
   table.pay td.dates{font-size:11px;color:var(--muted);max-width:140px;white-space:normal}
   table.pay td.phone{font-variant-numeric:tabular-nums;white-space:nowrap;font-size:12px}
   table.pay td.debt{font-weight:600}
@@ -1672,7 +1674,25 @@ pages.join('')+
       '<th>ДР</th>' +
       '</tr></thead><tbody>';
 
-    rows.forEach((r, i) => {
+    // Сортировка: сначала по отряду (1→6), внутри отряда — по ФИО А→Я.
+    // Меняем только порядок отображения; данные и итоги не трогаем.
+    const troopNum = (t) => { const n = parseInt(t, 10); return isNaN(n) ? 999 : n; };
+    const sortedRows = rows.slice().sort((a, b) => {
+      const ta = troopNum(a.troop), tb = troopNum(b.troop);
+      if (ta !== tb) return ta - tb;
+      return String(a.name || '').localeCompare(String(b.name || ''), 'ru');
+    });
+
+    let prevTroop = null;
+    let rowNum = 0;
+    sortedRows.forEach((r) => {
+      // Разделитель перед новой группой отряда
+      if (String(r.troop) !== String(prevTroop)) {
+        prevTroop = r.troop;
+        html += '<tr class="pay-troop-sep"><td colspan="12">Отряд ' + escapeHtml(String(r.troop || '—')) + '</td></tr>';
+      }
+      rowNum++;
+      const i = rowNum - 1;
       // CSS-класс строки по статусу/долгу
       let rowClass = '';
       if (r.status === 'no_ctt') rowClass = 'row-no-ctt';
@@ -1762,7 +1782,7 @@ pages.join('')+
         '<td class="num">' + eripCell + '</td>' +
         '<td class="num">' + priceCell + '</td>' +
         '<td class="phone">' + escapeHtml(r.parentPhone || '') + '</td>' +
-        '<td>' + escapeHtml(r.dob || '') + '</td>' +
+        '<td class="dob">' + escapeHtml(r.dob || '') + '</td>' +
         '</tr>';
     });
 
