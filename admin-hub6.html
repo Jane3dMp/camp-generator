@@ -142,6 +142,8 @@
   table.att th.att-dog{min-width:64px}
   .att-cell.att-dog{width:64px}
   .att-cell.att-dog.v-dog{color:#185FA5;background:#E6F1FB}
+  .att-print-opt{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;user-select:none}
+  .att-print-opt input{accent-color:var(--moss);cursor:pointer;margin:0}
 
   /* модалка генератора печати */
   #pg-ov{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;align-items:flex-start;justify-content:center;z-index:9999;padding:24px 16px;overflow-y:auto}
@@ -341,6 +343,7 @@
     body:not(.printing-payments) table.att{font-size:12px}
     body:not(.printing-payments) table.att .att-cell{width:auto}
     body.print-blank:not(.printing-payments) .att-cell{color:transparent !important;background:#fff !important}
+    body.print-att-nodog:not(.printing-payments) table.att .att-dog{display:none !important}
   }
 
   .soon h3{font-family:'Geologica';font-size:16px;color:var(--ink);margin-bottom:8px}
@@ -456,6 +459,7 @@
       <div class="att-bar">
         <button class="btn" onclick="printAttendance(false)">🖨 Печать таблицы (с отметками)</button>
         <button class="btn" onclick="printAttendance(true)">🖨 Печать таблицы (пустой)</button>
+        <label class="att-print-opt"><input type="checkbox" id="att-print-dogovor" checked> печатать колонки договоров</label>
         <button class="btn contracts-sync-btn" onclick="syncContractsFromCognito()">📋 Обновить из Cognito</button>
         <span class="att-sync-group" style="display:inline-flex;gap:6px;align-items:center;margin-left:4px">
           <select id="att-sync-day" class="att-sync-day" style="padding:6px 8px;border:1px solid rgba(21,22,23,0.25);border-radius:5px;font-family:Inter,sans-serif;font-size:13px"></select>
@@ -1137,7 +1141,10 @@
 
   function printAttendance(blank){
     document.body.classList.toggle('print-blank', !!blank);
-    setTimeout(()=>{ window.print(); setTimeout(()=>document.body.classList.remove('print-blank'),500); }, 80);
+    const dogCb = document.getElementById('att-print-dogovor');
+    const hideDog = dogCb ? !dogCb.checked : false;
+    document.body.classList.toggle('print-att-nodog', hideDog);
+    setTimeout(()=>{ window.print(); setTimeout(()=>{document.body.classList.remove('print-blank');document.body.classList.remove('print-att-nodog');},500); }, 80);
   }
 
   // Лист куратора: 4 страницы A4 horizontal, по одному отряду на лист.
