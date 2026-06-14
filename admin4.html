@@ -489,6 +489,7 @@
     body { background: var(--white); font-size: 9.5pt; }
     .top-bar, .font-control { display: none !important; }
     .day-switch-bar { display: none !important; }
+    .trips-summary-block { display: none !important; }
     /* docs-links внутри top-bar и так скроется, но на всякий случай */
     .docs-links { display: none !important; }
     .refs-popup { display: none !important; }
@@ -1734,7 +1735,7 @@
     }
 
     return `
-      <div class="week-wrap">
+      <div class="week-wrap trips-summary-block">
         <div class="week-head">
           <span class="week-title">Выезды <em>смены</em></span>
           <span class="week-sub">для оформления договорённостей с площадками и транспортом</span>
