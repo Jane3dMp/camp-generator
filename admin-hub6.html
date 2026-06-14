@@ -1034,7 +1034,7 @@
   function renderAttendance(){
     const box=document.getElementById('att-table');
     if(!_attKids.length){ box.innerHTML='<div style="padding:20px;font-size:13px;color:var(--muted)">Нет детей. Импортируй на вкладке «Состав отрядов».</div>'; return; }
-    const ROMAN=['','I','II','III','IV'];
+    const ROMAN=['','I','II','III','IV','V','VI'];
     let html='<table class="att"><thead><tr><th class="att-name">Ребёнок</th><th class="att-dog">Заполнен</th><th class="att-dog">Подписан директором</th><th class="att-dog">Подписан родителем</th>';
     _attDates.forEach(d=>{ html+='<th>'+escapeHtml(d)+'</th>'; });
     html+='</tr></thead><tbody>';
@@ -1156,7 +1156,7 @@
     }
     if(!_attKids.length){ toast('Нет детей. Импортируй на «Состав отрядов»'); return; }
 
-    const ROMAN=['','I','II','III','IV'];
+    const ROMAN=['','I','II','III','IV','V','VI'];
     const ROWS=12, EXTRA_COLS=5;
     const pages=[];
     for(let t=1;t<=6;t++){
@@ -1218,7 +1218,7 @@ pages.join('')+
       groups='<div class="grid">'+cells+'</div>';
     } else {
       if(!_attKids.length){ toast('Нет имён для печати'); return; }
-      const ROMAN=['','I','II','III','IV'];
+      const ROMAN=['','I','II','III','IV','V','VI'];
       let cells='';
       const pushKid=(k)=>{ const nm=escapeHtml(shortName_(k.name)); for(let i=0;i<3;i++) cells+='<div class="st"><span>'+nm+'</span></div>'; };
       for(let t=1;t<=6;t++){
@@ -1372,7 +1372,7 @@ pages.join('')+
   function renderPgKids(){
     const box=document.getElementById('pg-kids');
     if(!_attKids.length){ box.innerHTML='<div style="color:var(--muted);padding:6px 0;font-size:12px">Дети ещё не загружены. Открой вкладку «Табель посещения детей» или импортируй на «Состав отрядов».</div>'; return; }
-    const ROMAN=['','I','II','III','IV'];
+    const ROMAN=['','I','II','III','IV','V','VI'];
     let html='';
     for(let t=1;t<=6;t++){
       const kids=_attKids.filter(k=>(k.troop||0)===t).sort((a,b)=>dobSortKey4_(b.dob)-dobSortKey4_(a.dob));
