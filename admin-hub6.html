@@ -2176,6 +2176,13 @@ pages.join('')+
   // 6-отрядный обход занятий дня. mkKey строго совпадает со scores6:
   //   idx_half_path_t<troop>, path ∈ {trip6, trip6_a, trip6_b, trip_full, cluster_N, outside_N, outside_single}.
   // Для каждого МК — отдельный cb на каждый отряд, прошедший через него.
+  // Базовый ключ отчёта. view6 пишет mkKeys БЕЗ суффикса отряда (_t<N>),
+  // а выезд trip обозначает как 'trip3' (а не 'trip_full'). Приводим mkKey
+  // из _walkDay к формату view6, чтобы найти отчёт в notes.
+  function _reportKey(mkKey){
+    return String(mkKey).replace(/_t\d+$/, '').replace(/_trip_full$/, '_trip3');
+  }
+
   function _walkDay(day, idx, cb){
     if (!day) return;
     ['am','pm'].forEach(half => {
@@ -2435,7 +2442,11 @@ pages.join('')+
     Object.keys(buckets).forEach(gid => {
       const g = buckets[gid];
       if (!g.needsReport && !g.needsScores) return; // ни одной задачи на группу — пропускаем
-      const reportDone = g.mkKeys.some(k => notes[k] && notes[k].hasText);
+      const reportDone = g.mkKeys.some(k => {
+        if (notes[k] && notes[k].hasText) return true;
+        const rk = _reportKey(k);
+        return !!(notes[rk] && notes[rk].hasText);
+      });
       const scoresDone = g.mkKeys.some(k => mkScored[k]);
       const missReport = g.needsReport && !reportDone;
       const missScores = g.needsScores && !scoresDone;
