@@ -1440,11 +1440,13 @@
         const s = d[half === 'am' ? 'trip_full_am' : 'trip_full_pm'];
         if (s && s.template) { items.push({ slot: s, time: fullHalfTime(half), trip: true }); cellIsTrip = true; }
       } else {
-        // в кабинетах
+        // в кабинетах — ротация: отряд позиции p в час i стоит на станции (i+p)%3
         const cluster = d[half + '_cluster'] || [];
         const times = multiStepTimes(half);
-        cluster.forEach((s, i) => {
-          if (s && s.template) items.push({ slot: s, time: times[i] });
+        const pos = Math.max(0, g.cluster.indexOf(troop));
+        times.forEach((t, i) => {
+          const s = cluster[(i + pos) % 3];
+          if (s && s.template) items.push({ slot: s, time: t });
         });
       }
     }
@@ -1453,10 +1455,13 @@
       const groups = normalGroupsFor(half);
       const inCluster = groups.cluster.indexOf(troop) >= 0;
       if (inCluster) {
+        // ротация: отряд позиции p в час i стоит на станции (i+p)%3
         const cluster = d[half + '_cluster'] || [];
         const times = multiStepTimes(half);
-        cluster.forEach((s, i) => {
-          if (s && s.template) items.push({ slot: s, time: times[i] });
+        const pos = Math.max(0, groups.cluster.indexOf(troop));
+        times.forEach((t, i) => {
+          const s = cluster[(i + pos) % 3];
+          if (s && s.template) items.push({ slot: s, time: t });
         });
       } else {
         const outsideMode = String(d[half + '_outside_mode'] || 'rotation');
@@ -1468,10 +1473,13 @@
             if (isTrip) cellIsTrip = true;
           }
         } else {
+          // ротация: отряд позиции p в час i стоит на станции (i+p)%3
           const outside = d[half + '_outside'] || [];
           const times = multiStepTimes(half);
-          outside.forEach((s, i) => {
-            if (s && s.template) items.push({ slot: s, time: times[i] });
+          const pos = Math.max(0, groups.outside.indexOf(troop));
+          times.forEach((t, i) => {
+            const s = outside[(i + pos) % 3];
+            if (s && s.template) items.push({ slot: s, time: t });
           });
         }
       }
