@@ -2095,7 +2095,99 @@ pages.join('')+
   // scored остаётся как алиас для обратной совместимости со старыми экранами.
   // needsReport (🎤) и needsScores (📊) — два независимых флага задач педагога.
   // Покрывает все режимы: normal, trip*, seq3, rot4, seq3trip.
+  // ── 6-отрядные хелперы (для _walkDay, синхронно со scores6) ──
+  const TROOPS_GROUP_A = [1, 2, 3];
+  const TROOPS_GROUP_B = [4, 5, 6];
+  function _halfMode6(day, half){
+    const t = String(day && day.type || 'normal');
+    const isAM = half === 'am';
+    switch (t) {
+      case 'trip3_am':       return isAM ? 'trip3'       : 'normal';
+      case 'trip3_pm':       return isAM ? 'normal'      : 'trip3';
+      case 'trip3_full':     return 'trip3';
+      case 'trip6_am':       return isAM ? 'trip6'       : 'normal';
+      case 'trip6_pm':       return isAM ? 'normal'      : 'trip6';
+      case 'trip6_am_split': return isAM ? 'trip6_split' : 'normal';
+      case 'trip6_pm_split': return isAM ? 'normal'      : 'trip6_split';
+      case 'trip6_full':     return 'trip6';
+      default:               return 'normal';
+    }
+  }
+  function _trip3GroupsFor6(day, half){
+    const inv = day && day.trip3_outside === 'A';
+    const baseTrip = inv ? TROOPS_GROUP_A.slice() : TROOPS_GROUP_B.slice();
+    const baseCluster = inv ? TROOPS_GROUP_B.slice() : TROOPS_GROUP_A.slice();
+    if (String(day && day.type) === 'trip3_full' && half === 'pm') {
+      return { trip: baseCluster, cluster: baseTrip };
+    }
+    return { trip: baseTrip, cluster: baseCluster };
+  }
+  function _normalGroupsFor6(half){
+    if (half === 'am') return { cluster: TROOPS_GROUP_A.slice(), outside: TROOPS_GROUP_B.slice() };
+    return { cluster: TROOPS_GROUP_B.slice(), outside: TROOPS_GROUP_A.slice() };
+  }
+
+  // 6-отрядный обход занятий дня. mkKey строго совпадает со scores6:
+  //   idx_half_path_t<troop>, path ∈ {trip6, trip6_a, trip6_b, trip_full, cluster_N, outside_N, outside_single}.
+  // Для каждого МК — отдельный cb на каждый отряд, прошедший через него.
   function _walkDay(day, idx, cb){
+    if (!day) return;
+    ['am','pm'].forEach(half => {
+      const mode = _halfMode6(day, half);
+
+      // Универсальный пуш: на каждый отряд свой mkKey.
+      const push = (s, path, troops) => {
+        if (!s || !s.template || !s.teacher) return;
+        (troops || []).forEach(troop => {
+          cb({
+            teacher: s.teacher, template: s.template, theme: s.theme || '',
+            scored: !!s.scored,
+            needsReport: (s.needsReport ?? s.scored ?? true) !== false,
+            needsScores: !!(s.needsScores ?? s.scored),
+            troop: troop,
+            mkKey: idx + '_' + half + '_' + path + '_t' + troop
+          });
+        });
+      };
+
+      if (mode === 'trip6') {
+        const s = day[half === 'am' ? 'trip6_am' : 'trip6_pm'];
+        push(s, 'trip6', [1,2,3,4,5,6]);
+        return;
+      }
+      if (mode === 'trip6_split') {
+        const sA = day[half === 'am' ? 'trip6_am_a' : 'trip6_pm_a'];
+        const sB = day[half === 'am' ? 'trip6_am_b' : 'trip6_pm_b'];
+        push(sA, 'trip6_a', TROOPS_GROUP_A.slice());
+        push(sB, 'trip6_b', TROOPS_GROUP_B.slice());
+        return;
+      }
+      if (mode === 'trip3') {
+        const g = _trip3GroupsFor6(day, half);
+        const sTrip = day[half === 'am' ? 'trip_full_am' : 'trip_full_pm'];
+        push(sTrip, 'trip_full', g.trip);
+        const cluster = day[half + '_cluster'] || [];
+        cluster.forEach((s, i) => push(s, 'cluster_' + i, g.cluster));
+        return;
+      }
+
+      // mode === 'normal'
+      const groups = _normalGroupsFor6(half);
+      const cluster = day[half + '_cluster'] || [];
+      cluster.forEach((s, i) => push(s, 'cluster_' + i, groups.cluster));
+      const outsideMode = String(day[half + '_outside_mode'] || 'rotation');
+      if (outsideMode === 'single') {
+        const s = day[half + '_outside_single'];
+        push(s, 'outside_single', groups.outside);
+      } else {
+        const outside = day[half + '_outside'] || [];
+        outside.forEach((s, i) => push(s, 'outside_' + i, groups.outside));
+      }
+    });
+  }
+
+  // ── СТАРЫЙ 4-отрядный обход (не используется в 6-отрядной ветке) ──
+  function _walkDayLegacy4(day, idx, cb){
     ['am','pm'].forEach(half => {
       const mode = _halfMode4(day, half);
 
