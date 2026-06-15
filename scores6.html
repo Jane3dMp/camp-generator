@@ -377,6 +377,9 @@
         function pushSlot(slot, opts) {
           if (!slot || !slot.template) return;
           if (normalizeName(slot.teacher) !== target) return;
+          // Только оценочные МК (как бейдж «📊 оценочный» во view6).
+          // needsScores явный приоритет; scored — алиас для старых смен.
+          if (!(slot.needsScores ?? slot.scored)) return;
           (opts.troops || []).forEach(troop => {
             mks.push({
               mkKey: idx + '_' + half + '_' + opts.path + '_t' + troop,
