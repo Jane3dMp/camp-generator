@@ -142,6 +142,10 @@
   table.att th.att-dog{min-width:64px}
   .att-cell.att-dog{width:64px}
   .att-cell.att-dog.v-dog{color:#185FA5;background:#E6F1FB}
+  .att-cell.att-dog.v-parent{color:#C77E5E;background:#F6EAE2}
+  .att-cell.att-dog.v-parent-auto{color:#C77E5E;background:#F6EAE2}
+  .att-cell.att-dog.v-parent-no{color:#b03a2e;background:#FBECEA}
+  .att-cell.att-dog .auto-mark{font-size:9px;vertical-align:super;opacity:0.8;margin-left:1px}
   .att-print-opt{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;user-select:none}
   .att-print-opt input{accent-color:var(--moss);cursor:pointer;margin:0}
 
@@ -220,6 +224,9 @@
   .contract-tick-parent{display:inline-block;width:18px;height:18px;line-height:16px;text-align:center;border-radius:50%;border:1.5px solid rgba(21,22,23,0.25);color:rgba(21,22,23,0.35);cursor:pointer;font-size:11px;font-weight:700;user-select:none}
   .contract-tick-parent:hover{border-color:#C77E5E;color:#C77E5E}
   .contract-tick-parent.is-on{background:#C77E5E;border-color:#C77E5E;color:#fff;font-size:13px}
+  .contract-tick-parent.is-auto{background:transparent;border-color:#C77E5E;color:#C77E5E;font-size:12px}
+  .contract-tick-parent.is-no{background:transparent;border-color:#b03a2e;color:#b03a2e;font-size:12px}
+  .contract-tick-parent .auto-mark{font-size:8px;vertical-align:super;margin-left:1px}
   /* В печати — галочки тоже видны, но без подсветки */
   @media print{
     body.printing-payments .contract-tick.contract-cognito,
@@ -1097,8 +1104,8 @@
       }
       // Колонка "Подписан" — ручная отметка (бывший `dogovor`)
       const signedCell = '<td class="att-cell att-dog '+(dv==='✓'?'v-dog':'')+'" data-cid="'+escapeHtml(k.crmId)+'" data-di="dogovor" onclick="cycleDog(this)">'+(dv||'')+'</td>';
-      const dvp=_attMap[k.crmId+'|dogovor_parent']||'';
-      const parentCell = '<td class="att-cell att-dog '+(dvp==='✓'?'v-dog':'')+'" data-cid="'+escapeHtml(k.crmId)+'" data-di="dogovor_parent" onclick="cycleDogParent(this)">'+(dvp||'')+'</td>';
+      const _ps = _parentCellState(k.crmId);
+      const parentCell = '<td class="att-cell att-dog'+(_ps.cls?(' '+_ps.cls):'')+'" data-cid="'+escapeHtml(k.crmId)+'" data-di="dogovor_parent" title="'+escapeHtml(_ps.title)+'" onclick="cycleDogParent(this)">'+_ps.text+(_ps.state==='auto_yes'?'<span class="auto-mark">🖊</span>':'')+'</td>';
       let row='<tr><td class="att-name">'+escapeHtml(shortName_(k.name))+'</td>'+ filledCell + signedCell + parentCell;
       _attDates.forEach((d,di)=>{ const v=_attMap[k.crmId+'|'+di]||''; const cls=v==='+'?'v-plus':(v==='-'?'v-minus':''); row+='<td class="att-cell '+cls+'" data-cid="'+escapeHtml(k.crmId)+'" data-di="'+di+'" onclick="cycleAtt(this)">'+(v||'')+'</td>'; });
       return row+'</tr>';
@@ -1149,13 +1156,30 @@
     saveAtt_(cid,'dogovor',next);
   }
 
+  function _parentCellState(crmId){
+    const manual = _attMap[crmId+'|dogovor_parent'] || '';
+    const c = _contractsByCrm[String(crmId)];
+    const auto = !!(c && c.parentSigned);
+    if (manual === '✓') return { state:'manual_yes', text:'✓', cls:'v-parent', title:'Подписано (отмечено вручную)' };
+    if (manual === '✗') return { state:'manual_no', text:'✗', cls:'v-parent-no', title:'Не подписано (отмечено вручную)' };
+    if (auto)           return { state:'auto_yes', text:'✓', cls:'v-parent-auto', title:'Подписано в Cognito (автоматически)' };
+    return { state:'none', text:'', cls:'', title:'Нажми, чтобы отметить подпись родителя' };
+  }
+  function _nextParentManual(cur){
+    if (cur === '✓') return '✗';
+    if (cur === '✗') return '';
+    return '✓';
+  }
+
   function cycleDogParent(td){
     const cid=td.dataset.cid, key=cid+'|dogovor_parent';
     const cur=_attMap[key]||'';
-    const next = cur===''?'✓':'';
+    const next=_nextParentManual(cur);
     if(next==='') delete _attMap[key]; else _attMap[key]=next;
-    td.textContent=next;
-    td.className='att-cell att-dog'+(next==='✓'?' v-dog':'');
+    const st=_parentCellState(cid);
+    td.className='att-cell att-dog'+(st.cls?(' '+st.cls):'');
+    td.innerHTML=st.text+(st.state==='auto_yes'?'<span class="auto-mark">🖊</span>':'');
+    td.title=st.title;
     saveAtt_(cid,'dogovor_parent',next);
     if(typeof renderPayments==='function' && document.querySelector('.pay')) renderPayments();
   }
@@ -1914,10 +1938,14 @@ pages.join('')+
       const signedCell = '<span class="contract-tick-signed' + (signed === '✓' ? ' is-on' : '') +
         '" data-cid="' + escapeHtml(r.crmId) + '" onclick="payToggleSigned(this)" title="Клик: договор подписан директором">' +
         (signed === '✓' ? '✓' : '○') + '</span>';
-      const signedP = (_attMap && _attMap[r.crmId+'|dogovor_parent']) || '';
-      const parentCell = '<span class="contract-tick-parent' + (signedP === '✓' ? ' is-on' : '') +
-        '" data-cid="' + escapeHtml(r.crmId) + '" onclick="payToggleParent(this)" title="Клик: договор подписан родителем">' +
-        (signedP === '✓' ? '✓' : '○') + '</span>';
+      const _psp = _parentCellState(r.crmId);
+      let _pCls = 'contract-tick-parent', _pTxt = '○', _pMark = '';
+      if (_psp.state === 'manual_yes') { _pCls += ' is-on'; _pTxt = '✓'; }
+      else if (_psp.state === 'auto_yes') { _pCls += ' is-auto'; _pTxt = '✓'; _pMark = '<span class="auto-mark">🖊</span>'; }
+      else if (_psp.state === 'manual_no') { _pCls += ' is-no'; _pTxt = '✗'; }
+      const parentCell = '<span class="' + _pCls +
+        '" data-cid="' + escapeHtml(r.crmId) + '" onclick="payToggleParent(this)" title="' + escapeHtml(_psp.title) + '">' +
+        _pTxt + _pMark + '</span>';
 
       html += '<tr class="' + rowClass + '">' +
         '<td class="idx">' + (i + 1) + '</td>' +
@@ -1987,11 +2015,18 @@ pages.join('')+
     const cid = el.dataset.cid;
     const key = cid + '|dogovor_parent';
     const cur = _attMap[key] || '';
-    const next = (cur === '✓') ? '' : '✓';
+    const next = _nextParentManual(cur);
     if (next === '') delete _attMap[key]; else _attMap[key] = next;
-    el.classList.toggle('is-on', next === '✓');
-    el.textContent = next === '✓' ? '✓' : '○';
+    const st = _parentCellState(cid);
+    el.className = 'contract-tick-parent';
+    let txt = '○', mark = '';
+    if (st.state === 'manual_yes') { el.classList.add('is-on'); txt = '✓'; }
+    else if (st.state === 'auto_yes') { el.classList.add('is-auto'); txt = '✓'; mark = '<span class="auto-mark">🖊</span>'; }
+    else if (st.state === 'manual_no') { el.classList.add('is-no'); txt = '✗'; }
+    el.innerHTML = txt + mark;
+    el.title = st.title;
     saveAtt_(cid, 'dogovor_parent', next);
+    if (typeof renderAttendance === 'function' && document.querySelector('.att')) renderAttendance();
   }
 
   // ─── Отправка просьбы заполнить договор в Viber ───
