@@ -267,10 +267,22 @@
   .pay-sync-info.stale{color:#7a1a10;font-weight:600}
   #pay-sync-btn:disabled{opacity:0.65;cursor:wait}
 
-  .pay-summary{display:flex;flex-wrap:wrap;gap:8px 14px;margin-bottom:14px;font-size:13px}
-  .pay-summary span{padding:4px 10px;border-radius:8px;background:rgba(21,22,23,0.04)}
-  .pay-summary .sum-debt{background:rgba(192,57,43,0.12);color:#7a1a10;font-weight:600}
-  .pay-summary .sum-paid{background:rgba(143,163,112,0.18);color:#3f5028}
+  .pay-summary{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin-bottom:14px;font-size:13px}
+  .pay-summary > span{padding:4px 10px;border-radius:8px;background:rgba(21,22,23,0.04)}
+  .pay-summary .sum-debt{background:rgba(192,57,43,0.12);color:#7a1a10;font-weight:600;font-size:15px;padding:6px 14px}
+  .pay-summary > span:first-child{font-size:15px;padding:6px 14px}
+  .pay-summary-more{font-size:13px}
+  .pay-summary-more summary{cursor:pointer;color:var(--muted);padding:4px 8px;border-radius:8px;background:rgba(21,22,23,0.04);list-style:none;user-select:none}
+  .pay-summary-more summary::-webkit-details-marker{display:none}
+  .pay-summary-more summary::before{content:'▾ ';font-size:11px}
+  .pay-summary-more[open] summary::before{content:'▴ '}
+  .pay-summary-more-row{display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:8px}
+  .pay-summary-more-row span{padding:4px 10px;border-radius:8px;background:rgba(21,22,23,0.04)}
+  .pay-summary-more-row .sum-paid{background:rgba(143,163,112,0.18);color:#3f5028}
+  .pay-filters{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:14px;font-size:13px;color:var(--ink)}
+  .pay-filters label{display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
+  .pay-filters input{accent-color:#C0392B;cursor:pointer;margin:0}
+  .pay-filters-count{color:var(--muted);font-size:12px}
 
   .pay-wrap{border:1px solid rgba(21,22,23,0.08);border-radius:10px;overflow:auto;background:#fff}
   table.pay{border-collapse:collapse;width:100%;font-family:Inter,sans-serif;font-size:13px}
@@ -320,6 +332,7 @@
     body.printing-payments header,
     body.printing-payments .pay-bar,
     body.printing-payments .pay-summary,
+    body.printing-payments .pay-filters,
     body.printing-payments .pay-changes-banner,
     body.printing-payments .pay-delta,
     body.printing-payments #toast{display:none !important}
@@ -1704,16 +1717,26 @@ pages.join('')+
       return;
     }
 
-    // Сводка сверху (на экране, при печати скрыта)
+    // Сводка сверху (на экране, при печати скрыта). Главное — Всего и К доплате,
+    // остальное — под «Подробнее».
     const summary =
       '<div class="pay-summary">' +
       '<span>Всего: <b>' + rows.length + '</b> детей</span>' +
+      '<span class="sum-debt">К доплате: <b>' + totals.debt + '</b> BYN</span>' +
+      '<details class="pay-summary-more"><summary>Подробнее</summary>' +
+      '<div class="pay-summary-more-row">' +
       '<span>Стоимость: <b>' + totals.price + '</b> BYN</span>' +
       '<span class="sum-paid">Собрано: <b>' + totals.paid + '</b> BYN</span>' +
-      '<span class="sum-debt">К доплате: <b>' + totals.debt + '</b> BYN</span>' +
       '<span>Нал: ' + totals.cash + '</span>' +
       '<span>Терминал: ' + totals.terminal + '</span>' +
       '<span>ЕРИП: ' + totals.erip + '</span>' +
+      '</div></details>' +
+      '</div>' +
+      // Фильтры должников (не печатаются)
+      '<div class="pay-filters">' +
+      '<label><input type="checkbox" id="pay-flt-debt"' + (_payFltDebt ? ' checked' : '') + ' onchange="payToggleFilter(\'debt\', this.checked)"> только с долгом по доплате</label>' +
+      '<label><input type="checkbox" id="pay-flt-nocontract"' + (_payFltNoContract ? ' checked' : '') + ' onchange="payToggleFilter(\'nocontract\', this.checked)"> только без договора</label>' +
+      '<span class="pay-filters-count" id="pay-filters-count"></span>' +
       '</div>';
 
     // Таблица
@@ -1743,9 +1766,23 @@ pages.join('')+
       return String(a.name || '').localeCompare(String(b.name || ''), 'ru');
     });
 
+    // Фильтры должников (ИЛИ): долг по доплате и/или нет договора из Cognito.
+    let viewRows = sortedRows;
+    if (_payFltDebt || _payFltNoContract) {
+      viewRows = sortedRows.filter((r) => {
+        const hasDebt = Number(r.debt) > 0.01;
+        const c = _contractsByCrm[String(r.crmId)];
+        const noContract = !(c && c.hasContract);
+        let ok = false;
+        if (_payFltDebt && hasDebt) ok = true;
+        if (_payFltNoContract && noContract) ok = true;
+        return ok;
+      });
+    }
+
     let prevTroop = null;
     let rowNum = 0;
-    sortedRows.forEach((r) => {
+    viewRows.forEach((r) => {
       // Разделитель перед новой группой отряда
       if (String(r.troop) !== String(prevTroop)) {
         prevTroop = r.troop;
@@ -1873,7 +1910,26 @@ pages.join('')+
       '</table></div>';
 
     document.getElementById('pay-content').innerHTML = summary + html;
+
+    // Счётчик показанных строк (если фильтр активен)
+    const cntEl = document.getElementById('pay-filters-count');
+    if (cntEl) {
+      if (_payFltDebt || _payFltNoContract) {
+        cntEl.textContent = 'показано ' + viewRows.length + ' из ' + sortedRows.length;
+      } else {
+        cntEl.textContent = '';
+      }
+    }
   }
+
+  // Состояние фильтров должников
+  let _payFltDebt = false, _payFltNoContract = false;
+  function payToggleFilter(which, on) {
+    if (which === 'debt') _payFltDebt = !!on;
+    if (which === 'nocontract') _payFltNoContract = !!on;
+    renderPayments();
+  }
+  window.payToggleFilter = payToggleFilter;
 
   // Печать: ставим body class, печатаем, снимаем
   function payPrint() {
