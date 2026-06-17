@@ -360,6 +360,14 @@
     if (!target || !publishedState) return [];
     const out = [];
 
+    // Педагог считается ведущим слот, если target есть СРЕДИ перечисленных в slot.teacher.
+    // Для выездов teacher = строка вида "админ, кураторы, Ермоленко Алексей" — бьём по
+    // запятым/точкам с запятой/слешам и сравниваем каждого, а не строку целиком.
+    const slotHasTeacher = (raw) => {
+      if (!raw) return false;
+      return String(raw).split(/[,;/]+/).some(part => normalizeName(part) === target);
+    };
+
     publishedState.schedule.forEach((d, idx) => {
       const date = dateForDay(publishedState, idx);
       const mDate = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
@@ -376,7 +384,7 @@
         // Универсальное добавление: на каждый отряд — свой mkKey.
         function pushSlot(slot, opts) {
           if (!slot || !slot.template) return;
-          if (normalizeName(slot.teacher) !== target) return;
+          if (!slotHasTeacher(slot.teacher)) return;
           // Только оценочные МК (как бейдж «📊 оценочный» во view6).
           // needsScores явный приоритет; scored — алиас для старых смен.
           if (!(slot.needsScores ?? slot.scored)) return;
