@@ -2455,6 +2455,14 @@ pages.join('')+
             const k = _normPersonNameKey(it.name);
             if (k && !curatorPhones[k]) curatorPhones[k] = phone;
           });
+        }).catch(()=>{}),
+      // Посещаемость — нужна, чтобы не считать «недозаполненными» тех, кого не было.
+      // Наполняем глобальный _attMap только если он ещё пуст (не затираем открытый табель).
+      fetch(LIBRARY_URL + '?action=getAttendance&seasonId=' + encodeURIComponent(SEASON_ID))
+        .then(r => r.json()).then(r => {
+          const map = (r && r.attendance && r.attendance.attendance) ? r.attendance.attendance
+                    : (r && r.attendance) ? r.attendance : null;
+          if (map && Object.keys(_attMap).length === 0) _attMap = map;
         }).catch(()=>{})
     ]);
     window._ahCuratorPhones = curatorPhones;
@@ -2479,6 +2487,10 @@ pages.join('')+
     const _kidUnderfilledInMk = (mkKey, childId) => {
       const absent = scoresFull[mkKey+'|'+childId+'|absent'] === '1';
       if (absent) return false;
+      // «Не был» из табеля посещения: день МК = первый сегмент mkKey (idx_half_...).
+      // Если в табеле за этот день стоит «−», баллы по ребёнку не нужны.
+      const dayIdx = String(mkKey).split('_')[0];
+      if (_attMap[childId+'|'+dayIdx] === '-') return false;
       // Старый формат до миграции: 'x' в любой из категорий означал «не был».
       const oldAbsent = SCORE_CRITS.some(cr => scoresFull[mkKey+'|'+childId+'|'+cr] === 'x');
       if (oldAbsent) return false;
