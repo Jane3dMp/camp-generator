@@ -348,7 +348,10 @@
 
         // Универсальный add: проверяет s.scored и создаёт по записи на каждый отряд
         function addSlot(slot, pathKey, troops) {
-          if (!slot || !slot.template || !slot.scored) return;
+          // Оценочный МК: needsScores в приоритете, scored — fallback для старых смен
+          // (синхронно со scores6/view6). Только !slot.scored отсекал новые смены,
+          // где стоит needsScores, но не scored.
+          if (!slot || !slot.template || !(slot.needsScores ?? slot.scored)) return;
           troops.forEach(troop => {
             out.push({
               mkKey: idx + '_' + half + '_' + pathKey + '_t' + troop,
