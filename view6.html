@@ -848,11 +848,16 @@
 
   // Возвращает {trip:[…], cluster:[…]} — какие отряды на выезде, какие на МК
   // для дней с trip3_*. trip3_outside по умолчанию 'B' (значит B на выезде).
-  function trip3GroupsFor(day) {
+  // ВАЖНО: для дня trip3_full группы на МК свопаются между AM и PM (утром одна
+  // тройка на выезде, после обеда — другая), поэтому учитываем half.
+  function trip3GroupsFor(day, half) {
     const inv = day && day.trip3_outside === 'A';
-    return inv
-      ? { trip: TROOPS_GROUP_A.slice(), cluster: TROOPS_GROUP_B.slice() }
-      : { trip: TROOPS_GROUP_B.slice(), cluster: TROOPS_GROUP_A.slice() };
+    const baseTrip = inv ? TROOPS_GROUP_A.slice() : TROOPS_GROUP_B.slice();
+    const baseCluster = inv ? TROOPS_GROUP_B.slice() : TROOPS_GROUP_A.slice();
+    if (String(day && day.type) === 'trip3_full' && half === 'pm') {
+      return { trip: baseCluster, cluster: baseTrip };
+    }
+    return { trip: baseTrip, cluster: baseCluster };
   }
 
   // halfMode для 6 отрядов: какой режим в этой половине дня
@@ -898,7 +903,7 @@
       { idx: 'b', troopsLabel: 'отряды 4, 5, 6 (выезд B)', isTrip: true }
     ];
     if (mode === 'trip3') {
-      const g = trip3GroupsFor(day);
+      const g = trip3GroupsFor(day, half);
       const tripLabel = 'отряды ' + g.trip.join(', ') + ' (выезд)';
       const clusterLabel = 'отряды ' + g.cluster.join(', ');
       return [
@@ -1015,7 +1020,7 @@
 
         if (mode === 'trip3') {
           // Одна группа на выезде (trip_full_*), другая на МК (cluster + outside)
-          const g = trip3GroupsFor(d);
+          const g = trip3GroupsFor(d, half);
           const sTrip = d[half === 'am' ? 'trip_full_am' : 'trip_full_pm'];
           pushSlot(sTrip, {
             time: fullT,
