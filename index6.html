@@ -12141,6 +12141,13 @@ async function loadPublicationToAdmin(id) {
     state.schedule = serverState.schedule;
     state.workWithoutThemes = !!serverState.workWithoutThemes;
     state.campType = serverState.campType || state.campType;
+    // КРИТИЧНО: переносим привязку Cognito-форм, номер смены и кураторов из загружаемой
+    // публикации. Без этого при «обновлении расписания из админки» cognitoFormIds оставался
+    // от прошлого состояния (или пустым), и следующая публикация затирала привязку в null —
+    // из-за чего у всех детей слетали договора.
+    state.cognitoFormIds = Array.isArray(serverState.cognitoFormIds) ? serverState.cognitoFormIds.slice() : null;
+    state.shiftNumber = serverState.shiftNumber || state.shiftNumber;
+    state.troopsCurators = serverState.troopsCurators || state.troopsCurators || {};
     state.publishId = pub.id;
 
     // Обновляем baseline под новую публикацию
@@ -12156,6 +12163,7 @@ async function loadPublicationToAdmin(id) {
     _publishState.newCampPromptDismissed = false;
 
     saveLocal();
+    _applyCuratorsAndShiftToInputs_();
     render();
     updatePublishIndicator();
 
