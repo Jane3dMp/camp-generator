@@ -4500,28 +4500,44 @@ async function loadDraftById(id) {
   return data.draft;
 }
 
+// Генерим id черновика на клиенте в ТОМ ЖЕ формате, что и сервер (genDraftId_):
+//   'd_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,7)
+// Зачем: ответ Apps Script /exec после редиректа не отдаёт Access-Control-Allow-Origin,
+// поэтому читать его обычным fetch нельзя (CORS → «Failed to fetch»). Шлём no-cors и
+// ответ не читаем. Раз ответ непрозрачен, id должен быть известен заранее — иначе при
+// создании нового черновика клиент не узнал бы серверный id, _draftId не сохранялся бы,
+// и каждое «Сохранить» плодило бы дубль (ровно это и было: два «Артмосфера» в списке).
+function genDraftIdClient_() {
+  return 'd_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
+}
+
 async function saveDraftToSheets(name, id) {
   syncConfig();
+  // id берём (по приоритету): явно переданный → текущий открытый → генерим новый.
+  const finalId = id || state._draftId || genDraftIdClient_();
+  const finalName = name || state._draftName || 'Без названия';
   const payload = {
     action: 'saveDraft',
-    id: id || (state._draftId || null),
-    name: name || (state._draftName || 'Без названия'),
+    id: finalId,
+    name: finalName,
     state: state
   };
-  // Apps Script Web App не любит preflight — используем text/plain
-  const r = await fetch(LIBRARY_URL, {
+  // no-cors: запрос доходит до сервера, но ответ непрозрачен (читать нельзя).
+  // Content-Type text/plain — чтобы не было CORS preflight (OPTIONS), который Apps Script не обрабатывает.
+  await fetch(LIBRARY_URL, {
     method: 'POST',
+    mode: 'no-cors',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(payload)
   });
-  const data = await r.json();
-  if (!data.ok) throw new Error(data.error || 'API error');
-  state._draftId = data.draft.id;
-  state._draftName = data.draft.name;
+  // Ответ не читаем — id и name мы и так знаем (сами сгенерили/передали).
+  // Сервер делает upsert по этому id: строка с finalId есть → обновит, нет → создаст с ним.
+  state._draftId = finalId;
+  state._draftName = finalName;
   saveLocal();
   // Кураторы → справочник (фоном, не критично)
   pushCuratorsToDirectory_();
-  return data.draft;
+  return { id: finalId, name: finalName, savedAt: new Date().toISOString() };
 }
 
 async function deleteDraftById(id) {
