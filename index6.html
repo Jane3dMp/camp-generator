@@ -8148,6 +8148,51 @@ function setHalfType(idx, half, newChoice) {
   setDayType(idx, mapHalvesToDayType_(am, pm));
 }
 
+// Какие cluster/outside массивы РАБОЧИЕ для данного типа дня.
+// Источник истины — логика _allSlots(): какие группы она собирает в активные.
+// В trip3 рабочий только cluster (+ trip_full, его не трогаем); outside не используется.
+// В trip6/split/full рабочих cluster/outside нет вообще (всё в trip6-полях).
+// Возвращает Set из имён массивов, которые НАДО оставить заполненными.
+function _activeClusterArrays_(type) {
+  switch (String(type || 'normal')) {
+    case 'normal':          return new Set(['am_cluster','am_outside','pm_cluster','pm_outside']);
+    case 'trip3_am':        return new Set(['am_cluster','pm_cluster','pm_outside']); // pm = normal
+    case 'trip3_pm':        return new Set(['am_cluster','am_outside','pm_cluster']); // am = normal
+    case 'trip3_full':      return new Set(['am_cluster','pm_cluster']);
+    case 'trip6_am':        return new Set(['pm_cluster','pm_outside']); // pm = normal
+    case 'trip6_pm':        return new Set(['am_cluster','am_outside']); // am = normal
+    case 'trip6_am_split':  return new Set(['pm_cluster','pm_outside']); // pm = normal
+    case 'trip6_pm_split':  return new Set(['am_cluster','am_outside']); // am = normal
+    case 'trip6_full':      return new Set([]);
+    case 'trip6_full_split':return new Set([]);
+    default:                return new Set(['am_cluster','am_outside','pm_cluster','pm_outside']);
+  }
+}
+
+// Обнуляет в дне те cluster/outside массивы, которые в текущем режиме не используются.
+// Вызывается ТОЛЬКО при публикации (не при переключении режима — чтобы случайный клик
+// по типу дня не стёр данные кабинетных МК). До публикации мусор лежит в черновике, но
+// view6 читает только опубликованное, поэтому призраки никому не видны.
+// НЕ трогает trip-поля (trip_full_*, trip6_*) — там живут реальные выезды, в т.ч. с педагогом.
+// Сохраняет длину массива (заполняет пустыми слотами), чтобы индексы scores/payroll/mkKey не съехали.
+function normalizeDayArrays_(day) {
+  if (!day) return 0;
+  const active = _activeClusterArrays_(day.type);
+  const arrays = ['am_cluster','am_outside','pm_cluster','pm_outside'];
+  let cleared = 0;
+  arrays.forEach(name => {
+    if (active.has(name)) return;          // рабочий массив — не трогаем
+    if (!Array.isArray(day[name])) return;
+    day[name].forEach((s, i) => {
+      if (s && s.template) {               // есть что чистить
+        day[name][i] = { template:'', teacher:'', theme:'', room:'', comment:'' };
+        cleared++;
+      }
+    });
+  });
+  return cleared;
+}
+
 function setDayType(day, type) {
   state.schedule[day].type = type;
   render();
@@ -12366,6 +12411,14 @@ async function publishSmena() {
   }
   const id = state.publishId;
   const name = (state.theme || 'Смена') + (state.startDate ? ' (' + state.startDate + ')' : '');
+
+  // Перед публикацией вычищаем накопившийся мусор: в каждом дне обнуляем
+  // cluster/outside массивы, которые его тип не использует (остатки от прежних
+  // режимов). Иначе view6 показывает их как призрачные занятия у педагогов.
+  // trip-поля (выезды, в т.ч. с педагогом) не трогаются.
+  let _normCleared = 0;
+  (state.schedule || []).forEach(d => { _normCleared += normalizeDayArrays_(d); });
+  if (_normCleared) console.log('[publishSmena] нормализация: вычищено призрачных слотов =', _normCleared);
 
   // Готовим snapshot для отправки
   const stateForPublish = {
