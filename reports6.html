@@ -300,7 +300,11 @@
         const mode = halfMode6(d, half);
 
         function addSlot(slot, pathKey, troops) {
-          if (!slot || !slot.template || !slot.scored) return;
+          // Оценочность МК хранится в slot.needsScores (как в scores6 и view6).
+          // scored — устаревший алиас для старых смен. reports6 раньше смотрел только
+          // на scored, которого в новых данных нет, поэтому allMks был пустой и у всех
+          // детей показывалось «нет оценок», хотя баллы на сервере есть.
+          if (!slot || !slot.template || !(slot.needsScores ?? slot.scored)) return;
           troops.forEach(troop => {
             out.push({
               mkKey: idx + '_' + half + '_' + pathKey + '_t' + troop,
