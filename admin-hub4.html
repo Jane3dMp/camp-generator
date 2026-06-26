@@ -1038,20 +1038,32 @@
     const box=document.getElementById('att-table');
     box.innerHTML='<div style="padding:20px;font-size:13px;color:var(--muted)">Загружаю…</div>';
     _attDates = buildAttDates_();
-    try{
-      const [chR, atR] = await Promise.all([
-        fetch(LIBRARY_URL+'?action=getChildren&seasonId='+encodeURIComponent(SEASON_ID)).then(r=>r.json()),
-        fetch(LIBRARY_URL+'?action=getAttendance&seasonId='+encodeURIComponent(SEASON_ID)).then(r=>r.json()).catch(()=>({ok:false}))
-      ]);
-      if(!chR.ok) throw new Error(chR.error||'Ошибка загрузки детей');
-      _attKids=(chR.children||[]).map(c=>({crmId:String(c.crmId),name:c.name||'',dob:c.dob||'',troop:c.troop||0}));
-      _attMap=(atR&&atR.ok&&atR.attendance&&atR.attendance.attendance)?atR.attendance.attendance:((atR&&atR.attendance)||{});
-      _attLoaded=true;
-      renderAttendance();
-      fillAttSyncDays_();
-      // Если Доплаты уже отрисованы — обновить ячейки "Подписан"
-      if (_payData) renderPayments();
-    }catch(e){ box.innerHTML='<div style="padding:20px;font-size:13px;color:#c0392b">Ошибка: '+escapeHtml(e.message)+'</div>'; }
+    // Cold-start Apps Script: первый запрос может вернуть HTML вместо JSON. Повторяем до 3 раз.
+    const attempts = 3;
+    for (let i = 0; i < attempts; i++) {
+      try{
+        const [chR, atR] = await Promise.all([
+          fetch(LIBRARY_URL+'?action=getChildren&seasonId='+encodeURIComponent(SEASON_ID)).then(r=>r.json()),
+          fetch(LIBRARY_URL+'?action=getAttendance&seasonId='+encodeURIComponent(SEASON_ID)).then(r=>r.json()).catch(()=>({ok:false}))
+        ]);
+        if(!chR.ok) throw new Error(chR.error||'Ошибка загрузки детей');
+        _attKids=(chR.children||[]).map(c=>({crmId:String(c.crmId),name:c.name||'',dob:c.dob||'',troop:c.troop||0}));
+        _attMap=(atR&&atR.ok&&atR.attendance&&atR.attendance.attendance)?atR.attendance.attendance:((atR&&atR.attendance)||{});
+        _attLoaded=true;
+        renderAttendance();
+        fillAttSyncDays_();
+        // Если Доплаты уже отрисованы — обновить ячейки "Подписан"
+        if (_payData) renderPayments();
+        return;
+      }catch(e){
+        console.warn('loadAttendance попытка ' + (i+1) + '/' + attempts + ':', e);
+        if (i < attempts - 1) {
+          await new Promise(res => setTimeout(res, 800 * (i + 1)));
+        } else {
+          box.innerHTML='<div style="padding:20px;font-size:13px;color:#c0392b">Ошибка: '+escapeHtml(e.message)+' — обновите страницу (Ctrl+Shift+R)</div>';
+        }
+      }
+    }
   }
 
   function renderAttendance(){
@@ -1545,20 +1557,35 @@ pages.join('')+
   let _contractsSyncedAt = '';
 
   async function loadContracts(){
-    _contractsLoaded = true;
-    try {
-      const r = await fetch(LIBRARY_URL + '?action=getContracts&seasonId=' +
-        encodeURIComponent(SEASON_ID) + '&_t=' + Date.now()).then(r=>r.json());
-      if (!r.ok) throw new Error(r.error || 'Не удалось загрузить договоры');
-      _contractsByCrm = r.result.contracts || {};
-      _contractsSyncedAt = r.result.syncedAt || '';
-      // Перерисовать открытые таблицы (тихо)
-      if (_attLoaded) renderAttendance && renderAttendance();
-      if (_payData) renderPayments();
-      _updateContractsBadges();
-    } catch(e) {
-      console.warn('loadContracts:', e);
+    // Cold-start Apps Script: первый запрос после простоя может вернуть HTML вместо JSON
+    // (→ «Unexpected token '<'») или сетевой сбой. Поэтому: НЕ ставим _contractsLoaded=true
+    // заранее (иначе повторная загрузка не запустится и галочки навсегда пустые до F5),
+    // и делаем несколько попыток с паузой. Флаг ставим в true ТОЛЬКО при успехе.
+    const attempts = 3;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        const r = await fetch(LIBRARY_URL + '?action=getContracts&seasonId=' +
+          encodeURIComponent(SEASON_ID) + '&_t=' + Date.now()).then(r=>r.json());
+        if (!r.ok) throw new Error(r.error || 'Не удалось загрузить договоры');
+        _contractsByCrm = r.result.contracts || {};
+        _contractsSyncedAt = r.result.syncedAt || '';
+        _contractsLoaded = true; // успех — теперь можно не грузить повторно
+        // Перерисовать открытые таблицы (тихо)
+        if (_attLoaded) renderAttendance && renderAttendance();
+        if (_payData) renderPayments();
+        _updateContractsBadges();
+        return;
+      } catch(e) {
+        console.warn('loadContracts попытка ' + (i+1) + '/' + attempts + ':', e);
+        if (i < attempts - 1) {
+          await new Promise(res => setTimeout(res, 800 * (i + 1))); // 0.8с, 1.6с — даём Apps Script проснуться
+        }
+      }
     }
+    // Все попытки провалились — флаг остаётся false, чтобы загрузка повторилась
+    // при следующем заходе на вкладку (а не «залипла» пустой до F5).
+    _contractsLoaded = false;
+    toast('Договоры не загрузились — обновите страницу (Ctrl+Shift+R)');
   }
 
   async function syncContractsFromCognito(){
