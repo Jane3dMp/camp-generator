@@ -1602,7 +1602,7 @@ pages.join('')+
         body: JSON.stringify({ action:'syncContracts' })
       }).then(r=>r.json());
       if (!r.ok) throw new Error(r.error || 'Ошибка синхронизации');
-      toast('Cognito: подгружено ' + r.result.total + ' заявок');
+      toast('Cognito: новых ' + ((r.result && r.result.added) || 0) + ', обновлено ' + ((r.result && r.result.updated) || 0));
       await loadContracts();
     } catch(e) {
       toast('Ошибка: ' + (e.message || e));
