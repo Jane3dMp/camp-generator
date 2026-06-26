@@ -1575,9 +1575,13 @@ pages.join('')+
         _contractsByCrm = r.result.contracts || {};
         _contractsSyncedAt = r.result.syncedAt || '';
         _contractsLoaded = true; // успех — теперь можно не грузить повторно
-        // Перерисовать открытые таблицы (тихо)
-        if (_attLoaded) renderAttendance && renderAttendance();
-        if (_payData) renderPayments();
+        // Перерисовать уже отрисованные таблицы. ВАЖНО: проверяем по факту наличия
+        // таблицы в DOM, а НЕ по флагам _attLoaded/_payData — иначе при гонке загрузок
+        // (договоры пришли раньше, чем loadAttendance выставил флаг) перерисовка не
+        // срабатывала и галочки «Заполнен» оставались пустыми, хотя данные уже есть.
+        const attTableEl = document.querySelector('#att-table table');
+        if (attTableEl && typeof renderAttendance === 'function') renderAttendance();
+        if (_payData && typeof renderPayments === 'function') renderPayments();
         _updateContractsBadges();
         return;
       } catch(e) {
