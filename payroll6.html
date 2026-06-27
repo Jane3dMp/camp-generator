@@ -1058,14 +1058,29 @@
       payroll.teachers.push(n);
     }
     // Подставим в ячейки, не трогая закреплённые
-    let touched = 0, skipped = 0;
+    let touched = 0, skipped = 0, cleared = 0;
     setSaveStatus('saving');
     for (const teacher of payroll.teachers) {
       const cnt = counts[teacher];
-      if (cnt == null) continue; // педагог не вёл в этот день
       const key = dayKey + '::' + teacher;
       const cell = payroll.cells[key];
-      if (cell && cell.locked) { skipped++; continue; }
+      if (cell && cell.locked) { skipped++; continue; } // закреплённые не трогаем
+
+      if (cnt == null) {
+        // Педагог НЕ ведёт в этот день по расписанию. Если за ним остались часы
+        // (например, его заменили другим педагогом именно в этот день) — обнуляем,
+        // иначе старые часы заменённого педагога зависают (рассинхрон табеля и расписания).
+        if (cell && (cell.lessons != null || cell.rate != null)) {
+          delete payroll.cells[key];
+          await postAction('savePayrollCell', {
+            seasonId: seasonId, day: dayKey, teacher: teacher,
+            lessons: null, rate: null, locked: false
+          });
+          cleared++;
+        }
+        continue;
+      }
+
       const newCell = {
         lessons: cnt,
         rate: (cell && cell.rate != null) ? cell.rate : 35,
@@ -1079,7 +1094,10 @@
       touched++;
     }
     setSaveStatus('ok');
-    toast('Подтянуто: ' + touched + (skipped ? ' (пропущено закреплённых: ' + skipped + ')' : ''));
+    let msg = 'Подтянуто: ' + touched;
+    if (cleared) msg += ', очищено заменённых: ' + cleared;
+    if (skipped) msg += ' (пропущено закреплённых: ' + skipped + ')';
+    toast(msg);
     render();
   }
   window.pullDayFromSchedule = pullDayFromSchedule;
