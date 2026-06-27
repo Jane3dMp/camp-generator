@@ -183,6 +183,11 @@
   }
   .pull-list label { font-size: 13px; cursor: pointer; flex: 1; }
   .pull-list .already { color: rgba(21,22,23,0.4); font-size: 12px; font-style: italic; }
+  .pull-section-title { font-family: Geologica, serif; font-weight: 600; font-size: 13px; margin: 14px 0 2px; color: #151617; }
+  .pull-section-title:first-child { margin-top: 0; }
+  .pull-section-remove { color: #b03a2e; border-top: 1px solid rgba(21,22,23,0.1); padding-top: 12px; }
+  .pull-warn { font-size: 11px; color: rgba(21,22,23,0.6); background: #FBF1E9; border: 1px solid #E8D3C2; border-radius: 6px; padding: 6px 9px; margin: 4px 0 2px; line-height: 1.4; }
+  .pull-empty { font-size: 12px; color: rgba(21,22,23,0.45); font-style: italic; margin: 4px 0; }
 
   /* ── Модалка-инструкция ── */
   .modal-bg.modal-help { align-items: flex-start; overflow-y: auto; padding: 20px; z-index: 600; }
@@ -849,16 +854,39 @@
   }
 
   let _pullCandidates = [];
+  // Сумма и число занятий педагога в табеле (для показа при удалении).
+  function _teacherTotalInfo(name) {
+    let sum = 0, lessons = 0, days = 0;
+    getShiftDays().forEach(d => {
+      const c = payroll.cells[d.key + '::' + name];
+      if (c && c.lessons != null && c.rate != null) {
+        sum += c.lessons * c.rate;
+        lessons += Number(c.lessons) || 0;
+        days++;
+      }
+    });
+    return { sum, lessons, days };
+  }
+
   function openPullTeachersModal() {
     const scanned = scanScheduleTeachers();
     _pullCandidates = Object.keys(scanned).sort();
+    const inSchedule = {};
+    _pullCandidates.forEach(n => { inSchedule[n] = true; });
+    const toRemoveList = (payroll.teachers || []).filter(t => !inSchedule[t]).sort();
+
     const body = document.getElementById('pull-teachers-body');
+    let html = '';
+
+    const toAddList = _pullCandidates.filter(name => payroll.teachers.indexOf(name) < 0);
     if (_pullCandidates.length === 0) {
-      body.innerHTML = '<em>В расписании не найдено именованных педагогов.</em>';
-      document.getElementById('confirm-pull-btn').disabled = true;
+      html += '<em>В расписании не найдено именованных педагогов.</em>';
     } else {
-      document.getElementById('confirm-pull-btn').disabled = false;
-      body.innerHTML = '<ul class="pull-list">' + _pullCandidates.map(name => {
+      html += '<div class="pull-section-title">Добавить в табель</div>';
+      if (toAddList.length === 0) {
+        html += '<div class="pull-empty">Все педагоги из расписания уже в табеле.</div>';
+      }
+      html += '<ul class="pull-list">' + _pullCandidates.map(name => {
         const already = payroll.teachers.indexOf(name) >= 0;
         const sc = scanned[name];
         const totalText = sc.total + ' зан. в ' + Object.keys(sc.days).length + ' дн.';
@@ -869,15 +897,47 @@
           ) + '</li>';
       }).join('') + '</ul>';
     }
+
+    if (toRemoveList.length > 0) {
+      html += '<div class="pull-section-title pull-section-remove">Убрать из табеля <span style="font-weight:400;color:rgba(21,22,23,0.5);font-size:11px">(нет в расписании — заменены или сняты)</span></div>';
+      html += '<div class="pull-warn">Галочки сняты специально. Отметь только тех, кого точно убрать — например, заменённого педагога. Кто ведёт без расписания (подмена), оставь без галочки.</div>';
+      html += '<ul class="pull-list">' + toRemoveList.map(name => {
+        const info = _teacherTotalInfo(name);
+        const moneyText = info.sum > 0
+          ? (info.sum + ' ₽, ' + info.lessons + ' зан. в ' + info.days + ' дн.')
+          : 'часов не проставлено';
+        return '<li>' +
+          '<input type="checkbox" data-remove-name="' + escapeHtml(name).replace(/"/g,'&quot;') + '"> ' +
+          '<label>' + escapeHtml(name) + ' <span style="color:#b03a2e;font-size:11px">— ' + moneyText + '</span></label>' +
+          '</li>';
+      }).join('') + '</ul>';
+    }
+
+    body.innerHTML = html;
+    document.getElementById('confirm-pull-btn').disabled = (_pullCandidates.length === 0 && toRemoveList.length === 0);
     document.getElementById('pull-teachers-modal').classList.add('open');
   }
   function closePullTeachersModal() {
     document.getElementById('pull-teachers-modal').classList.remove('open');
   }
   async function confirmPullTeachers() {
-    const checks = document.querySelectorAll('#pull-teachers-body input[data-pull-name]:checked');
-    const toAdd = Array.from(checks).map(c => c.dataset.pullName);
-    if (toAdd.length === 0) { closePullTeachersModal(); return; }
+    const addChecks = document.querySelectorAll('#pull-teachers-body input[data-pull-name]:checked');
+    const toAdd = Array.from(addChecks).map(c => c.dataset.pullName);
+    const removeChecks = document.querySelectorAll('#pull-teachers-body input[data-remove-name]:checked');
+    const toRemove = Array.from(removeChecks).map(c => c.dataset.removeName);
+
+    if (toAdd.length === 0 && toRemove.length === 0) { closePullTeachersModal(); return; }
+
+    if (toRemove.length > 0) {
+      const lines = toRemove.map(n => {
+        const info = _teacherTotalInfo(n);
+        return '• ' + n + (info.sum > 0 ? ' (' + info.sum + ' ₽ будут удалены)' : '');
+      });
+      if (!confirm('Убрать из табеля ' + toRemove.length + ' педагог(ов) и все их записи?\n\n' + lines.join('\n'))) {
+        return;
+      }
+    }
+
     closePullTeachersModal();
     setSaveStatus('saving');
     try {
@@ -885,9 +945,18 @@
         await postAction('addPayrollTeacher', { seasonId: seasonId, teacher: name });
         if (payroll.teachers.indexOf(name) < 0) payroll.teachers.push(name);
       }
+      for (const name of toRemove) {
+        await postAction('removePayrollTeacher', { seasonId: seasonId, teacher: name });
+        payroll.teachers = payroll.teachers.filter(t => t !== name);
+        Object.keys(payroll.cells).forEach(k => { if (k.endsWith('::' + name)) delete payroll.cells[k]; });
+        if (payroll.paidTeachers) delete payroll.paidTeachers[name];
+      }
       render();
       setSaveStatus('ok');
-      toast('Добавлено: ' + toAdd.length);
+      const parts = [];
+      if (toAdd.length) parts.push('добавлено ' + toAdd.length);
+      if (toRemove.length) parts.push('убрано ' + toRemove.length);
+      toast(parts.join(', '));
     } catch (e) { setSaveStatus('err', e.message); }
   }
   window.openPullTeachersModal = openPullTeachersModal;
