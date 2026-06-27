@@ -203,6 +203,10 @@
   .contract-tick.contract-cognito{color:#3f5028}   /* зелёный — заявка из Cognito (точный матч) */
   .contract-tick.contract-fuzzy{color:#C77E5E;text-shadow:0 0 0 #C77E5E}  /* терракотовый — fuzzy-матч (опечатки в имени, требует проверки) */
   .contract-tick.contract-manual{color:#185FA5}    /* синий — отметка вручную */
+  .contract-cand{display:inline-block;width:18px;height:18px;line-height:16px;text-align:center;border-radius:50%;background:#FED634;color:#151617;font-weight:700;font-size:12px;cursor:pointer;border:1.5px solid #E0BC1A;user-select:none}
+  .contract-cand:hover{background:#ffe566}
+  .contract-cand.contract-cand-rejected{background:transparent;color:#9a9a93;border-color:#cfcfc7;border-style:dashed}
+  .contract-cand.contract-cand-rejected:hover{background:#f3f3ee;color:#555}
   a.contract-tick:hover{text-decoration:none;opacity:0.7}
   .contracts-badge{font-size:12px;color:var(--muted);padding:4px 10px;border-radius:8px;background:rgba(143,163,112,0.15)}
   .contracts-badge:empty{display:none}
@@ -1066,6 +1070,90 @@
     }
   }
 
+  // Внутренняя часть ячейки «Заполнен» (без обёртки <td>) — договор/кандидат.
+  // Возвращает HTML-строку: галочка (high/low/manual), либо «?» (кандидат), либо ''.
+  function _contractInnerHtml(c){
+    if (c && c.needsConfirm && Array.isArray(c.candidates) && c.candidates.length){
+      const cand = c.candidates[0];
+      const rej = !!c.rejected;
+      const title = rej
+        ? 'Отклонено ранее. Нажмите, чтобы пересмотреть и подтвердить.'
+        : 'Возможно, есть договор: ' + (cand.childName||'') + '. Телефон/дата в заявке не совпали — нажмите, чтобы проверить и подтвердить.';
+      const cls = rej ? 'contract-cand contract-cand-rejected' : 'contract-cand';
+      const payload = encodeURIComponent(JSON.stringify({ crmId:String(c._crmId||''), childName:c._childName||'', candidates:c.candidates }));
+      return '<span class="'+cls+'" title="'+escapeHtml(title)+'" onclick="openContractConfirm(\''+payload+'\')">?</span>';
+    }
+    if (c && c.hasContract){
+      const isManual = (c.confidence === 'manual');
+      let confText, confClass;
+      if (isManual) { confText = 'подтверждено вручную'; confClass = 'contract-manual'; }
+      else if (c.confidence === 'high') { confText = 'совпадение тел.+ФИО+ДР'; confClass = 'contract-cognito'; }
+      else if (c.confidence === 'low') {
+        if (c.matchInfo && c.matchInfo.foundBy === 'dob+name') {
+          confText = (c.matchInfo.nameMatch === 'exact') ? 'разные телефоны, но ФИО+ДР совпали ⚠' : 'разные телефоны, ФИО с опечаткой, ДР совпала ⚠';
+        } else if (c.matchInfo && (c.matchInfo.foundBy === 'phone+dob')) {
+          confText = 'телефон+ДР совпали, имя записано иначе ⚠';
+        } else { confText = 'fuzzy-match: имя с опечатками ⚠'; }
+        confClass = 'contract-fuzzy';
+      }
+      else { confText = 'совпадение тел.+ФИО'; confClass = 'contract-cognito'; }
+      let title = (isManual ? 'Договор привязан вручную · ' : 'Заявка через Cognito · ') +
+        (c.parentName || '') + (c.submittedAt ? ' · ' + String(c.submittedAt).slice(0,10) : '') + ' · ' + confText;
+      if (c.confidence === 'low' && c.matchInfo) {
+        if (c.matchInfo.childNameInAlfa !== c.matchInfo.childNameInCognito) {
+          title += ' (Альфа: «' + (c.matchInfo.childNameInAlfa||'') + '» ↔ Cognito: «' + (c.matchInfo.childNameInCognito||'') + '»)';
+        }
+      }
+      const link = c.adminLink || c.documentLink || '';
+      return link
+        ? '<a href="' + escapeHtml(link) + '" target="_blank" class="contract-tick ' + confClass + '" title="' + escapeHtml(title) + '">✓</a>'
+        : '<span class="contract-tick ' + confClass + '" title="' + escapeHtml(title) + '">✓</span>';
+    }
+    return '';
+  }
+
+  // Ячейка <td> «Заполнен» для табеля.
+  function _filledCellHtml(k){
+    const c = _contractsByCrm[String(k.crmId)];
+    if (c) { c._crmId = String(k.crmId); c._childName = k.name || ''; }
+    const inner = _contractInnerHtml(c);
+    if (!inner) return '<td class="att-cell att-dog"></td>';
+    const isTick = (c && c.hasContract);
+    return '<td class="att-cell att-dog'+(isTick?' v-dog':'')+'">'+inner+'</td>';
+  }
+
+  function openContractConfirm(payloadEnc){
+    let data;
+    try { data = JSON.parse(decodeURIComponent(payloadEnc)); } catch(e){ return; }
+    const cand = data.candidates[0];
+    const docLink = cand.documentLink || cand.adminLink || '';
+    const info = [];
+    info.push('Ребёнок в системе: ' + (data.childName||''));
+    info.push('Заявка в Cognito: ' + (cand.childName||'') + (cand.parentName ? ' (родитель: ' + cand.parentName + ')' : ''));
+    if (cand.childDobInCognito) info.push('Дата рождения в заявке: ' + cand.childDobInCognito);
+    if (cand.phoneInCognito) info.push('Телефон в заявке: ' + cand.phoneInCognito);
+    if (docLink && confirm(info.join('\n') + '\n\nОК — открыть документ заявки для проверки.\nОтмена — решать сразу.')) {
+      window.open(docLink, '_blank');
+    }
+    const yes = confirm('Привязать этот договор к ребёнку «' + (data.childName||'') + '»?\n\nОК — Подтвердить.\nОтмена — Отклонить (можно передумать позже).');
+    _sendContractDecision(data.crmId, cand.formId, cand.entryNumber, yes ? 'confirm' : 'reject');
+  }
+
+  async function _sendContractDecision(crmId, formId, entryNumber, decision){
+    try{
+      const r = await fetch(LIBRARY_URL, {
+        method:'POST',
+        headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body: JSON.stringify({ action:'confirmContract', seasonId:SEASON_ID, crmId:crmId, formId:formId, entryNumber:entryNumber, decision:decision })
+      }).then(r=>r.json());
+      if(!r.ok) throw new Error(r.error||'Ошибка');
+      toast(decision==='confirm' ? 'Договор привязан вручную' : 'Кандидат отклонён');
+      _contractsLoaded = false;
+      await loadContracts();
+    }catch(e){ toast('Ошибка: '+(e.message||e)); }
+  }
+  window.openContractConfirm = openContractConfirm;
+
   function renderAttendance(){
     const box=document.getElementById('att-table');
     if(!_attKids.length){ box.innerHTML='<div style="padding:20px;font-size:13px;color:var(--muted)">Нет детей. Импортируй на вкладке «Состав отрядов».</div>'; return; }
@@ -1075,45 +1163,8 @@
     html+='</tr></thead><tbody>';
     const renderKid=(k)=>{
       const dv=_attMap[k.crmId+'|dogovor']||'';
-      const c = _contractsByCrm[String(k.crmId)];
-      const hasCog = !!(c && c.hasContract);
-      // Колонка "Заполнен" — только Cognito (только отображение)
-      let filledCell;
-      if (hasCog) {
-        let confText, confClass;
-        if (c.confidence === 'high')      { confText = 'совпадение тел.+ФИО+ДР';           confClass = 'contract-cognito'; }
-        else if (c.confidence === 'low')  {
-          // Уточняем тип low-матча
-          if (c.matchInfo && c.matchInfo.foundBy === 'dob+name') {
-            confText = (c.matchInfo.nameMatch === 'exact')
-              ? 'разные телефоны, но ФИО+ДР совпали ⚠'
-              : 'разные телефоны, ФИО с опечаткой, ДР совпала ⚠';
-          } else {
-            confText = 'fuzzy-match: имя с опечатками ⚠';
-          }
-          confClass = 'contract-fuzzy';
-        }
-        else                              { confText = 'совпадение тел.+ФИО';              confClass = 'contract-cognito'; }
-        let title = 'Заявка через Cognito · ' +
-          escapeHtml(c.parentName || '') +
-          (c.submittedAt ? ' · ' + String(c.submittedAt).slice(0,10) : '') +
-          ' · ' + confText;
-        if (c.confidence === 'low' && c.matchInfo) {
-          if (c.matchInfo.childNameInAlfa !== c.matchInfo.childNameInCognito) {
-            title += ' (Альфа: «' + escapeHtml(c.matchInfo.childNameInAlfa) + '» ↔ Cognito: «' + escapeHtml(c.matchInfo.childNameInCognito) + '»)';
-          }
-          if (c.matchInfo.foundBy === 'dob+name') {
-            title += ' [телефоны: Альфа ' + escapeHtml(c.matchInfo.phoneInAlfa || '?') + ' ↔ Cognito ' + escapeHtml(c.matchInfo.phoneInCognito || '?') + ']';
-          }
-        }
-        const link = c.adminLink || c.documentLink || '';
-        const inner = link
-          ? '<a href="' + escapeHtml(link) + '" target="_blank" class="contract-tick ' + confClass + '" title="' + title + '">✓</a>'
-          : '<span class="contract-tick ' + confClass + '" title="' + title + '">✓</span>';
-        filledCell = '<td class="att-cell att-dog v-dog">' + inner + '</td>';
-      } else {
-        filledCell = '<td class="att-cell att-dog"></td>';
-      }
+      // Колонка "Заполнен" — договор Cognito / кандидат на подтверждение / пусто
+      const filledCell = _filledCellHtml(k);
       // Колонка "Подписан" — ручная отметка (бывший `dogovor`)
       const signedCell = '<td class="att-cell att-dog '+(dv==='✓'?'v-dog':'')+'" data-cid="'+escapeHtml(k.crmId)+'" data-di="dogovor" onclick="cycleDog(this)">'+(dv||'')+'</td>';
       const _ps = _parentCellState(k.crmId);
@@ -1940,26 +1991,19 @@ pages.join('')+
           escapeHtml(r.cttEdate) + (r.cttNote ? ' («' + escapeHtml(r.cttNote) + '»)' : '') + '">⚠</span>'
         : '';
 
-      // Колонки «Заполнен» (Cognito) и «Подписан» (ручная отметка _attMap)
+      // Колонки «Заполнен» (Cognito/кандидат) и «Подписан» (ручная отметка _attMap)
       const c = _contractsByCrm[String(r.crmId)];
-      const hasCog = !!(c && c.hasContract);
-      let filledCell;
-      if (hasCog) {
-        const title = 'Заявка через Cognito · ' +
-          (c.parentName || '') +
-          (c.submittedAt ? ' · ' + String(c.submittedAt).slice(0,10) : '') +
-          (c.confidence === 'high' ? ' · совпадение тел.+ФИО+ДР' : ' · совпадение тел.+ФИО');
-        const link = c.adminLink || c.documentLink || '';
-        filledCell = link
-          ? '<a href="' + escapeHtml(link) + '" target="_blank" class="contract-tick contract-cognito" title="' + escapeHtml(title) + '">✓</a>'
-          : '<span class="contract-tick contract-cognito" title="' + escapeHtml(title) + '">✓</span>';
-      } else if (r.parentPhone) {
-        // Нет Cognito-заявки, но есть телефон — кнопка «Отправить просьбу в Viber»
-        filledCell = '<button class="contract-msg-btn" onclick="openContractMessage(\'' +
-          escapeHtml(r.parentPhone).replace(/'/g,'&#39;') +
-          '\')" title="Отправить родителю просьбу заполнить договор в Viber">✉</button>';
-      } else {
-        filledCell = '';
+      if (c) { c._crmId = String(r.crmId); c._childName = r.name || ''; }
+      let filledCell = _contractInnerHtml(c); // галочка договора ИЛИ «?» кандидата
+      if (!filledCell) {
+        if (r.parentPhone) {
+          // Нет заявки/кандидата, но есть телефон — кнопка «Отправить просьбу в Viber»
+          filledCell = '<button class="contract-msg-btn" onclick="openContractMessage(\'' +
+            escapeHtml(r.parentPhone).replace(/'/g,'&#39;') +
+            '\')" title="Отправить родителю просьбу заполнить договор в Viber">✉</button>';
+        } else {
+          filledCell = '';
+        }
       }
       const signed = (_attMap && _attMap[r.crmId+'|dogovor']) || '';
       const signedCell = '<span class="contract-tick-signed' + (signed === '✓' ? ' is-on' : '') +

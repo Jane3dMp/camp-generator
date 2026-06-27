@@ -206,6 +206,8 @@
   .contract-tick.contract-low{color:#C77E5E}       /* терракота — неточное совпадение */
   .contract-cand{display:inline-block;width:18px;height:18px;line-height:16px;text-align:center;border-radius:50%;background:#FED634;color:#151617;font-weight:700;font-size:12px;cursor:pointer;border:1.5px solid #E0BC1A;user-select:none}
   .contract-cand:hover{background:#ffe566}
+  .contract-cand.contract-cand-rejected{background:transparent;color:#9a9a93;border-color:#cfcfc7;border-style:dashed}
+  .contract-cand.contract-cand-rejected:hover{background:#f3f3ee;color:#555}
   a.contract-tick:hover{text-decoration:none;opacity:0.7}
   .contracts-badge{font-size:12px;color:var(--muted);padding:4px 10px;border-radius:8px;background:rgba(143,163,112,0.15)}
   .contracts-badge:empty{display:none}
@@ -1143,10 +1145,13 @@
     const c = _contractsByCrm[String(k.crmId)];
     if (c && c.needsConfirm && Array.isArray(c.candidates) && c.candidates.length){
       const cand = c.candidates[0];
-      const title = 'Возможно, есть договор: ' + (cand.childName||'') +
-        '. Телефон/дата в заявке не совпали — нажмите, чтобы проверить и подтвердить.';
+      const rej = !!c.rejected;
+      const title = rej
+        ? 'Отклонено ранее. Нажмите, чтобы пересмотреть и подтвердить, если это всё-таки её договор.'
+        : 'Возможно, есть договор: ' + (cand.childName||'') + '. Телефон/дата в заявке не совпали — нажмите, чтобы проверить и подтвердить.';
+      const cls = rej ? 'contract-cand contract-cand-rejected' : 'contract-cand';
       const payload = encodeURIComponent(JSON.stringify({ crmId:String(k.crmId), childName:k.name||'', candidates:c.candidates }));
-      return '<td class="att-cell att-dog"><span class="contract-cand" title="'+escapeHtml(title)+'" onclick="openContractConfirm(\''+payload+'\')">?</span></td>';
+      return '<td class="att-cell att-dog"><span class="'+cls+'" title="'+escapeHtml(title)+'" onclick="openContractConfirm(\''+payload+'\')">?</span></td>';
     }
     if (c && c.hasContract){
       const isManual = (c.confidence === 'manual');
@@ -2003,11 +2008,16 @@ pages.join('')+
           ? '<a href="' + escapeHtml(link) + '" target="_blank" class="' + cls + '" title="' + escapeHtml(title) + '">✓</a>'
           : '<span class="' + cls + '" title="' + escapeHtml(title) + '">✓</span>';
       } else if (isCand) {
-        // Кандидат на ручное подтверждение (имя совпало, телефон/ДР битые)
+        // Кандидат на ручное подтверждение (имя совпало, телефон/ДР битые).
+        // Отклонённый ранее — бледный значок, но всё равно кликабелен (можно передумать).
         const cand = c.candidates[0];
-        const title = 'Возможно, есть договор: ' + (cand.childName||'') + '. Нажмите, чтобы проверить и подтвердить.';
+        const rej = !!c.rejected;
+        const title = rej
+          ? 'Отклонено ранее. Нажмите, чтобы пересмотреть и подтвердить.'
+          : 'Возможно, есть договор: ' + (cand.childName||'') + '. Нажмите, чтобы проверить и подтвердить.';
+        const cls = rej ? 'contract-cand contract-cand-rejected' : 'contract-cand';
         const payload = encodeURIComponent(JSON.stringify({ crmId:String(r.crmId), childName:r.name||'', candidates:c.candidates }));
-        filledCell = '<span class="contract-cand" title="'+escapeHtml(title)+'" onclick="openContractConfirm(\''+payload+'\')">?</span>';
+        filledCell = '<span class="'+cls+'" title="'+escapeHtml(title)+'" onclick="openContractConfirm(\''+payload+'\')">?</span>';
       } else if (r.parentPhone) {
         // Нет Cognito-заявки, но есть телефон — кнопка «Отправить просьбу в Viber»
         filledCell = '<button class="contract-msg-btn" onclick="openContractMessage(\'' +
