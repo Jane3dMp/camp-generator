@@ -1754,7 +1754,15 @@ function escapeHtml(s) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
-function escapeJs(s) { return String(s == null ? '' : s).replace(/'/g, "\\'"); }
+function escapeJs(s) {
+  // Экранирование для JS-строки внутри HTML-атрибута onclick (двойные кавычки).
+  //   \\ первым, затем ' и " (иначе имена с кавычками рвут onclick).
+  return String(s == null ? '' : s)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '&quot;')
+    .replace(/[\r\n]+/g, ' ');
+}
 function pluralForms(n, one, few, many) {
   const m10 = n % 10, m100 = n % 100;
   if (m10 === 1 && m100 !== 11) return one;

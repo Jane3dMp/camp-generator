@@ -5199,7 +5199,18 @@ function getUniqueTemplates() {
 }
 
 function escapeJs(s) {
-  return String(s).replace(/'/g, "\\'");
+  // Результат вставляется в JS-строку (в одинарных кавычках) ВНУТРИ HTML-атрибута
+  // onclick/onkeydown (в двойных кавычках). Поэтому экранируем:
+  //   \  → \\     (чтобы не ломать JS-экранирование; делаем ПЕРВЫМ)
+  //   '  → \'     (чтобы не закрыть JS-строку)
+  //   "  → &quot; (чтобы не закрыть HTML-атрибут — иначе имена с кавычками, например
+  //                «МК в технике "Акварель"», рвут onclick и клик не срабатывает)
+  // Перевод строки тоже убираем — он ломает однострочный обработчик.
+  return String(s)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '&quot;')
+    .replace(/[\r\n]+/g, ' ');
 }
 
 function openTemplatePicker(day, group, idx, isTripSlot, slotKey) {
