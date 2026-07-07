@@ -2581,7 +2581,7 @@ pages.join('')+
     });
 
     // Параллельно: статусы записей (отчёты) + баллы (mkTouched + полный словарь) + дети сезона + справочник кураторов (имя→телефон).
-    let notes = {}, mkScored = {}, scoresFull = {}, childrenById = {}, childrenByTroop = {}, curatorPhones = {};
+    let notes = {}, mkScored = {}, scoresFull = {}, childrenById = {}, childrenByTroop = {}, curatorPhones = {}, troopMoves = {};
     await Promise.all([
       fetch(LIBRARY_URL + '?action=listLessonNotes&seasonId=' + encodeURIComponent(SEASON_ID))
         .then(r => r.json()).then(r => { if (r && r.ok && r.notes) notes = r.notes; }).catch(()=>{}),
@@ -2627,6 +2627,13 @@ pages.join('')+
           const map = (r && r.attendance && r.attendance.attendance) ? r.attendance.attendance
                     : (r && r.attendance) ? r.attendance : null;
           if (map && Object.keys(_attMap).length === 0) _attMap = map;
+        }).catch(()=>{}),
+      // Переходы отрядов — чтобы за дни ДО перехода не требовать баллы в новом отряде.
+      fetch(LIBRARY_URL + '?action=getTroopMoves&seasonId=' + encodeURIComponent(SEASON_ID))
+        .then(r => r.json()).then(r => {
+          const m = (r && r.result && r.result.moves) ? r.result.moves
+                  : (r && r.moves) ? r.moves : null;
+          if (m && typeof m === 'object') troopMoves = m;
         }).catch(()=>{})
     ]);
     window._ahCuratorPhones = curatorPhones;
@@ -2698,6 +2705,11 @@ pages.join('')+
             candidates = _childIdsTouchedInMk(mkKey);
           }
           candidates.forEach(childId => {
+            // Перешедший ребёнок: за дни ДО перехода он был в другом отряде —
+            // в текущем (новом) отряде за эти дни баллы по нему не требуются.
+            // fromDay — 1-based номер дня; g.dayIdx — 0-based индекс дня МК.
+            const fromDay = troopMoves[String(childId)];
+            if (fromDay != null && g.dayIdx < (Number(fromDay) - 1)) return;
             if (_kidUnderfilledInMk(mkKey, childId)) {
               const kid = childrenById[childId];
               const name = kid && kid.name ? kid.name : ('#'+childId);
