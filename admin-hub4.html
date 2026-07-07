@@ -380,6 +380,10 @@
   .ah-tag.report{background:#C8714B;color:#fff}
   .ah-tag.scores{background:#534AB7;color:#fff}
   .ah-tag.partial{background:#C77E5E;color:#fff;cursor:help}
+  .ah-tag.cancel-lesson{background:#fff;color:#8a5a3c;border:1px solid #C77E5E;cursor:pointer}
+  .ah-tag.cancel-lesson:hover{background:#C77E5E;color:#fff}
+  .ah-tag.return-lesson{background:#fff;color:#5a6b4a;border:1px solid #8FA370;cursor:pointer}
+  .ah-tag.return-lesson:hover{background:#8FA370;color:#fff}
   /* Конвертик возле имени педагога — скопировать сообщение и открыть Viber */
   .ah-env-btn{
     display:inline-flex;align-items:center;justify-content:center;
@@ -2449,7 +2453,7 @@ pages.join('')+
     });
 
     // Параллельно: статусы записей (отчёты) + баллы (mkTouched + полный словарь) + дети сезона + справочник кураторов (имя→телефон).
-    let notes = {}, mkScored = {}, scoresFull = {}, childrenById = {}, childrenByTroop = {}, curatorPhones = {}, troopMoves = {};
+    let notes = {}, mkScored = {}, scoresFull = {}, childrenById = {}, childrenByTroop = {}, curatorPhones = {}, troopMoves = {}, cancelledLessons = [];
     await Promise.all([
       fetch(LIBRARY_URL + '?action=listLessonNotes&seasonId=' + encodeURIComponent(SEASON_ID))
         .then(r => r.json()).then(r => { if (r && r.ok && r.notes) notes = r.notes; }).catch(()=>{}),
@@ -2507,10 +2511,25 @@ pages.join('')+
           const m = (r && r.result && r.result.moves) ? r.result.moves
                   : (r && r.moves) ? r.moves : null;
           if (m && typeof m === 'object') troopMoves = m;
+        }).catch(()=>{}),
+      // Отменённые проведения — отряд, которому МК в этот день не проводился.
+      fetch(LIBRARY_URL + '?action=getCancelledLessons&seasonId=' + encodeURIComponent(SEASON_ID))
+        .then(r => r.json()).then(r => {
+          const items = (r && r.result && Array.isArray(r.result.items)) ? r.result.items
+                      : (r && Array.isArray(r.items)) ? r.items : null;
+          if (items) cancelledLessons = items;
         }).catch(()=>{})
     ]);
     // Пробрасываем карту в глобал — она нужна onclick-хэндлеру конвертика.
     window._ahCuratorPhones = curatorPhones;
+
+    // Множество отменённых проведений: ключ 'dayIdx|нормпедагог|нормМК|отряд'.
+    const _cancelKey = (dayIdx, teacher, mkName, troop) =>
+      dayIdx + '|' + _normName(teacher) + '|' + _normName(mkName) + '|' + troop;
+    const cancelledSet = new Set(
+      cancelledLessons.map(c => _cancelKey(c.dayIdx, c.teacher, c.mkName, c.troop))
+    );
+    window._ahCancelledLessons = cancelledLessons;
 
     // Хелперы для расчёта недозаполненных детей.
     const SCORE_CRITS = ['interest','diligence','potential'];
@@ -2563,18 +2582,23 @@ pages.join('')+
       // Недозаполненные дети — считаем только если задача баллов есть И педагог уже начал (scoresDone),
       // иначе тег «не выставлены баллы» сам уведомит, и второй сверху не нужен.
       const partialIds = new Map(); // childId -> name (для дедупликации между mkKey)
+      const partialTroopSet = new Set(); // отряды, где есть недозаполненные дети
       if (g.needsScores && scoresDone) {
         g.mkKeys.forEach(mkKey => {
           const t = _troopFromMkKey(mkKey);
           let candidates;
+          let troopNum = null;
           if (t && t !== 'AB' && /^\d+$/.test(t)) {
             // обычный отряд — берём всех детей этого отряда
-            const troopNum = Number(t);
+            troopNum = Number(t);
             candidates = (childrenByTroop[troopNum] || []).map(k => String(k.crmId));
           } else {
             // tAB или нераспознанный формат — берём только трогавшихся в scoresMap
             candidates = _childIdsTouchedInMk(mkKey);
           }
+          // Проведение для этого отряда отменено (педагог не приехал на него) —
+          // баллы по нему не требуются, весь отряд пропускаем.
+          if (troopNum != null && cancelledSet.has(_cancelKey(g.dayIdx, g.teacher, g.mkName, troopNum))) return;
           candidates.forEach(childId => {
             // Перешедший ребёнок: за дни ДО перехода он был в другом отряде —
             // в текущем (новом) отряде за эти дни баллы по нему не требуются.
@@ -2585,17 +2609,21 @@ pages.join('')+
               const kid = childrenById[childId];
               const name = kid && kid.name ? kid.name : ('#'+childId);
               partialIds.set(childId, name);
+              const tr = kid && kid.troop != null ? Number(kid.troop) : troopNum;
+              if (tr != null && !isNaN(tr)) partialTroopSet.add(tr);
             }
           });
         });
       }
       const partialNames = Array.from(partialIds.values()).sort((a,b)=>a.localeCompare(b,'ru'));
+      const partialTroops = Array.from(partialTroopSet).sort((a,b)=>a-b);
 
       if (!missReport && !missScores && partialNames.length === 0) return;
       const t = g.teacher;
       (byTeacher[t] = byTeacher[t] || []).push({
-        dayIdx: g.dayIdx, mkName: g.mkName, missReport: missReport, missScores: missScores,
-        partialNames: partialNames, half: g.half
+        dayIdx: g.dayIdx, mkName: g.mkName, teacher: g.teacher,
+        missReport: missReport, missScores: missScores,
+        partialNames: partialNames, partialTroops: partialTroops, half: g.half
       });
     });
 
@@ -2679,6 +2707,13 @@ pages.join('')+
             const nameList = it.partialNames.join(', ');
             tags.push('<span class="ah-tag partial" title="'+escapeHtml(nameList)+'">недозаполнено '+it.partialNames.length+'</span>');
           }
+          // Кнопка «занятие не проводилось» — если есть недозаполненные отряды.
+          if (it.partialTroops && it.partialTroops.length){
+            const payload = encodeURIComponent(JSON.stringify({
+              dayIdx: it.dayIdx, teacher: t, mkName: it.mkName, troops: it.partialTroops
+            }));
+            tags.push('<button class="ah-tag cancel-lesson" onclick="openCancelLesson(\''+payload+'\')" title="Отметить, что для отряда это занятие не проводилось">занятие не проводилось</button>');
+          }
           h += '<li>' + escapeHtml(dayLabel) + ' — ' + escapeHtml(it.mkName) + ' ' + tags.join(' ') + '</li>';
         });
         h += '</ul>';
@@ -2714,7 +2749,67 @@ pages.join('')+
         '<div class="ah-future-body">' + renderTeacherList(futNames, teachersFuture) + '</div></details>';
     }
 
+    // Отменённые проведения — свёрнутым блоком, для обратимости (можно вернуть).
+    if (Array.isArray(window._ahCancelledLessons) && window._ahCancelledLessons.length){
+      let ch = '<details class="ah-future"><summary>🚫 Отменённые проведения (' + window._ahCancelledLessons.length + ')</summary><div class="ah-future-body"><ul class="ah-list">';
+      window._ahCancelledLessons.slice().sort((a,b)=>a.dayIdx-b.dayIdx).forEach(c=>{
+        const dNum = (Number(c.dayIdx)||0)+1;
+        const payload = encodeURIComponent(JSON.stringify({dayIdx:c.dayIdx, teacher:c.teacher, mkName:c.mkName, troop:c.troop}));
+        ch += '<li>день ' + dNum + ' — ' + escapeHtml(c.mkName) + ', ' + escapeHtml(c.teacher) + ', отряд ' + c.troop +
+              ' <button class="ah-tag return-lesson" onclick="returnCancelLesson(\'' + payload + '\')" title="Вернуть занятие — оно снова будет учитываться">вернуть</button></li>';
+      });
+      ch += '</ul></div></details>';
+      html += ch;
+    }
+
     box.innerHTML = html;
+  }
+
+  // ── ОТМЕНА ПРОВЕДЕНИЯ ЗАНЯТИЯ ДЛЯ ОТРЯДА ──
+  // Педагог не приехал на одно из проведений МК (один отряд не прошёл занятие).
+  // Помечаем (день+педагог+МК+отряд) как несостоявшееся: баллы по отряду не требуются,
+  // в табеле за день у педагога станет на 1 занятие меньше (после «Подтянуть»).
+  window.openCancelLesson = function(payloadEnc){
+    let p; try { p = JSON.parse(decodeURIComponent(payloadEnc)); } catch(e){ return; }
+    const troops = (p.troops || []).slice();
+    const dNum = (Number(p.dayIdx)||0)+1;
+    let troop;
+    if (troops.length === 1) {
+      troop = troops[0];
+      if (!confirm('Отметить, что «' + p.mkName + '» (день ' + dNum + ') для отряда ' + troop + ' не проводилось?\n\n' +
+                   'Баллы по этому отряду перестанут требоваться, а в табеле у педагога за этот день станет на 1 занятие меньше (после «Подтянуть»).')) return;
+    } else {
+      const ans = prompt('Для какого отряда занятие «' + p.mkName + '» (день ' + dNum + ') не проводилось?\n' +
+                         'Недозаполнены отряды: ' + troops.join(', ') + '\n\nВведи номер отряда:', String(troops[0]));
+      if (ans == null) return;
+      troop = Number(String(ans).trim());
+      if (!troop || troops.indexOf(troop) < 0) { toast('Отряд «' + ans + '» не в списке недозаполненных'); return; }
+    }
+    _sendCancelLesson(p.dayIdx, p.teacher, p.mkName, troop, true);
+  };
+
+  window.returnCancelLesson = function(payloadEnc){
+    let p; try { p = JSON.parse(decodeURIComponent(payloadEnc)); } catch(e){ return; }
+    const dNum = (Number(p.dayIdx)||0)+1;
+    if (!confirm('Вернуть занятие «' + p.mkName + '» (день ' + dNum + ', отряд ' + p.troop + ')?\nОно снова будет учитываться в баллах и табеле.')) return;
+    _sendCancelLesson(p.dayIdx, p.teacher, p.mkName, p.troop, false);
+  };
+
+  async function _sendCancelLesson(dayIdx, teacher, mkName, troop, cancelled){
+    try {
+      const r = await fetch(LIBRARY_URL, {
+        method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body: JSON.stringify({ action:'setCancelledLesson', seasonId:SEASON_ID,
+          dayIdx:dayIdx, teacher:teacher, mkName:mkName, troop:troop, cancelled:cancelled })
+      }).then(r=>r.json());
+      const ok = r && (r.ok || (r.result && r.result.ok));
+      if (ok) {
+        toast(cancelled ? 'Занятие отмечено как не проводившееся' : 'Занятие возвращено');
+        renderPendingTasks();
+      } else {
+        toast('Не удалось: ' + ((r && r.error) || 'ошибка'));
+      }
+    } catch(e){ toast('Ошибка сети: ' + e.message); }
   }
 
   // ============================================================
