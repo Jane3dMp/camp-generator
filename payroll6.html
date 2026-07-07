@@ -371,6 +371,7 @@
 
   let seasonId = '';
   let publishedState = null;     // расписание (для «Подтянуть из расписания»)
+  let cancelledLessons = [];     // отменённые проведения [{dayIdx, teacher, mkName, troop}]
   let payroll = {                 // данные табеля с сервера
     teachers: [],
     cells: {},                    // 'YYYY-MM-DD::Имя' -> {lessons, rate, locked}
@@ -441,13 +442,18 @@
     document.getElementById('season-id-display').textContent = seasonId;
     try {
       // Грузим параллельно: публикацию (для дней смены и расписания) и табель.
-      const [pubResp, payrollResp] = await Promise.all([
+      const [pubResp, payrollResp, cancelledResp] = await Promise.all([
         fetch(LIBRARY_URL + '?action=getPublished&id=' + encodeURIComponent(seasonId)).then(r => r.json()),
-        fetch(LIBRARY_URL + '?action=getPayroll&seasonId=' + encodeURIComponent(seasonId)).then(r => r.json())
+        fetch(LIBRARY_URL + '?action=getPayroll&seasonId=' + encodeURIComponent(seasonId)).then(r => r.json()),
+        fetch(LIBRARY_URL + '?action=getCancelledLessons&seasonId=' + encodeURIComponent(seasonId)).then(r => r.json()).catch(()=>null)
       ]);
       if (!pubResp.ok || !pubResp.publication) throw new Error(pubResp.error || 'Смена не найдена');
       publishedState = JSON.parse(pubResp.publication.stateJson || '{}');
       if (payrollResp.ok && payrollResp.payroll) payroll = payrollResp.payroll;
+      // Отменённые проведения — чтобы не считать их вклад в занятия педагога.
+      const cItems = (cancelledResp && cancelledResp.result && Array.isArray(cancelledResp.result.items)) ? cancelledResp.result.items
+                   : (cancelledResp && Array.isArray(cancelledResp.items)) ? cancelledResp.items : null;
+      if (cItems) cancelledLessons = cItems;
       // Защита от старой версии бэкенда (где ещё нет paidCells)
       if (!payroll.paidCells) payroll.paidCells = {};
       // Подтягиваем цену 1 порции из бэка (если задана для этой смены)
@@ -843,7 +849,7 @@
     publishedState.schedule.forEach((d, i) => {
       if (!d || !days[i]) return;
       const dk = days[i].key;
-      const dayCounts = countTeachersInDay_(d);
+      const dayCounts = countTeachersInDay_(d, i);
       Object.keys(dayCounts).forEach(name => {
         if (!result[name]) result[name] = { days: {}, total: 0 };
         result[name].days[dk] = (result[name].days[dk] || 0) + dayCounts[name];
@@ -976,7 +982,7 @@
   // Кураторы/админы/тренеры отсеются через isNamedTeacher.
   //
   // Возвращает объект { 'Имя педагога': число_занятий за день, ... }.
-  function countTeachersInDay_(d) {
+  function countTeachersInDay_(d, dayIdx) {
     const counts = {};
     function add(name, times) {
       String(name || '')
@@ -1040,6 +1046,17 @@
         (d[half + '_outside'] || []).forEach(s => { if (s) add(s.teacher, 3); });
       }
     });
+
+    // Отменённые проведения (педагог не приехал на занятие для отряда): за каждую
+    // отмену вычитаем 1 занятие у этого педагога в этот день. Не ниже нуля.
+    if (dayIdx != null && Array.isArray(cancelledLessons)) {
+      cancelledLessons.forEach(c => {
+        if (Number(c.dayIdx) !== Number(dayIdx)) return;
+        const n = normalizeTeacherName(c.teacher);
+        if (counts[n] != null) counts[n] = Math.max(0, counts[n] - 1);
+      });
+    }
+
     return counts;
   }  // ── ПОДТЯНУТЬ ЗАНЯТИЯ ИЗ РАСПИСАНИЯ ЗА ДЕНЬ ──
   // Считает кол-во занятий каждого педагога по правилам countTeachersInDay_,
@@ -1050,7 +1067,7 @@
     if (dIdx < 0) return;
     const d = publishedState.schedule[dIdx];
     if (!d) return;
-    const counts = countTeachersInDay_(d);
+    const counts = countTeachersInDay_(d, dIdx);
     // Добавим педагогов из расписания, которых ещё нет в списке (на всякий случай)
     const newTeachers = Object.keys(counts).filter(n => payroll.teachers.indexOf(n) < 0);
     for (const n of newTeachers) {
