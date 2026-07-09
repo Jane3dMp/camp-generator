@@ -241,6 +241,8 @@
   }
   const saveQueue = [];        // отложенные сохранения
   let saveTimer = null;
+  let saving = false;          // идёт ли сейчас отправка (защита от параллельных flush)
+  let retryDelay = 600;        // текущая задержка ретрая (растёт при ошибках)
 
   // ── LOCK ──
   async function sha256Hex(str){
@@ -640,7 +642,7 @@
     // обновим счётчик прогресса в шапке этого МК
     updateMkProgress(mkKey);
     // очередь
-    saveQueue.push({ mkKey, mkName, childId, childName, criterion, value });
+    enqueueSave({ mkKey, mkName, childId, childName, criterion, value });
     scheduleSave();
   }
 
@@ -660,21 +662,36 @@
     el.textContent = state==='saving' ? '⏳ сохраняю…' : state==='ok' ? '● сохранено' : state==='err' ? '● ошибка' : '';
   }
 
+  // Кладём в очередь с дедупом: одна ячейка (mkKey|childId|criterion) не должна
+  // висеть в очереди дважды — оставляем только последнее (свежее) значение.
+  // Иначе быстрые переклики плодят лишние запросы и повторные строки на сервере.
+  function enqueueSave(item){
+    const k = item.mkKey+'|'+item.childId+'|'+item.criterion;
+    for(let i=saveQueue.length-1;i>=0;i--){
+      const q=saveQueue[i];
+      if(q.mkKey+'|'+q.childId+'|'+q.criterion===k) saveQueue.splice(i,1);
+    }
+    saveQueue.push(item);
+  }
+
   function scheduleSave(){
     setSaveInd('saving');
     if(saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(flushSave, 600);
   }
 
+  // Надёжная отправка: проверяем ответ сервера (ok), удаляем из очереди ТОЛЬКО
+  // реально сохранённое, при сбое ничего не теряем и ретраим с нарастающей паузой.
   async function flushSave(){
+    if(saving) return;                          // отправка уже идёт — не паралелим
     if(saveQueue.length===0){ setSaveInd('ok'); return; }
+    saving = true;
     const id = getQueryParam('id');
-    // забираем текущую пачку
-    const batch = saveQueue.splice(0, saveQueue.length);
-    try{
-      // последовательно (Apps Script не любит параллельные записи в один лист)
-      for(const item of batch){
-        await fetch(LIBRARY_URL, {
+    const batch = saveQueue.slice();            // снимок; из очереди режем по факту успеха
+    let ok = true;
+    for(const item of batch){
+      try{
+        const r = await fetch(LIBRARY_URL, {
           method:'POST',
           headers:{ 'Content-Type':'text/plain;charset=utf-8' },
           body: JSON.stringify({
@@ -684,14 +701,27 @@
             criterion:item.criterion, value:item.value
           })
         });
+        let j=null; try{ j = await r.json(); }catch(_){}
+        // Успехом считаем ТОЛЬКО подтверждённый сервером ok:true.
+        if(!r.ok || !j || j.ok!==true) throw new Error((j&&j.error)||('HTTP '+r.status));
+        const idx = saveQueue.indexOf(item);
+        if(idx>=0) saveQueue.splice(idx,1);     // сохранено — убираем из очереди
+      }catch(e){
+        ok = false;
+        break;                                  // остаток (вкл. текущий) остаётся в очереди
       }
-      setSaveInd('ok');
-      // если за время сохранения накопилось ещё — досохраним
-      if(saveQueue.length>0) scheduleSave();
-    }catch(e){
-      // вернём пачку в очередь для повторной попытки
-      saveQueue.unshift(...batch);
+    }
+    saving = false;
+    if(saveTimer){ clearTimeout(saveTimer); saveTimer=null; }
+    if(ok){
+      retryDelay = 600;
+      if(saveQueue.length===0){ setSaveInd('ok'); }
+      else { setSaveInd('saving'); saveTimer=setTimeout(flushSave, 600); } // накопилось новое
+    }else{
+      // не всё сохранилось — держим «ошибку» и ретраим с нарастающей паузой
       setSaveInd('err');
+      retryDelay = Math.min(retryDelay*2, 10000);
+      saveTimer = setTimeout(flushSave, retryDelay);
     }
   }
 
