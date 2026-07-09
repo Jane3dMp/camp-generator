@@ -378,6 +378,22 @@
   }
 
   // ── ГЕНЕРАЦИЯ ──
+  // Тихое закрепление (без кнопки/алертов) — сразу после генерации,
+  // чтобы письмо закреплялось автоматически. Править и перезакреплять можно потом.
+  async function pinSilently(childId, childName, text){
+    text=String(text||'').trim();
+    if(!text) return;
+    try{
+      const resp=await fetch(LIBRARY_URL,{
+        method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({ action:'pinReport', seasonId:publishedMeta.id, childId:childId, childName:childName, text:text })
+      }).then(r=>r.json());
+      if(resp && resp.ok){
+        pinnedMap[String(childId)]={ text:text, pinnedAt:resp.pinnedAt||new Date().toISOString() };
+      }
+    }catch(e){ /* не блокируем генерацию, если закрепление не удалось */ }
+  }
+
   async function callGenerate(childId, childName){
     if(reportCache[childId]) return reportCache[childId];
     const scores=scoresForChild(childId);
@@ -388,7 +404,12 @@
     }).then(r=>r.json());
     if(!resp.ok) throw new Error(resp.error||'Ошибка генерации');
     reportCache[childId]=resp.result.report;
-    return resp.result.report;
+    // Автозакрепление: как только письмо сформировано — сразу фиксируем в паспорте.
+    // Уже закреплённое (правленое) генерацией не перетираем.
+    if(!(pinnedMap[String(childId)] && pinnedMap[String(childId)].text)){
+      await pinSilently(childId, childName, resp.result.report);
+    }
+    return reportCache[childId];
   }
 
   async function genOne(childId, childName){
@@ -418,7 +439,7 @@
       try{ await callGenerate(k.crmId, k.name); }catch(e){ /* пропускаем сбойного */ }
       done++;
     }
-    st.textContent='Готово: '+done+' писем. Нажми «✍️ Письмо» у ребёнка, чтобы открыть.';
+    st.textContent='Готово: '+done+' писем — все закреплены в паспортах. Открой «✍️ Письмо», чтобы проверить или поправить.';
     btn.disabled=false;
     renderList();
   }
@@ -484,6 +505,7 @@
   function fallbackCopy(text,done){ const ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.left='-9999px'; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');done();}catch(e){} document.body.removeChild(ta); }
   async function regen(childId, childName){
     delete reportCache[childId];
+    delete pinnedMap[String(childId)];   // снимаем локальную отметку, чтобы новое письмо закрепилось заново
     openRep(childName, '<div class="rep-loading">ИИ пишет письмо заново… (10–20 сек)</div>');
     try{
       const text=await callGenerate(childId, childName);
