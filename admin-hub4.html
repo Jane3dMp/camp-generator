@@ -963,7 +963,7 @@
     const sid=troopsSeasonId_(); if(!sid){ toast('Нет ID смены'); return; }
     const box=document.getElementById('troops-check-result'); const btn=document.getElementById('troops-check-btn'); const oldLabel=btn.textContent;
     btn.disabled=true; btn.textContent='⏳ Проверяю Альфу…'; box.style.display='block';
-    box.innerHTML='<div style="padding:14px;font-size:13px;color:rgba(21,22,23,0.6)">Сравниваю список с актуальным составом в Альфе…</div>';
+    box.innerHTML='<div style="padding:14px;font-size:13px;color:rgba(21,22,23,0.6)">Сравниваю список с Альфой: группы, абонементы смены… Это занимает ~20–40 секунд.</div>';
     try{
       const r=await fetch(LIBRARY_URL+'?action=checkChildrenActuality&seasonId='+encodeURIComponent(sid)+'&_t='+Date.now());
       const j=await r.json(); if(!j.ok) throw new Error(j.error||'Ошибка проверки');
@@ -972,27 +972,76 @@
     finally{ btn.disabled=false; btn.textContent=oldLabel; }
   }
   function renderCheckResult_(res){
-    const box=document.getElementById('troops-check-result'); const left=res.left||[]; const added=res.added||[];
+    const box=document.getElementById('troops-check-result');
+    const left=res.left||[], added=res.added||[];
+    const multi=res.multiSeason||[], noTar=res.noTariff||[], part=res.partial||[];
     window._troopsCheckedGroups=res.groupsChecked||[];
-    if(res.inSync||(left.length===0&&added.length===0)){
-      box.innerHTML='<div style="padding:12px 16px;background:#EAF6E3;border:1px solid #9Fca7e;border-radius:6px;font-size:13px;color:#3B6D11">✓ Состав актуален — расхождений с Альфой нет.'+(res.groupsChecked&&res.groupsChecked.length?' <span style="opacity:0.7">(группы: '+res.groupsChecked.join(', ')+')</span>':'')+' <button class="btn btn-sm btn-ghost" onclick="document.getElementById(\'troops-check-result\').style.display=\'none\'">скрыть</button></div>';
+
+    const datesNote = res.seasonStart&&res.seasonEnd
+      ? '<span style="opacity:0.7">смена определена как '+escapeHtml(res.seasonStart)+' … '+escapeHtml(res.seasonEnd)+'</span>'
+      : '<span style="color:#c0392b">даты смены по тарифам не определились — проверка по абонементам отключена</span>';
+
+    const hideBtn='<button class="btn btn-sm btn-ghost" onclick="document.getElementById(\'troops-check-result\').style.display=\'none\'">скрыть</button>';
+
+    // ── информационные блоки (не расхождения) ──
+    let info='';
+    if(part.length>0){
+      info+='<div style="margin-bottom:12px"><div style="font-size:12px;font-weight:600;color:#7A5C1E;margin-bottom:5px">Неполная смена ('+part.length+') — абонемент короче смены:</div>';
+      info+='<div style="font-size:13px;line-height:1.9">'+part.map(c=>
+        '• '+escapeHtml(c.name)+
+        ' <span style="opacity:0.6;font-size:12px">— абонемент '+escapeHtml(c.tariffStart)+' … '+escapeHtml(c.tariffEnd)+(c.note?' «'+escapeHtml(c.note)+'»':'')+'</span> '+
+        '<button class="btn btn-sm btn-ghost" style="padding:1px 7px;font-size:11px;border-color:#c0392b;color:#c0392b" onclick="removeOneChild_(\''+escapeHtml(String(c.crmId))+'\',\''+escapeHtml(c.name).replace(/'/g,"\\'")+'\')">🗑 убрать</button>'
+      ).join('<br>')+'</div>';
+      info+='<div style="font-size:11px;color:rgba(21,22,23,0.55);margin-top:5px">Норма, если ребёнок записан на часть смены. Если он выбыл в середине — убери кнопкой.</div></div>';
+    }
+    if(noTar.length>0){
+      info+='<div style="margin-bottom:12px"><div style="font-size:12px;font-weight:600;color:rgba(21,22,23,0.6);margin-bottom:5px">Без абонемента на эту смену ('+noTar.length+') — возможно, не оплачен:</div>';
+      info+='<div style="font-size:13px;line-height:1.6">'+noTar.map(c=>'• '+escapeHtml(c.name)).join('<br>')+'</div></div>';
+    }
+    if(multi.length>0){
+      info+='<details style="margin-bottom:6px"><summary style="font-size:12px;font-weight:600;color:#B8860B;cursor:pointer">Числятся сразу в нескольких сменах ('+multi.length+') — обычно это норма</summary>';
+      info+='<div style="font-size:13px;line-height:1.6;margin-top:6px">'+multi.map(c=>'• '+escapeHtml(c.name)+' <span style="opacity:0.6;font-size:12px">— '+c.groups.map(g=>escapeHtml(String(g.id))+' «'+escapeHtml(g.name)+'»').join(' + ')+'</span>').join('<br>')+'</div></details>';
+    }
+
+    // ── расхождения: только выбывшие и новые ──
+    if(left.length===0 && added.length===0){
+      let h='<div style="padding:12px 16px;background:#EAF6E3;border:1px solid #9Fca7e;border-radius:6px;font-size:13px;color:#3B6D11">✓ Состав актуален — выбывших и новых нет.'+(res.groupsChecked&&res.groupsChecked.length?' <span style="opacity:0.7">(группы: '+res.groupsChecked.join(', ')+')</span>':'')+' · '+datesNote+' '+hideBtn+'</div>';
+      if(info) h+='<div style="margin-top:8px;padding:12px 16px;background:#FBF8F2;border:1px solid #E0D6C4;border-radius:6px">'+info+'</div>';
+      box.innerHTML=h;
       return;
     }
+
     let html='<div style="padding:14px 16px;background:#FFF6E5;border:1px solid #E8C95A;border-radius:6px">';
-    html+='<div style="font-weight:700;font-size:13px;margin-bottom:10px">Найдены расхождения с Альфой'+(res.groupsChecked&&res.groupsChecked.length?' <span style="font-weight:400;opacity:0.7">(группы: '+res.groupsChecked.join(', ')+')</span>':'')+'</div>';
+    html+='<div style="font-weight:700;font-size:13px;margin-bottom:4px">Найдены расхождения с Альфой'+(res.groupsChecked&&res.groupsChecked.length?' <span style="font-weight:400;opacity:0.7">(группы: '+res.groupsChecked.join(', ')+')</span>':'')+'</div>';
+    html+='<div style="font-size:11px;color:rgba(21,22,23,0.55);margin-bottom:10px">'+datesNote+'</div>';
+
     if(left.length>0){
       window._troopsLeftIds=left.map(c=>c.crmId);
-      html+='<div style="margin-bottom:12px"><div style="font-size:12px;font-weight:600;color:#c0392b;margin-bottom:5px">Выбыли из Альфы ('+left.length+') — больше не едут:</div>';
-      html+='<div style="font-size:13px;line-height:1.6;margin-bottom:8px">'+left.map(c=>'• '+escapeHtml(c.name)).join('<br>')+'</div>';
+      html+='<div style="margin-bottom:12px"><div style="font-size:12px;font-weight:600;color:#c0392b;margin-bottom:5px">Выбыли ('+left.length+') — больше не едут:</div>';
+      html+='<div style="font-size:13px;line-height:1.6;margin-bottom:8px">'+left.map(c=>'• '+escapeHtml(c.name)+(c.reason?' <span style="opacity:0.6;font-size:12px">— '+escapeHtml(c.reason)+'</span>':'')).join('<br>')+'</div>';
       html+='<button class="btn btn-sm" onclick="removeLeftChildren_()" style="border-color:#c0392b;color:#c0392b">🗑 Убрать выбывших ('+left.length+')</button></div>';
     }
     if(added.length>0){
-      html+='<div style="margin-bottom:6px"><div style="font-size:12px;font-weight:600;color:#185FA5;margin-bottom:5px">Новые в Альфе ('+added.length+') — ещё не в списке:</div>';
+      html+='<div style="margin-bottom:10px"><div style="font-size:12px;font-weight:600;color:#185FA5;margin-bottom:5px">Новые в Альфе ('+added.length+') — ещё не в списке:</div>';
       html+='<div style="font-size:13px;line-height:1.6;margin-bottom:8px">'+added.map(c=>'• '+escapeHtml(c.name)+(c.age!==''&&c.age!=null?' ('+c.age+')':'')).join('<br>')+'</div>';
       html+='<button class="btn btn-sm" onclick="addNewChildren_()" style="border-color:#185FA5;color:#185FA5">⬇ Добавить новых и разбить</button></div>';
     }
-    html+='<div style="margin-top:8px"><button class="btn btn-sm btn-ghost" onclick="document.getElementById(\'troops-check-result\').style.display=\'none\'">скрыть</button></div></div>';
+    if(info) html+='<div style="border-top:1px solid #E8C95A;padding-top:10px;margin-top:4px">'+info+'</div>';
+    html+='<div style="margin-top:8px">'+hideBtn+'</div></div>';
     box.innerHTML=html;
+  }
+  // Убрать одного ребёнка (кнопка в секции «Неполная смена»)
+  async function removeOneChild_(crmId, name){
+    if(!confirm('Убрать «'+name+'» из состава смены?')) return;
+    const sid=troopsSeasonId_(); if(!sid){ toast('Нет ID смены'); return; }
+    troopsSetStatus_(false);
+    try{
+      const r=await fetch(LIBRARY_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'removeChildren',seasonId:sid,crmIds:[crmId]})});
+      const j=await r.json(); if(!j.ok) throw new Error(j.error||'Ошибка');
+      await loadTroopsChildren(); troopsSetStatus_(true);
+      toast('Убран: '+name);
+      checkTroopsActuality();
+    }catch(e){ toast('Ошибка: '+e.message); troopsSetStatus_(true); }
   }
   async function removeLeftChildren_(){
     const ids=window._troopsLeftIds||[]; if(!ids.length) return;
@@ -1047,14 +1096,24 @@
     box.innerHTML='<div style="padding:20px;font-size:13px;color:var(--muted)">Загружаю…</div>';
     _attDates = buildAttDates_();
     // Cold-start Apps Script: первый запрос может вернуть HTML вместо JSON. Повторяем до 3 раз.
+    //
+    // БАГ, который тут был: getAttendance висел на .catch(()=>({ok:false})) — падение
+    // МОЛЧА проглатывалось, _attMap оставался пустым, но код считал загрузку успешной
+    // и ставил _attLoaded=true. Все отметки «Подписан» пропадали, лечилось вторым F5.
+    // Теперь провал помечается явно (_failed) и бросается — чтобы сработал retry.
     const attempts = 3;
     for (let i = 0; i < attempts; i++) {
       try{
         const [chR, atR] = await Promise.all([
           fetch(LIBRARY_URL+'?action=getChildren&seasonId='+encodeURIComponent(SEASON_ID)).then(r=>r.json()),
-          fetch(LIBRARY_URL+'?action=getAttendance&seasonId='+encodeURIComponent(SEASON_ID)).then(r=>r.json()).catch(()=>({ok:false}))
+          fetch(LIBRARY_URL+'?action=getAttendance&seasonId='+encodeURIComponent(SEASON_ID))
+            .then(r=>r.json())
+            .catch(e=>({ _failed:true, _err:(e&&e.message)||'нет ответа' }))
         ]);
         if(!chR.ok) throw new Error(chR.error||'Ошибка загрузки детей');
+        // Пустая посещаемость — это ok. А вот упавший запрос — повод повторить.
+        if(atR && atR._failed) throw new Error('Посещаемость не загрузилась: '+atR._err);
+        if(atR && atR.ok===false) throw new Error(atR.error||'Посещаемость не загрузилась');
         _attKids=(chR.children||[]).map(c=>({crmId:String(c.crmId),name:c.name||'',dob:c.dob||'',troop:c.troop||0}));
         _attMap=(atR&&atR.ok&&atR.attendance&&atR.attendance.attendance)?atR.attendance.attendance:((atR&&atR.attendance)||{});
         _attLoaded=true;
@@ -1068,7 +1127,9 @@
         if (i < attempts - 1) {
           await new Promise(res => setTimeout(res, 800 * (i + 1)));
         } else {
-          box.innerHTML='<div style="padding:20px;font-size:13px;color:#c0392b">Ошибка: '+escapeHtml(e.message)+' — обновите страницу (Ctrl+Shift+R)</div>';
+          _attLoaded=false;
+          box.innerHTML='<div style="padding:20px;font-size:13px;color:#c0392b">Ошибка: '+escapeHtml(e.message)+
+            ' <button class="btn btn-sm" style="margin-left:8px" onclick="loadAttendance()">↻ Повторить</button></div>';
         }
       }
     }
@@ -1596,7 +1657,7 @@ pages.join('')+
   window.tryUnlock=tryUnlock; window.switchPane=switchPane;
   window.copyLink=copyLink; window.openParentLinks=openParentLinks; window.copyParentCSV=copyParentCSV; window.downloadParentCSV=downloadParentCSV; window.downloadEnvelopesCSV=downloadEnvelopesCSV;
   window.importTroopsChildren=importTroopsChildren; window.reshuffleTroops=reshuffleTroops; window.saveTroopsManual=saveTroopsManual;
-  window.checkTroopsActuality=checkTroopsActuality; window.removeLeftChildren_=removeLeftChildren_; window.addNewChildren_=addNewChildren_;
+  window.checkTroopsActuality=checkTroopsActuality; window.removeLeftChildren_=removeLeftChildren_; window.addNewChildren_=addNewChildren_; window.removeOneChild_=removeOneChild_; window.loadAttendance=loadAttendance;
   window.cycleAtt=cycleAtt; window.cycleDog=cycleDog; window.cycleDogParent=cycleDogParent; window.printAttendance=printAttendance; window.openStickers=openStickers; window.openTags=openTags; window.openMiniStickers=openMiniStickers;
   window.openPrintGenerator=openPrintGenerator; window.closePrintGenerator=closePrintGenerator; window.pgToggleAll=pgToggleAll; window.pgSetFmt=pgSetFmt; window.updatePgCount=updatePgCount; window.pgPrint=pgPrint;
 
