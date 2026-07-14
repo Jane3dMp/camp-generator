@@ -904,7 +904,8 @@
       const r2=await fetch(LIBRARY_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'autoSplitTroops',seasonId:sid})});
       const j2=await r2.json(); if(!j2.ok) throw new Error(j2.error||'Ошибка разбивки');
       await loadTroopsChildren(); troopsSetStatus_(true);
-      let msg='Импортировано: '+(j1.result.added+j1.result.updated)+' детей, разбито на 4 отряда';
+      let msg='Импортировано: '+(j1.result.added+j1.result.updated)+' детей (новых: '+j1.result.added+'), разбито на 4 отряда';
+      if(j1.result.skippedDropped&&j1.result.skippedDropped.length) msg+='. Пропущены выбывшие: '+j1.result.skippedDropped.join(', ');
       if(j1.result.missingNames&&j1.result.missingNames.length) msg+='. Не найдены группы: '+j1.result.missingNames.join(', ');
       toast(msg);
     }catch(e){ toast('Ошибка: '+e.message); troopsSetStatus_(true); }
