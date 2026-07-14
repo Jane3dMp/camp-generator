@@ -1023,7 +1023,12 @@
     }
     if(added.length>0){
       html+='<div style="margin-bottom:10px"><div style="font-size:12px;font-weight:600;color:#185FA5;margin-bottom:5px">Новые в Альфе ('+added.length+') — ещё не в списке:</div>';
-      html+='<div style="font-size:13px;line-height:1.6;margin-bottom:8px">'+added.map(c=>'• '+escapeHtml(c.name)+(c.age!==''&&c.age!=null?' ('+c.age+')':'')).join('<br>')+'</div>';
+      html+='<div style="font-size:13px;line-height:1.6;margin-bottom:8px">'+added.map(c=>{
+        let m='';
+        if(c.noTariff) m+=' <span style="font-size:11px;color:#B8860B">— без абонемента</span>';
+        else if(c.partial) m+=' <span style="font-size:11px;color:#7A5C1E">— абонемент до '+escapeHtml(c.tariffEnd)+'</span>';
+        return '• '+escapeHtml(c.name)+(c.age!==''&&c.age!=null?' ('+c.age+')':'')+m;
+      }).join('<br>')+'</div>';
       html+='<button class="btn btn-sm" onclick="addNewChildren_()" style="border-color:#185FA5;color:#185FA5">⬇ Добавить новых и разбить</button></div>';
     }
     if(info) html+='<div style="border-top:1px solid #E8C95A;padding-top:10px;margin-top:4px">'+info+'</div>';
