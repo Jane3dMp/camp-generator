@@ -785,7 +785,7 @@
   const NUM_DAYS = 10;
   const NUM_TROOPS = 4;
   const TIME_AM = '9:30 – 13:30';
-  const TIME_PM = '14:00 – 17:30';
+  const TIME_PM = '14:00 – 17:00';
   const MONTHS = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
   const WEEKDAYS_FULL = ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
   const WEEKDAYS_SHORT = ['вс','пн','вт','ср','чт','пт','сб'];
@@ -1010,15 +1010,32 @@
       default:              return 'normal';
     }
   }
+  // Реальное окно занятий для конкретного дня и половины дня.
+  // Зачем: подпись «до обеда 9:30–13:30» верна для ротации 4, но в режиме
+  // «3 МК подряд» занятия идут 10:00–13:00 — и подпись врала. Там, где день
+  // известен (мобильная версия, список выездов), показываем фактическое время.
+  function halfTimeLabel4(dOrType, half) {
+    const mode = halfMode4(dOrType, half);
+    const seq = (mode === 'seq3' || mode === 'seq3trip');
+    if (half === 'am') return seq ? '10:00–13:00' : '9:30–13:30';
+    return '14:00–17:00';   // после обеда оба режима укладываются в одно окно
+  }
+
   function multiStepTimes(half, mode) {
     const fmt = m => Math.floor(m/60) + ':' + String(m%60).padStart(2,'0');
     let startMin, endMin, n;
     if (half === 'am') {
-      if (mode === 'seq3') { startMin = 600; endMin = 810; n = 3; }
+      // 3 МК подряд до обеда: 10:00–11:00, 11:00–12:00, 12:00–13:00 (шаг 60 мин).
+      // endMin = 780 (13:00), а не 810 — иначе шаг становится 70 мин.
+      if (mode === 'seq3') { startMin = 600; endMin = 780; n = 3; }
       else                 { startMin = 570; endMin = 810; n = 4; }
     } else {
-      if (mode === 'seq3') { startMin = 870; endMin = 1050; n = 3; }
-      else                 { startMin = 840; endMin = 1050; n = 4; }
+      // После обеда всё укладывается в 14:00–17:00:
+      //   3 МК подряд — 3 × 60 мин (14:00–15:00, 15:00–16:00, 16:00–17:00)
+      //   ротация 4   — 4 × 45 мин (14:00–14:45, 14:45–15:30, 15:30–16:15, 16:15–17:00)
+      // Раньше ротация шла до 17:30: 210 мин на 4 станции давали кривые 52,5 → 14:53.
+      if (mode === 'seq3') { startMin = 840; endMin = 1020; n = 3; }
+      else                 { startMin = 840; endMin = 1020; n = 4; }
     }
     const step = Math.round((endMin - startMin) / n);
     const out = [];
@@ -1267,7 +1284,7 @@
     for (let troop = 1; troop <= NUM_TROOPS; troop++) {
       if (troopFilter !== 'all' && String(troop) !== String(troopFilter)) continue;
       rows.push({ troop, half: 'am', label: 'Отряд ' + troop + '<br>до обеда', time: '9:30–13:30' });
-      rows.push({ troop, half: 'pm', label: 'Отряд ' + troop + '<br>после обеда', time: '14:00–17:30' });
+      rows.push({ troop, half: 'pm', label: 'Отряд ' + troop + '<br>после обеда', time: '14:00–17:00' });
     }
 
     let tbodyHtml = '';
@@ -1331,7 +1348,7 @@
       }
     }
     else if (mode === 'seq3') {
-      // У отряда 3 занятия по времени: 10:00, 11:10, 12:20.
+      // У отряда 3 занятия по времени: 10:00, 11:00, 12:00.
       // chain[0] = МК A; chain[1] = МК B; chain[2] = общий.
       // Для отряда tA (первого в паре): шаг 0 → МК A, шаг 1 → МК B, шаг 2 → общий.
       // Для отряда tB (второго): шаг 0 → МК B, шаг 1 → МК A, шаг 2 → общий.
@@ -1507,8 +1524,8 @@
     const rows = [
       { half: 'am', troops: [1, 2], pairLabel: 'отряды 1, 2', time: '9:30–13:30' },
       { half: 'am', troops: [3, 4], pairLabel: 'отряды 3, 4', time: '9:30–13:30' },
-      { half: 'pm', troops: [1, 2], pairLabel: 'отряды 1, 2', time: '14:00–17:30' },
-      { half: 'pm', troops: [3, 4], pairLabel: 'отряды 3, 4', time: '14:00–17:30' }
+      { half: 'pm', troops: [1, 2], pairLabel: 'отряды 1, 2', time: '14:00–17:00' },
+      { half: 'pm', troops: [3, 4], pairLabel: 'отряды 3, 4', time: '14:00–17:00' }
     ];
     let tbodyHtml = '';
     rows.forEach(row => {
@@ -1716,7 +1733,7 @@
         const dt = dateForDay(publishedState, t.dayIdx);
         const dateLabel = (t.dayIdx + 1) + ' день';
         const dateSub = dt.getDate() + ' ' + MONTHS[dt.getMonth()] + ' · ' + WEEKDAYS_SHORT[dt.getDay()].toUpperCase();
-        const halfLabel = t.half === 'am' ? 'до обеда<br>9:30–13:30' : 'после обеда<br>14:00–17:30';
+        const halfLabel = t.half === 'am' ? 'до обеда<br>9:30–13:30' : 'после обеда<br>14:00–17:00';
         const slot = t.slot;
         const meta = [];
         meta.push(t.troopsLabel);
@@ -1774,7 +1791,7 @@
       html += `<div class="m-day">
         <div class="m-day-head"><span class="m-day-num">День ${i+1}</span><span class="m-day-date">${dateLabel}</span></div>`;
       ['am','pm'].forEach(half => {
-        const halfLabel = half === 'am' ? 'До обеда · 9:30–13:30' : 'После обеда · 14:00–17:30';
+        const halfLabel = (half === 'am' ? 'До обеда · ' : 'После обеда · ') + halfTimeLabel4(d, half);
         if (currentView === 'admin') {
           html += renderMobileAdminHalf(d, half, halfLabel);
         } else {
