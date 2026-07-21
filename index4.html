@@ -1652,11 +1652,15 @@ function multiStepTimes(half, mode) {
   };
   let startMin, endMin, n;
   if (half === 'am') {
-    if (mode === 'seq3') { startMin = 10*60; endMin = 13*60+30; n = 3; }      // 10:00–13:30
+    // 3 МК подряд: 3 × 60 мин. endMin = 13:00, а не 13:30 — иначе шаг 70 мин.
+    if (mode === 'seq3') { startMin = 10*60; endMin = 13*60; n = 3; }         // 10:00–13:00
     else                 { startMin = 9*60+30; endMin = 13*60+30; n = 4; }    // 9:30–13:30
   } else {
-    if (mode === 'seq3') { startMin = 14*60+30; endMin = 17*60+30; n = 3; }   // 14:30–17:30
-    else                 { startMin = 14*60; endMin = 17*60+30; n = 4; }      // 14:00–17:30
+    // После обеда всё укладывается в 14:00–17:00:
+    //   3 МК подряд — 3 × 60 мин, ротация 4 — 4 × 45 мин.
+    // Раньше ротация шла до 17:30: 210 мин на 4 станции давали кривые 52,5 → 14:53.
+    if (mode === 'seq3') { startMin = 14*60; endMin = 17*60; n = 3; }         // 14:00–17:00
+    else                 { startMin = 14*60; endMin = 17*60; n = 4; }         // 14:00–17:00
   }
   const step = Math.round((endMin - startMin) / n);
   const out = [];
@@ -1666,6 +1670,22 @@ function multiStepTimes(half, mode) {
     out.push(fmt(a) + '–' + fmt(b));
   }
   return out;
+}
+
+// Реальное окно занятий для конкретного режима половины дня.
+// Раньше подпись была одна на всю половину («9:30 – 13:30» / «14:00 – 17:30»)
+// и врала: в режиме «3 МК подряд» занятия идут 10:00–13:00, а в «Ротации 4»
+// после обеда — до 17:00. Теперь подпись считается по режиму.
+function halfWindow(mode, half) {
+  const isAM = half === 'am';
+  if (mode === 'seq3' || mode === 'seq3trip') {
+    return isAM ? '10:00 – 13:00' : '14:00 – 17:00';
+  }
+  if (mode === 'rot4') {
+    return isAM ? '9:30 – 13:30' : '14:00 – 17:00';
+  }
+  // normal, trip2, trip4, parallel, parallel2 — занимают половину дня целиком
+  return isAM ? TIME_AM : TIME_PM;
 }
 
 // Времена двух кругов «Выезды 2 круга»: половина дня делится пополам по времени.
@@ -1922,10 +1942,10 @@ function renderMeal(meal) {
 
 function renderHalf(dayIdx, half) {
   const isAM = half === 'am';
-  const time = isAM ? TIME_AM : TIME_PM;
   const arr = state.schedule[dayIdx][half];
   const day = state.schedule[dayIdx];
   const mode = halfMode(day, half);
+  const time = halfWindow(mode, half);
 
   const wrap = document.createElement('div');
 
