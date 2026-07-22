@@ -631,7 +631,7 @@
 
   // Какие половины используют «много МК» структуру вместо обычного am[]/pm[].
   function isMultiMode(mode) {
-    return mode === 'seq3' || mode === 'rot4' || mode === 'seq3trip';
+    return mode === 'seq3' || mode === 'seq3c' || mode === 'rot4' || mode === 'seq3trip';
   }
 
   // Индексы активных слотов половины дня по типу дня (мусорные слоты выездов — мимо).
@@ -693,7 +693,9 @@
         if (mode === 'rot4') {
           // Все 4 отряда проходят все станции
           (multi && multi.stations || []).forEach(s => push(s, [1,2,3,4]));
-        } else if (mode === 'seq3') {
+        } else if (mode === 'seq3' || mode === 'seq3c') {
+          // Родителям важен только список занятий, не порядок слотов —
+          // поэтому seq3 и seq3c собираются одинаково.
           (multi && multi.chainA || []).forEach((s, i) => push(s, [1,2]));
           (multi && multi.chainB || []).forEach((s, i) => push(s, [3,4]));
         } else if (mode === 'seq3trip') {
