@@ -1041,15 +1041,26 @@
       default:              return 'normal';
     }
   }
+  function halfTimeLabel4(dOrType, half) {
+    const mode = halfMode4(dOrType, half);
+    if (half === 'am') {
+      if (mode === 'seq3' || mode === 'seq3c' || mode === 'seq3trip') return '10:00–13:00';
+      return '9:30–13:30';
+    }
+    if (mode === 'seq3' || mode === 'seq3c' || mode === 'seq3trip' || mode === 'rot4') return '14:00–17:00';
+    return '14:00–17:30';
+  }
   function multiStepTimes(half, mode) {
     const fmt = m => Math.floor(m/60) + ':' + String(m%60).padStart(2,'0');
     let startMin, endMin, n;
     if (half === 'am') {
-      if (mode === 'seq3') { startMin = 600; endMin = 810; n = 3; }
+      // 3 МК подряд: 3 × 60 мин (10:00–13:00). endMin 780, а не 810 — иначе шаг 70.
+      if (mode === 'seq3' || mode === 'seq3c') { startMin = 600; endMin = 780; n = 3; }
       else                 { startMin = 570; endMin = 810; n = 4; }
     } else {
-      if (mode === 'seq3') { startMin = 870; endMin = 1050; n = 3; }
-      else                 { startMin = 840; endMin = 1050; n = 4; }
+      // После обеда всё в 14:00–17:00: 3 МК = 3×60, ротация 4 = 4×45 (без кривых 14:53).
+      if (mode === 'seq3' || mode === 'seq3c') { startMin = 840; endMin = 1020; n = 3; }
+      else                 { startMin = 840; endMin = 1020; n = 4; }
     }
     const step = Math.round((endMin - startMin) / n);
     const out = [];
@@ -1438,17 +1449,17 @@
         if (s && s.template) items.push({ slot: s, time: times[k] });
       }
     }
-    else if (mode === 'seq3') {
-      // У отряда 3 занятия по времени: 10:00, 11:10, 12:20.
-      // chain[0] = МК A; chain[1] = МК B; chain[2] = общий.
-      // Для отряда tA (первого в паре): шаг 0 → МК A, шаг 1 → МК B, шаг 2 → общий.
-      // Для отряда tB (второго): шаг 0 → МК B, шаг 1 → МК A, шаг 2 → общий.
+    else if (mode === 'seq3' || mode === 'seq3c') {
+      // chain[0] = МК A; chain[1] = МК B; chain[2] = общий (оба отряда пары).
+      //   seq3  — общий ТРЕТЬИМ:  [МК, МК, общий]
+      //   seq3c — общий ПЕРВЫМ:   [общий, МК, МК]
       const multi = d[half + 'Multi'];
       const chain = (multi && (isPairA ? multi.chainA : multi.chainB)) || [];
       const times = multiStepTimes(half, 'seq3');
-      // Определяем «я первый в паре или второй»
       const isFirstInPair = (troop === 1 || troop === 3);
-      const seq = isFirstInPair ? [0, 1, 2] : [1, 0, 2];
+      let seq;
+      if (mode === 'seq3c') seq = isFirstInPair ? [2, 0, 1] : [2, 1, 0];
+      else                  seq = isFirstInPair ? [0, 1, 2] : [1, 0, 2];
       seq.forEach((slotIdx, stepIdx) => {
         const s = chain[slotIdx];
         if (s && s.template) items.push({ slot: s, time: times[stepIdx] });
@@ -1676,13 +1687,19 @@
         items.push({ slot: s, time: '', trip: false, badge: 'ст. ' + (st+1), orderLabel: 'порядок: отряды ' + order });
       });
     }
-    else if (mode === 'seq3') {
+    else if (mode === 'seq3' || mode === 'seq3c') {
       const multi = d[half + 'Multi'];
       const chain = (multi && (isPairA ? multi.chainA : multi.chainB)) || [];
       const times = multiStepTimes(half, 'seq3');
-      if (chain[0] && chain[0].template) items.push({ slot: chain[0], time: times[0] + ' и ' + times[1], trip: false, badge: pairBadge + ' (×2)' });
-      if (chain[1] && chain[1].template) items.push({ slot: chain[1], time: times[0] + ' и ' + times[1], trip: false, badge: pairBadge + ' (×2)' });
-      if (chain[2] && chain[2].template) items.push({ slot: chain[2], time: times[2], trip: false, badge: pairBadge });
+      if (mode === 'seq3c') {
+        if (chain[2] && chain[2].template) items.push({ slot: chain[2], time: times[0], trip: false, badge: pairBadge });
+        if (chain[0] && chain[0].template) items.push({ slot: chain[0], time: times[1] + ' и ' + times[2], trip: false, badge: pairBadge + ' (×2)' });
+        if (chain[1] && chain[1].template) items.push({ slot: chain[1], time: times[1] + ' и ' + times[2], trip: false, badge: pairBadge + ' (×2)' });
+      } else {
+        if (chain[0] && chain[0].template) items.push({ slot: chain[0], time: times[0] + ' и ' + times[1], trip: false, badge: pairBadge + ' (×2)' });
+        if (chain[1] && chain[1].template) items.push({ slot: chain[1], time: times[0] + ' и ' + times[1], trip: false, badge: pairBadge + ' (×2)' });
+        if (chain[2] && chain[2].template) items.push({ slot: chain[2], time: times[2], trip: false, badge: pairBadge });
+      }
     }
     else if (mode === 'seq3trip') {
       const multi = d[half + 'Multi'];
@@ -1874,7 +1891,7 @@
       html += `<div class="m-day">
         <div class="m-day-head"><span class="m-day-num">День ${i+1}</span><span class="m-day-date">${dateLabel}</span></div>`;
       ['am','pm'].forEach(half => {
-        const halfLabel = half === 'am' ? 'До обеда · 9:30–13:30' : 'После обеда · 14:00–17:30';
+        const halfLabel = (half === 'am' ? 'До обеда · ' : 'После обеда · ') + halfTimeLabel4(d, half);
         if (currentView === 'admin') {
           html += renderMobileAdminHalf(d, half, halfLabel);
         } else {
