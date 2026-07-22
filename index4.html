@@ -1653,13 +1653,13 @@ function multiStepTimes(half, mode) {
   let startMin, endMin, n;
   if (half === 'am') {
     // 3 МК подряд: 3 × 60 мин. endMin = 13:00, а не 13:30 — иначе шаг 70 мин.
-    if (mode === 'seq3') { startMin = 10*60; endMin = 13*60; n = 3; }         // 10:00–13:00
+    if (mode === 'seq3' || mode === 'seq3c') { startMin = 10*60; endMin = 13*60; n = 3; }  // 10:00–13:00
     else                 { startMin = 9*60+30; endMin = 13*60+30; n = 4; }    // 9:30–13:30
   } else {
     // После обеда всё укладывается в 14:00–17:00:
     //   3 МК подряд — 3 × 60 мин, ротация 4 — 4 × 45 мин.
     // Раньше ротация шла до 17:30: 210 мин на 4 станции давали кривые 52,5 → 14:53.
-    if (mode === 'seq3') { startMin = 14*60; endMin = 17*60; n = 3; }         // 14:00–17:00
+    if (mode === 'seq3' || mode === 'seq3c') { startMin = 14*60; endMin = 17*60; n = 3; }  // 14:00–17:00
     else                 { startMin = 14*60; endMin = 17*60; n = 4; }         // 14:00–17:00
   }
   const step = Math.round((endMin - startMin) / n);
@@ -1678,7 +1678,7 @@ function multiStepTimes(half, mode) {
 // после обеда — до 17:00. Теперь подпись считается по режиму.
 function halfWindow(mode, half) {
   const isAM = half === 'am';
-  if (mode === 'seq3' || mode === 'seq3trip') {
+  if (mode === 'seq3' || mode === 'seq3c' || mode === 'seq3trip') {
     return isAM ? '10:00 – 13:00' : '14:00 – 17:00';
   }
   if (mode === 'rot4') {
@@ -1700,6 +1700,7 @@ function parallel2Times(half) {
 const HALF_MODES = [
   { key: 'normal',     label: 'Обычный' },
   { key: 'seq3',       label: '3 МК подряд' },
+  { key: 'seq3c',      label: '3 МК: общее 1-м' },
   { key: 'seq3trip',   label: '3 МК + выезд 2' },
   { key: 'rot4',       label: 'Ротация 4' },
   { key: 'trip2',      label: 'Выезд 2 + кластер' },
@@ -1954,6 +1955,7 @@ function renderHalf(dayIdx, half) {
     : mode === 'parallel' ? ' · параллельные выезды'
     : mode === 'parallel2' ? ' · 2 круга с обменом'
     : mode === 'seq3' ? ' · 3 МК подряд (с 10:00)'
+    : mode === 'seq3c' ? ' · 3 МК: общее 1-м (с 10:00)'
     : mode === 'seq3trip' ? ' · 3 МК для пары + выезд для другой'
     : mode === 'rot4' ? ' · ротация 4 станций (с 9:30)'
     : '';
@@ -2040,7 +2042,7 @@ function renderHalf(dayIdx, half) {
     row2.appendChild(renderTripPlate(dayIdx, half, 0, arr[0], 'отряды 3, 4 · 2-й круг'));
     grid.appendChild(row2);
     wrap.appendChild(grid);
-  } else if (mode === 'seq3' || mode === 'rot4') {
+  } else if (mode === 'seq3' || mode === 'seq3c' || mode === 'rot4') {
     wrap.appendChild(renderMultiHalf(dayIdx, half, mode));
   } else if (mode === 'seq3trip') {
     wrap.appendChild(renderSeq3TripHalf(dayIdx, half));
@@ -2144,9 +2146,14 @@ function renderMultiHalf(dayIdx, half, mode) {
   const wrap = document.createElement('div');
   wrap.className = 'multi-wrap';
 
-  if (mode === 'seq3') {
-    // Две цепочки. В каждой паре отрядов: chainA[0] и chainA[1] — два МК в ротации между отрядами,
-    // chainA[2] — общее занятие на оба отряда пары. Аналогично для chainB.
+  if (mode === 'seq3' || mode === 'seq3c') {
+    // Две цепочки. В каждой паре отрядов два МК идут в ротации между отрядами,
+    // плюс одно общее занятие (оба отряда пары вместе, в разных кабинетах).
+    //   seq3  — общее ТРЕТЬИМ:  ротация, ротация, общее
+    //   seq3c — общее ПЕРВЫМ:   общее, ротация, ротация
+    // Данные одни и те же (chainA[0..2]); меняется только раскладка по времени.
+    // commonFirst=true → индекс общего слота 0, ротационные слоты 1 и 2.
+    const commonFirst = (mode === 'seq3c');
     const grid = document.createElement('div');
     grid.className = 'seq-cols';
     [['chainA', 'Отряды 1, 2', 't1', [1, 2]], ['chainB', 'Отряды 3, 4', 't3', [3, 4]]].forEach(([sub, label, tcls, troops]) => {
@@ -2156,18 +2163,30 @@ function renderMultiHalf(dayIdx, half, mode) {
       col.innerHTML = `<div class="seq-col-head ${tcls}">${label}</div>`;
       const cards = document.createElement('div');
       cards.className = 'seq-col-cards';
-      // Подписи для каждой карточки:
-      //   [0] — МК A: в шаге 0 (10:00) приходит отряд A, в шаге 1 (11:10) — отряд B
-      //   [1] — МК B: в шаге 0 (10:00) приходит отряд B, в шаге 1 (11:10) — отряд A
-      //   [2] — общее занятие: в шаге 2 (12:20) оба отряда пары вместе
-      const posLabels = [
-        `${times[0]} → отр. ${tropA} · ${times[1]} → отр. ${tropB}`,
-        `${times[0]} → отр. ${tropB} · ${times[1]} → отр. ${tropA}`,
-        `${times[2]} · отряды ${tropA}, ${tropB} (общее)`
-      ];
-      // Передаём пустой timeLabel — все времена уже в posLabel
-      multi[sub].forEach((slot, i) => {
-        cards.appendChild(renderMultiCard(dayIdx, half + '#' + sub, i, slot, '', posLabels[i] || ''));
+
+      // Подписи в порядке ВРЕМЕНИ (times[0], times[1], times[2]).
+      // idxForPos[p] — какой слот из chainA показать на позиции p.
+      let posLabels, idxForPos;
+      if (commonFirst) {
+        // общее в times[0]; ротация в times[1] и times[2]
+        posLabels = [
+          `${times[0]} · отряды ${tropA}, ${tropB} (общее)`,
+          `${times[1]} → отр. ${tropA} · ${times[2]} → отр. ${tropB}`,
+          `${times[1]} → отр. ${tropB} · ${times[2]} → отр. ${tropA}`
+        ];
+        idxForPos = [2, 0, 1];   // слот-общее (chain[2]) первым, затем два МК
+      } else {
+        // общее в times[2] (как было)
+        posLabels = [
+          `${times[0]} → отр. ${tropA} · ${times[1]} → отр. ${tropB}`,
+          `${times[0]} → отр. ${tropB} · ${times[1]} → отр. ${tropA}`,
+          `${times[2]} · отряды ${tropA}, ${tropB} (общее)`
+        ];
+        idxForPos = [0, 1, 2];
+      }
+
+      idxForPos.forEach((slotIdx, pos) => {
+        cards.appendChild(renderMultiCard(dayIdx, half + '#' + sub, slotIdx, multi[sub][slotIdx], '', posLabels[pos] || ''));
       });
       col.appendChild(cards);
       grid.appendChild(col);
@@ -2508,7 +2527,7 @@ function setHalfType(day, half, mode) {
 
   const arr = d[half];
   const multiKey = half + 'Multi';
-  if (mode === 'seq3' || mode === 'rot4') {
+  if (mode === 'seq3' || mode === 'seq3c' || mode === 'rot4') {
     if (!d[multiKey] || typeof d[multiKey] !== 'object') d[multiKey] = emptyMulti(mode);
     d[multiKey].mode = mode;
     arr.forEach(s => { s.isTrip = false; });
@@ -3890,7 +3909,7 @@ function _normalizeStateShape() {
     'trip2_am':      ['trip2','normal'],    'trip2_pm':      ['normal','trip2'],    'trip2_full':    ['trip2','trip2'],
     'parallel_am':   ['parallel','normal'], 'parallel_pm':   ['normal','parallel'], 'parallel_full': ['parallel','parallel']
   };
-  const HALF_KEYS = ['normal','seq3','seq3trip','rot4','trip2','trip4','parallel','parallel2'];
+  const HALF_KEYS = ['normal','seq3','seq3c','seq3trip','rot4','trip2','trip4','parallel','parallel2'];
 
   state.schedule.forEach(d => {
     // Миграция: если есть старый day.type — разворачиваем в amType/pmType.
@@ -3913,7 +3932,7 @@ function _normalizeStateShape() {
     ['am','pm'].forEach(half => {
       const mode = d[half + 'Type'];
       const key = half + 'Multi';
-      if (mode === 'seq3' || mode === 'rot4' || mode === 'seq3trip') {
+      if (mode === 'seq3' || mode === 'seq3c' || mode === 'rot4' || mode === 'seq3trip') {
         if (!d[key] || typeof d[key] !== 'object') d[key] = emptyMulti(mode);
         d[key].mode = mode;
         const fix = (arr, len) => {
